@@ -10,7 +10,7 @@ Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
 
 <div align="center">
   
-[🖥️ **Web App**](https://happy.hitosea.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
+[🖥️ **Web App**](https://app.happy-next.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK Download**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **Documentation**](docs/README.md) • [🇨🇳 **中文**](README.zh-CN.md)
 
 </div>
 
@@ -57,7 +57,7 @@ happy gemini
 
 Running `happy` prints a QR code for device pairing.
 
-- Scan the QR code with the app you downloaded in Step 1 (or open [happy.hitosea.com](https://happy.hitosea.com/) in a browser).
+- Scan the QR code with the app you downloaded in Step 1 (or open [app.happy-next.com](https://app.happy-next.com/) in a browser).
 - Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, and/or `gemini`).
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
@@ -197,7 +197,7 @@ Full changelog: [docs/changes-from-happy.md](docs/changes-from-happy.md)
 
 ## Self-host (Docker Compose)
 
-Happy Next works with the hosted server by default (`https://api.happy.hitosea.com`) and the hosted web app at `https://happy.hitosea.com/`.
+Happy Next works with the hosted server by default (`https://api.happy-next.com`) and the hosted web app at `https://app.happy-next.com/`.
 
 If you want to self-host:
 

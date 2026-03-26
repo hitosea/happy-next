@@ -10,7 +10,7 @@
 
 <div align="center">
 
-[🖥️ **Web 应用**](https://happy.hitosea.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK 下载**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
+[🖥️ **Web 应用**](https://app.happy-next.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK 下载**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
 
 </div>
 
@@ -57,7 +57,7 @@ happy gemini
 
 运行 `happy` 会打印一个二维码用于设备配对。
 
-- 用第一步下载的应用扫描二维码（或在浏览器中打开 [happy.hitosea.com](https://happy.hitosea.com/)）。
+- 用第一步下载的应用扫描二维码（或在浏览器中打开 [app.happy-next.com](https://app.happy-next.com/)）。
 - 前提：安装你想要控制的供应商 CLI（`claude`、`codex` 和/或 `gemini`）。
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
@@ -197,7 +197,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ## 自托管（Docker Compose）
 
-Happy Next 默认使用托管服务器（`https://api.happy.hitosea.com`）和托管 Web 应用（`https://happy.hitosea.com/`）。
+Happy Next 默认使用托管服务器（`https://api.happy-next.com`）和托管 Web 应用（`https://app.happy-next.com/`）。
 
 如果你想自托管：
 

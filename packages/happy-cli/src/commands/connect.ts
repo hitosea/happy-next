@@ -71,7 +71,7 @@ ${chalk.bold('Examples:')}
 ${chalk.bold('Notes:')} 
   • You must be authenticated with Happy first (run 'happy auth login')
   • API keys are encrypted and stored securely in Happy cloud
-  • You can manage your stored keys at happy.hitosea.com
+  • You can manage your stored keys at app.happy-next.com
 `);
 }
 

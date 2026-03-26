@@ -178,7 +178,7 @@ function SharingManagementContent({ sessionId }: { sessionId: string }) {
     const isOwner = !session.accessLevel;
     const canManage = isOwner || session.accessLevel === 'admin';
     const effectiveToken = publicShareToken || publicShare?.token;
-    const publicShareUrl = effectiveToken ? `https://happy.hitosea.com/share/${effectiveToken}` : null;
+    const publicShareUrl = effectiveToken ? `https://app.happy-next.com/share/${effectiveToken}` : null;
 
     return (
         <>

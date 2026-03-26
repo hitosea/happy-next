@@ -97,7 +97,7 @@ export function connectRoutes(app: Fastify) {
         }
     }, async (request, reply) => {
         const { code, state } = request.query;
-        const appUrl = process.env.APP_URL || 'https://happy.hitosea.com';
+        const appUrl = process.env.APP_URL || 'https://app.happy-next.com';
 
         // Verify the state token to get userId
         const tokenData = await auth.verifyGithubToken(state);

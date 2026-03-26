@@ -43,7 +43,7 @@ export default {
                 NSLocalNetworkUsageDescription: "Allow $(PRODUCT_NAME) to find and connect to local devices on your network.",
                 NSBonjourServices: ["_http._tcp", "_https._tcp"]
             },
-            associatedDomains: ["applinks:happy.hitosea.com"]
+            associatedDomains: ["applinks:app.happy-next.com"]
         },
         android: {
             adaptiveIcon: {
@@ -70,7 +70,7 @@ export default {
                     "data": [
                         {
                             "scheme": "https",
-                            "host": "happy.hitosea.com",
+                            "host": "app.happy-next.com",
                             "pathPrefix": "/"
                         }
                     ],

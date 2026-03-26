@@ -22,7 +22,7 @@ What you expected to happen.
 - **OS**: (e.g., macOS 15, Ubuntu 24.04, Windows 11)
 - **Component**: CLI / Web App / Self-hosted Server
 - **CLI version**: (`happy --version`)
-- **Deployment**: Hosted (`api.happy.hitosea.com`) / Self-hosted (`docker-compose`)
+- **Deployment**: Hosted (`api.happy-next.com`) / Self-hosted (`docker-compose`)
 
 ## Logs / Screenshots
 
