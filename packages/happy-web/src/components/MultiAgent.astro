@@ -1,0 +1,36 @@
+---
+import IconClaude from '@/icons/IconClaude.astro';
+import IconCodex from '@/icons/IconCodex.astro';
+import IconGemini from '@/icons/IconGemini.astro';
+import { type Lang, useTranslations } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+const agents = [
+  { icon: IconClaude, ...t.multiAgent.claude },
+  { icon: IconCodex, ...t.multiAgent.codex },
+  { icon: IconGemini, ...t.multiAgent.gemini },
+];
+---
+
+<section class="py-24 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6 text-center">
+    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">{t.multiAgent.title}</h2>
+    <p class="mt-4 text-lg text-text-secondary">{t.multiAgent.subtitle}</p>
+
+    <div class="mt-16 grid gap-8 sm:grid-cols-3">
+      {agents.map(({ icon: Icon, name, description }) => (
+        <div class="rounded-xl border border-border bg-bg-card p-8 text-center hover:bg-bg-card-hover transition-colors">
+          <Icon class="mx-auto h-12 w-12 text-text" />
+          <h3 class="mt-6 text-xl font-semibold">{name}</h3>
+          <p class="mt-2 text-text-secondary">{description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

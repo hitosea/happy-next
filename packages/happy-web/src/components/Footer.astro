@@ -1,0 +1,48 @@
+---
+import { type Lang, useTranslations } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<footer class="border-t border-border py-16">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="grid gap-8 sm:grid-cols-3">
+      <div>
+        <div>
+          <img src="/images/logo-dark.svg" alt="Happy Next" class="h-6 logo-dark" />
+          <img src="/images/logo-light.svg" alt="Happy Next" class="h-6 logo-light hidden" />
+        </div>
+        <p class="mt-4 text-sm text-text-secondary max-w-xs">{t.meta.description}</p>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">{t.footer.product}</h4>
+        <ul class="mt-4 space-y-3 text-sm">
+          <li><a href="https://docs.happy-next.com" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.docs}</a></li>
+          <li><a href="https://app.happy-next.com" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.app}</a></li>
+          <li><a href="https://testflight.apple.com/join/XyjvbhXe" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.testflight}</a></li>
+          <li><a href="https://github.com/hitosea/happy-next/releases/latest" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.android}</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">{t.footer.resources}</h4>
+        <ul class="mt-4 space-y-3 text-sm">
+          <li><a href="https://github.com/hitosea/happy-next" target="_blank" rel="noopener" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.github}</a></li>
+          <li><a href="https://github.com/hitosea/happy-next/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.contributing}</a></li>
+          <li><a href="https://github.com/hitosea/happy-next/blob/main/SECURITY.md" target="_blank" rel="noopener" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.security}</a></li>
+          <li><a href="https://github.com/hitosea/happy-next/blob/main/SUPPORT.md" target="_blank" rel="noopener" class="text-text-secondary hover:text-text transition-colors">{t.footer.links.support}</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 border-t border-border pt-8 text-center text-sm text-text-secondary">
+      {t.footer.copyright}
+    </div>
+  </div>
+</footer>

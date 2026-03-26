@@ -1,0 +1,65 @@
+---
+import { type Lang, useTranslations } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+const steps = [
+  { num: '01', ...t.howItWorks.step1 },
+  { num: '02', ...t.howItWorks.step2 },
+  { num: '03', ...t.howItWorks.step3 },
+];
+---
+
+<section id="how-it-works" class="py-24 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6">
+    <h2 class="text-3xl font-bold tracking-tight text-center sm:text-4xl">{t.howItWorks.title}</h2>
+
+    <div class="mt-16 grid gap-8 md:grid-cols-3">
+      {steps.map((step) => (
+        <div class="rounded-xl border border-border bg-bg-card p-8">
+          <span class="text-sm font-mono text-text-secondary">{step.num}</span>
+          <h3 class="mt-4 text-xl font-semibold">{step.title}</h3>
+          <p class="mt-2 text-text-secondary">{step.description}</p>
+          {step.code && (
+            <div class="code-block group relative mt-4 rounded-lg p-4 font-mono text-sm border border-border" style="background-color: var(--color-code-bg); color: var(--color-code-text)">
+              <span class="select-none" style="color: var(--color-text-secondary)">$ </span>{step.code}
+              <button
+                type="button"
+                class="copy-btn absolute top-2 right-2 rounded-md p-1.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-border"
+                style="background-color: var(--color-bg-card)"
+                data-code={step.code}
+                aria-label="Copy"
+              >
+                <svg class="copy-icon h-4 w-4 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg class="check-icon h-4 w-4 text-emerald-400 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script is:inline>
+  document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var code = btn.getAttribute('data-code');
+      navigator.clipboard.writeText(code).then(function() {
+        var copyIcon = btn.querySelector('.copy-icon');
+        var checkIcon = btn.querySelector('.check-icon');
+        copyIcon.style.display = 'none';
+        checkIcon.style.display = 'block';
+        setTimeout(function() {
+          copyIcon.style.display = 'block';
+          checkIcon.style.display = 'none';
+        }, 1500);
+      });
+    });
+  });
+</script>

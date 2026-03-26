@@ -1,0 +1,28 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Header from '@/components/Header.astro';
+import Hero from '@/components/Hero.astro';
+import HowItWorks from '@/components/HowItWorks.astro';
+import Features from '@/components/Features.astro';
+import MultiAgent from '@/components/MultiAgent.astro';
+import Download from '@/components/Download.astro';
+import SelfHost from '@/components/SelfHost.astro';
+import OpenSource from '@/components/OpenSource.astro';
+import Footer from '@/components/Footer.astro';
+
+const lang = 'en' as const;
+---
+
+<Layout lang={lang}>
+  <Header lang={lang} />
+  <main>
+    <Hero lang={lang} />
+    <HowItWorks lang={lang} />
+    <Features lang={lang} />
+    <MultiAgent lang={lang} />
+    <Download lang={lang} />
+    <SelfHost lang={lang} />
+    <OpenSource lang={lang} />
+  </main>
+  <Footer lang={lang} />
+</Layout>

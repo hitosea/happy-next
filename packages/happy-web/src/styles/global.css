@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #000000;
+  --color-bg-card: #111111;
+  --color-bg-card-hover: #1a1a1a;
+  --color-border: #222222;
+  --color-text: #ffffff;
+  --color-text-secondary: #888888;
+  --color-accent: #3b82f6;
+  --color-code-bg: #000000;
+  --color-btn-primary-bg: #ffffff;
+  --color-btn-primary-text: #000000;
+  --color-btn-primary-hover: #e5e5e5;
+  --color-code-text: #34d399;
+  --color-code-bg: #000000;
+  --color-glow: rgba(255, 255, 255, 0.05);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Light mode overrides */
+html.light {
+  --color-bg: #ffffff;
+  --color-bg-card: #f5f5f5;
+  --color-bg-card-hover: #ebebeb;
+  --color-border: #e0e0e0;
+  --color-text: #111111;
+  --color-text-secondary: #555555;
+  --color-btn-primary-bg: #111111;
+  --color-btn-primary-text: #ffffff;
+  --color-btn-primary-hover: #333333;
+  --color-code-text: #16a34a;
+  --color-code-bg: #f0f0f0;
+  --color-glow: rgba(0, 0, 0, 0.03);
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+::selection {
+  background-color: rgba(128, 128, 128, 0.25);
+}

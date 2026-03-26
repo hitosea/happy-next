@@ -1,0 +1,43 @@
+---
+import { type Lang, useTranslations } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+
+const commands = `cp .env.example .env\n${t.selfHost.code}`;
+---
+
+<section class="py-24 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6 text-center">
+    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">{t.selfHost.title}</h2>
+    <p class="mt-4 text-lg text-text-secondary">{t.selfHost.subtitle}</p>
+
+    <div class="group relative mx-auto mt-10 max-w-lg rounded-xl border border-border bg-bg-card p-6">
+      <div class="flex items-center gap-2 text-xs text-text-secondary mb-4">
+        <span class="h-3 w-3 rounded-full bg-red-500/60" />
+        <span class="h-3 w-3 rounded-full bg-yellow-500/60" />
+        <span class="h-3 w-3 rounded-full bg-green-500/60" />
+        <span class="ml-2 font-mono">terminal</span>
+      </div>
+      <div class="text-left font-mono text-sm">
+        <p class="text-text-secondary"><span class="select-none">$ </span><span class="text-text">cp .env.example .env</span></p>
+        <p class="mt-1 text-text-secondary"><span class="select-none">$ </span><span class="text-text">{t.selfHost.code}</span></p>
+        <p class="mt-1" style="color: var(--color-code-text)">&#10003; All services started</p>
+      </div>
+      <button
+        type="button"
+        class="copy-btn absolute top-3 right-3 rounded-md p-1.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border border-border"
+        style="background-color: var(--color-bg-card)"
+        data-code={commands}
+        aria-label="Copy"
+      >
+        <svg class="copy-icon h-4 w-4 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="check-icon h-4 w-4 text-emerald-400 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>
+    </div>
+  </div>
+</section>

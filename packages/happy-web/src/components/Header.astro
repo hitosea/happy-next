@@ -1,0 +1,88 @@
+---
+import IconGitHub from '@/icons/IconGitHub.astro';
+import { type Lang, languages, useTranslations, getLocalizedPath } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+const otherLang = lang === 'en' ? 'zh' : 'en';
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/80 backdrop-blur-md">
+  <nav class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <!-- Logo -->
+    <a href={getLocalizedPath(lang)} class="shrink-0">
+      <img src="/images/logo-dark.svg" alt="Happy Next" class="h-6 logo-dark" />
+      <img src="/images/logo-light.svg" alt="Happy Next" class="h-6 logo-light hidden" />
+    </a>
+
+    <!-- Desktop nav -->
+    <div class="hidden sm:flex items-center gap-5">
+      <a href="https://docs.happy-next.com" class="text-sm text-text-secondary hover:text-text transition-colors">{t.nav.docs}</a>
+      <a href="#download" class="text-sm text-text-secondary hover:text-text transition-colors">{t.nav.app}</a>
+      <a href={getLocalizedPath(otherLang)} class="text-sm text-text-secondary hover:text-text transition-colors">{languages[otherLang]}</a>
+      <button id="theme-toggle" type="button" aria-label="Toggle theme" class="text-text-secondary hover:text-text transition-colors cursor-pointer">
+        <svg class="h-5 w-5 dark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="h-5 w-5 light-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <a href="https://github.com/hitosea/happy-next" target="_blank" rel="noopener" class="text-text-secondary hover:text-text transition-colors">
+        <IconGitHub class="h-5 w-5" />
+      </a>
+    </div>
+
+    <!-- Mobile: theme + hamburger -->
+    <div class="flex sm:hidden items-center gap-3">
+      <button id="theme-toggle-mobile" type="button" aria-label="Toggle theme" class="text-text-secondary hover:text-text transition-colors cursor-pointer">
+        <svg class="h-5 w-5 dark-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <svg class="h-5 w-5 light-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button id="menu-toggle" type="button" aria-label="Toggle menu" class="text-text-secondary hover:text-text transition-colors cursor-pointer">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile menu (hidden by default) -->
+  <div id="mobile-menu" class="hidden sm:hidden border-t border-border bg-bg/95 backdrop-blur-md">
+    <div class="flex flex-col gap-1 px-4 py-3">
+      <a href="https://docs.happy-next.com" class="py-2 text-sm text-text-secondary hover:text-text transition-colors">{t.nav.docs}</a>
+      <a href="https://app.happy-next.com" class="py-2 text-sm text-text-secondary hover:text-text transition-colors">{t.nav.app}</a>
+      <a href={getLocalizedPath(otherLang)} class="py-2 text-sm text-text-secondary hover:text-text transition-colors">{languages[otherLang]}</a>
+      <a href="https://github.com/hitosea/happy-next" target="_blank" rel="noopener" class="py-2 text-sm text-text-secondary hover:text-text transition-colors flex items-center gap-2">
+        <IconGitHub class="h-4 w-4" /> GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (function() {
+    function updateThemeUI() {
+      var isLight = document.documentElement.classList.contains('light');
+      document.querySelectorAll('.dark-icon').forEach(function(el) { el.style.display = isLight ? 'none' : 'block'; });
+      document.querySelectorAll('.light-icon').forEach(function(el) { el.style.display = isLight ? 'block' : 'none'; });
+      document.querySelectorAll('.logo-dark').forEach(function(el) { el.style.display = isLight ? 'none' : 'block'; });
+      document.querySelectorAll('.logo-light').forEach(function(el) { el.style.display = isLight ? 'block' : 'none'; });
+    }
+
+    function toggleTheme() {
+      var html = document.documentElement;
+      html.classList.toggle('light');
+      localStorage.setItem('theme', html.classList.contains('light') ? 'light' : 'dark');
+      updateThemeUI();
+    }
+
+    updateThemeUI();
+
+    document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
+    document.getElementById('theme-toggle-mobile')?.addEventListener('click', toggleTheme);
+
+    document.getElementById('menu-toggle')?.addEventListener('click', function() {
+      var menu = document.getElementById('mobile-menu');
+      menu.classList.toggle('hidden');
+    });
+  })();
+</script>

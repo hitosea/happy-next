@@ -1,0 +1,29 @@
+---
+import IconGitHub from '@/icons/IconGitHub.astro';
+import { type Lang, useTranslations } from '@/i18n/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = useTranslations(lang);
+---
+
+<section class="py-24 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6 text-center">
+    <img src="/images/mascot.png" alt="Happy Next Mascot" class="mx-auto h-32 w-32 mb-8" />
+    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">{t.openSource.title}</h2>
+    <p class="mt-4 text-lg text-text-secondary">{t.openSource.subtitle}</p>
+    <a
+      href="https://github.com/hitosea/happy-next"
+      target="_blank"
+      rel="noopener"
+      class="mt-8 inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-medium transition-colors"
+      style="background-color: var(--color-btn-primary-bg); color: var(--color-btn-primary-text)"
+    >
+      <IconGitHub class="h-5 w-5" />
+      {t.openSource.cta}
+    </a>
+  </div>
+</section>
