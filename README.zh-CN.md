@@ -10,15 +10,24 @@
 
 <div align="center">
 
-[🌐 **GitHub**](https://github.com/hitosea/happy-next) • [🖥️ **Web 应用**](https://happy.hitosea.com/) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
+[🖥️ **Web 应用**](https://happy.hitosea.com/) • [📱 **TestFlight**](https://testflight.apple.com/join/XyjvbhXe) • [📦 **APK 下载**](https://github.com/hitosea/happy-next/releases/latest) • [📚 **文档**](docs/README.md) • [🇬🇧 **English**](README.md)
 
 </div>
 
-<img width="5178" height="2364" alt="github" src="/.github/header.png" />
-
+<img width="5178" height="2364" alt="Happy Next Overview" src="/.github/header-cn.png" />
 
 <h3 align="center">
-第一步：在你的电脑上安装 CLI
+第一步：下载应用
+</h3>
+
+<div align="center">
+<a href="https://testflight.apple.com/join/XyjvbhXe"><img src="/.github/badge-testflight.svg" height="39" alt="Download on TestFlight" /></a>
+&nbsp;&nbsp;
+<a href="https://github.com/hitosea/happy-next/releases/latest"><img src="/.github/badge-github-apk.svg" height="39" alt="Download on GitHub" /></a>
+</div>
+
+<h3 align="center">
+第二步：在你的电脑上安装 CLI
 </h3>
 
 ```bash
@@ -26,11 +35,10 @@ npm install -g happy-next-cli
 ```
 
 <h3 align="center">
-第二步：用 `happy` 代替 `claude`、`codex` 或 `gemini`
+第三步：用 `happy` 代替 `claude`、`codex` 或 `gemini`
 </h3>
 
 ```bash
-
 # 原来用: claude
 # 现在用: happy
 
@@ -45,50 +53,31 @@ happy codex
 # 现在用: happy gemini
 
 happy gemini
-
 ```
 
 运行 `happy` 会打印一个二维码用于设备配对。
 
-- 打开 `https://happy.hitosea.com/` 扫描二维码（或点击终端中显示的链接）。
+- 用第一步下载的应用扫描二维码（或在浏览器中打开 [happy.hitosea.com](https://happy.hitosea.com/)）。
 - 前提：安装你想要控制的供应商 CLI（`claude`、`codex` 和/或 `gemini`）。
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
 
-## 自托管（Docker Compose）
+## 🔥 为什么选择 Happy Next？
 
-Happy Next 默认使用托管服务器（`https://api.happy.hitosea.com`）和托管 Web 应用（`https://happy.hitosea.com/`）。
+- 🎛️ **Claude、Codex 和 Gemini 的远程控制** — 三个 Agent 均为一等公民
+- 🤖 **编排器** — 定义多 Agent 任务 DAG 并自动调度执行
+- ⚡ **即时设备切换** — 一键夺回控制权
+- 🔔 **推送通知** — 随时知道你的 Agent 需要关注
+- 🔐 **端到端加密 + 可自托管** — 默认加密，一条命令 Docker 部署
+- 🎙️ **语音助手** — 基于 LiveKit 的语音网关，可插拔 STT/LLM/TTS 供应商
+- 🧰 **多仓库工作区** — 基于工作树的多仓库工作流，支持分支选择和 PR 创建
+- 📁 **代码浏览器和 Git 管理** — 从手机浏览文件、查看 diff、暂存/提交/丢弃
+- 📋 **DooTask 集成** — 任务管理，实时聊天，一键 AI 会话
+- 📨 **待发消息队列** — CLI 繁忙时消息排队，就绪后自动分发
 
-如果你想自托管：
+## 工作原理
 
-```bash
-cp .env.example .env
-# 编辑 .env
-
-docker-compose up -d
-```
-
-注意：默认的 stack 也会启动 `happy-voice`。你必须在 `.env` 中配置 LiveKit + 供应商密钥（OpenAI/Cartesia 等）。详见 [docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)。
-
-首次运行（执行数据库迁移）：
-
-```bash
-docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
-```
-
-打开 Web 应用：`http://localhost:3030`。
-
-完整指南：[docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)
-
-将 CLI 指向你自托管的 API：
-
-```bash
-HAPPY_SERVER_URL=http://localhost:3031 HAPPY_WEBAPP_URL=http://localhost:3030 happy
-```
-
-## 兼容性说明
-
-Happy Next 在品牌重塑中有意更改了客户端 KDF 标签。请将其视为**全新一代**：不要期望旧客户端创建的加密数据能被 Happy Next 读取（反之亦然）。
+在电脑上运行 `happy` 代替 `claude`，`happy codex` 代替 `codex`，或 `happy gemini` 代替 `gemini`，通过我们的包装器启动你的 AI。当你想从手机上控制编码 Agent 时，它会以远程模式重启会话。要切换回电脑，只需按键盘上的任意键。
 
 ## Happy Next 新特性
 
@@ -198,23 +187,6 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 完整变更日志：[docs/changes-from-happy.zh-CN.md](docs/changes-from-happy.zh-CN.md)
 
-## 工作原理
-
-在电脑上运行 `happy` 代替 `claude`，`happy codex` 代替 `codex`，或 `happy gemini` 代替 `gemini`，通过我们的包装器启动你的 AI。当你想从手机上控制编码 Agent 时，它会以远程模式重启会话。要切换回电脑，只需按键盘上的任意键。
-
-## 为什么选择 Happy Next？
-
-- 🎛️ **Claude、Codex 和 Gemini 的远程控制** — 三个 Agent 均为一等公民
-- 🤖 **编排器** — 定义多 Agent 任务 DAG 并自动调度执行
-- ⚡ **即时设备切换** — 一键夺回控制权
-- 🔔 **推送通知** — 随时知道你的 Agent 需要关注
-- 🔐 **端到端加密 + 可自托管** — 默认加密，一条命令 Docker 部署
-- 🎙️ **语音助手** — 基于 LiveKit 的语音网关，可插拔 STT/LLM/TTS 供应商
-- 🧰 **多仓库工作区** — 基于工作树的多仓库工作流，支持分支选择和 PR 创建
-- 📁 **代码浏览器和 Git 管理** — 从手机浏览文件、查看 diff、暂存/提交/丢弃
-- 📋 **DooTask 集成** — 任务管理，实时聊天，一键 AI 会话
-- 📨 **待发消息队列** — CLI 繁忙时消息排队，就绪后自动分发
-
 ## 项目组件
 
 - **[Happy App](packages/happy-app)** — Web UI + 移动客户端（Expo）
@@ -222,6 +194,41 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - **[Happy Server](packages/happy-server)** — 加密同步后端服务器
 - **[Happy Voice](packages/happy-voice)** — 语音网关（基于 LiveKit）
 - **[Happy Wire](packages/happy-wire)** — 共享线路类型和 Schema
+
+## 自托管（Docker Compose）
+
+Happy Next 默认使用托管服务器（`https://api.happy.hitosea.com`）和托管 Web 应用（`https://happy.hitosea.com/`）。
+
+如果你想自托管：
+
+```bash
+cp .env.example .env
+# 编辑 .env
+
+docker-compose up -d
+```
+
+注意：默认的 stack 也会启动 `happy-voice`。你必须在 `.env` 中配置 LiveKit + 供应商密钥（OpenAI/Cartesia 等）。详见 [docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)。
+
+首次运行（执行数据库迁移）：
+
+```bash
+docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
+```
+
+打开 Web 应用：`http://localhost:3030`。
+
+完整指南：[docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)
+
+将 CLI 指向你自托管的 API：
+
+```bash
+HAPPY_SERVER_URL=http://localhost:3031 HAPPY_WEBAPP_URL=http://localhost:3030 happy
+```
+
+## 兼容性说明
+
+Happy Next 在品牌重塑中有意更改了客户端 KDF 标签。请将其视为**全新一代**：不要期望旧客户端创建的加密数据能被 Happy Next 读取（反之亦然）。
 
 ## 关于我们
 

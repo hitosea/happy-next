@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="53" viewBox="0 0 180 53">
+  <rect width="180" height="53" rx="8" fill="#000"/>
+  <rect x=".5" y=".5" width="179" height="52" rx="7.5" fill="none" stroke="#a6a6a6" stroke-width="1"/>
+  <g transform="translate(15,9) scale(1.45)">
+    <path fill="#fff" d="M14.94 5.19C14.22 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13.02 3.5C13.75 2.67 14.97 2.04 15.97 2C16.09 3.17 15.62 4.35 14.94 5.19ZM15.96 6.94C14.27 6.84 12.82 7.89 12.01 7.89C11.19 7.89 9.94 7 8.58 7.02C6.87 7.05 5.28 8.01 4.41 9.53C2.63 12.58 3.94 17.12 5.66 19.59C6.5 20.81 7.51 22.16 8.82 22.11C10.07 22.06 10.55 21.3 12.08 21.3C13.6 21.3 14.03 22.11 15.35 22.08C16.7 22.06 17.58 20.84 18.42 19.62C19.37 18.22 19.74 16.86 19.76 16.79C19.73 16.78 17.11 15.76 17.08 12.73C17.06 10.19 19.15 8.99 19.25 8.93C18.05 7.14 16.2 6.94 15.96 6.94Z"/>
+  </g>
+  <text x="52" y="20" fill="#fff" font-family="Helvetica Neue,Arial,sans-serif" font-size="9" letter-spacing=".4">Download on the</text>
+  <text x="52" y="40" fill="#fff" font-family="Helvetica Neue,Arial,sans-serif" font-size="21" font-weight="600">TestFlight</text>
+</svg>
