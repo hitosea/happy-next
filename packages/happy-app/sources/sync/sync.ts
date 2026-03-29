@@ -216,9 +216,8 @@ class Sync {
         this.openClawMachinesSync = new InvalidateSync(this.fetchOpenClawMachines);
 
         const registerPushToken = async () => {
-            if (__DEV__) {
-                return;
-            }
+            // Keep push token registration enabled in dev builds too:
+            // Android contributors often validate notifications on dev clients.
             await this.registerPushToken();
         }
         this.pushTokenSync = new InvalidateSync(registerPushToken);
