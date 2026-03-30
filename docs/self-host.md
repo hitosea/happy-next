@@ -45,7 +45,15 @@ docker-compose up -d
 docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
 ```
 
-5. Open the web app:
+5. Create the MinIO storage bucket and set it to public (first run only):
+
+```bash
+docker-compose exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
+docker-compose exec minio mc mb local/happy-server
+docker-compose exec minio mc anonymous set download local/happy-server
+```
+
+6. Open the web app:
 
 - `http://localhost:3030`
 

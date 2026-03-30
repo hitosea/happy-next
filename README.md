@@ -197,34 +197,7 @@ Full changelog: [docs/changes-from-happy.md](docs/changes-from-happy.md)
 
 ## Self-host (Docker Compose)
 
-Happy Next works with the hosted server by default (`https://api.happy-next.com`) and the hosted web app at `https://app.happy-next.com/`.
-
-If you want to self-host:
-
-```bash
-cp .env.example .env
-# edit .env
-
-docker-compose up -d
-```
-
-Note: this default stack also starts `happy-voice`. You must configure LiveKit + provider keys (OpenAI/Cartesia/etc.) in `.env`. See [docs/self-host.md](docs/self-host.md).
-
-First run only (apply DB migrations):
-
-```bash
-docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
-```
-
-Open the web app at `http://localhost:3030`.
-
-Full guide: [docs/self-host.md](docs/self-host.md)
-
-To point the CLI at your self-hosted API:
-
-```bash
-HAPPY_SERVER_URL=http://localhost:3031 HAPPY_WEBAPP_URL=http://localhost:3030 happy
-```
+See the **[Self-Hosting Guide](docs/self-host.md)** for complete setup instructions.
 
 ## Compatibility note
 

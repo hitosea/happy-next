@@ -197,34 +197,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ## 自托管（Docker Compose）
 
-Happy Next 默认使用托管服务器（`https://api.happy-next.com`）和托管 Web 应用（`https://app.happy-next.com/`）。
-
-如果你想自托管：
-
-```bash
-cp .env.example .env
-# 编辑 .env
-
-docker-compose up -d
-```
-
-注意：默认的 stack 也会启动 `happy-voice`。你必须在 `.env` 中配置 LiveKit + 供应商密钥（OpenAI/Cartesia 等）。详见 [docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)。
-
-首次运行（执行数据库迁移）：
-
-```bash
-docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
-```
-
-打开 Web 应用：`http://localhost:3030`。
-
-完整指南：[docs/self-host.zh-CN.md](docs/self-host.zh-CN.md)
-
-将 CLI 指向你自托管的 API：
-
-```bash
-HAPPY_SERVER_URL=http://localhost:3031 HAPPY_WEBAPP_URL=http://localhost:3030 happy
-```
+完整的自托管部署指南请参阅 **[自托管文档](docs/self-host.zh-CN.md)**。
 
 ## 兼容性说明
 

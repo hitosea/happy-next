@@ -45,7 +45,15 @@ docker-compose up -d
 docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy
 ```
 
-5. 打开 Web 应用：
+5. 创建 MinIO 存储桶并设置为公开访问（仅首次运行需要）：
+
+```bash
+docker-compose exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
+docker-compose exec minio mc mb local/happy-server
+docker-compose exec minio mc anonymous set download local/happy-server
+```
+
+6. 打开 Web 应用：
 
 - `http://localhost:3030`
 
