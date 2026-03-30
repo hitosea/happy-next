@@ -4,7 +4,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates libglib2.0-0 \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
