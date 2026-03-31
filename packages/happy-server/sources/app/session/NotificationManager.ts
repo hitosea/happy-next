@@ -1,12 +1,10 @@
 import { log } from "@/utils/log";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import { db } from "@/storage/db";
-import { eventRouter, buildNewMessageUpdate } from "@/app/events/eventRouter";
-import { randomKeyNaked } from "@/utils/randomKeyNaked";
 import { getSessionTurnState, type SessionTurnState } from "@/app/presence/sessionTurnRuntime";
 
 /**
- * Conversation state interface for notification stability checks.
- * Derived from SessionTurnState but includes additional fields.
+ * NotificationReadyState interface for notification stability checks.
  */
 export interface NotificationReadyState {
     conversationId: string;
@@ -18,7 +16,7 @@ export interface NotificationReadyState {
 }
 
 /**
- * NotificationManager handles push notification delivery with stability checks.
+ * NotificationManager handles Expo push notification delivery with stability checks.
  * 
  * It ensures notifications are only sent when:
  * - The model is not thinking
@@ -33,12 +31,15 @@ export interface NotificationReadyState {
 export class NotificationManager {
     private static instance: NotificationManager;
     private retryTimeouts = new Map<string, NodeJS.Timeout>();
+    private expo: Expo;
     
     // Timeouts
     private readonly STABILITY_THRESHOLD_MS = 2_000; // 2 seconds - must wait this long after last activity
     private readonly TIMEOUT_THRESHOLD_MS = 30_000; // 30 seconds - considered stuck if no activity this long
 
-    private constructor() {}
+    private constructor() {
+        this.expo = new Expo();
+    }
 
     static getInstance(): NotificationManager {
         if (!NotificationManager.instance) {
@@ -143,47 +144,124 @@ export class NotificationManager {
     }
 
     /**
+     * Get session owner ID from conversation ID
+     */
+    private async getSessionOwnerId(conversationId: string): Promise<string | null> {
+        const session = await db.session.findUnique({
+            where: { id: conversationId },
+            select: { accountId: true },
+        });
+        return session?.accountId ?? null;
+    }
+
+    /**
+     * Send push notification via Expo Push API
+     */
+    private async sendPushViaExpo(tokens: string[], title: string, body: string, data: Record<string, unknown>): Promise<void> {
+        // Filter out invalid tokens
+        const validMessages: ExpoPushMessage[] = tokens
+            .filter(token => Expo.isExpoPushToken(token))
+            .map(token => ({
+                to: token,
+                title,
+                body,
+                data,
+                sound: 'default' as const,
+                priority: 'high' as const,
+            }));
+
+        if (validMessages.length === 0) {
+            log({ module: 'notification-manager' }, `[⚠️ 跳过] 没有有效的 Expo Push Token`);
+            return;
+        }
+
+        // Chunk and send with retry
+        const chunks = this.expo.chunkPushNotifications(validMessages);
+        
+        for (const chunk of chunks) {
+            try {
+                const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
+                
+                // Log any errors
+                const errors = ticketChunk.filter(ticket => ticket.status === 'error');
+                if (errors.length > 0) {
+                    log({ module: 'notification-manager' }, 
+                        `[⚠️ 部分推送失败] ${errors.length}/${ticketChunk.length}`, 
+                        errors.map(e => e.message)
+                    );
+                }
+            } catch (error) {
+                log({ module: 'notification-manager', level: 'error' }, 
+                    `[❌ 推送发送失败] chunk error: ${error}`);
+            }
+        }
+    }
+
+    /**
      * Actually send the push notification
-     * 
-     * In a real implementation, this would:
-     * 1. Fetch user's push tokens from db.accountPushToken
-     * 2. Send via FCM/APNs/Expo push service
-     * 3. Handle delivery failures with retries
      */
     private async sendNotification(
         conversationId: string, 
         state: NotificationReadyState
     ): Promise<void> {
         log({ module: 'notification-manager', sessionId: conversationId }, 
-            `[🚀 通知已发送] 会话 ${conversationId}:`, {
+            `[🚀 准备发送推送] 会话 ${conversationId}:`, {
                 finalStatus: state.status,
                 isThinking: state.isThinking,
                 timestamp: new Date().toISOString(),
             });
 
-        // TODO: Actual push notification implementation
-        // This would typically:
-        // 1. Get user's push tokens: await db.accountPushToken.findMany({ where: { accountId } })
-        // 2. Send push via FCM/APNs/Expo
-        // 3. Update badge count
-        // 4. Log delivery status
+        try {
+            // Get session owner
+            const ownerId = await this.getSessionOwnerId(conversationId);
+            if (!ownerId) {
+                log({ module: 'notification-manager', sessionId: conversationId }, 
+                    `[⚠️ 跳过] 会话不存在或无 owner`);
+                return;
+            }
 
-        /*
-        Example implementation:
-        
-        const pushTokens = await db.accountPushToken.findMany({
-            where: { accountId: ownerId }
-        });
-        
-        for (const token of pushTokens) {
-            await sendPushNotification({
-                token: token.token,
-                title: 'New Message',
-                body: 'You have a new message in your conversation',
-                data: { sessionId: conversationId }
+            // Fetch user's push tokens
+            const pushTokens = await db.accountPushToken.findMany({
+                where: { accountId: ownerId },
+                select: { token: true },
             });
+
+            if (pushTokens.length === 0) {
+                log({ module: 'notification-manager', sessionId: conversationId }, 
+                    `[⚠️ 跳过] 用户没有注册推送 token`);
+                return;
+            }
+
+            const tokens = pushTokens.map(pt => pt.token);
+
+            // Prepare notification content
+            const title = '💬 新消息';
+            const body = '你的对话有新消息';
+            const data = {
+                type: 'session_message',
+                sessionId: conversationId,
+                timestamp: Date.now(),
+            };
+
+            // Send push via Expo
+            await this.sendPushViaExpo(tokens, title, body, data);
+
+            // Increment badge count
+            await db.account.update({
+                where: { id: ownerId },
+                data: { badgeCount: { increment: 1 } },
+            });
+
+            log({ module: 'notification-manager', sessionId: conversationId }, 
+                `[✅ 推送已发送] 已发送到 ${tokens.length} 个设备`, {
+                    finalStatus: state.status,
+                    timestamp: new Date().toISOString(),
+                });
+
+        } catch (error) {
+            log({ module: 'notification-manager', level: 'error', sessionId: conversationId }, 
+                `[❌ 发送推送失败] ${error}`);
         }
-        */
     }
 
     /**
