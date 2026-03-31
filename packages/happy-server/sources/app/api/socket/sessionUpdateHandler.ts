@@ -2,6 +2,7 @@ import { sessionAliveEventsCounter, websocketEventsCounter } from "@/app/monitor
 import { activityCache } from "@/app/presence/sessionCache";
 import { updateThinkingState } from "@/app/presence/sessionTurnRuntime";
 import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
+import { getNotificationManager } from "@/app/session/NotificationManager";
 import { buildMessageDeliveryClearedEphemeral, buildMessageDeliveryErrorEphemeral, buildMessageErrorEphemeral, buildMessageSyncingEphemeral, buildMessageSyncedEphemeral, buildNewMessageUpdate, buildSessionActivityEphemeral, buildUpdateSessionUpdate, ClientConnection, eventRouter } from "@/app/events/eventRouter";
 import { db } from "@/storage/db";
 import { allocateSessionSeq } from "@/storage/seq";
@@ -217,6 +218,11 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                         sessionId: sid,
                     });
                 });
+
+                // Check notification stability and send push if ready
+                // This ensures push is only sent when the conversation is truly complete
+                const notificationMgr = getNotificationManager();
+                await notificationMgr.checkAndNotify(sid);
             }
 
             // Emit session activity update to owner and shared users
