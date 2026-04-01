@@ -100,22 +100,22 @@ export function connectRoutes(app: Fastify) {
         const appUrl = process.env.APP_URL || 'https://app.happy-next.com';
 
         // Verify the state token to get userId
-        const tokenData = await auth.verifyGithubToken(state);
-        if (!tokenData) {
-            log({ module: 'github-oauth' }, `Invalid state token: ${state}`);
-            return reply.redirect(`${appUrl}?error=invalid_state`);
-        }
-
-        const userId = tokenData.userId;
-        const baseUrl = tokenData.callback || appUrl;
-        const clientId = process.env.GITHUB_CLIENT_ID;
-        const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-
-        if (!clientId || !clientSecret) {
-            return reply.redirect(`${baseUrl}?error=server_config`);
-        }
-
         try {
+            const tokenData = await auth.verifyGithubToken(state);
+            if (!tokenData) {
+                log({ module: 'github-oauth' }, `Invalid state token: ${state}`);
+                return reply.redirect(`${appUrl}?error=invalid_state`);
+            }
+
+            const userId = tokenData.userId;
+            const baseUrl = tokenData.callback || appUrl;
+            const clientId = process.env.GITHUB_CLIENT_ID;
+            const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+            if (!clientId || !clientSecret) {
+                return reply.redirect(`${baseUrl}?error=server_config`);
+            }
+
             // Exchange code for access token
             const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
                 method: 'POST',
@@ -165,7 +165,7 @@ export function connectRoutes(app: Fastify) {
 
         } catch (error) {
             log({ module: 'github-oauth' }, `Error in GitHub GET callback: ${error}`);
-            return reply.redirect(`${baseUrl}?error=server_error`);
+            return reply.redirect(`${appUrl}?error=server_error`);
         }
     });
 
