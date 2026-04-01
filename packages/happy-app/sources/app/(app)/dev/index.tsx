@@ -22,7 +22,7 @@ export default function DevScreen() {
     const [debugMode, setDebugMode] = useLocalSettingMutable('debugMode');
     const [verboseLogging, setVerboseLogging] = React.useState(false);
     const socketStatus = useSocketStatus();
-    const anonymousId = sync.encryption!.anonID;
+    const anonymousId = sync.encryption?.anonID || 'N/A';
     const { theme } = useUnistyles();
 
     const handleEditServerUrl = async () => {
