@@ -120,6 +120,7 @@ export interface ClientToServerEvents {
     mode?: 'local' | 'remote';
   }) => void
   'session-end': (data: { sid: string, time: number }) => void,
+  'session-notify': (data: { sid: string, type: 'session_error' | 'rate_limit', message?: string }) => void,
   'update-metadata': (data: { sid: string, expectedVersion: number, metadata: string }, cb: (answer: {
     result: 'error'
   } | {
