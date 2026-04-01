@@ -1143,6 +1143,8 @@ export async function runCodex(opts: {
                 } else if (!isUserAbort) {
                     messageBuffer.addMessage('Process exited unexpectedly', 'status');
                     session.sendSessionEvent({ type: 'message', message: 'Process exited unexpectedly' });
+                    const isRateLimit = errMsg.toLowerCase().includes('rate limit') || errMsg.includes('429');
+                    session.sendSessionNotify(isRateLimit ? 'rate_limit' : 'session_error', errMsg);
                     // Store session for potential recovery
                     if (backend && backend.isAlive) {
                         storedSessionIdForResume = backend.getSessionId();

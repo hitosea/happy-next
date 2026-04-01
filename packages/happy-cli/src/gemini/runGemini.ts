@@ -1466,6 +1466,9 @@ export async function runGemini(opts: {
             type: 'message',
             message: errorMsg,
           });
+          // Push notification to user's device
+          const isRateLimit = errorMsg.includes('rate limit') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED');
+          session.sendSessionNotify(isRateLimit ? 'rate_limit' : 'session_error', errorMsg);
         }
       } finally {
         // Reset permission handler, reasoning processor, and diff processor after turn (like Codex)

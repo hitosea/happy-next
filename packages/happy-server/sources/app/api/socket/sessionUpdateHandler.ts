@@ -219,10 +219,10 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     });
                 });
 
-                // Check notification stability and send push if ready
-                // This ensures push is only sent when the conversation is truly complete
+                // Turn ended — notify user that the session has completed.
+                // Server-driven (Method A): no client heartbeat dependency.
                 const notificationMgr = getNotificationManager();
-                await notificationMgr.checkAndNotify(sid);
+                await notificationMgr.notifyCompleted(sid);
             }
 
             // Emit session activity update to owner and shared users
@@ -591,6 +591,34 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             });
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in session-end: ${error}`);
+        }
+    });
+
+    // CLI signals an error or rate-limit so the server can push a notification
+    // to the user's device even when the app is backgrounded.
+    socket.on('session-notify', async (data: {
+        sid: string;
+        type: 'session_error' | 'rate_limit';
+        message?: string;
+    }) => {
+        try {
+            const { sid, type, message } = data ?? {};
+            if (!sid || !type) return;
+
+            // Only session-scoped CLI connections may send this
+            if (connection.connectionType !== 'session-scoped' || connection.sessionId !== sid) return;
+
+            const session = await db.session.findUnique({ where: { id: sid, accountId: userId }, select: { id: true } });
+            if (!session) return;
+
+            const notificationMgr = getNotificationManager();
+            if (type === 'rate_limit') {
+                await notificationMgr.notifyRateLimit(sid);
+            } else if (type === 'session_error') {
+                await notificationMgr.notifyError(sid, message ?? '执行过程中发生错误');
+            }
+        } catch (error) {
+            log({ module: 'websocket', level: 'error' }, `Error in session-notify: ${error}`);
         }
     });
 
