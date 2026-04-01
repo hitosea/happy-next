@@ -163,6 +163,7 @@ export const ru: TranslationStructure = {
         scanQrCodeToAuthenticate: 'Отсканируйте QR-код для авторизации',
         githubConnected: ({ login }: { login: string }) => `Подключен как @${login}`,
         connectGithubAccount: 'Подключить аккаунт GitHub',
+        githubNotConfigured: 'GitHub OAuth не настроен на сервере. Обратитесь к администратору.',
         claudeAuthSuccess: 'Успешно подключено к Claude',
         exchangingTokens: 'Обмен токенов...',
         usage: 'Использование',

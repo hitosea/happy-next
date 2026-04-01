@@ -231,6 +231,7 @@ export const ja: TranslationStructure = {
         scanQrCodeToAuthenticate: 'QRコードをスキャンして認証',
         githubConnected: ({ login }: { login: string }) => `@${login}として接続中`,
         connectGithubAccount: 'GitHubアカウントを接続',
+        githubNotConfigured: 'サーバーでGitHub OAuthが設定されていません。管理者にお問い合わせください。',
         claudeAuthSuccess: 'Claudeへの接続に成功しました',
         exchangingTokens: 'トークンを交換中...',
         usage: '使用状況',

@@ -1,4 +1,5 @@
 import { AuthCredentials } from '@/auth/tokenStorage';
+import { HappyError } from '@/utils/errors';
 import { backoff } from '@/utils/time';
 import { getServerUrl } from './serverConfig';
 
@@ -26,30 +27,30 @@ export interface AccountProfile {
 export async function getGitHubOAuthParams(credentials: AuthCredentials, callback?: string): Promise<GitHubOAuthParams> {
     const API_ENDPOINT = getServerUrl();
 
-    return await backoff(async () => {
-        const url = new URL(`${API_ENDPOINT}/v1/connect/github/params`);
-        if (callback) {
-            url.searchParams.set('callback', callback);
+    // Don't use backoff — OAuth configuration errors (400) are permanent and should fail immediately.
+    // Retrying would cause infinite loops when GITHUB_CLIENT_ID/GITHUB_REDIRECT_URL are not set on the server.
+    const url = new URL(`${API_ENDPOINT}/v1/connect/github/params`);
+    if (callback) {
+        url.searchParams.set('callback', callback);
+    }
+    const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${credentials.token}`,
+            'Content-Type': 'application/json'
         }
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${credentials.token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 400) {
-                const error = await response.json();
-                throw new Error(error.error || 'GitHub OAuth not configured');
-            }
-            throw new Error(`Failed to get GitHub OAuth params: ${response.status}`);
-        }
-
-        const data = await response.json() as GitHubOAuthParams;
-        return data;
     });
+
+    if (!response.ok) {
+        if (response.status === 400) {
+            const error = await response.json();
+            throw new HappyError(error.error || 'GitHub OAuth not configured', false);
+        }
+        throw new HappyError(`Failed to get GitHub OAuth params: ${response.status}`, false);
+    }
+
+    const data = await response.json() as GitHubOAuthParams;
+    return data;
 }
 
 /**

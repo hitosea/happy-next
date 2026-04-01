@@ -199,6 +199,7 @@ export const ca: TranslationStructure = {
         scanQrCodeToAuthenticate: 'Escaneja el codi QR per autenticar-te',
         githubConnected: ({ login }: { login: string }) => `Connectat com a @${login}`,
         connectGithubAccount: 'Connecta el teu compte de GitHub',
+        githubNotConfigured: 'GitHub OAuth no està configurat al servidor. Contacta amb l\'administrador.',
         claudeAuthSuccess: 'Connexió amb Claude realitzada amb èxit',
         exchangingTokens: 'Intercanviant tokens...',
         usage: 'Ús',
