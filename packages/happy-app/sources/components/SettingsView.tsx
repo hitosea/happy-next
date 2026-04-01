@@ -1,4 +1,4 @@
-import { View, ScrollView, Pressable, Platform, Linking } from 'react-native';
+import { View, ScrollView, Pressable, Platform, Linking, AppState } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Image } from 'expo-image';
 import * as React from 'react';
@@ -76,17 +76,64 @@ export const SettingsView = React.memo(function SettingsView() {
 
     // Connection status
     const isGitHubConnected = !!profile.github;
+
     // GitHub connection
-    const [connectingGitHub, connectGitHub] = useHappyAction(async () => {
+    const [connectingGitHub, connectGitHub, cancelConnectGitHub] = useHappyAction(async () => {
         if (Platform.OS === 'web') {
             const params = await getGitHubOAuthParams(auth.credentials!);
             await Linking.openURL(params.url);
         } else {
             const callbackUrl = 'happy://github-callback';
             const params = await getGitHubOAuthParams(auth.credentials!, callbackUrl);
-            await WebBrowser.openAuthSessionAsync(params.url, callbackUrl);
+
+            if (Platform.OS === 'android') {
+                // Android's openAuthSessionAsync uses a JS polyfill that tracks auth
+                // state in a module-level _redirectSubscription variable. If the
+                // redirect races with Expo Router's deep-link handling, this variable
+                // can be left dangling, causing "invalid state" errors on subsequent
+                // calls. Neither dismissAuthSession() nor coolDownAsync() clear it.
+                //
+                // Bypass the polyfill entirely: open Chrome Custom Tab via the
+                // stateless openBrowserAsync, then listen for the redirect ourselves.
+                const subs: Array<{ remove(): void }> = [];
+                try {
+                    const done = new Promise<void>((resolve) => {
+                        let settled = false;
+
+                        subs.push(Linking.addEventListener('url', (event: { url: string }) => {
+                            if (!settled && event.url.startsWith(callbackUrl)) {
+                                settled = true;
+                                resolve();
+                            }
+                        }));
+
+                        // Detect when user returns without completing auth (pressed back).
+                        // Give a brief grace period for the redirect deep-link to arrive.
+                        subs.push(AppState.addEventListener('change', (state) => {
+                            if (state === 'active' && !settled) {
+                                setTimeout(() => {
+                                    if (!settled) {
+                                        settled = true;
+                                        resolve();
+                                    }
+                                }, 2000);
+                            }
+                        }));
+                    });
+
+                    await WebBrowser.openBrowserAsync(params.url);
+                    await done;
+                } finally {
+                    subs.forEach((s) => s.remove());
+                }
+            } else {
+                const result = await WebBrowser.openAuthSessionAsync(params.url, callbackUrl);
+                if (result.type === WebBrowser.WebBrowserResultType.CANCEL || result.type === WebBrowser.WebBrowserResultType.DISMISS) {
+                    return;
+                }
+            }
         }
-    });
+    }, { timeoutMs: 35_000 });
 
     // GitHub disconnection
     const [disconnectingGitHub, handleDisconnectGitHub] = useHappyAction(async () => {
