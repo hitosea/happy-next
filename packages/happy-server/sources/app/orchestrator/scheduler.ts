@@ -754,15 +754,13 @@ export async function orchestratorSchedulerTick(now: Date = new Date()): Promise
 
 export function startOrchestratorScheduler() {
     forever('orchestrator-scheduler', async () => {
-        while (true) {
-            try {
-                await orchestratorSchedulerTick();
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                warn({ module: 'orchestrator-scheduler' }, `schedulerTick failed: ${message}`);
-            }
-            await delay(ORCHESTRATOR_SCHEDULER_INTERVAL_MS, shutdownSignal);
+        try {
+            await orchestratorSchedulerTick();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            warn({ module: 'orchestrator-scheduler' }, `schedulerTick failed: ${message}`);
         }
+        await delay(ORCHESTRATOR_SCHEDULER_INTERVAL_MS, shutdownSignal);
     });
     log({ module: 'orchestrator-scheduler' }, 'Orchestrator scheduler started');
 }

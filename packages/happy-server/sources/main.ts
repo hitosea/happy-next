@@ -20,7 +20,7 @@ async function main() {
     await db.$connect();
     onShutdown('db', async () => {
         await db.$disconnect();
-    });
+    }, 1);
     onShutdown('activity-cache', async () => {
         activityCache.shutdown();
     });
@@ -105,6 +105,7 @@ process.on('exit', (code) => {
         }, 'Process exiting normally');
     }
 });
+
 
 main().catch((e) => {
     console.error(e);
