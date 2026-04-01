@@ -200,6 +200,7 @@ export const zhHant: TranslationStructure = {
         scanQrCodeToAuthenticate: '掃描 QR Code 進行驗證',
         githubConnected: ({ login }: { login: string }) => `已連結為 @${login}`,
         connectGithubAccount: '連結您的 GitHub 帳戶',
+        githubNotConfigured: '伺服器未設定 GitHub OAuth，請聯絡管理員。',
         claudeAuthSuccess: '成功連結到 Claude',
         exchangingTokens: '正在交換權杖...',
         usage: '使用情況',

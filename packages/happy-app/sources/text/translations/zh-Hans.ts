@@ -201,6 +201,7 @@ export const zhHans: TranslationStructure = {
         scanQrCodeToAuthenticate: '扫描二维码进行认证',
         githubConnected: ({ login }: { login: string }) => `已连接为 @${login}`,
         connectGithubAccount: '连接您的 GitHub 账户',
+        githubNotConfigured: '服务器未配置 GitHub OAuth，请联系管理员。',
         claudeAuthSuccess: '成功连接到 Claude',
         exchangingTokens: '正在交换令牌...',
         usage: '使用情况',
