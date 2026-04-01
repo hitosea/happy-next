@@ -1,13 +1,20 @@
 import { log } from "./log";
 
-const shutdownHandlers = new Map<string, Array<() => Promise<void>>>();
-const shutdownController = new AbortController();
+interface ShutdownEntry {
+    callback: () => Promise<void>;
+    phase: number;
+}
+
+const shutdownHandlers = new Map<string, ShutdownEntry[]>();
+export const shutdownController = new AbortController();
 
 export const shutdownSignal = shutdownController.signal;
 
-export function onShutdown(name: string, callback: () => Promise<void>): () => void {
+/**
+ * @param phase Lower phases execute first. Same-phase handlers run concurrently.
+ */
+export function onShutdown(name: string, callback: () => Promise<void>, phase = 0): () => void {
     if (shutdownSignal.aborted) {
-        // If already shutting down, execute immediately
         callback();
         return () => {};
     }
@@ -16,11 +23,11 @@ export function onShutdown(name: string, callback: () => Promise<void>): () => v
         shutdownHandlers.set(name, []);
     }
     const handlers = shutdownHandlers.get(name)!;
-    handlers.push(callback);
+    const entry: ShutdownEntry = { callback, phase };
+    handlers.push(entry);
     
-    // Return unsubscribe function
     return () => {
-        const index = handlers.indexOf(callback);
+        const index = handlers.indexOf(entry);
         if (index !== -1) {
             handlers.splice(index, 1);
             if (handlers.length === 0) {
@@ -47,36 +54,35 @@ export async function awaitShutdown() {
     });
     shutdownController.abort();
     
-    // Copy handlers to avoid race conditions
-    const handlersSnapshot = new Map<string, Array<() => Promise<void>>>();
-    for (const [name, handlers] of shutdownHandlers) {
-        handlersSnapshot.set(name, [...handlers]);
+    // Snapshot and group handlers by phase
+    const phaseMap = new Map<number, { name: string; callback: () => Promise<void> }[]>();
+    for (const [name, entries] of shutdownHandlers) {
+        for (const entry of entries) {
+            if (!phaseMap.has(entry.phase)) {
+                phaseMap.set(entry.phase, []);
+            }
+            phaseMap.get(entry.phase)!.push({ name, callback: entry.callback });
+        }
     }
     
-    // Execute all shutdown handlers concurrently
-    const allHandlers: Promise<void>[] = [];
-    let totalHandlers = 0;
+    const sortedPhases = [...phaseMap.keys()].sort((a, b) => a - b);
+    const startTime = Date.now();
     
-    for (const [name, handlers] of handlersSnapshot) {
-        totalHandlers += handlers.length;
-        log(`Starting ${handlers.length} shutdown handlers for: ${name}`);
+    for (const phase of sortedPhases) {
+        const handlers = phaseMap.get(phase)!;
+        log(`Phase ${phase}: starting ${handlers.length} shutdown handlers`);
         
-        handlers.forEach((handler, index) => {
-            const handlerPromise = handler().then(
+        const promises = handlers.map(({ name, callback }) =>
+            callback().then(
                 () => {},
-                (error) => log(`Error in shutdown handler ${name}[${index}]:`, error)
-            );
-            allHandlers.push(handlerPromise);
-        });
+                (error) => log(`Error in shutdown handler ${name}:`, error)
+            )
+        );
+        await Promise.all(promises);
     }
     
-    if (totalHandlers > 0) {
-        log(`Waiting for ${totalHandlers} shutdown handlers to complete...`);
-        const startTime = Date.now();
-        await Promise.all(allHandlers);
-        const duration = Date.now() - startTime;
-        log(`All ${totalHandlers} shutdown handlers completed in ${duration}ms`);
-    }
+    const duration = Date.now() - startTime;
+    log(`All shutdown handlers completed in ${duration}ms`);
 }
 
 export async function keepAlive<T>(name: string, callback: () => Promise<T>): Promise<T> {

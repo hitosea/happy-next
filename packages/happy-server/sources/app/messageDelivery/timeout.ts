@@ -74,9 +74,7 @@ export async function markTimedOutDeliveryIssues(nowMs: number = Date.now()) {
 
 export function startMessageDeliveryTimeoutWorker() {
     forever('message-delivery-timeout', async () => {
-        while (true) {
-            await markTimedOutDeliveryIssues();
-            await delay(MESSAGE_DELIVERY_SCAN_INTERVAL_MS, shutdownSignal);
-        }
+        await markTimedOutDeliveryIssues();
+        await delay(MESSAGE_DELIVERY_SCAN_INTERVAL_MS, shutdownSignal);
     });
 }
