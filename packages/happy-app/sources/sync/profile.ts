@@ -7,7 +7,7 @@ import * as z from 'zod';
 export const GitHubProfileSchema = z.object({
     id: z.number(),
     login: z.string(),
-    name: z.string(),
+    name: z.string().nullable(),
     avatar_url: z.string(),
     email: z.string().nullable(),
     bio: z.string().nullable()
