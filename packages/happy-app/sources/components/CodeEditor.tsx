@@ -5,10 +5,9 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import {
     buildEditorHtml,
     encodeBase64Utf8,
-    resolveMonacoBaseCandidates,
     type EditorCommand,
     type EditorEvent,
-} from '@/components/codeEditorMonacoShared';
+} from '@/components/codeEditorShared';
 
 interface CodeEditorProps {
     value: string;
@@ -41,15 +40,12 @@ export const CodeEditor = React.forwardRef<CodeEditorHandle, CodeEditorProps>(({
     const pendingCommandsRef = React.useRef<EditorCommand[]>([]);
     const initialValueRef = React.useRef(value);
     const themeMode = rt.themeName === 'dark' ? 'dark' : 'light';
-    const monacoBaseCandidates = React.useMemo(() => resolveMonacoBaseCandidates(), []);
-
     const html = React.useMemo(() => buildEditorHtml({
         initialValueBase64: encodeBase64Utf8(initialValueRef.current),
         initialLanguage: language,
         initialTheme: themeMode,
         initialBottomPadding: bottomPadding,
         initialReadOnly: readOnly,
-        monacoBaseCandidates,
     }), []);
 
     const postCommand = React.useCallback((command: EditorCommand) => {

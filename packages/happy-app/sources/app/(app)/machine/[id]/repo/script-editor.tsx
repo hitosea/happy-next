@@ -27,7 +27,7 @@ interface ScriptEditorData {
 }
 
 /**
- * Full-page script editor using Monaco with shell highlighting.
+ * Full-page script editor using CodeMirror with shell highlighting.
  * Receives script data via tempDataStore (dataId URL param).
  * Saves changes back to Zustand store + server KV via saveRegisteredRepos.
  */
