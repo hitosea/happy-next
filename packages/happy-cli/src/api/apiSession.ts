@@ -884,6 +884,14 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     /**
+     * Ask the server to push a notification to the user's devices.
+     * Used for error and rate-limit events that happen while the app is backgrounded.
+     */
+    sendSessionNotify(type: 'session_error' | 'rate_limit', message?: string) {
+        this.socket.emit('session-notify', { sid: this.sessionId, type, message });
+    }
+
+    /**
      * Send a generic usage report to the server for any provider
      */
     sendUsageReport(report: { key: string; tokens: { total: number; [key: string]: number }; cost: { total: number; [key: string]: number } }) {

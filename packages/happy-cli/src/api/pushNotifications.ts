@@ -184,7 +184,8 @@ export class PushNotificationClient {
                         channelId: 'default',
                         sound: 'default',
                         priority: 'high',
-                        badge: badgeCount
+                        badge: badgeCount,
+                        channelId: 'default',
                     }
                 })
 

@@ -28,7 +28,7 @@ function ensureSessionState(sessionId: string): SessionTurnState {
         thinking: false,
         awaitingTurnStart: false,
         dispatching: false,
-        lastHeartbeatAt: 0,
+        lastHeartbeatAt: Date.now(),
     };
     runtimeBySession.set(sessionId, created);
     return created;

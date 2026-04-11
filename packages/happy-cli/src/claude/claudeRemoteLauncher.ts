@@ -217,9 +217,11 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                 } else if (errors && errors.length > 0) {
                     const errorText = errors.join('\n');
                     session.client.sendSessionEvent({ type: 'message', message: `Error: ${errorText}` });
+                    session.client.sendSessionNotify('session_error', errorText);
                     logger.debug('[remote]: sent error_during_execution as session event', { errorCount: errors.length });
                 } else {
                     session.client.sendSessionEvent({ type: 'message', message: 'An error occurred during execution' });
+                    session.client.sendSessionNotify('session_error', 'An error occurred during execution');
                 }
             }
             // Result messages don't need further processing (not part of conversation log)
