@@ -113,7 +113,13 @@ vi.mock("@/app/events/eventRouter", () => ({
         getConnections: vi.fn(() => new Set()),
         emitEphemeralToSessionSubscribers: emitEphemeralToSessionSubscribersMock
     },
-    buildSessionActivityEphemeral: vi.fn(),
+    buildSessionActivityEphemeral: vi.fn((sid: string, active: boolean, activeAt: number, thinking?: boolean) => ({
+        type: "activity",
+        id: sid,
+        active,
+        activeAt,
+        thinking: thinking || false
+    })),
     buildUpdateSessionUpdate: vi.fn(),
     buildNewMessageUpdate: vi.fn(),
     buildMessageSyncingEphemeral: vi.fn(),
@@ -310,5 +316,48 @@ describe("sessionUpdateHandler session-alive auto-dispatch", () => {
         await trigger("session-alive", { sid: "session-1", time: baseTime + 3, thinking: false });
 
         expect(dispatchNextPendingIfPossibleMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("broadcasts activity BEFORE awaiting dispatch so a stale thinking=false does not arrive after a concurrent thinking=true", async () => {
+        state.sessions.push({ id: "session-1", accountId: "user-1" });
+
+        const operationLog: string[] = [];
+
+        let resolveDispatch: (() => void) | null = null;
+        dispatchNextPendingIfPossibleMock.mockImplementation(() => {
+            operationLog.push("dispatch-start");
+            return new Promise<{ dispatched: boolean }>((resolve) => {
+                resolveDispatch = () => {
+                    operationLog.push("dispatch-end");
+                    resolve({ dispatched: false });
+                };
+            });
+        });
+
+        (emitEphemeralToSessionSubscribersMock as any).mockImplementation(async (params: any) => {
+            if (params.payload?.type === "activity") {
+                operationLog.push(`broadcast:thinking=${params.payload.thinking}`);
+            }
+        });
+
+        const { socket, trigger } = createSocket();
+        sessionUpdateHandler("user-1", socket, createConnection(socket));
+
+        const baseTime = Date.now();
+
+        await trigger("session-alive", { sid: "session-1", time: baseTime, thinking: true });
+
+        // Don't await — simulates the handler being in-flight while a new event arrives
+        const falsePromise = trigger("session-alive", { sid: "session-1", time: baseTime + 1, thinking: false });
+
+        await trigger("session-alive", { sid: "session-1", time: baseTime + 2, thinking: true });
+
+        expect(resolveDispatch).not.toBeNull();
+        resolveDispatch!();
+        await falsePromise;
+
+        const falseIdx = operationLog.indexOf("broadcast:thinking=false");
+        const dispatchEndIdx = operationLog.indexOf("dispatch-end");
+        expect(falseIdx).toBeLessThan(dispatchEndIdx);
     });
 });

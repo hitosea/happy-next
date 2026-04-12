@@ -206,6 +206,17 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             activityCache.queueSessionUpdate(sid, t);
 
             const thinkingState = updateThinkingState(sid, !!thinking, t);
+
+            // Broadcast before dispatch: dispatch can block ~1s, during which a new
+            // thinking=true heartbeat may arrive and get broadcast out of order.
+            const sessionActivity = buildSessionActivityEphemeral(sid, true, t, thinking || false);
+            eventRouter.emitEphemeralToSessionSubscribers({
+                ownerId: userId,
+                sessionId: sid,
+                payload: sessionActivity,
+                recipientFilter: { type: 'user-scoped-only' }
+            });
+
             if (thinkingState.turnEnded) {
                 // Acquire receiveMessageLock to ensure any in-flight 'message' event
                 // (e.g. the AI's final response) finishes before we dispatch the next
@@ -218,15 +229,6 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     });
                 });
             }
-
-            // Emit session activity update to owner and shared users
-            const sessionActivity = buildSessionActivityEphemeral(sid, true, t, thinking || false);
-            eventRouter.emitEphemeralToSessionSubscribers({
-                ownerId: userId,
-                sessionId: sid,
-                payload: sessionActivity,
-                recipientFilter: { type: 'user-scoped-only' }
-            });
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in session-alive: ${error}`);
         }
