@@ -30,6 +30,48 @@ export const CommandSuggestion = React.memo(({ command, description }: CommandSu
     );
 });
 
+interface SkillSuggestionProps {
+    name: string;
+    description?: string;
+    scope: 'REPO' | 'USER' | 'ADMIN' | 'SYSTEM';
+    displayName?: string;
+}
+
+export const SkillSuggestion = React.memo(({ name, description, scope, displayName }: SkillSuggestionProps) => {
+    return (
+        <View style={styles.suggestionContainer}>
+            <View style={styles.skillIconContainer}>
+                <Ionicons
+                    name="cube-outline"
+                    size={18}
+                    color={styles.iconColor.color}
+                />
+            </View>
+            <Text
+                style={[styles.commandText, { marginRight: description ? 12 : 0 }]}
+                numberOfLines={1}
+            >
+                {displayName || name}
+            </Text>
+            {description && (
+                <Text
+                    style={styles.descriptionText}
+                    numberOfLines={1}
+                >
+                    {description}
+                </Text>
+            )}
+            <Text style={styles.labelText}>
+                {scope === 'REPO'
+                    ? t('agentInput.suggestion.skillScopeRepo')
+                    : scope === 'USER'
+                        ? t('agentInput.suggestion.skillScopePersonal')
+                        : t('agentInput.suggestion.skillScopeSystem')}
+            </Text>
+        </View>
+    );
+});
+
 interface FileMentionProps {
     fileName: string;
     filePath: string;
@@ -80,6 +122,15 @@ const styles = StyleSheet.create((theme) => ({
         ...Typography.default(),
     },
     iconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: theme.colors.surfaceHigh,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    skillIconContainer: {
         width: 32,
         height: 32,
         borderRadius: 16,

@@ -41,6 +41,14 @@ export const MetadataSchema = z.object({
     codexSessionId: z.string().optional(), // Codex CLI conversation ID
     tools: z.array(z.string()).optional(),
     slashCommands: z.array(z.string()).optional(),
+    skills: z.array(z.object({
+        name: z.string(),
+        description: z.string(),
+        scope: z.enum(['REPO', 'USER', 'ADMIN', 'SYSTEM']),
+        path: z.string(),
+        displayName: z.string().optional(),
+        shortDescription: z.string().optional(),
+    })).optional(),
     homeDir: z.string().optional(), // User's home directory on the machine
     happyHomeDir: z.string().optional(), // Happy configuration directory 
     hostPid: z.number().optional(), // Process ID of the session

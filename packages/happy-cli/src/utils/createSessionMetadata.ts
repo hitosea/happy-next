@@ -32,6 +32,8 @@ export interface CreateSessionMetadataOptions {
     machineId: string;
     /** How the session was started */
     startedBy?: 'daemon' | 'terminal';
+    /** Discovered skills metadata (used by Codex) */
+    skills?: Metadata['skills'];
 }
 
 /**
@@ -158,6 +160,7 @@ export function createSessionMetadata(opts: CreateSessionMetadataOptions): Sessi
         lifecycleState: 'running',
         lifecycleStateSince: Date.now(),
         flavor: opts.flavor,
+        ...(opts.skills ? { skills: opts.skills } : {}),
         // Worktree metadata: env vars from daemon take priority, otherwise detect via git
         ...detectWorktreeMetadata(),
     };

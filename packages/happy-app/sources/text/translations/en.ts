@@ -972,6 +972,9 @@ export const en: TranslationStructure = {
         suggestion: {
             fileLabel: 'FILE',
             folderLabel: 'FOLDER',
+            skillScopeRepo: 'REPO',
+            skillScopePersonal: 'USER',
+            skillScopeSystem: 'SYSTEM',
         },
         noMachinesAvailable: 'No machines',
     },

@@ -987,6 +987,9 @@ export const ja: TranslationStructure = {
         suggestion: {
             fileLabel: 'ファイル',
             folderLabel: 'フォルダ',
+            skillScopeRepo: 'リポジトリ',
+            skillScopePersonal: '個人',
+            skillScopeSystem: 'システム',
         },
         noMachinesAvailable: 'マシンなし',
     },

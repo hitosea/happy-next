@@ -347,6 +347,14 @@ export type Metadata = {
   claudeSessionId?: string, // Claude Code session ID
   tools?: string[],
   slashCommands?: string[],
+  skills?: Array<{
+    name: string,
+    description: string,
+    scope: 'REPO' | 'USER' | 'ADMIN' | 'SYSTEM',
+    path: string,
+    displayName?: string,
+    shortDescription?: string,
+  }>,
   homeDir: string,
   happyHomeDir: string,
   happyLibDir: string,

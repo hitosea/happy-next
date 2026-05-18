@@ -966,6 +966,9 @@ export const pl: TranslationStructure = {
         suggestion: {
             fileLabel: 'PLIK',
             folderLabel: 'FOLDER',
+            skillScopeRepo: 'REPO',
+            skillScopePersonal: 'UŻYTK',
+            skillScopeSystem: 'SYSTEM',
         },
         noMachinesAvailable: 'Brak maszyn',
     },

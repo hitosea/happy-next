@@ -957,6 +957,9 @@ export const zhHant: TranslationStructure = {
         suggestion: {
             fileLabel: '檔案',
             folderLabel: '資料夾',
+            skillScopeRepo: '專案',
+            skillScopePersonal: '個人',
+            skillScopeSystem: '系統',
         },
         noMachinesAvailable: '無裝置',
     },

@@ -19,6 +19,7 @@ import { MessageQueue2 } from '@/utils/MessageQueue2';
 import { hashObject } from '@/utils/deterministicJson';
 import { createMcpContext } from '@/agent/mcp';
 import { createSessionMetadata } from '@/utils/createSessionMetadata';
+import { discoverCodexSkills, getCodexSkillsSignature } from './utils/skillDiscovery';
 import { MessageBuffer } from "@/ui/ink/messageBuffer";
 import { CodexDisplay } from "@/ui/ink/CodexDisplay";
 // trimIdent not currently used
@@ -173,10 +174,12 @@ export async function runCodex(opts: {
     // Create session
     //
 
+    const skills = discoverCodexSkills();
     const { state, metadata } = createSessionMetadata({
         flavor: 'codex',
         machineId,
-        startedBy: opts.startedBy
+        startedBy: opts.startedBy,
+        skills,
     });
     const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
 
@@ -197,6 +200,29 @@ export async function runCodex(opts: {
         }
     });
     session = initialSession;
+
+    // Keep Happy's remote autocomplete aligned with Codex Desktop/CLI skill discovery.
+    // Codex can pick up new skills during a session (for example after $skill-installer),
+    // so periodically rescan, but only write metadata when the skill list changed.
+    let lastSkillsSignature = getCodexSkillsSignature(skills);
+    const skillRefreshInterval = setInterval(() => {
+        try {
+            const nextSkills = discoverCodexSkills();
+            const nextSignature = getCodexSkillsSignature(nextSkills);
+            if (nextSignature === lastSkillsSignature) {
+                return;
+            }
+
+            lastSkillsSignature = nextSignature;
+            session.updateMetadata((currentMetadata) => ({
+                ...currentMetadata,
+                skills: nextSkills,
+            }));
+        } catch (error) {
+            logger.debug('[codex] Failed to refresh skills metadata:', error);
+        }
+    }, 30_000);
+    skillRefreshInterval.unref?.();
 
     // Set initial session title if provided (e.g. review sessions)
     const sessionTitle = process.env.HAPPY_SESSION_TITLE?.trim();
@@ -1212,6 +1238,7 @@ export async function runCodex(opts: {
         }
         logger.debug('[codex]: clearInterval(keepAlive)');
         clearInterval(keepAliveInterval);
+        clearInterval(skillRefreshInterval);
         if (inkInstance) {
             logger.debug('[codex]: inkInstance.unmount()');
             inkInstance.unmount();

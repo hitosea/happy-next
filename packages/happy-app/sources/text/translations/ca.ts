@@ -955,6 +955,9 @@ export const ca: TranslationStructure = {
         suggestion: {
             fileLabel: 'FITXER',
             folderLabel: 'CARPETA',
+            skillScopeRepo: 'REPO',
+            skillScopePersonal: 'USUARI',
+            skillScopeSystem: 'SISTEMA',
         },
         noMachinesAvailable: 'Sense màquines',
     },
