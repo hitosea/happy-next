@@ -10,6 +10,7 @@ export { GeminiTransport, geminiTransport } from './GeminiTransport';
 
 export { CodexTransport, codexTransport } from './CodexTransport';
 
+export { OpenCodeTransport, openCodeTransport } from './OpenCodeTransport';
+
 // Future handlers:
 // export { ClaudeTransport, claudeTransport } from './ClaudeTransport';
-// export { OpenCodeTransport, openCodeTransport } from './OpenCodeTransport';

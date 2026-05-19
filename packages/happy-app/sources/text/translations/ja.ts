@@ -944,6 +944,7 @@ export const ja: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            opencode: 'OpenCode',
         },
         model: {
             title: 'モデル',
@@ -973,6 +974,16 @@ export const ja: TranslationStructure = {
         },
         geminiPermissionMode: {
             title: 'GEMINI権限モード',
+            default: 'デフォルト',
+            readOnly: '読み取り専用',
+            safeYolo: '安全YOLO',
+            yolo: 'YOLO',
+            badgeReadOnly: '読み取り専用',
+            badgeSafeYolo: '安全YOLO',
+            badgeYolo: 'YOLO',
+        },
+        opencodePermissionMode: {
+            title: 'OPENCODE 権限モード',
             default: 'デフォルト',
             readOnly: '読み取り専用',
             safeYolo: '安全YOLO',
@@ -1557,6 +1568,7 @@ export const ja: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        opencode: 'OpenCode',
         providerNoData: 'このプロバイダーのデータはまだありません',
     },
 

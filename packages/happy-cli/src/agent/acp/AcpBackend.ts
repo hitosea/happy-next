@@ -7,6 +7,8 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join, delimiter } from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import {
   ClientSideConnection,
@@ -360,23 +362,36 @@ export class AcpBackend implements AgentBackend {
       logger.debug(`[AcpBackend] Starting session: ${sessionId}`);
       // Spawn the ACP agent process
       const args = this.options.args || [];
-      
+      const home = homedir();
+      const extraPaths = [
+        join(home, '.opencode', 'bin'),
+        join(home, '.local', 'bin'),
+        join(home, 'go', 'bin'),
+        join(home, '.cargo', 'bin'),
+        join(home, 'bin'),
+        join(home, '.npm-global', 'bin'),
+        '/usr/local/bin',
+      ];
+      const spawnEnv = {
+        ...process.env,
+        ...this.options.env,
+        PATH: [...extraPaths, process.env.PATH || '/usr/bin:/bin'].join(delimiter),
+      };
+
       // On Windows, spawn via cmd.exe to handle .cmd files and PATH resolution
       // This ensures proper stdio piping without shell buffering
       if (process.platform === 'win32') {
         const fullCommand = [this.options.command, ...args].join(' ');
         this.process = spawn('cmd.exe', ['/c', fullCommand], {
           cwd: this.options.cwd,
-          env: { ...process.env, ...this.options.env },
+          env: spawnEnv,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
       } else {
         this.process = spawn(this.options.command, args, {
           cwd: this.options.cwd,
-          env: { ...process.env, ...this.options.env },
-          // Use 'pipe' for all stdio to capture output without printing to console
-          // stdout and stderr will be handled by our event listeners
+          env: spawnEnv,
           stdio: ['pipe', 'pipe', 'pipe'],
         });
       }
@@ -409,10 +424,17 @@ export class AcpBackend implements AgentBackend {
         rejectStartupFailure?.(error);
       };
 
+      // Collect early stderr for startup failure diagnostics
+      const earlyStderr: string[] = [];
+
       // Handle stderr output via transport handler
       this.process.stderr.on('data', (data: Buffer) => {
         const text = data.toString();
         if (!text.trim()) return;
+
+        if (!startupFailureSettled) {
+          earlyStderr.push(text.trim());
+        }
 
         // Build context for transport handler
         const hasActiveInvestigation = this.transport.isInvestigationTool
@@ -450,9 +472,17 @@ export class AcpBackend implements AgentBackend {
 
       this.process.on('exit', (code, signal) => {
         if (!this.disposed && code !== 0 && code !== null) {
-          signalStartupFailure(new Error(`Exit code: ${code}`));
-          logger.debug(`[AcpBackend] Process exited with code ${code}, signal ${signal}`);
-          this.emit({ type: 'status', status: 'stopped', detail: `Exit code: ${code}` });
+          const stderrSnippet = earlyStderr.join('\n').slice(0, 500);
+          const cmd = this.options.command;
+          const detail = stderrSnippet
+            ? `"${cmd}" exited with code ${code}\n${stderrSnippet}`
+            : `"${cmd}" exited with code ${code}. Try running "${cmd} ${(this.options.args || []).join(' ')}" manually to see the full error.`;
+          signalStartupFailure(new Error(detail));
+          logger.debug(`[AcpBackend] Process exited with code ${code}, signal ${signal}, stderr: ${stderrSnippet}`);
+          if (!startupStatusErrorEmitted) {
+            startupStatusErrorEmitted = true;
+            this.emit({ type: 'status', status: 'error', detail });
+          }
         }
       });
 
@@ -782,6 +812,7 @@ export class AcpBackend implements AgentBackend {
         }
       );
       logger.debug(`[AcpBackend] Initialize completed`);
+      startupFailureSettled = true;
 
       // Create a new session with retry
       const mcpServers = this.options.mcpServers
@@ -1258,21 +1289,32 @@ export class AcpBackend implements AgentBackend {
    */
   async setSessionModel(modelId: string): Promise<boolean> {
     if (this.disposed || !this.connection || !this.acpSessionId) {
+      logger.debug('[AcpBackend] setSessionModel: skipped (disposed/no connection/no session)');
       return false;
     }
 
     if (typeof this.connection.unstable_setSessionModel !== 'function') {
+      logger.debug('[AcpBackend] setSessionModel: unstable_setSessionModel not available on connection');
       return false;
     }
 
+    const conn = this.connection;
+    const sessionId = this.acpSessionId;
+
     try {
-      await this.connection.unstable_setSessionModel({
-        sessionId: this.acpSessionId,
-        modelId,
-      });
+      await withRetry(
+        () => conn.unstable_setSessionModel({ sessionId, modelId }),
+        {
+          operationName: `setSessionModel(${modelId})`,
+          maxAttempts: 3,
+          baseDelayMs: 500,
+          maxDelayMs: 2000,
+        },
+      );
+      logger.debug(`[AcpBackend] setSessionModel: success (${modelId})`);
       return true;
     } catch (error) {
-      logger.debug('[AcpBackend] Failed to set session model:', { modelId, error });
+      logger.debug('[AcpBackend] setSessionModel: failed after retries', { modelId, error });
       return false;
     }
   }

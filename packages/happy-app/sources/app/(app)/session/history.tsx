@@ -38,18 +38,20 @@ const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'agent-history-selected-machine';
 const SELECTED_TAB_KEY = 'agent-history-selected-tab';
 
-type AgentTab = 'claude' | 'gemini' | 'codex';
+type AgentTab = 'claude' | 'gemini' | 'codex' | 'opencode';
 
 const AGENT_TABS: { key: AgentTab; label: () => string }[] = [
     { key: 'claude', label: () => t('agentHistory.tabClaude') },
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
+    { key: 'opencode', label: () => 'OpenCode' },
 ];
 
 const agentIcons: Record<AgentTab, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
+    opencode: require('@/assets/images/icon-opencode.png'),
 };
 
 const rightIconStyle = {
@@ -197,7 +199,7 @@ export default function AgentHistoryPage() {
 
     const [activeTab, setActiveTab] = React.useState<AgentTab>(() => {
         const saved = mmkv.getString(SELECTED_TAB_KEY);
-        if (saved === 'claude' || saved === 'gemini' || saved === 'codex') return saved;
+        if (saved === 'claude' || saved === 'gemini' || saved === 'codex' || saved === 'opencode') return saved;
         return 'claude';
     });
     const [selectedMachineId, setSelectedMachineId] = React.useState<string | null>(null);
@@ -285,8 +287,10 @@ export default function AgentHistoryPage() {
                     data = await machineListClaudeSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
                 } else if (activeTab === 'gemini') {
                     data = await machineListGeminiSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
-                } else {
+                } else if (activeTab === 'codex') {
                     data = await machineListCodexSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
+                } else {
+                    data = { sessions: [], total: 0 };
                 }
                 if (!isMounted) return;
 
@@ -305,8 +309,10 @@ export default function AgentHistoryPage() {
                         freshData = await machineListClaudeSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
                     } else if (activeTab === 'gemini') {
                         freshData = await machineListGeminiSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
-                    } else {
+                    } else if (activeTab === 'codex') {
                         freshData = await machineListCodexSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
+                    } else {
+                        freshData = { sessions: [], total: 0 };
                     }
                     if (!isMounted) return;
                     const freshMapped: AgentSessionIndexEntry[] = activeTab === 'claude'
@@ -360,7 +366,7 @@ export default function AgentHistoryPage() {
                     const data = await machineListGeminiSessions(selectedMachineId, { offset, limit: pageSize, query: searchQuery || undefined });
                     setSessions(prev => prev ? prev.concat(data.sessions) : data.sessions);
                     setTotalCount(data.total);
-                } else {
+                } else if (activeTab === 'codex') {
                     const data = await machineListCodexSessions(selectedMachineId, { offset, limit: pageSize, query: searchQuery || undefined });
                     setSessions(prev => prev ? prev.concat(data.sessions) : data.sessions);
                     setTotalCount(data.total);
@@ -412,10 +418,12 @@ export default function AgentHistoryPage() {
                 result = await machineGetGeminiSessionPreview(
                     selectedMachineId, entry.sessionId, { limit: 30 }
                 );
-            } else {
+            } else if (entry.agent === 'codex') {
                 result = await machineGetCodexSessionPreview(
                     selectedMachineId, entry.sessionId, { limit: 30 }
                 );
+            } else {
+                result = { messages: [] };
             }
 
             const elapsed = Date.now() - startTime;
@@ -449,7 +457,7 @@ export default function AgentHistoryPage() {
             Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
             return;
         }
-        const provider = entry.agent === 'gemini' ? 'Gemini' : entry.agent === 'codex' ? 'Codex' : 'Claude';
+        const provider = entry.agent === 'gemini' ? 'Gemini' : entry.agent === 'codex' ? 'Codex' : entry.agent === 'opencode' ? 'OpenCode' : 'Claude';
         const confirmed = await Modal.confirm(
             t('sessionHistory.resumeConfirmTitle'),
             t('sessionHistory.resumeConfirmMessage', { provider }),
@@ -477,13 +485,16 @@ export default function AgentHistoryPage() {
                     return;
                 }
                 resumeSessionId = forkResult.newSessionId;
-            } else {
+            } else if (agent === 'codex') {
                 const forkResult = await machineForkCodexSession(selectedMachineId, entry.sessionId);
                 if (!forkResult.success || !forkResult.newFilePath) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('agentHistory.resumeFailed'));
                     return;
                 }
                 resumeSessionId = forkResult.newFilePath;
+            } else {
+                Modal.alert(t('common.error'), t('agentHistory.resumeFailed'));
+                return;
             }
 
             const result = await machineSpawnNewSession({

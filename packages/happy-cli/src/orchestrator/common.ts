@@ -1,4 +1,4 @@
-export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini'] as const;
+export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini', 'opencode'] as const;
 
 export type OrchestratorProvider = (typeof ORCHESTRATOR_PROVIDERS)[number];
 

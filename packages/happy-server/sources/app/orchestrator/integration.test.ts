@@ -29,7 +29,7 @@ type TaskRecord = {
     seq: number;
     taskKey: string | null;
     title: string | null;
-    provider: 'claude' | 'codex' | 'gemini';
+    provider: 'claude' | 'codex' | 'gemini' | 'opencode';
     model: string | null;
     prompt: string;
     workingDirectory: string | null;
@@ -53,7 +53,7 @@ type ExecutionRecord = {
     runId: string;
     taskId: string;
     machineId: string;
-    provider: 'claude' | 'codex' | 'gemini';
+    provider: 'claude' | 'codex' | 'gemini' | 'opencode';
     model: string | null;
     childSessionId: string | null;
     executionType: 'initial' | 'resume';

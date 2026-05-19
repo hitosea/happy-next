@@ -58,18 +58,19 @@ export function ProfileEditForm({
     const [startupScript, setStartupScript] = React.useState(profile.startupBashScript || '');
     const [defaultSessionType, setDefaultSessionType] = React.useState<'simple' | 'worktree'>(profile.defaultSessionType || 'simple');
     const [defaultPermissionMode, setDefaultPermissionMode] = React.useState<PermissionMode>((profile.defaultPermissionMode as PermissionMode) || 'default');
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
+    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'opencode'>(() => {
         if (profile.compatibility.claude && !profile.compatibility.codex) return 'claude';
         if (profile.compatibility.codex && !profile.compatibility.claude) return 'codex';
         if (profile.compatibility.gemini && !profile.compatibility.claude && !profile.compatibility.codex) return 'gemini';
-        return 'claude'; // Default to Claude if both or neither
+        if (profile.compatibility.opencode && !profile.compatibility.claude && !profile.compatibility.codex && !profile.compatibility.gemini) return 'opencode';
+        return 'claude';
     });
 
     // Reset permission mode when agent type changes if current mode is invalid
     React.useEffect(() => {
         const claudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
         const codexModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = agentType === 'codex' ? codexModes : claudeModes;
+        const validModes = (agentType === 'codex' || agentType === 'gemini' || agentType === 'opencode') ? codexModes : claudeModes;
 
         if (!validModes.includes(defaultPermissionMode)) {
             setDefaultPermissionMode('default');

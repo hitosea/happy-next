@@ -3,8 +3,8 @@
  * The agent runs in the worktree and has full filesystem + tool access.
  */
 
-export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini'): string {
-    const agentLabel = agent === 'claude' ? 'Claude' : agent === 'codex' ? 'Codex' : 'Gemini';
+export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini' | 'opencode'): string {
+    const agentLabel = agent === 'claude' ? 'Claude' : agent === 'codex' ? 'Codex' : agent === 'gemini' ? 'Gemini' : 'OpenCode';
     return `You are performing a code review on a pull request.
 
 PR URL: ${prUrl}

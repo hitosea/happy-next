@@ -1,6 +1,6 @@
 import type { PermissionMode } from '@/components/PermissionModeSelector';
 
-export type SessionModeAgentType = 'claude' | 'codex' | 'gemini';
+export type SessionModeAgentType = 'claude' | 'codex' | 'gemini' | 'opencode';
 
 export const SESSION_MODE_CONFIG_KV_KEY = 'session-mode-config:v1';
 export const SESSION_MODE_CONFIG_SCHEMA_VERSION = 1 as const;

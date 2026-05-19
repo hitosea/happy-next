@@ -1,6 +1,6 @@
 import { saveToolOutputRecord } from './toolOutputStore';
 
-export type ToolOutputAgent = 'claude' | 'codex' | 'gemini';
+export type ToolOutputAgent = 'claude' | 'codex' | 'gemini' | 'opencode';
 export type ToolResultKind = 'command' | 'structured' | 'text';
 
 interface CreateLoadableToolOutputOptions {
@@ -17,8 +17,8 @@ interface CreateLoadableToolOutputOptions {
 interface SummarizeBashToolOutputOptions {
     sessionId: string;
     callId: string;
-    toolName: 'CodexBash' | 'GeminiBash';
-    agent: 'codex' | 'gemini';
+    toolName: 'CodexBash' | 'GeminiBash' | 'OpenCodeBash';
+    agent: 'codex' | 'gemini' | 'opencode';
     result: unknown;
     persist?: boolean;
 }

@@ -134,7 +134,7 @@ type MachineRpcHandlers = {
         runId: string;
         taskId: string;
         dispatchToken: string;
-        provider: 'claude' | 'codex' | 'gemini';
+        provider: 'claude' | 'codex' | 'gemini' | 'opencode';
         executionType: 'initial' | 'resume';
         childSessionId?: string;
         model?: string;
@@ -368,6 +368,31 @@ export class ApiMachineClient {
             }, 100);
 
             return { message: 'Daemon stop request acknowledged, starting shutdown sequence...' };
+        });
+
+        this.rpcHandlerManager.registerHandler('bash', async (params: any) => {
+            const { command, cwd } = params || {};
+            if (!command || typeof command !== 'string') {
+                throw new Error('command is required');
+            }
+            const workingDir = cwd && typeof cwd === 'string' ? cwd : homedir();
+            try {
+                const stdout = execSync(command, {
+                    cwd: workingDir,
+                    encoding: 'utf-8',
+                    timeout: 15000,
+                    maxBuffer: 1024 * 1024,
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                });
+                return { success: true, stdout: stdout || '', stderr: '', exitCode: 0 };
+            } catch (err: any) {
+                return {
+                    success: err.status === undefined ? false : true,
+                    stdout: err.stdout || '',
+                    stderr: err.stderr || err.message || '',
+                    exitCode: err.status ?? 1,
+                };
+            }
         });
 
         // Register orchestrator dispatch handler

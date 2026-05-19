@@ -1,4 +1,4 @@
-export type AgentFlavor = 'claude' | 'codex' | 'gemini';
+export type AgentFlavor = 'claude' | 'codex' | 'gemini' | 'opencode';
 
 export const MODEL_MODE_DEFAULT = 'default' as const;
 
@@ -137,6 +137,10 @@ export const GEMINI_MODEL_MODES = [
     'gemini-2.5-pro',
 ] as const satisfies readonly ModelMode[];
 
+export const OPENCODE_MODEL_MODES = [
+    MODEL_MODE_DEFAULT,
+] as const satisfies readonly ModelMode[];
+
 export const CODEX_MODEL_MODES = [
     MODEL_MODE_DEFAULT,
     'gpt-5.5-low',
@@ -177,6 +181,10 @@ export function isModelMode(value: string): value is ModelMode {
 }
 
 export function isModelModeForAgent(agent: AgentFlavor, mode: string): mode is ModelMode {
+    if (agent === 'opencode') {
+        if (!mode || !mode.trim()) return false;
+        return true;
+    }
     if (!isModelMode(mode)) return false;
     if (agent === 'claude') return CLAUDE_MODEL_MODE_SET.has(mode);
     if (agent === 'gemini') return GEMINI_MODEL_MODE_SET.has(mode);
@@ -186,6 +194,7 @@ export function isModelModeForAgent(agent: AgentFlavor, mode: string): mode is M
 export function getValidModelModesForAgent(agent: AgentFlavor): readonly ModelMode[] {
     if (agent === 'claude') return CLAUDE_MODEL_MODES;
     if (agent === 'gemini') return GEMINI_MODEL_MODES;
+    if (agent === 'opencode') return OPENCODE_MODEL_MODES;
     return CODEX_MODEL_MODES;
 }
 
@@ -243,6 +252,10 @@ export const GEMINI_MODEL_OPTIONS = [
     { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)', shortLabel: '3.1 Pro', description: 'Most capable' },
     { value: 'gemini-3-flash', label: 'Gemini 3 Flash', shortLabel: '3 Flash', description: 'Fast and efficient' },
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', shortLabel: '2.5 Pro', description: 'Previous generation' },
+] as const;
+
+export const OPENCODE_MODEL_OPTIONS = [
+    { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use opencode config defaults' },
 ] as const;
 
 export const CODEX_MODEL_FAMILY_OPTIONS = [
@@ -407,6 +420,7 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
         return { model: parsed.family, reasoningEffort: parsed.effort };
     }
     if (flavor === 'gemini') return { model: modelMode, reasoningEffort: null };
+    if (flavor === 'opencode') return { model: modelMode, reasoningEffort: null };
     return { model: null, reasoningEffort: null };
 }
 
@@ -474,6 +488,7 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 258_400,
     gemini: 1_000_000,
+    opencode: 200_000,
 };
 
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {

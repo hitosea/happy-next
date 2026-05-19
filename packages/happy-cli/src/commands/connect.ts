@@ -36,6 +36,9 @@ export async function handleConnectCommand(args: string[]): Promise<void> {
         case 'gemini':
             await handleConnectVendor('gemini', 'Gemini');
             break;
+        case 'opencode':
+            await handleConnectOpenCode();
+            break;
         case 'status':
             await handleConnectStatus();
             break;
@@ -54,6 +57,7 @@ ${chalk.bold('Usage:')}
   happy connect codex        Store your Codex API key in Happy Next cloud
   happy connect claude       Store your Anthropic API key in Happy Next cloud
   happy connect gemini       Store your Gemini API key in Happy Next cloud
+  happy connect opencode     Verify OpenCode CLI is installed and configured
   happy connect status       Show connection status for all vendors
   happy connect help         Show this help message
 
@@ -66,6 +70,7 @@ ${chalk.bold('Examples:')}
   happy connect codex
   happy connect claude
   happy connect gemini
+  happy connect opencode
   happy connect status
 
 ${chalk.bold('Notes:')} 
@@ -73,6 +78,40 @@ ${chalk.bold('Notes:')}
   • API keys are encrypted and stored securely in Happy Next cloud
   • You can manage your stored keys at app.happy-next.com
 `);
+}
+
+async function handleConnectOpenCode(): Promise<void> {
+    console.log(chalk.bold(`\n🔌 Connecting OpenCode to Happy Next\n`));
+
+    // Check if opencode is installed
+    const { execSync } = await import('child_process');
+    try {
+        execSync('command -v opencode', { stdio: 'pipe' });
+        console.log(`  ${chalk.green('✓')}  OpenCode CLI: ${chalk.green('installed')}`);
+    } catch {
+        console.log(`  ${chalk.red('✗')}  OpenCode CLI: ${chalk.red('not found')}`);
+        console.log('');
+        console.log(chalk.gray('Install OpenCode:'));
+        console.log(chalk.gray('  curl -fsSL https://raw.githubusercontent.com/opencode-ai/opencode/refs/heads/main/install | bash'));
+        console.log(chalk.gray('  or: brew install opencode-ai/tap/opencode'));
+        process.exit(1);
+    }
+
+    // Check if opencode config exists
+    const configPath = join(homedir(), '.opencode.json');
+    if (existsSync(configPath)) {
+        console.log(`  ${chalk.green('✓')}  OpenCode config: ${chalk.green('found')} (${configPath})`);
+    } else {
+        console.log(`  ${chalk.yellow('⚠')}  OpenCode config: ${chalk.yellow('not found')} (${configPath})`);
+        console.log(chalk.gray('  OpenCode uses its own config for provider/model selection.'));
+        console.log(chalk.gray('  Run "opencode" to set up your configuration.'));
+    }
+
+    console.log('');
+    console.log(chalk.green('✅ OpenCode is ready to use with Happy Next'));
+    console.log(chalk.gray('  OpenCode manages its own API keys via ~/.opencode.json'));
+    console.log(chalk.gray('  No additional cloud registration needed.'));
+    process.exit(0);
 }
 
 async function handleConnectVendor(vendor: 'codex' | 'claude' | 'gemini', displayName: string): Promise<void> {

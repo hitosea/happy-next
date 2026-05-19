@@ -39,7 +39,7 @@ export type OrchestratorTaskRecord = {
     taskKey: string | null;
     title: string | null;
     status: OrchestratorTaskStatus;
-    provider: 'claude' | 'codex' | 'gemini';
+    provider: 'claude' | 'codex' | 'gemini' | 'opencode';
     model: string | null;
     prompt?: string | null;
     workingDirectory: string | null;

@@ -18,6 +18,7 @@ import {
     CLAUDE_MODEL_MODES,
     CODEX_MODEL_MODES,
     GEMINI_MODEL_MODES,
+    OPENCODE_MODEL_MODES,
     MODEL_MODE_DEFAULT,
     isModelMode,
     isModelModeForAgent,
@@ -35,7 +36,7 @@ import {
     toPublicSummary,
 } from "@/app/orchestrator/state";
 
-const PROVIDERS = ['claude', 'codex', 'gemini'] as const;
+const PROVIDERS = ['claude', 'codex', 'gemini', 'opencode'] as const;
 const RUN_STATUSES = ['queued', 'running', 'canceling', 'completed', 'failed', 'cancelled'] as const;
 const EXECUTION_FINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timeout'] as const;
 const LIST_RUN_STATUS_FILTERS = ['active', 'terminal', ...RUN_STATUSES] as const;
@@ -44,12 +45,14 @@ const CLI_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true" || echo "claude:false") && ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true" || echo "codex:false") && ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false") && ' +
+    '(command -v opencode >/dev/null 2>&1 && echo "opencode:true" || echo "opencode:false") && ' +
     'echo "hostname:$(hostname 2>/dev/null || echo \'\')"';
 const CLI_DETECTION_TIMEOUT_MS = 20_000;
 const MODEL_MODES_BY_PROVIDER: Record<string, readonly string[]> = {
     claude: CLAUDE_MODEL_MODES,
     codex: CODEX_MODEL_MODES,
     gemini: GEMINI_MODEL_MODES,
+    opencode: OPENCODE_MODEL_MODES,
 };
 const IDEMPOTENCY_RETRY_DELAY_MS = 10;
 const DEFAULT_CONTEXT_MAX_CONCURRENCY = 2;

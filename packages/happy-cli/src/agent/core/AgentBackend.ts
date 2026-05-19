@@ -194,6 +194,12 @@ export interface AgentBackend {
   waitForResponseComplete?(timeoutMs?: number): Promise<void>;
   
   /**
+   * Set the model for the current session (ACP unstable capability).
+   * @returns true if the model was set, false if unsupported or failed
+   */
+  setSessionModel?(modelId: string): Promise<boolean>;
+
+  /**
    * Clean up resources and close the backend.
    */
   dispose(): Promise<void>;

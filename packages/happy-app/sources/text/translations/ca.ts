@@ -912,6 +912,7 @@ export const ca: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            opencode: 'OpenCode',
         },
         model: {
             title: 'MODEL',
@@ -947,6 +948,16 @@ export const ca: TranslationStructure = {
             yolo: 'YOLO',
             badgeReadOnly: 'Només lectura',
             badgeSafeYolo: 'YOLO segur',
+            badgeYolo: 'YOLO',
+        },
+        opencodePermissionMode: {
+            title: 'OPENCODE PERMISSION MODE',
+            default: 'Default',
+            readOnly: 'Read Only',
+            safeYolo: 'Safe YOLO',
+            yolo: 'YOLO',
+            badgeReadOnly: 'Read Only',
+            badgeSafeYolo: 'Safe YOLO',
             badgeYolo: 'YOLO',
         },
         context: {
@@ -1524,6 +1535,7 @@ export const ca: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        opencode: 'OpenCode',
         providerNoData: 'Encara no hi ha dades per a aquest proveïdor',
     },
 

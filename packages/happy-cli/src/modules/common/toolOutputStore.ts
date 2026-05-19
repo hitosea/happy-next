@@ -6,7 +6,7 @@ import { logger } from '@/ui/logger';
 export interface ToolOutputRecord {
     callId: string;
     toolName: string;
-    agent: 'claude' | 'codex' | 'gemini';
+    agent: 'claude' | 'codex' | 'gemini' | 'opencode';
     result: unknown;
     timestamp: number;
 }

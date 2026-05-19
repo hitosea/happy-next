@@ -13,6 +13,7 @@ import type { ActionMenuItem } from '@/components/ActionMenu';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { PendingQueuePanel } from '@/components/PendingQueuePanel';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
+import { useCLIDetection } from '@/hooks/useCLIDetection';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { Modal } from '@/modal';
@@ -259,6 +260,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     // Check if CLI version is outdated and not already acknowledged
     const cliVersion = session.metadata?.version;
     const machineId = session.metadata?.machineId;
+    const cliAvailability = useCLIDetection(machineId ?? null);
     const latestCliVersion = useLatestCliVersion();
     const isCliOutdated = cliVersion && latestCliVersion && !isVersionSupported(cliVersion, latestCliVersion);
     const isAcknowledged = machineId && acknowledgedCliVersions[machineId] === cliVersion;
@@ -790,6 +792,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
             onPermissionModeChange={updatePermissionMode}
             modelMode={modelMode as any}
             onModelModeChange={updateModelMode as any}
+            opencodeModels={cliAvailability.opencodeModels}
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
             metadata={session.metadata}

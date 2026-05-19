@@ -47,7 +47,7 @@ export type ACPMessageData =
 
 export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode';
 
-type OrchestratorProvider = 'claude' | 'codex' | 'gemini';
+type OrchestratorProvider = 'claude' | 'codex' | 'gemini' | 'opencode';
 
 type OrchestratorSubmitTask = {
     taskKey?: string;

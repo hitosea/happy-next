@@ -14,7 +14,7 @@ import { AIBackendProfile, validateProfileForAgent, getProfileEnvironmentVariabl
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { profileSyncService } from '@/sync/profileSync';
-import { CLAUDE_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
+import { CLAUDE_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, OPENCODE_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
 
 /**
  * @deprecated Legacy wizard implementation.
@@ -518,7 +518,7 @@ interface NewSessionWizardProps {
     onComplete: (config: {
         sessionType: 'simple' | 'worktree';
         profileId: string | null;
-        agentType: 'claude' | 'codex' | 'gemini';
+        agentType: 'claude' | 'codex' | 'gemini' | 'opencode';
         permissionMode: PermissionMode;
         modelMode: ModelMode;
         machineId: string;
@@ -544,21 +544,21 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     // Wizard state
     const [currentStep, setCurrentStep] = useState<WizardStep>('profile');
     const [sessionType, setSessionType] = useState<'simple' | 'worktree'>('simple');
-    const [agentType, setAgentType] = useState<'claude' | 'codex' | 'gemini'>(() => {
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
+    const [agentType, setAgentType] = useState<'claude' | 'codex' | 'gemini' | 'opencode'>(() => {
+        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini' || lastUsedAgent === 'opencode') {
             return lastUsedAgent;
         }
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
-    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
+    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'opencode', PermissionMode>>>({});
+    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'opencode', ModelMode>>>({});
     const [permissionMode, setPermissionMode] = useState<PermissionMode>(() => {
         const mode = lastUsedSessionMode?.permissionMode;
 
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
         const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
+        const validModes = (agentType === 'codex' || agentType === 'gemini' || agentType === 'opencode') ? validCodexGeminiModes : validClaudeModes;
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -604,7 +604,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     React.useEffect(() => {
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
         const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
+        const validModes = (agentType === 'codex' || agentType === 'gemini' || agentType === 'opencode') ? validCodexGeminiModes : validClaudeModes;
         const manualMode = manualPermissionModeByAgentRef.current[agentType];
         if (manualMode && validModes.includes(manualMode)) {
             setPermissionMode((prev) => (prev === manualMode ? prev : manualMode));
@@ -645,7 +645,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             description: 'Default Claude configuration',
             anthropicConfig: {},
             environmentVariables: [],
-            compatibility: { claude: true, codex: false, gemini: false },
+            compatibility: { claude: true, codex: false, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -664,7 +664,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                 { name: 'ANTHROPIC_SMALL_FAST_MODEL', value: 'deepseek-chat' },
                 { name: 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC', value: '1' },
             ],
-            compatibility: { claude: true, codex: false, gemini: false },
+            compatibility: { claude: true, codex: false, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -679,7 +679,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                 model: 'gpt-4-turbo',
             },
             environmentVariables: [],
-            compatibility: { claude: false, codex: true, gemini: false },
+            compatibility: { claude: false, codex: true, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -695,7 +695,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                 deploymentName: 'gpt-4-turbo',
             },
             environmentVariables: [],
-            compatibility: { claude: false, codex: true, gemini: false },
+            compatibility: { claude: false, codex: true, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -711,7 +711,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             environmentVariables: [
                 { name: 'AZURE_OPENAI_API_VERSION', value: '2024-02-15-preview' },
             ],
-            compatibility: { claude: false, codex: true, gemini: false },
+            compatibility: { claude: false, codex: true, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -726,7 +726,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                 model: 'glm-4.7',
             },
             environmentVariables: [],
-            compatibility: { claude: true, codex: false, gemini: false },
+            compatibility: { claude: true, codex: false, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -741,7 +741,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                 model: 'gpt-4-turbo',
             },
             environmentVariables: [],
-            compatibility: { claude: false, codex: true, gemini: false },
+            compatibility: { claude: false, codex: true, gemini: false, opencode: false },
             isBuiltIn: true,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -1018,7 +1018,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                     description: 'Custom AI profile',
                     anthropicConfig: {},
                     environmentVariables: [],
-                    compatibility: { claude: true, codex: true, gemini: true },
+                    compatibility: { claude: true, codex: true, gemini: true, opencode: true },
                     isBuiltIn: false,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
@@ -1247,6 +1247,9 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
         }
         if (agentType === 'gemini') {
             return GEMINI_MODEL_OPTIONS.map((option) => withIcon(option.value, option.label, option.description));
+        }
+        if (agentType === 'opencode') {
+            return OPENCODE_MODEL_OPTIONS.map((option) => withIcon(option.value, option.label, option.description));
         }
         return CODEX_MODEL_OPTIONS.map((option) => withIcon(option.value, option.label, option.description));
     }, [agentType]);

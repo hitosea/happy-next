@@ -143,7 +143,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini';
+    agent?: 'codex' | 'claude' | 'gemini' | 'opencode';
     resumeSessionId?: string;
     sessionTitle?: string;
     skipForkSession?: boolean;
@@ -217,7 +217,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 /** Unified session entry type for multi-agent history browser */
 export interface AgentSessionIndexEntry {
     sessionId: string;
-    agent: 'claude' | 'gemini' | 'codex';
+    agent: 'claude' | 'gemini' | 'codex' | 'opencode';
     originalPath: string | null;
     title?: string | null;
     updatedAt?: number;

@@ -73,7 +73,7 @@ const useProfileMap = (profiles: AIBackendProfile[]) => {
 
 // Environment variable transformation helper
 // Returns ALL profile environment variables - daemon will use them as-is
-const transformProfileToEnvironmentVars = (profile: AIBackendProfile, agentType: 'claude' | 'codex' | 'gemini' = 'claude') => {
+const transformProfileToEnvironmentVars = (profile: AIBackendProfile, agentType: 'claude' | 'codex' | 'gemini' | 'opencode' = 'claude') => {
     // getProfileEnvironmentVariables already returns ALL env vars from profile
     // including custom environmentVariables array and provider-specific configs
     return getProfileEnvironmentVariables(profile);
@@ -324,30 +324,19 @@ function NewSessionWizard() {
         }
         return 'anthropic'; // Default to Anthropic
     });
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
+    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'opencode'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
             return tempSessionData.agentType;
         }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
+        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini' || lastUsedAgent === 'opencode') {
             return lastUsedAgent;
         }
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
-    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
-
-    // Agent cycling handler (for cycling through claude -> codex -> gemini)
-    // Note: Does NOT persist immediately - persistence is handled by useEffect below
-    const handleAgentClick = React.useCallback(() => {
-        setAgentType(prev => {
-            // Cycle: claude -> codex -> gemini -> claude
-            if (prev === 'claude') return 'codex';
-            if (prev === 'codex') return 'gemini';
-            return 'claude';
-        });
-    }, []);
+    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'opencode', PermissionMode>>>({});
+    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'opencode', ModelMode>>>({});
 
     // Persist agent selection changes (separate from setState to avoid race condition)
     // This runs after agentType state is updated, ensuring the value is stable
@@ -365,7 +354,7 @@ function NewSessionWizard() {
 
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
         const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
+        const validModes = (agentType === 'codex' || agentType === 'gemini' || agentType === 'opencode') ? validCodexGeminiModes : validClaudeModes;
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -412,6 +401,20 @@ function NewSessionWizard() {
         }
         return null;
     });
+
+    const cliAvailability = useCLIDetection(selectedMachineId);
+
+    const handleAgentClick = React.useCallback(() => {
+        setAgentType(prev => {
+            const order: Array<'claude' | 'codex' | 'gemini' | 'opencode'> = ['claude', 'codex', 'gemini', 'opencode'];
+            const currentIdx = order.indexOf(prev);
+            for (let i = 1; i <= order.length; i++) {
+                const next = order[(currentIdx + i) % order.length];
+                if (cliAvailability[next] !== false) return next;
+            }
+            return prev;
+        });
+    }, [cliAvailability]);
 
     const handlePermissionModeChange = React.useCallback((mode: PermissionMode) => {
         applyManualPermissionMode(mode);
@@ -625,9 +628,6 @@ function NewSessionWizard() {
     const pathSectionRef = React.useRef<View>(null);
     const permissionSectionRef = React.useRef<View>(null);
 
-    // CLI Detection - automatic, non-blocking detection of installed CLIs on selected machine
-    const cliAvailability = useCLIDetection(selectedMachineId);
-
     // Auto-correct invalid agent selection after CLI detection completes
     // This handles the case where lastUsedAgent was 'codex' but codex is not installed
     React.useEffect(() => {
@@ -639,16 +639,17 @@ function NewSessionWizard() {
 
         if (agentAvailable === false) {
             // Current agent not available - find first available
-            const availableAgent: 'claude' | 'codex' | 'gemini' =
+            const availableAgent: 'claude' | 'codex' | 'gemini' | 'opencode' =
                 cliAvailability.claude === true ? 'claude' :
                 cliAvailability.codex === true ? 'codex' :
                 cliAvailability.gemini === true ? 'gemini' :
+                cliAvailability.opencode === true ? 'opencode' :
                 'claude'; // Fallback to claude (will fail at spawn with clear error)
 
             console.warn(`[AgentSelection] ${agentType} not available, switching to ${availableAgent}`);
             setAgentType(availableAgent);
         }
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, agentType]);
+    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.opencode, agentType]);
 
     // Extract all ${VAR} references from profiles to query daemon environment
     const envVarRefs = React.useMemo(() => {
@@ -664,10 +665,10 @@ function NewSessionWizard() {
     const { variables: daemonEnv } = useEnvironmentVariables(selectedMachineId, envVarRefs);
 
     // Temporary banner dismissal (X button) - resets when component unmounts or machine changes
-    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean }>({ claude: false, codex: false, gemini: false });
+    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean; opencode: boolean }>({ claude: false, codex: false, gemini: false, opencode: false });
 
     // Helper to check if CLI warning has been dismissed (checks both global and per-machine)
-    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini'): boolean => {
+    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'opencode'): boolean => {
         // Check global dismissal first
         if (dismissedCLIWarnings.global?.[cli] === true) return true;
         // Check per-machine dismissal
@@ -676,7 +677,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, dismissedCLIWarnings]);
 
     // Unified dismiss handler for all three button types (easy to use correctly, hard to use incorrectly)
-    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini', type: 'temporary' | 'machine' | 'global') => {
+    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'opencode', type: 'temporary' | 'machine' | 'global') => {
         if (type === 'temporary') {
             // X button: Hide for current session only (not persisted)
             setHiddenBanners(prev => ({ ...prev, [cli]: true }));
@@ -713,7 +714,7 @@ function NewSessionWizard() {
         const supportedCLIs = (Object.entries(profile.compatibility) as [string, boolean][])
             .filter(([, supported]) => supported)
             .map(([agent]) => agent);
-        const requiredCLI = supportedCLIs.length === 1 ? supportedCLIs[0] as 'claude' | 'codex' | 'gemini' : null;
+        const requiredCLI = supportedCLIs.length === 1 ? supportedCLIs[0] as 'claude' | 'codex' | 'gemini' | 'opencode' : null;
 
         // Only disable if required CLI is not detected on machine
         if (requiredCLI && cliAvailability[requiredCLI] === false) {
@@ -955,7 +956,7 @@ function NewSessionWizard() {
                 .map(([agent]) => agent);
 
             if (supportedCLIs.length === 1) {
-                const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini';
+                const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini' | 'opencode';
                 // Check if this agent is available
                 const isAvailable = cliAvailability[requiredAgent] !== false;
 
@@ -975,13 +976,13 @@ function NewSessionWizard() {
                 applyManualPermissionMode(profile.defaultPermissionMode as PermissionMode);
             }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, applyManualPermissionMode]);
+    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.opencode, applyManualPermissionMode]);
 
     // Restore saved permission mode when agent type changes
     React.useEffect(() => {
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'yolo'];
         const validCodexGeminiModes: PermissionMode[] = ['default', 'read-only', 'safe-yolo', 'yolo'];
-        const validModes = (agentType === 'codex' || agentType === 'gemini') ? validCodexGeminiModes : validClaudeModes;
+        const validModes = (agentType === 'codex' || agentType === 'gemini' || agentType === 'opencode') ? validCodexGeminiModes : validClaudeModes;
         const manualMode = manualPermissionModeByAgentRef.current[agentType];
 
         if (manualMode && validModes.includes(manualMode)) {
@@ -998,7 +999,13 @@ function NewSessionWizard() {
     }, [agentType, lastUsedSessionMode?.permissionMode]);
 
     // Restore saved model mode when agent type changes
+    const prevAgentTypeForModelRef = React.useRef(agentType);
     React.useEffect(() => {
+        const agentChanged = prevAgentTypeForModelRef.current !== agentType;
+        prevAgentTypeForModelRef.current = agentType;
+
+        if (!agentChanged) return;
+
         const manualMode = manualModelModeByAgentRef.current[agentType];
         if (manualMode && isModelModeForAgent(agentType, manualMode)) {
             setModelMode((prev) => (prev === manualMode ? prev : manualMode));
@@ -1066,7 +1073,7 @@ function NewSessionWizard() {
             name: '',
             anthropicConfig: {},
             environmentVariables: [],
-            compatibility: { claude: true, codex: true, gemini: true },
+            compatibility: { claude: true, codex: true, gemini: true, opencode: true },
             isBuiltIn: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -1110,12 +1117,15 @@ function NewSessionWizard() {
             ['claude', 'Claude'],
             ['codex', 'Codex'],
             ['gemini', 'Gemini'],
+            ['opencode', 'OpenCode'],
         ] as const)
             .filter(([agent]) => profile.compatibility[agent])
             .map(([, label]) => label);
 
-        if (supportedCliLabels.length === 3) {
-            parts.push('Claude, Codex & Gemini CLI');
+        if (supportedCliLabels.length === 4) {
+            parts.push('All CLIs');
+        } else if (supportedCliLabels.length === 3) {
+            parts.push(`${supportedCliLabels[0]}, ${supportedCliLabels[1]} & ${supportedCliLabels[2]} CLI`);
         } else if (supportedCliLabels.length === 2) {
             parts.push(`${supportedCliLabels[0]} & ${supportedCliLabels[1]} CLI`);
         } else if (supportedCliLabels.length === 1) {
@@ -1125,7 +1135,7 @@ function NewSessionWizard() {
         // Add warning only if CLI not detected
         if (!availability.available && availability.reason?.startsWith('cli-not-detected:')) {
             const cli = availability.reason.split(':')[1];
-            const cliName = cli === 'claude' ? 'Claude' : cli === 'codex' ? 'Codex' : 'Gemini';
+            const cliName = cli === 'claude' ? 'Claude' : cli === 'codex' ? 'Codex' : cli === 'gemini' ? 'Gemini' : 'OpenCode';
             parts.push(`⚠️ ${cliName} CLI not detected`);
         }
 
@@ -1602,6 +1612,7 @@ function NewSessionWizard() {
                                 onMachineClick={handleMachineClick}
                                 currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
                                 onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
+                                opencodeModels={cliAvailability.opencodeModels}
                                 images={images}
                                 onImagesChange={(newImages) => {
                                     const currentUris = new Set(newImages.map(img => img.uri));
@@ -1940,6 +1951,78 @@ function NewSessionWizard() {
                                         }}>
                                             <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
                                                 {t('wizard.viewGeminiDocs')}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            )}
+
+                            {selectedMachineId && cliAvailability.opencode === false && !isWarningDismissed('opencode') && !hiddenBanners.opencode && (
+                                <View style={{
+                                    backgroundColor: theme.colors.box.warning.background,
+                                    borderRadius: 10,
+                                    padding: 12,
+                                    marginBottom: 12,
+                                    borderWidth: 1,
+                                    borderColor: theme.colors.box.warning.border,
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 16 }}>
+                                            <Ionicons name="warning" size={16} color={theme.colors.warning} />
+                                            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text, ...Typography.default('semiBold') }}>
+                                                {t('wizard.cliNotDetected', { name: 'OpenCode' })}
+                                            </Text>
+                                            <View style={{ flex: 1, minWidth: 20 }} />
+                                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                                {t('wizard.dontShowFor')}
+                                            </Text>
+                                            <Pressable
+                                                onPress={() => handleCLIBannerDismiss('opencode', 'machine')}
+                                                style={{
+                                                    borderRadius: 4,
+                                                    borderWidth: 1,
+                                                    borderColor: theme.colors.textSecondary,
+                                                    paddingHorizontal: 8,
+                                                    paddingVertical: 3,
+                                                }}
+                                            >
+                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                                    {t('wizard.thisMachine')}
+                                                </Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={() => handleCLIBannerDismiss('opencode', 'global')}
+                                                style={{
+                                                    borderRadius: 4,
+                                                    borderWidth: 1,
+                                                    borderColor: theme.colors.textSecondary,
+                                                    paddingHorizontal: 8,
+                                                    paddingVertical: 3,
+                                                }}
+                                            >
+                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                                    {t('wizard.anyMachine')}
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                        <Pressable
+                                            onPress={() => handleCLIBannerDismiss('opencode', 'temporary')}
+                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        >
+                                            <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
+                                        </Pressable>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
+                                            Install: go install github.com/opencode-ai/opencode@latest •
+                                        </Text>
+                                        <Pressable onPress={() => {
+                                            if (Platform.OS === 'web') {
+                                                window.open('https://github.com/opencode-ai/opencode', '_blank');
+                                            }
+                                        }}>
+                                            <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
+                                                {t('wizard.viewInstallGuide')}
                                             </Text>
                                         </Pressable>
                                     </View>
@@ -2372,6 +2455,7 @@ function NewSessionWizard() {
                             onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
                             profileId={selectedProfileId}
                             onProfileClick={handleAgentInputProfileClick}
+                            opencodeModels={cliAvailability.opencodeModels}
                             images={images}
                             onImagesChange={(newImages) => {
                                 const currentUris = new Set(newImages.map(img => img.uri));
