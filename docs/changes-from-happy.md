@@ -39,7 +39,7 @@ Happy Next now ships as a native-feeling desktop client instead of requiring a b
 - **Cross-platform distribution**: macOS 12+ Universal, Windows x64, and Windows ARM64 installers are published directly through GitHub Releases
 - **Native window lifecycle**: authentication-aware sizing, state restoration, refined fullscreen/title-bar interactions, multi-monitor bounds protection, theme-correct startup with a native startup logo, macOS title-bar integration, an integrated Windows title bar, and reliable custom drag regions
 - **Resident experience**: close to tray, explicit Quit, single-instance activation, optional launch at sign-in, and a global show/hide shortcut
-- **Notifications and unread state**: clean plain-text native notifications reliably open the associated Session, hidden windows return to the foreground, and unified unread state appears on the Dock or Windows taskbar
+- **Notifications and unread state**: clean plain-text native notifications reliably restore the app and open the associated Session, hidden windows return to the foreground, and unified unread state appears on the Dock or Windows taskbar
 - **Desktop controls**: native application menus plus search, navigation, new-session, inbox, DooTask, and settings shortcuts
 - **Signed updates**: updater payloads are cryptographically verified, downloaded quietly in the background, and installed only after the user clicks the in-app Update button
 - **Diagnostics and recovery**: sanitized desktop diagnostics, rotating local logs, WebKit storage maintenance, upload timeouts and retry handling, and preserved composer content after failures
@@ -371,7 +371,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 
 - **Brand refresh**: refreshed Happy Next logos, favicons, splash screens, notification assets, and mobile/desktop icons
 - **Adaptive themes**: system-theme changes apply reliably across the app and desktop authentication windows
-- **iOS polish and permissions**: action menus remain stable while the keyboard is visible, scanner camera-permission handling is clearer, and the unused motion permission is removed
+- **iOS polish and permissions**: action menus remain stable while the keyboard is visible, the scanner permission explanation proceeds directly to the iOS system request, and the unused motion permission is removed
 - **Dark mode** fixes throughout (text contrast, chips, status badges, input fields)
 - **i18n**: Chinese Simplified/Traditional system locale declaration, CJK input height handling, internationalized pickers
 - **Keyboard handling**: content follows keyboard smoothly, no jitter

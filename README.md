@@ -88,7 +88,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 ### Desktop Apps (macOS + Windows)
 - Direct-download clients for macOS 12+ Universal, Windows x64, and Windows ARM64
 - Native window sizing and restoration, frameless macOS title-bar integration, an integrated Windows title bar, refined fullscreen/title-bar interactions, multi-monitor bounds protection, and theme-correct startup with a native startup logo
-- Tray residency, close-to-tray behavior, single-instance activation, clean plain-text native notifications that reliably open the corresponding session, and unified Dock/taskbar unread indicators
+- Tray residency, close-to-tray behavior, single-instance activation, clean plain-text native notifications that reliably restore the app and open the corresponding session, and unified Dock/taskbar unread indicators
 - Native application menus, search and navigation shortcuts, optional launch at sign-in, and a global show/hide shortcut
 - Signed automatic updates download quietly in the background and wait for the user to install and restart
 - Desktop diagnostics, rotating local logs, WebKit storage maintenance, upload retry recovery, microphone/camera support, native context menus, reliable theme-isolated HTML preview windows, CSP-compatible code editing, system-browser external links, and restricted native capabilities
@@ -261,7 +261,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Web: bottom tab bundling fix, session header navigation fix, path autocomplete focus handling
 - Refreshed Happy Next logos, favicons, splash screens, notification assets, and mobile/desktop icons
 - Adaptive system-theme updates now apply reliably across app and desktop authentication windows
-- iOS scanner camera-permission flow is clearer, with the unused motion permission removed
+- iOS scanner camera-permission flow proceeds directly from its explanation to the system request, with the unused motion permission removed
 - Dark mode fixes throughout the app
 - i18n improvements (Chinese Simplified/Traditional, CJK input handling)
 - Markdown rendering: tables, inline code, nested fences, clickable file paths
