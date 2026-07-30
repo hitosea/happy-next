@@ -31,6 +31,9 @@ import {
 } from './desktopUpdater';
 
 const DESKTOP_SHORTCUT = 'CommandOrControl+Shift+H';
+const DESKTOP_UPDATE_INITIAL_DELAY_MS = 12_000;
+const DESKTOP_UPDATE_CHECK_INTERVAL_MS = 30 * 60_000;
+const DESKTOP_UPDATE_POLL_INTERVAL_MS = 60_000;
 const IS_MACOS_DESKTOP = typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
 const IS_WINDOWS_DESKTOP = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent);
 
@@ -54,14 +57,17 @@ export function DesktopBridge() {
     const notificationTimersRef = React.useRef(new Map<string, ReturnType<typeof setTimeout>>());
     const notificationPayloadRef = React.useRef(new Map<string, { title: string; body: string }>());
     const notificationSessionsRef = React.useRef(new Map<number, string>());
+    const lastDesktopUpdateCheckAtRef = React.useRef(0);
     React.useEffect(() => {
         if (!isTauriDesktop()) {
             return;
         }
         let cancelled = false;
         let unlistenMenu: (() => void) | undefined;
+        let unlistenUpdateFocus: (() => void) | undefined;
 
         const prepareUpdate = async (interactive = false) => {
+            lastDesktopUpdateCheckAtRef.current = Date.now();
             const result = await prepareDesktopUpdate();
             if (interactive && result.phase === 'upToDate') {
                 Modal.alert(t('desktopUpdate.title'), t('desktopUpdate.upToDate'));
@@ -76,9 +82,32 @@ export function DesktopBridge() {
             }
         };
 
-        const timer = setTimeout(() => {
+        const checkForUpdateIfDue = () => {
+            const lastCheckedAt = lastDesktopUpdateCheckAtRef.current;
+            if (lastCheckedAt === 0 || Date.now() - lastCheckedAt < DESKTOP_UPDATE_CHECK_INTERVAL_MS) {
+                return;
+            }
             void prepareUpdate();
-        }, 12_000);
+        };
+
+        const timer = setTimeout(() => {
+            if (lastDesktopUpdateCheckAtRef.current === 0) {
+                void prepareUpdate();
+            }
+        }, DESKTOP_UPDATE_INITIAL_DELAY_MS);
+        const updateInterval = setInterval(checkForUpdateIfDue, DESKTOP_UPDATE_POLL_INTERVAL_MS);
+
+        void getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+            if (focused) {
+                checkForUpdateIfDue();
+            }
+        }).then((unlisten) => {
+            if (cancelled) {
+                unlisten();
+            } else {
+                unlistenUpdateFocus = unlisten;
+            }
+        }).catch((error) => console.warn('Failed to register update focus listener:', error));
 
         void listen<{ action: string }>('desktop-menu-action', ({ payload }) => {
             if (payload.action === 'softwareUpdate') {
@@ -95,7 +124,9 @@ export function DesktopBridge() {
         return () => {
             cancelled = true;
             clearTimeout(timer);
+            clearInterval(updateInterval);
             unlistenMenu?.();
+            unlistenUpdateFocus?.();
         };
     }, [router]);
 
