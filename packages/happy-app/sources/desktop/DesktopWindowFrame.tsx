@@ -311,6 +311,13 @@ export function DesktopWindowFrame({ children }: { children: React.ReactNode }) 
     const [maximized, setMaximized] = React.useState(false);
     const isWindowsFullscreen = useDesktopWindowFullscreen(desktopPlatform === 'windows');
     const { width: windowWidth } = useWindowDimensions();
+    const handleGoHome = React.useCallback(() => {
+        try {
+            router.dismissAll();
+        } catch (_) {
+            // Already at the root of the current stack.
+        }
+    }, [router]);
 
     React.useEffect(() => {
         if (desktopPlatform !== 'windows') {
@@ -446,13 +453,30 @@ export function DesktopWindowFrame({ children }: { children: React.ReactNode }) 
                         </>
                     ) : (
                         <>
-                            <Image
-                                source={theme.dark
-                                    ? require('@/assets/images/logo-white.png')
-                                    : require('@/assets/images/logo-black.png')}
-                                contentFit="contain"
-                                style={{ height: 20, width: 20 }}
-                            />
+                            <Pressable
+                                {...({ 'data-desktop-no-drag': true } as any)}
+                                accessibilityLabel={t('tabs.sessions')}
+                                accessibilityRole="button"
+                                hitSlop={6}
+                                onPress={handleGoHome}
+                                ref={(element: any) => {
+                                    if (element && typeof element === 'object') {
+                                        element.title = t('tabs.sessions');
+                                    }
+                                }}
+                                style={({ hovered, pressed }: any) => ({
+                                    cursor: 'pointer',
+                                    opacity: hovered || pressed ? 0.7 : 1,
+                                })}
+                            >
+                                <Image
+                                    source={theme.dark
+                                        ? require('@/assets/images/logo-white.png')
+                                        : require('@/assets/images/logo-black.png')}
+                                    contentFit="contain"
+                                    style={{ height: 20, width: 20 }}
+                                />
+                            </Pressable>
                             {windowWidth >= 600 && (
                                 <Text
                                     selectable={false}
