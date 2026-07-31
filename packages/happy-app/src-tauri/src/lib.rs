@@ -261,11 +261,17 @@ fn positive_notification_id(value: &str) -> Option<i32> {
 }
 
 #[cfg(target_os = "windows")]
-fn set_windows_registry_string(path: &str, name: Option<&str>, value: &str) -> Result<(), String> {
+fn set_windows_registry_string(
+    path: &str,
+    name: Option<&str>,
+    value: &str,
+    expandable: bool,
+) -> Result<(), String> {
     use windows_sys::Win32::{
         Foundation::ERROR_SUCCESS,
         System::Registry::{
-            RegCloseKey, RegCreateKeyW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, REG_SZ,
+            RegCloseKey, RegCreateKeyW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, REG_EXPAND_SZ,
+            REG_SZ,
         },
     };
 
@@ -288,7 +294,7 @@ fn set_windows_registry_string(path: &str, name: Option<&str>, value: &str) -> R
             key,
             name_ptr,
             0,
-            REG_SZ,
+            if expandable { REG_EXPAND_SZ } else { REG_SZ },
             value.as_ptr().cast(),
             (value.len() * std::mem::size_of::<u16>()) as u32,
         )
@@ -306,19 +312,23 @@ fn set_windows_registry_string(path: &str, name: Option<&str>, value: &str) -> R
 #[cfg(target_os = "windows")]
 fn register_windows_notification_protocol(app: &AppHandle) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let notification_icon =
+        windows_notification_icon_path(app).unwrap_or_else(|| executable.clone());
     let command = format!("\"{}\" \"%1\"", executable.display());
     let protocol_key = r"Software\Classes\happy-next";
-    set_windows_registry_string(protocol_key, None, "URL:Happy Next notification")?;
-    set_windows_registry_string(protocol_key, Some("URL Protocol"), "")?;
+    set_windows_registry_string(protocol_key, None, "URL:Happy Next notification", false)?;
+    set_windows_registry_string(protocol_key, Some("URL Protocol"), "", false)?;
     set_windows_registry_string(
         r"Software\Classes\happy-next\DefaultIcon",
         None,
         &format!("\"{}\",0", executable.display()),
+        false,
     )?;
     set_windows_registry_string(
         r"Software\Classes\happy-next\shell\open\command",
         None,
         &command,
+        false,
     )?;
 
     let app_id_key = format!(
@@ -329,11 +339,13 @@ fn register_windows_notification_protocol(app: &AppHandle) -> Result<(), String>
         &app_id_key,
         Some("DisplayName"),
         app.config().product_name.as_deref().unwrap_or("Happy Next"),
+        true,
     )?;
     set_windows_registry_string(
         &app_id_key,
         Some("IconUri"),
-        &executable.display().to_string(),
+        &notification_icon.display().to_string(),
+        true,
     )
 }
 
@@ -345,6 +357,32 @@ fn escape_windows_toast_xml(value: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
+}
+
+#[cfg(target_os = "windows")]
+fn windows_notification_icon_path(app: &AppHandle) -> Option<PathBuf> {
+    let path = app
+        .path()
+        .resolve(
+            "icons/notification.png",
+            tauri::path::BaseDirectory::Resource,
+        )
+        .ok()
+        .filter(|path| path.is_file())?;
+    let path = path.to_string_lossy();
+    let path = if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{path}")
+    } else {
+        path.strip_prefix(r"\\?\").unwrap_or(&path).to_string()
+    };
+    Some(PathBuf::from(path))
+}
+
+#[cfg(target_os = "windows")]
+fn windows_notification_icon_uri(app: &AppHandle) -> Option<String> {
+    tauri::Url::from_file_path(windows_notification_icon_path(app)?)
+        .ok()
+        .map(|url| url.to_string())
 }
 
 #[cfg(target_os = "windows")]
@@ -362,8 +400,14 @@ fn show_windows_notification(
 
     let document = XmlDocument::new().map_err(|error| error.to_string())?;
     let activation_url = format!("{DESKTOP_NOTIFICATION_PROTOCOL_PREFIX}{notification_id}");
+    let icon = windows_notification_icon_uri(app).map_or_else(String::new, |uri| {
+        format!(
+            r#"<image placement="appLogoOverride" src="{}" alt="Happy Next"/>"#,
+            escape_windows_toast_xml(&uri)
+        )
+    });
     let xml = format!(
-        r#"<toast activationType="protocol" launch="{activation_url}"><visual><binding template="ToastGeneric"><text>{}</text><text>{}</text></binding></visual></toast>"#,
+        r#"<toast activationType="protocol" launch="{activation_url}"><visual><binding template="ToastGeneric">{icon}<text>{}</text><text>{}</text></binding></visual></toast>"#,
         escape_windows_toast_xml(title),
         escape_windows_toast_xml(body),
     );

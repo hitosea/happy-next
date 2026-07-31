@@ -55,6 +55,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "icons/128x128.png": "icons/notification.png"
+    },
     "createUpdaterArtifacts": true
   },
   "plugins": {
