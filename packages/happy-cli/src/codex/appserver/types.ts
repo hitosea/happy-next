@@ -138,6 +138,19 @@ export interface ThreadResumeResponse {
   serviceTier?: ServiceTier | null;
 }
 
+export interface ThreadForkParams {
+  threadId: string;
+  excludeTurns: boolean;
+  lastTurnId?: string;
+}
+
+export type ThreadForkResponse = ThreadStartResponse;
+
+export interface ThreadTurnsListResponse {
+  data: Turn[];
+  nextCursor: string | null;
+}
+
 // ─── Turn Management ───────────────────────────────────────────
 
 export interface TurnStartParams {
@@ -390,6 +403,8 @@ export const Methods = {
   INITIALIZED: 'initialized',
   THREAD_START: 'thread/start',
   THREAD_RESUME: 'thread/resume',
+  THREAD_FORK: 'thread/fork',
+  THREAD_TURNS_LIST: 'thread/turns/list',
   TURN_START: 'turn/start',
   TURN_INTERRUPT: 'turn/interrupt',
   REVIEW_START: 'review/start',

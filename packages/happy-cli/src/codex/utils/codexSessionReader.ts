@@ -17,6 +17,7 @@ import { readFile, stat as statFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
+import { z } from 'zod';
 import { logger } from '@/ui/logger';
 import {
   loadSessionMetadataCache,
@@ -61,6 +62,42 @@ export function findCodexSessionFile(codexSessionId: string): string | null {
   } catch {
     return null;
   }
+}
+
+const historyBaseSchema = z.object({
+  thread_id: z.string().uuid(),
+  end_byte_offset: z.number().int().nonnegative().safe(),
+});
+
+/** Read inherited paginated history at the immutable byte boundary recorded by Codex. */
+export async function readCodexSessionContent(filePath: string): Promise<string> {
+  return readCodexHistorySnapshot(filePath, new Set());
+}
+
+async function readCodexHistorySnapshot(filePath: string, ancestors: Set<string>, endByteOffset?: number): Promise<string> {
+  if (ancestors.has(filePath) || ancestors.size >= 100) throw new Error('Invalid Codex history ancestry');
+  const visited = new Set(ancestors).add(filePath);
+  const buffer = await readFile(filePath);
+  if (endByteOffset !== undefined && endByteOffset > buffer.length) throw new Error('Codex parent history snapshot is incomplete');
+  if (endByteOffset && buffer[endByteOffset - 1] !== 10) throw new Error('Codex parent history snapshot does not end at a record boundary');
+  const content = buffer.subarray(0, endByteOffset ?? buffer.length).toString('utf-8');
+  const lines = content.split('\n');
+  let metadata;
+  try { metadata = JSON.parse(lines[0]); } catch { return content; }
+  if (metadata?.type !== 'session_meta' || metadata.payload?.history_mode !== 'paginated' || !metadata.payload.history_base) {
+    return content;
+  }
+
+  const base = historyBaseSchema.parse(metadata.payload.history_base);
+  const parentPath = findCodexSessionFile(base.thread_id)
+    ?? collectFilesRecursive(join(getCodexHomeDir(), 'archived_sessions')).find(path => basename(path).endsWith(`-${base.thread_id}.jsonl`));
+  if (!parentPath) throw new Error(`Codex parent history not found: ${base.thread_id}`);
+  const inherited = await readCodexHistorySnapshot(parentPath, visited, base.end_byte_offset);
+  const inheritedLines = inherited.split('\n').filter(line => {
+    if (!line.trim()) return false;
+    try { return JSON.parse(line).type !== 'session_meta'; } catch { return true; }
+  });
+  return [lines[0], ...inheritedLines, ...lines.slice(1)].join('\n');
 }
 
 function collectFilesRecursive(dir: string, acc: string[] = []): string[] {
@@ -172,7 +209,7 @@ export async function readAllCodexSessionUserMessages(
 
   let content: string;
   try {
-    content = await readFile(filePath, 'utf-8');
+    content = await readCodexSessionContent(filePath);
   } catch (error) {
     logger.debug(`[CodexSessionReader] Failed to read file: ${filePath}`, error);
     return [];
@@ -238,7 +275,7 @@ interface CodexSessionMetadataCacheEntry {
   gitBranch?: string | null;
 }
 
-const CODEX_SESSION_METADATA_CACHE_VERSION = 1;
+const CODEX_SESSION_METADATA_CACHE_VERSION = 2;
 const CODEX_SESSION_METADATA_CACHE_FILENAME = 'codex-session-metadata-cache.json';
 
 export async function saveCodexSessionCacheStats(sessionCache: SessionCacheRuntimeStats): Promise<void> {
@@ -267,6 +304,7 @@ async function parseCodexSessionMetadata(filePath: string): Promise<Omit<CodexSe
   let gitBranch: string | null = null;
   let title: string | null = null;
   let messageCount = 0;
+  let hasInheritedHistory = false;
 
   try {
     for await (const line of rl) {
@@ -276,6 +314,7 @@ async function parseCodexSessionMetadata(filePath: string): Promise<Omit<CodexSe
 
         if (parsed.type === 'session_meta') {
           const payload = parsed.payload;
+          hasInheritedHistory = payload?.history_mode === 'paginated' && !!payload.history_base;
           sessionId = typeof payload?.id === 'string' ? payload.id : null;
           originalPath = typeof payload?.cwd === 'string' ? payload.cwd : null;
           gitBranch = typeof payload?.git?.branch === 'string' ? payload.git.branch : null;
@@ -313,6 +352,11 @@ async function parseCodexSessionMetadata(filePath: string): Promise<Omit<CodexSe
   }
 
   const rawSessionId = fileSessionId || sessionId;
+  if (hasInheritedHistory && rawSessionId) {
+    const messages = await readAllCodexSessionUserMessages(rawSessionId);
+    messageCount = messages.length;
+    title = messages[0] ? normalizeSessionTitle(messages[0].content) : null;
+  }
   const displaySessionId = rawSessionId ? extractDisplaySessionId(rawSessionId) : null;
   if (!displaySessionId || messageCount === 0) {
     return null;
@@ -454,7 +498,7 @@ export async function getCodexSessionPreview(
 
   let content: string;
   try {
-    content = await readFile(filePath, 'utf-8');
+    content = await readCodexSessionContent(filePath);
   } catch {
     return [];
   }

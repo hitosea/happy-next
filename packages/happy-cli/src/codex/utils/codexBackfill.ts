@@ -6,7 +6,6 @@
  * conversation history when a session is resumed or copied.
  */
 
-import { readFile } from 'node:fs/promises';
 import { basename, isAbsolute } from 'node:path';
 import { logger } from '@/ui/logger';
 import {
@@ -14,6 +13,7 @@ import {
     extractUserText,
     isSystemMessage,
     generateStableUuid,
+    readCodexSessionContent,
 } from './codexSessionReader';
 
 export interface CodexBackfillOptions {
@@ -108,7 +108,7 @@ export async function backfillCodexSessionHistory(opts: CodexBackfillOptions): P
 
     let content: string;
     try {
-        content = await readFile(filePath, 'utf-8');
+        content = await readCodexSessionContent(filePath);
     } catch (error) {
         logger.debug(`[CODEX-BACKFILL] Failed to read file: ${filePath}`, error);
         return;

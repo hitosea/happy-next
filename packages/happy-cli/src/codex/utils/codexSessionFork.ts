@@ -1,18 +1,13 @@
-/**
- * Codex Session Fork
- *
- * Fork and truncate Codex CLI's native JSONL session files for the duplicate feature.
- * Codex stores sessions at ~/.codex/sessions/{yyyy}/{mm}/{dd}/rollout-{datetime}-{conversationId}.jsonl
- *
- * Unlike Gemini (where Happy manages the JSONL files and uses Happy session IDs as filenames),
- * Codex fork returns a file path — the Codex CLI uses file paths for its native resumeConversation RPC.
- */
+/** Fork native Codex history through app-server so IDs and paginated indexes stay consistent. */
 
-import { randomUUID } from 'node:crypto';
-import { copyFile, readFile, writeFile, unlink as unlinkAsync } from 'node:fs/promises';
-import { dirname, join, basename } from 'node:path';
+import { stat } from 'node:fs/promises';
+import { basename, isAbsolute } from 'node:path';
+import { z } from 'zod';
 import { logger } from '@/ui/logger';
-import { findCodexSessionFile, generateStableUuid, extractUserText, isSystemMessage } from './codexSessionReader';
+import { CODEX_PACKAGE } from '@/codex/package';
+import { CodexJsonRpcPeer } from '../appserver/CodexJsonRpcPeer';
+import { Methods, type InitializeParams, type ThreadForkParams, type ThreadForkResponse, type ThreadTurnsListResponse } from '../appserver/types';
+import { findCodexSessionFile, generateStableUuid, extractUserText, isSystemMessage, readCodexSessionContent } from './codexSessionReader';
 
 export interface CodexForkResult {
   success: boolean;
@@ -21,85 +16,125 @@ export interface CodexForkResult {
   errorMessage?: string;
 }
 
-/**
- * Fork a Codex session without truncation.
- * Copies the JSONL file to a new file with a fresh UUID in the same directory.
- */
+const rolloutRecordSchema = z.object({
+  type: z.string(),
+  timestamp: z.string().optional(),
+  payload: z.record(z.unknown()),
+});
+
+function readForkSource(content: string, truncateBeforeUuid?: string) {
+  let threadId: string | undefined;
+  let currentTurnId: string | undefined;
+  let targetTurnId: string | undefined;
+  let userIndex = 0;
+  const turnsWithUserMessages = new Set<string>();
+
+  for (const line of content.split('\n')) {
+    let value: unknown;
+    try { value = JSON.parse(line); } catch { continue; }
+    const result = rolloutRecordSchema.safeParse(value);
+    if (!result.success) continue;
+    const { type, payload, timestamp } = result.data;
+
+    if (type === 'session_meta' && typeof payload.id === 'string') {
+      threadId = payload.id;
+      if (!truncateBeforeUuid) break;
+    }
+    if (type === 'event_msg' && payload.type === 'task_started') {
+      currentTurnId = typeof payload.turn_id === 'string' ? payload.turn_id : undefined;
+    } else if (type === 'turn_context' && typeof payload.turn_id === 'string') {
+      currentTurnId = payload.turn_id;
+    }
+
+    if (type !== 'response_item' || payload.role !== 'user') continue;
+    const text = extractUserText(payload);
+    if (!text || isSystemMessage(text)) continue;
+    if (generateStableUuid(timestamp ?? '', userIndex) === truncateBeforeUuid) {
+      if (!currentTurnId) throw new Error('Cannot resolve the selected message to a Codex turn');
+      if (turnsWithUserMessages.has(currentTurnId)) {
+        throw new Error('Cannot fork before a message in the middle of a Codex turn; select the first message of a later turn');
+      }
+      targetTurnId = currentTurnId;
+      break;
+    }
+    if (currentTurnId) turnsWithUserMessages.add(currentTurnId);
+    userIndex++;
+  }
+
+  if (!threadId) throw new Error('Codex session metadata is missing a thread id');
+  if (truncateBeforeUuid && !targetTurnId) throw new Error('Selected Codex message was not found in the session');
+  return { threadId, targetTurnId };
+}
+
+async function findPreviousTurn(peer: CodexJsonRpcPeer, threadId: string, targetTurnId: string): Promise<string> {
+  let previousTurnId: string | undefined;
+  let cursor: string | null = null;
+  const visitedCursors = new Set<string>();
+  do {
+    const page: ThreadTurnsListResponse = await peer.request(Methods.THREAD_TURNS_LIST, {
+      threadId, cursor, sortDirection: 'asc', limit: 100, itemsView: 'notLoaded',
+    });
+    for (const turn of page.data) {
+      if (turn.id === targetTurnId) {
+        if (!previousTurnId) {
+          throw new Error('Cannot fork before the first Codex turn; start a new session instead');
+        }
+        return previousTurnId;
+      }
+      previousTurnId = turn.id;
+    }
+    cursor = page.nextCursor;
+    if (cursor) {
+      if (visitedCursors.has(cursor)) throw new Error('Codex returned a repeated turn pagination cursor');
+      visitedCursors.add(cursor);
+    }
+  } while (cursor);
+  throw new Error('Selected Codex turn is no longer present in the session');
+}
+
 export async function forkCodexSession(codexSessionId: string): Promise<CodexForkResult> {
   return forkAndTruncateCodexSession(codexSessionId);
 }
 
-/**
- * Fork a Codex session and optionally truncate at a specific UUID.
- *
- * The UUID is a stable hash generated by codexSessionReader (codex:{timestamp}:{index}).
- * To truncate, we re-count user messages during copy to find the matching one.
- */
+/** Preserve history before the selected user message, never mutating the source thread. */
 export async function forkAndTruncateCodexSession(
   codexSessionId: string,
   truncateBeforeUuid?: string,
 ): Promise<CodexForkResult> {
-  const originalPath = findCodexSessionFile(codexSessionId);
-  if (!originalPath) {
-    return { success: false, errorMessage: `Codex session file not found for: ${codexSessionId}` };
-  }
-
-  // Generate new filename in the same directory
-  const dir = dirname(originalPath);
-  const now = new Date();
-  const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const newUUID = randomUUID();
-  const newPath = join(dir, `rollout-${dateStr}-${newUUID}.jsonl`);
-
+  let peer: CodexJsonRpcPeer | undefined;
   try {
-    if (!truncateBeforeUuid) {
-      // Simple copy — no truncation
-      await copyFile(originalPath, newPath);
-    } else {
-      // Copy with truncation: keep lines before the user message matching the UUID
-      const content = await readFile(originalPath, 'utf-8');
-      const lines = content.split('\n');
-      const outputLines: string[] = [];
-      let userIndex = 0;
-      let foundTruncationPoint = false;
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        if (foundTruncationPoint) continue;
-
-        try {
-          const parsed = JSON.parse(line);
-
-          // Check if this is the user message we want to truncate at
-          if (parsed.type === 'response_item' && parsed.payload?.role === 'user') {
-            const text = extractUserText(parsed.payload);
-            if (text && !isSystemMessage(text)) {
-              const timestamp = parsed.timestamp || '';
-              const uuid = generateStableUuid(timestamp, userIndex);
-              if (uuid === truncateBeforeUuid) {
-                foundTruncationPoint = true;
-                continue;
-              }
-              userIndex++;
-            }
-          }
-        } catch { /* keep line anyway */ }
-
-        if (!foundTruncationPoint) {
-          outputLines.push(line);
-        }
-      }
-
-      await writeFile(newPath, outputLines.join('\n') + '\n', 'utf-8');
+    const originalPath = findCodexSessionFile(codexSessionId);
+    if (!originalPath) throw new Error(`Codex session file not found for: ${codexSessionId}`);
+    const { threadId, targetTurnId } = readForkSource(await readCodexSessionContent(originalPath), truncateBeforeUuid);
+    // Old Happy copies kept the source ID inside a renamed rollout. Do not silently fork the original instead.
+    if (!basename(originalPath).endsWith(`-${threadId}.jsonl`)) {
+      throw new Error('Codex session file does not match its thread id; copy the original session again');
     }
 
-    logger.debug(`[CodexSessionFork] Forked ${basename(originalPath)} -> ${basename(newPath)}`);
-    return { success: true, newFilePath: newPath };
+    peer = new CodexJsonRpcPeer();
+    await peer.spawn('npx', ['-y', CODEX_PACKAGE, 'app-server'], { cwd: process.cwd() });
+    await peer.request(Methods.INITIALIZE, {
+      clientInfo: { name: 'happy-codex-fork', version: '1.0.0' },
+      capabilities: { experimentalApi: true },
+    } satisfies InitializeParams);
+    peer.notify(Methods.INITIALIZED);
+
+    const params: ThreadForkParams = { threadId, excludeTurns: true };
+    if (targetTurnId) params.lastTurnId = await findPreviousTurn(peer, threadId, targetTurnId);
+    const { thread } = await peer.request<ThreadForkResponse>(Methods.THREAD_FORK, params);
+    if (!thread.id || thread.id === threadId || !thread.path || !isAbsolute(thread.path) || thread.path === originalPath) {
+      throw new Error('Codex did not return an independent persisted fork');
+    }
+    if (!(await stat(thread.path)).isFile()) throw new Error('Codex fork rollout is not a file');
+
+    logger.debug(`[CodexSessionFork] Forked ${threadId} -> ${thread.id}`);
+    return { success: true, newFilePath: thread.path };
   } catch (error) {
-    try { await unlinkAsync(newPath); } catch { /* ignore */ }
     return {
       success: false,
       errorMessage: error instanceof Error ? error.message : 'Failed to fork Codex session',
     };
+  } finally {
+    await peer?.close();
   }
 }
