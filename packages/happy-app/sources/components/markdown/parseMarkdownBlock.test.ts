@@ -263,6 +263,30 @@ describe('parseMarkdownBlock', () => {
         ].join('\n'));
     });
 
+    it('parses HTML <img> tag as image block', () => {
+        const markdown = '<img width="536" height="354" alt="Image" src="https://github.com/user-attachments/assets/bac39ded-f1f7-4430-a417-55d47a39e97f" />';
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0]).toEqual({
+            type: 'image',
+            alt: 'Image',
+            url: 'https://github.com/user-attachments/assets/bac39ded-f1f7-4430-a417-55d47a39e97f',
+        });
+    });
+
+    it('parses HTML <img> tag without alt', () => {
+        const markdown = '<img src="https://example.com/img.png" />';
+        const blocks = parseMarkdownBlock(markdown);
+
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0]).toEqual({
+            type: 'image',
+            alt: '',
+            url: 'https://example.com/img.png',
+        });
+    });
+
     it('closes a four-backtick fence with a five-backtick line (longer fence allowed)', () => {
         const markdown = [
             '````',

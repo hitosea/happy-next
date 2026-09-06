@@ -40,7 +40,7 @@ class AuthModule {
         const githubGenerator = await privacyKit.createEphemeralTokenGenerator({
             service: 'github-happy',
             seed: process.env.HANDY_MASTER_SECRET!,
-            ttl: 5 * 60 * 1000 // 5 minutes
+            ttl: 10 * 60 * 1000 // 10 minutes
         });
 
         const githubVerifier = await privacyKit.createEphemeralTokenVerifier({

@@ -331,6 +331,24 @@ export function parseMarkdownBlock(markdown: string) {
             }
         }
 
+        // Standalone image: ![alt](url)
+        const imageMatch = trimmed.match(/^!\[([^\]]*)\]\(((?:[^()]+|\([^()]*\))*)\)$/);
+        if (imageMatch) {
+            blocks.push({ type: 'image', alt: imageMatch[1], url: imageMatch[2].trim() });
+            continue;
+        }
+
+        // HTML <img> tag (GitHub often generates these for pasted images)
+        const imgTagMatch = trimmed.match(/^<img\s[^>]*\/?>/i);
+        if (imgTagMatch) {
+            const srcMatch = trimmed.match(/src=["']([^"']+)["']/i);
+            const altMatch = trimmed.match(/alt=["']([^"']+)["']/i);
+            if (srcMatch) {
+                blocks.push({ type: 'image', alt: altMatch?.[1] ?? '', url: srcMatch[1] });
+                continue;
+            }
+        }
+
         // Fallback
         if (trimmed.length > 0) {
             blocks.push({ type: 'text', content: parseMarkdownSpans(trimmed, false) });

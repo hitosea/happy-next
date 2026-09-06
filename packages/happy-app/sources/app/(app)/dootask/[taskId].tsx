@@ -26,6 +26,7 @@ import { showCopiedToast } from '@/components/Toast';
 import { layout } from '@/components/layout';
 import { parseFlowItem, getFlowColor, FLOW_STATUS_COLORS } from '@/sync/dootask/types';
 import type { DooTaskItem, DooTaskFile } from '@/sync/dootask/types';
+import { formatSessionAge } from '@/data/repoUtils';
 import { openExternalUrl } from '@/utils/tauri';
 
 function formatFileSize(bytes: number): string {
@@ -61,17 +62,6 @@ function DetailField({ label, value, color, theme, onLongPress }: {
             )}
         </View>
     );
-}
-
-function formatSessionAge(ts: number): string {
-    const sec = Math.floor((Date.now() - ts) / 1000);
-    if (sec < 60) return '<1m';
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h`;
-    const day = Math.floor(hr / 24);
-    return `${day}d`;
 }
 
 export default function DooTaskDetail() {

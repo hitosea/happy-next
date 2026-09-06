@@ -4,6 +4,7 @@ import { useWebHorizontalScroll } from '@/hooks/useWebHorizontalScroll';
 import { Link } from 'expo-router';
 import * as React from 'react';
 import { Pressable, ScrollView, View, Platform, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { MermaidRenderer } from './MermaidRenderer';
+import { ImageViewer } from '@/components/ImageViewer';
 import { t } from '@/text';
 
 // Option type for callback
@@ -43,9 +45,31 @@ export const MarkdownView = React.memo((props: {
 }) => {
     const blocks = React.useMemo(() => parseMarkdown(props.markdown), [props.markdown]);
 
-    // On mobile, individual text elements are not selectable. Instead, the long press
-    // will be handled by a wrapper GestureDetector that opens the text-selection page.
-    // On web, native text selection is used.
+    const allImageUrls = React.useMemo(() => {
+        const urls: string[] = [];
+        for (const block of blocks) {
+            if (block.type === 'image') {
+                urls.push(block.url);
+            } else if (block.type === 'text' || block.type === 'header') {
+                for (const span of block.content) {
+                    if (span.imageUrl) urls.push(span.imageUrl);
+                }
+            }
+        }
+        return urls;
+    }, [blocks]);
+
+    const [viewerVisible, setViewerVisible] = React.useState(false);
+    const [viewerIndex, setViewerIndex] = React.useState(0);
+
+    const onImagePress = React.useCallback((url: string) => {
+        const idx = allImageUrls.indexOf(url);
+        setViewerIndex(idx >= 0 ? idx : 0);
+        setViewerVisible(true);
+    }, [allImageUrls]);
+
+    const viewerImages = React.useMemo(() => allImageUrls.map((uri) => ({ uri })), [allImageUrls]);
+
     const selectable = Platform.OS === 'web';
     const router = useRouter();
     const linkContext = React.useMemo(() => ({
@@ -86,6 +110,8 @@ export const MarkdownView = React.memo((props: {
             return <RenderOptionsBlock items={block.items} key={index} first={index === 0} last={index === blocks.length - 1} selectable={selectable} onOptionPress={props.onOptionPress} onOptionLongPress={props.onOptionLongPress} optionsLoadingState={props.optionsLoadingState} />;
         } else if (block.type === 'blockquote') {
             return <RenderBlockquoteBlock content={block.content} key={index} first={index === 0} last={index === blocks.length - 1} selectable={selectable} />;
+        } else if (block.type === 'image') {
+            return <RenderImageBlock url={block.url} alt={block.alt} key={index} />;
         } else if (block.type === 'table') {
             return <RenderTableBlock headers={block.headers} rows={block.rows} key={index} first={index === 0} last={index === blocks.length - 1} />;
         } else {
@@ -105,7 +131,12 @@ export const MarkdownView = React.memo((props: {
     if (Platform.OS === 'web') {
         return (
             <MarkdownLinkContext.Provider value={linkContext}>
-                {renderContent()}
+                <MarkdownImageContext.Provider value={onImagePress}>
+                    {renderContent()}
+                    {viewerImages.length > 0 && (
+                        <ImageViewer images={viewerImages} initialIndex={viewerIndex} visible={viewerVisible} onClose={() => setViewerVisible(false)} />
+                    )}
+                </MarkdownImageContext.Provider>
             </MarkdownLinkContext.Provider>
         );
     }
@@ -155,9 +186,14 @@ export const MarkdownView = React.memo((props: {
 
     return (
         <MarkdownLinkContext.Provider value={linkContext}>
-            <View style={{ width: '100%' }}>
-                {elements}
-            </View>
+            <MarkdownImageContext.Provider value={onImagePress}>
+                <View style={{ width: '100%' }}>
+                    {elements}
+                </View>
+                {viewerImages.length > 0 && (
+                    <ImageViewer images={viewerImages} initialIndex={viewerIndex} visible={viewerVisible} onClose={() => setViewerVisible(false)} />
+                )}
+            </MarkdownImageContext.Provider>
         </MarkdownLinkContext.Provider>
     );
 });
@@ -168,8 +204,39 @@ const MarkdownLinkContext = React.createContext<{
     sessionHomeDirectory?: string | null;
 }>({});
 
+const MarkdownImageContext = React.createContext<(url: string) => void>(() => {});
+
 function RenderTextBlock(props: { spans: MarkdownSpan[], first: boolean, last: boolean, selectable: boolean }) {
-    return <Text selectable={props.selectable} style={[style.text, props.first && style.first, props.last && style.last]}><RenderSpans spans={props.spans} baseStyle={style.text} /></Text>;
+    const hasImage = props.spans.some((s) => s.imageUrl);
+    if (!hasImage) {
+        return <Text selectable={props.selectable} style={[style.text, props.first && style.first, props.last && style.last]}><RenderSpans spans={props.spans} baseStyle={style.text} /></Text>;
+    }
+    // Split around inline images: render text spans as Text, images as Image
+    const groups: { type: 'text'; spans: MarkdownSpan[] }[] | { type: 'image'; url: string; alt: string }[] = [];
+    let textGroup: MarkdownSpan[] = [];
+    for (const span of props.spans) {
+        if (span.imageUrl) {
+            if (textGroup.length > 0) {
+                (groups as any[]).push({ type: 'text', spans: textGroup });
+                textGroup = [];
+            }
+            (groups as any[]).push({ type: 'image', url: span.imageUrl, alt: span.text });
+        } else {
+            textGroup.push(span);
+        }
+    }
+    if (textGroup.length > 0) {
+        (groups as any[]).push({ type: 'text', spans: textGroup });
+    }
+    return (
+        <View style={[props.first && style.first, props.last && style.last]}>
+            {(groups as any[]).map((g: any, i: number) =>
+                g.type === 'image'
+                    ? <RenderInlineImage key={i} url={g.url} alt={g.alt} />
+                    : <Text key={i} selectable={props.selectable} style={style.text}><RenderSpans spans={g.spans} baseStyle={style.text} /></Text>
+            )}
+        </View>
+    );
 }
 
 function RenderHeaderBlock(props: { level: 1 | 2 | 3 | 4 | 5 | 6, spans: MarkdownSpan[], first: boolean, last: boolean, selectable: boolean }) {
@@ -522,6 +589,44 @@ function getBlockquoteItemStyle(depth: number) {
         paddingLeft: 12,
         marginLeft: Math.min(depth - 1, 5) * 18,
     };
+}
+
+function RenderImageBlock(props: { url: string; alt: string }) {
+    const [aspectRatio, setAspectRatio] = React.useState(16 / 9);
+    const onImagePress = React.useContext(MarkdownImageContext);
+    return (
+        <Pressable style={style.imageBlock} onPress={() => onImagePress(props.url)}>
+            <Image
+                source={{ uri: props.url }}
+                style={{ width: '100%', aspectRatio, borderRadius: 8 }}
+                contentFit="contain"
+                transition={200}
+                onLoad={(e) => {
+                    const { width, height } = e.source;
+                    if (width && height) setAspectRatio(width / height);
+                }}
+            />
+        </Pressable>
+    );
+}
+
+function RenderInlineImage(props: { url: string; alt: string }) {
+    const [aspectRatio, setAspectRatio] = React.useState(16 / 9);
+    const onImagePress = React.useContext(MarkdownImageContext);
+    return (
+        <Pressable style={style.inlineImage} onPress={() => onImagePress(props.url)}>
+            <Image
+                source={{ uri: props.url }}
+                style={{ width: '100%', aspectRatio, borderRadius: 6 }}
+                contentFit="contain"
+                transition={200}
+                onLoad={(e) => {
+                    const { width, height } = e.source;
+                    if (width && height) setAspectRatio(width / height);
+                }}
+            />
+        </Pressable>
+    );
 }
 
 function RenderSpans(props: { spans: MarkdownSpan[], baseStyle?: any, isHeader?: boolean, disableCodeLineHeight?: boolean }) {
@@ -883,6 +988,20 @@ const style = StyleSheet.create((theme) => ({
         fontSize: 16,
         lineHeight: 24,
         color: theme.colors.textSecondary,
+    },
+    imageBlock: {
+        marginVertical: 8,
+        borderRadius: 8,
+        overflow: 'hidden',
+        maxWidth: '100%',
+        backgroundColor: theme.colors.divider,
+    },
+    inlineImage: {
+        marginVertical: 4,
+        borderRadius: 6,
+        backgroundColor: theme.colors.divider,
+        overflow: 'hidden',
+        maxWidth: '100%',
     },
     horizontalRule: {
         height: 1,

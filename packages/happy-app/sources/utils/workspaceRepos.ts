@@ -8,6 +8,8 @@ export interface RegisteredRepo {
     id: string;
     path: string;
     displayName: string;
+    githubOwner?: string;
+    githubRepo?: string;
     defaultTargetBranch?: string;
     defaultWorkingDir?: string;
     setupScript?: string;
@@ -17,6 +19,25 @@ export interface RegisteredRepo {
     devServerScript?: string;
     copyFiles?: string;
     lastUsedAt?: number;
+}
+
+export function matchesGithubRepo(r: RegisteredRepo, owner: string, repo: string): boolean {
+    return r.githubOwner === owner && r.githubRepo === repo;
+}
+
+/**
+ * Pick the (only) RegisteredRepo binding for an AutoPilot run.
+ *
+ * Repo ↔ machine is strictly 1:1: `handlePathConfirm` drop-stales other machines' bindings
+ * for the same GitHub owner/repo, so `candidates` is always 0 or 1 entries. The function
+ * shape is preserved as a stable entrypoint in case binding-selection rules ever need
+ * to evolve (e.g., online/offline fallback), but today it just returns the first candidate.
+ */
+export function pickAutoPilotBinding<T extends RegisteredRepo & { machineId: string }>(
+    candidates: T[],
+    _isOnline: (machineId: string) => boolean,
+): T | null {
+    return candidates[0] ?? null;
 }
 
 /**

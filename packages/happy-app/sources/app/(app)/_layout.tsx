@@ -296,6 +296,65 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="repos/index"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('lab.screenTitle'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+
+            <Stack.Screen
+                name="repos/[owner]/[repo]"
+                options={{
+                    headerShown: true,
+                    headerTitle: '',
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="repos/[owner]/[repo]/issues"
+                options={({ navigation }) => ({
+                    headerShown: true,
+                    headerTitle: t('github.issues'),
+                    headerBackTitle: t('common.back'),
+                    headerRight: () => (
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('repos/[owner]/[repo]/issue/new' as never)}
+                            style={{ paddingHorizontal: 16 }}
+                        >
+                            <Text style={{ color: theme.colors.button.primary.tint, fontSize: 16 }}>
+                                +
+                            </Text>
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="repos/[owner]/[repo]/pulls"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('github.pullRequests'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="repos/[owner]/[repo]/pulls/[number]"
+                options={{
+                    headerShown: true,
+                    headerTitle: '',
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
+                name="repos/[owner]/[repo]/issue/[number]"
+                options={{
+                    headerShown: true,
+                    headerTitle: '',
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
                 name="orchestrator/index"
                 options={{
                     headerShown: true,

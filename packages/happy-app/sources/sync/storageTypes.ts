@@ -74,6 +74,7 @@ export const MetadataSchema = z.object({
         displayName: z.string().optional(),
     })).optional(),
     workspacePath: z.string().optional(),
+    githubRepo: z.string().optional(),
     externalContext: z.object({
         source: z.string(),
         sourceUrl: z.string().optional(),
@@ -85,6 +86,34 @@ export const MetadataSchema = z.object({
     }).optional(),
     sessionIcon: z.string().optional(),
     completionDismissedAt: z.number().nullish(),
+    autoPilotIssue: z.object({
+        number: z.number(),
+        owner: z.string(),
+        repo: z.string(),
+        locale: z.string().optional(),
+        phase: z.enum(['analyze', 'modify', 'pr']).optional(),
+        progress: z.number().min(0).max(100).optional(),
+        linkedPRNumber: z.number().optional(),
+        error: z.string().optional(),
+        lastCheckpointAt: z.number().optional(),
+        // Triage gate: set when the agent decides the issue is not actionable.
+        // When true the UI shows a "skipped" state with the reason instead of running/completed.
+        skipped: z.boolean().optional(),
+        skippedReason: z.string().optional(),
+        // Set by the CLI on the explicit kill-session RPC path so the UI can distinguish
+        // a user-initiated stop from a crash or other natural termination.
+        stoppedByUser: z.boolean().optional(),
+        // Server-side AutoPilotRule id that triggered this run (webhook-driven).
+        // Absent for manually-started runs.
+        ruleId: z.string().optional(),
+    }).optional(),
+    // Issue discussion binding: marks this session as the single chat session tied to an issue.
+    // Consumed by findDiscussSessionId to deduplicate "Discuss this issue" clicks across devices.
+    discussIssue: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        number: z.number(),
+    }).optional(),
 });
 
 export type Metadata = z.infer<typeof MetadataSchema>;

@@ -1436,7 +1436,10 @@ function NewSessionWizard() {
                 directory: actualPath,
                 approvedNewDirectoryCreation: true,
                 agent: agentType,
-                environmentVariables,
+                environmentVariables: {
+                    ...environmentVariables,
+                    ...tempSessionData?.environmentVariables,
+                },
                 // Pass worktree metadata so CLI includes it in initial metadata (avoids race condition)
                 ...(sessionType === 'worktree' && worktreeBranchName ? {
                     worktreeBasePath: selectedPath,
@@ -1455,8 +1458,8 @@ function NewSessionWizard() {
 
                 await sync.refreshSessions();
 
-                // Write external context and session icon to metadata
-                if (tempSessionData?.externalContext || tempSessionData?.sessionIcon) {
+                // Write external context, session icon, and githubRepo to metadata
+                if (tempSessionData?.externalContext || tempSessionData?.sessionIcon || tempSessionData?.githubRepo) {
                     const freshSession = storage.getState().sessions[result.sessionId];
                     if (freshSession?.metadata) {
                         try {
@@ -1466,6 +1469,7 @@ function NewSessionWizard() {
                                 {
                                     ...(tempSessionData.externalContext ? { externalContext: tempSessionData.externalContext } : {}),
                                     ...(tempSessionData.sessionIcon ? { sessionIcon: tempSessionData.sessionIcon } : {}),
+                                    ...(tempSessionData.githubRepo ? { githubRepo: tempSessionData.githubRepo } : {}),
                                 },
                                 freshSession.metadataVersion
                             );
@@ -2242,6 +2246,7 @@ function NewSessionWizard() {
                                     }
                                 }}
                                 />
+
                             </View>
 
                             {/* Section 3: Session Mode */}

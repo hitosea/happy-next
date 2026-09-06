@@ -1,12 +1,8 @@
-import sharp from "sharp";
 import { randomKey } from "@/utils/randomKey";
 import { processImage } from "@/storage/processImage";
 import { s3bucket, s3client, s3public } from "@/storage/files";
 import { db } from "@/storage/db";
-
-const MAX_DIMENSION = 1568;
-const MAX_SIZE_BYTES = 1.5 * 1024 * 1024; // 1.5MB
-const JPEG_QUALITY = 80;
+import { compressForUpload } from "@/storage/compressImage";
 
 interface UploadChatImageResult {
     url: string;
@@ -15,40 +11,6 @@ interface UploadChatImageResult {
     height: number;
     thumbhash: string;
     mimeType: string;
-}
-
-/**
- * Compress image server-side as a safety net.
- * Only compresses if the image exceeds size or dimension limits.
- * Images already within limits are passed through unchanged.
- */
-async function compressForUpload(imageBuffer: Buffer, mimeType: string): Promise<{ buffer: Buffer; width: number; height: number; mimeType: string }> {
-    const meta = await sharp(imageBuffer).metadata();
-    const width = meta.width ?? 0;
-    const height = meta.height ?? 0;
-
-    const needsResize = width > MAX_DIMENSION || height > MAX_DIMENSION;
-    const needsCompress = imageBuffer.length > MAX_SIZE_BYTES;
-
-    // Skip compression if image is already within limits
-    if (!needsResize && !needsCompress) {
-        return { buffer: imageBuffer, width, height, mimeType };
-    }
-
-    let pipeline = sharp(imageBuffer);
-
-    if (needsResize) {
-        pipeline = pipeline.resize(MAX_DIMENSION, MAX_DIMENSION, { fit: "inside", withoutEnlargement: true });
-    }
-
-    const output = await pipeline.jpeg({ quality: JPEG_QUALITY }).toBuffer({ resolveWithObject: true });
-
-    return {
-        buffer: output.data,
-        width: output.info.width,
-        height: output.info.height,
-        mimeType: "image/jpeg",
-    };
 }
 
 /**

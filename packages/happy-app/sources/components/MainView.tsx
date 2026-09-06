@@ -14,6 +14,7 @@ import { TabBar, TabType } from './TabBar';
 import { InboxView } from './InboxView';
 import { SettingsViewWrapper } from './SettingsViewWrapper';
 import { DooTaskListView } from './DooTaskListView';
+import { GitHubListView } from './GitHubListView';
 import { SessionsListWrapper } from './SessionsListWrapper';
 import { HeaderLogo } from './HeaderLogo';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
@@ -24,6 +25,10 @@ import { t } from '@/text';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { trackFriendsSearch } from '@/track';
 import { DooTaskCreateSheet } from './dootask/DooTaskCreateSheet';
+import { useProfile } from '@/sync/storage';
+import { useAuth } from '@/auth/AuthContext';
+import { prefetchGithubData } from '@/hooks/useGithubData';
+import { shouldProvideMainHeaderRight } from './mainHeaderOptions';
 import { getDesktopPlatform, handleDesktopTitleBarMouseDown } from '@/desktop/desktopWindowUtils';
 
 interface MainViewProps {
@@ -36,6 +41,17 @@ const styles = StyleSheet.create((theme) => ({
     },
     phoneContainer: {
         flex: 1,
+    },
+    tabPage: {
+        position: 'absolute' as const,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    tabPageHidden: {
+        opacity: 0,
+        pointerEvents: 'none' as const,
     },
     sidebarContentContainer: {
         flex: 1,
@@ -92,6 +108,10 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    repoTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     titleText: {
         fontSize: 17,
         lineHeight: 24,
@@ -123,14 +143,15 @@ const TAB_TITLES = {
     sessions: 'tabs.sessions',
     inbox: 'tabs.inbox',
     dootask: 'tabs.dootask',
+    github: 'tabs.github',
     settings: 'tabs.settings',
 } as const;
 
 // Active tabs
-type ActiveTabType = 'sessions' | 'inbox' | 'dootask' | 'settings';
+type ActiveTabType = 'sessions' | 'inbox' | 'dootask' | 'github' | 'settings';
 
 // Header title component with connection status
-const HeaderTitle = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => {
+const HeaderTitle = React.memo(({ activeTab, githubRepo, githubLoading, onGithubRepoPress }: { activeTab: ActiveTabType; githubRepo?: string | null; githubLoading?: boolean; onGithubRepoPress?: () => void }) => {
     const { theme } = useUnistyles();
     const socketStatus = useSocketStatus();
 
@@ -169,6 +190,24 @@ const HeaderTitle = React.memo(({ activeTab }: { activeTab: ActiveTabType }) => 
                 };
         }
     }, [socketStatus, theme]);
+
+    if (activeTab === 'github') {
+        const repoName = githubRepo ? githubRepo.split('/').pop() || githubRepo : '';
+        return (
+            <Pressable style={styles.titleContainer} onPress={onGithubRepoPress} disabled={githubLoading || !repoName}>
+                {repoName ? (
+                    <View style={styles.repoTitleRow}>
+                        <Text style={[styles.titleText, { maxWidth: 200 }]} numberOfLines={1} ellipsizeMode="tail">
+                            {repoName}
+                        </Text>
+                        <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
+                    </View>
+                ) : (
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                )}
+            </Pressable>
+        );
+    }
 
     return (
         <View style={styles.titleContainer}>
@@ -233,6 +272,10 @@ const HeaderRight = React.memo(({ activeTab, onDootaskCreate }: { activeTab: Act
         );
     }
 
+    if (activeTab === 'github') {
+        return null;
+    }
+
     if (activeTab === 'settings') {
         if (!isCustomServer) {
             return null;
@@ -262,6 +305,23 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const inboxHasContent = useInboxHasContent();
     const showDootaskTab = !!dootaskProfile;
     const isCustomServer = isUsingCustomServer();
+    const profile = useProfile();
+    const showGithubTab = !!profile?.github;
+    const { credentials } = useAuth();
+
+    const [githubRepo, setGithubRepo] = React.useState<string | null>(null);
+    const [githubLoading, setGithubLoading] = React.useState(false);
+    const githubRepoPickerTriggerRef = React.useRef<(() => void) | null>(null);
+    const handleOpenRepoPicker = React.useCallback(() => {
+        githubRepoPickerTriggerRef.current?.();
+    }, []);
+
+    React.useEffect(() => {
+        if (showGithubTab && credentials) {
+            prefetchGithubData(credentials);
+        }
+    }, [showGithubTab, credentials]);
+
     const desktopPlatform = getDesktopPlatform();
     const isDesktopMacOS = desktopPlatform === 'macos';
     const isDesktopWindows = desktopPlatform === 'windows';
@@ -274,7 +334,10 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         if (!showDootaskTab && activeTab === 'dootask') {
             setActiveTab('sessions');
         }
-    }, [showDootaskTab, activeTab]);
+        if (!showGithubTab && activeTab === 'github') {
+            setActiveTab('sessions');
+        }
+    }, [showDootaskTab, showGithubTab, activeTab]);
 
     const handleNewSession = React.useCallback(() => {
         router.push('/new');
@@ -309,6 +372,8 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 return <InboxView />;
             case 'dootask':
                 return <DooTaskListView />;
+            case 'github':
+                return <GitHubListView onRepoChange={setGithubRepo} onLoadingChange={setGithubLoading} repoPickerTriggerRef={githubRepoPickerTriggerRef} />;
             case 'settings':
                 return <SettingsViewWrapper />;
             case 'sessions':
@@ -345,6 +410,11 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
             title: t('tabs.dootask'),
             focusedIcon: require('@/assets/images/navigation/todo.png'),
         }] : []),
+        ...(showGithubTab ? [{
+            key: 'github' as const,
+            title: t('tabs.github'),
+            focusedIcon: require('@/assets/images/navigation/github.png'),
+        }] : []),
         {
             key: 'settings',
             title: t('tabs.settings'),
@@ -361,6 +431,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
             case 'sessions': return <SessionsListWrapper />;
             case 'inbox': return <InboxView />;
             case 'dootask': return <DooTaskListView />;
+            case 'github': return <GitHubListView onRepoChange={setGithubRepo} onLoadingChange={setGithubLoading} repoPickerTriggerRef={githubRepoPickerTriggerRef} />;
             case 'settings': return <SettingsViewWrapper />;
             default: return null;
         }
@@ -439,11 +510,11 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 headerShown: true,
                 headerShadowVisible: false,
                 headerStyle: { backgroundColor: theme.colors.groupped.background },
-                headerTitle: () => <HeaderTitle activeTab={activeTab as ActiveTabType} />,
+                headerTitle: () => <HeaderTitle activeTab={activeTab as ActiveTabType} githubRepo={githubRepo} githubLoading={githubLoading} onGithubRepoPress={handleOpenRepoPicker} />,
                 headerLeft: () => <HeaderLogo />,
-                headerRight: activeTab === 'settings' && !isCustomServer
-                    ? undefined
-                    : () => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} />,
+                headerRight: shouldProvideMainHeaderRight(activeTab) && !(activeTab === 'settings' && !isCustomServer)
+                    ? () => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} />
+                    : undefined,
             }}
         />
     );
@@ -473,6 +544,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                     onTabPress={handleTabPress}
                     inboxBadgeCount={friendRequests.length}
                     showDootaskTab={showDootaskTab}
+                    showGithubTab={showGithubTab}
                 />
                 {dootaskSheet}
             </>

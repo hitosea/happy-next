@@ -62,17 +62,32 @@ function parseMarkdownSpansWithInheritedStyles(markdown: string, header: boolean
                 spans.push(...parseMarkdownSpansWithInheritedStyles(match[12], header, [...inheritedStyles, 'italic']));
             }
         } else if (match[13]) {
-            // Link - handle incomplete links (no URL part)
+            // Link or image - check if preceded by ! (image syntax)
+            const isImage = match.index > 0 && markdown[match.index - 1] === '!';
+            if (isImage) {
+                // Remove the trailing '!' from the last plain text span
+                const prev = spans[spans.length - 1];
+                if (prev && !prev.url && !prev.imageUrl && prev.text.endsWith('!')) {
+                    prev.text = prev.text.slice(0, -1);
+                    if (prev.text.length === 0) spans.pop();
+                }
+            }
+
+            // Link or image - handle incomplete links (no URL part)
             if (match[15]) {
                 const normalizedUrl = normalizeMarkdownLinkUrl(match[15]);
                 if (normalizedUrl) {
-                    spans.push({ styles: [...inheritedStyles], text: match[14], url: normalizedUrl });
+                    if (isImage) {
+                        spans.push({ styles: [...inheritedStyles], text: match[14], url: null, imageUrl: normalizedUrl });
+                    } else {
+                        spans.push({ styles: [...inheritedStyles], text: match[14], url: normalizedUrl });
+                    }
                 } else {
-                    spans.push({ styles: [...inheritedStyles], text: `[${match[14]}]`, url: null });
+                    spans.push({ styles: [...inheritedStyles], text: isImage ? `![${match[14]}]` : `[${match[14]}]`, url: null });
                 }
             } else {
                 // If no URL part, treat as plain text with brackets
-                spans.push({ styles: [...inheritedStyles], text: `[${match[14]}]`, url: null });
+                spans.push({ styles: [...inheritedStyles], text: isImage ? `![${match[14]}]` : `[${match[14]}]`, url: null });
             }
         }
 

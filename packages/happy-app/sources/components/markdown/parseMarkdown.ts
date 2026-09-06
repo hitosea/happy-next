@@ -37,12 +37,17 @@ export type MarkdownBlock = {
 } | {
     type: 'blockquote',
     content: { depth: number, spans: MarkdownSpan[], list?: 'bullet' }[]
+} | {
+    type: 'image',
+    alt: string,
+    url: string,
 }
 
 export type MarkdownSpan = {
     styles: ('italic' | 'bold' | 'semibold' | 'code' | 'strikethrough' | 'underline')[],
     text: string,
-    url: string | null
+    url: string | null,
+    imageUrl?: string,
 }
 
 export function parseMarkdown(markdown: string) {

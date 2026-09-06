@@ -78,7 +78,7 @@ export function connectRoutes(app: Fastify) {
         const params = new URLSearchParams({
             client_id: clientId,
             redirect_uri: redirectUri,
-            scope: 'read:user,user:email,read:org,codespace',
+            scope: 'read:user,user:email,read:org,repo,codespace',
             state: state
         });
 
@@ -132,6 +132,8 @@ export function connectRoutes(app: Fastify) {
 
             const tokenResponseData = await tokenResponse.json() as {
                 access_token?: string;
+                refresh_token?: string;
+                expires_in?: number;
                 error?: string;
                 error_description?: string;
             };
@@ -158,7 +160,10 @@ export function connectRoutes(app: Fastify) {
 
             // Use the new githubConnect operation
             const ctx = Context.create(userId);
-            await githubConnect(ctx, userData, accessToken!);
+            await githubConnect(ctx, userData, accessToken!, {
+                refreshToken: tokenResponseData.refresh_token,
+                expiresIn: tokenResponseData.expires_in,
+            });
 
             // Redirect to app with success
             return reply.redirect(`${baseUrl}?github=connected&user=${encodeURIComponent(userData.login)}`);
@@ -167,6 +172,34 @@ export function connectRoutes(app: Fastify) {
             log({ module: 'github-oauth' }, `Error in GitHub GET callback: ${error}`);
             return reply.redirect(`${appUrl}?error=server_error`);
         }
+    });
+
+    // GitHub token endpoint
+    app.get('/v1/connect/github/token', {
+        preHandler: app.authenticate,
+        schema: {
+            response: {
+                200: z.object({ token: z.string() }),
+                404: z.object({ error: z.string() }),
+            }
+        }
+    }, async (request, reply) => {
+        const account = await db.account.findFirstOrThrow({
+            where: { id: request.userId },
+            select: { githubUserId: true },
+        });
+        if (!account.githubUserId) {
+            return reply.code(404).send({ error: 'GitHub account not connected' });
+        }
+        const githubUser = await db.githubUser.findUnique({
+            where: { id: account.githubUserId },
+            select: { token: true },
+        });
+        if (!githubUser?.token) {
+            return reply.code(404).send({ error: 'GitHub account not connected' });
+        }
+        const accessToken = decryptString(['user', request.userId, 'github', 'token'], githubUser.token);
+        return reply.send({ token: accessToken });
     });
 
     // GitHub webhook handler with type safety

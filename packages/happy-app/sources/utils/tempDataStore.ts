@@ -26,6 +26,7 @@ export interface NewSessionData {
     /** @deprecated Use externalContext instead */
     taskTitle?: string;
     externalContext?: ExternalContext;
+    githubRepo?: string;
     mcpServers?: Array<{
         name: string;
         url: string;
@@ -33,6 +34,7 @@ export interface NewSessionData {
     }>;
     sessionTitle?: string;
     sessionIcon?: string;
+    environmentVariables?: Record<string, string>;
 }
 
 // In-memory store for temporary data

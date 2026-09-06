@@ -27,6 +27,7 @@ import { v3SessionRoutes } from "./routes/v3SessionRoutes";
 import { shareRoutes } from "./routes/shareRoutes";
 import { publicShareRoutes } from "./routes/publicShareRoutes";
 import { orchestratorRoutes } from "./routes/orchestratorRoutes";
+import { githubRoutes } from "./routes/githubRoutes";
 import { appConfigRoutes } from "./routes/appConfigRoutes";
 
 export async function startApi() {
@@ -85,6 +86,7 @@ export async function startApi() {
     shareRoutes(typed);
     publicShareRoutes(typed);
     orchestratorRoutes(typed);
+    githubRoutes(typed);
 
     // Start HTTP
     const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3005;
