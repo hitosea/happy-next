@@ -106,6 +106,22 @@ describe('MessageQueue2', () => {
         expect(result).toBeNull();
     });
 
+    it('should wake an active waiter when reset and remain reusable', async () => {
+        const queue = new MessageQueue2<string>(mode => mode);
+        const waitPromise = queue.waitForMessagesAndGetAsString();
+
+        queue.reset();
+
+        await expect(waitPromise).resolves.toBeNull();
+        expect(queue.isClosed()).toBe(false);
+
+        queue.push('after reset', 'local');
+        await expect(queue.waitForMessagesAndGetAsString()).resolves.toMatchObject({
+            message: 'after reset',
+            mode: 'local',
+        });
+    });
+
     it('should handle abort signal', async () => {
         const queue = new MessageQueue2<string>(mode => mode);
         const abortController = new AbortController();

@@ -187,8 +187,14 @@ export class MessageQueue2<T, M = string> {
         this.queue = [];
         this.closed = false;
 
-        // Clear waiter without calling it since we're not closing
-        this.waiter = null;
+        // Wake an active consumer so it can observe the reset and decide
+        // whether to wait again. Dropping the waiter leaves its Promise
+        // pending forever, which prevents idle agent loops from exiting.
+        if (this.waiter) {
+            const waiter = this.waiter;
+            this.waiter = null;
+            waiter(false);
+        }
     }
 
     /**

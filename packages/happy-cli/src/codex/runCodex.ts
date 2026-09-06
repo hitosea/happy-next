@@ -44,6 +44,7 @@ import type { AgentMessage } from '@/agent/core';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
 import { findCodexSessionFile } from './utils/codexSessionReader';
 import { summarizeBashToolOutput } from '@/modules/common/loadableToolOutput';
+import { cleanupStdinAfterInk } from '@/utils/terminalStdinCleanup';
 
 type ReadyEventOptions = {
     pending: unknown;
@@ -510,7 +511,58 @@ export async function runCodex(opts: {
         clearInterval(keepAliveInterval);
         messageQueue.reset();
 
+        // Restore the terminal before any asynchronous cleanup. If a backend
+        // or network close stalls, leaving Ink mounted keeps the shell in raw
+        // mode and the user sees an indefinitely frozen exit screen.
+        if (inkInstance) {
+            inkInstance.unmount();
+            inkInstance = null;
+        }
+        await cleanupStdinAfterInk({
+            stdin: process.stdin,
+            drainMs: 0,
+            leaveRawMode: false,
+        });
+
+        const forcedExitTimer = setTimeout(() => {
+            logger.debug('[Codex] Timed out during session termination, forcing exit');
+            process.exit(0);
+        }, 12_000);
+
+        const runCleanupStep = async (
+            label: string,
+            cleanup: () => Promise<unknown>,
+            timeoutMs: number,
+        ): Promise<void> => {
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            try {
+                await Promise.race([
+                    cleanup(),
+                    new Promise<never>((_, reject) => {
+                        timeout = setTimeout(
+                            () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+                            timeoutMs,
+                        );
+                    }),
+                ]);
+            } catch (error) {
+                logger.debug(`[Codex] ${label} failed during termination`, error);
+            } finally {
+                if (timeout) clearTimeout(timeout);
+            }
+        };
+
         try {
+            // Kill the Codex process group before doing any network cleanup.
+            // This ensures a stalled flush cannot leave app-server orphaned
+            // when the forced-exit watchdog fires.
+            await handleAbort();
+            await runCleanupStep('backend.dispose', async () => backend?.dispose(), 6_000);
+            backend = null;
+
+            stopCaffeinate();
+            mcp.stop();
+
             if (session) {
                 session.updateMetadata((currentMetadata) => ({
                     ...currentMetadata,
@@ -520,34 +572,20 @@ export async function runCodex(opts: {
                     archiveReason: 'User terminated'
                 }));
                 session.sendSessionDeath();
-                await session.flush();
-                await session.close();
+                await runCleanupStep('session.flush', () => session.flush(), 2_000);
+                await runCleanupStep('session.close', () => session.close(), 2_000);
             }
         } catch (error) {
             logger.debug('[Codex] Error while ending session during termination', error);
         }
 
         try {
-            await handleAbort();
-            logger.debug('[Codex] Abort completed, proceeding with backend disposal');
-        } catch (error) {
-            logger.debug('[Codex] Error during abort in termination flow', error);
-        }
-
-        try {
-            try {
-                await backend?.dispose();
-            } catch (e) {
-                logger.debug('[Codex] Error while disposing backend during termination', e);
-            }
-
-            stopCaffeinate();
-            mcp.stop();
-
             logger.debug('[Codex] Session termination complete, exiting');
+            clearTimeout(forcedExitTimer);
             process.exit(0);
         } catch (error) {
             logger.debug('[Codex] Error during session termination:', error);
+            clearTimeout(forcedExitTimer);
             process.exit(1);
         }
     };
@@ -571,8 +609,7 @@ export async function runCodex(opts: {
             logPath: isDebug() ? logger.getLogPath() : undefined,
             onExit: async () => {
                 logger.debug('[codex]: Exiting agent via Ctrl-C');
-                shouldExit = true;
-                await handleAbort();
+                await handleKillSession();
             }
         }), {
             exitOnCtrlC: false,
@@ -1379,6 +1416,11 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
     } finally {
         logger.debug('[codex]: Final cleanup start');
         logActiveHandles('cleanup-start');
+
+        if (isTerminating) {
+            logger.debug('[codex]: Final cleanup is owned by the termination handler');
+            return;
+        }
 
         if (reconnectionHandle) {
             logger.debug('[codex]: Cancelling offline reconnection');
