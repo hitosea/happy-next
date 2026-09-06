@@ -214,6 +214,7 @@ export async function readAllCodexSessionUserMessages(
 
 export interface CodexSessionIndexEntry {
   sessionId: string;
+  sessionFile: string;
   originalPath: string | null;
   title?: string | null;
   updatedAt?: number;
@@ -399,6 +400,7 @@ export async function listCodexSessions(): Promise<CodexSessionIndexEntry[]> {
 
     results.push({
       sessionId: metadata.sessionId,
+      sessionFile: filePath,
       originalPath: metadata.originalPath,
       title: metadata.title,
       updatedAt: metadata.updatedAt ?? stats.mtimeMs,

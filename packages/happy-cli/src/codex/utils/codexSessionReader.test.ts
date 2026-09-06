@@ -84,6 +84,7 @@ describe('listCodexSessions', () => {
     const sessions = await listCodexSessions();
     expect(sessions).toHaveLength(1);
     expect(sessions[0].sessionId).toBe('555555');
+    expect(sessions[0].sessionFile).toBe(filePath);
     expect(sessions[0].originalPath).toBe('/workspace/happy');
     expect(sessions[0].title).toBe('Please optimize Codex session listing speed');
     expect(sessions[0].messageCount).toBe(1);

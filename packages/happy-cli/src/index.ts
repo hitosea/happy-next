@@ -30,6 +30,7 @@ import { handleUpdateCommand } from './commands/update'
 import { claudeCliPath } from './claude/claudeLocal'
 import { execFileSync } from 'node:child_process'
 import { PUBLIC_DAEMON_SUBCOMMANDS, resolveCliInvocation, suggestClosestCommand } from './cli/commandRouting'
+import { CODEX_CLI_HELP, CodexCliSelectionCancelledError, CodexCliUsageError, parseCodexCliInvocation, resolveCodexResumeFile } from './codex/cli'
 
 // Give the process a distinctive title so it does not show up as a generic
 // `node ... dist/index.mjs ...` in `ps`/`pkill`. Otherwise tooling and AI agents that
@@ -121,14 +122,16 @@ process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
     // Handle codex command
     try {
       const { runCodex } = await import('@/codex/runCodex');
-      
-      // Parse startedBy argument
-      let startedBy: 'daemon' | 'terminal' | undefined = undefined;
-      for (let i = 1; i < args.length; i++) {
-        if (args[i] === '--started-by') {
-          startedBy = args[++i] as 'daemon' | 'terminal';
-        }
+
+      const codexInvocation = parseCodexCliInvocation(args.slice(1));
+      if (codexInvocation.kind === 'help') {
+        console.log(CODEX_CLI_HELP);
+        return;
       }
+
+      const resumeFile = codexInvocation.kind === 'resume'
+        ? await resolveCodexResumeFile(codexInvocation)
+        : undefined;
       
       const {
         credentials
@@ -143,10 +146,16 @@ process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
         await new Promise(resolve => setTimeout(resolve, 200));
       }
 
-      await runCodex({credentials, startedBy});
+      await runCodex({ credentials, startedBy: codexInvocation.startedBy, resumeFile });
       // Do not force exit here; allow instrumentation to show lingering handles
     } catch (error) {
+      if (error instanceof CodexCliSelectionCancelledError) {
+        return;
+      }
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (error instanceof CodexCliUsageError) {
+        console.error(`Run ${chalk.cyan('happy codex --help')} for usage.`)
+      }
       if (isDebug()) {
         console.error(error)
       }
@@ -608,6 +617,7 @@ ${chalk.bold('Usage:')}
   happy -- <args>         Pass positional arguments directly to Claude
   happy auth              Manage authentication
   happy codex             Start Codex mode
+  happy codex resume      Resume the latest Codex session in this directory
   happy gemini            Start Gemini mode (ACP)
   happy connect           Connect AI vendor API keys
   happy notify            Send push notification

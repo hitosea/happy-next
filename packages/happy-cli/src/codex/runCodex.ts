@@ -95,6 +95,22 @@ function formatUnknownCodexError(error: unknown): string {
     }
 }
 
+export function formatCodexProcessExitMessage(error: unknown): string {
+    const errorMessage = error instanceof Error
+        ? error.message
+        : (typeof error === 'string' ? error : null);
+
+    if (errorMessage?.includes('already has an active writer')) {
+        return [
+            'Cannot resume this Codex session because it is still running in another process.',
+            'Exit the original Codex or Happy session, then try again.',
+            `Codex error: ${errorMessage}`,
+        ].join('\n');
+    }
+
+    return `Process exited unexpectedly: ${formatUnknownCodexError(error)}`;
+}
+
 /**
  * Map Happy permission mode to Codex approval policy
  */
@@ -128,6 +144,7 @@ function mapSandbox(permissionMode: string): SandboxMode {
 export async function runCodex(opts: {
     credentials: Credentials;
     startedBy?: 'daemon' | 'terminal';
+    resumeFile?: string;
 }): Promise<void> {
     // Use shared PermissionMode type for cross-agent compatibility
     interface EnhancedMode {
@@ -149,7 +166,7 @@ export async function runCodex(opts: {
     const api = await ApiClient.create(opts.credentials);
 
     // Log startup options
-    logger.debug(`[codex] Starting with options: startedBy=${opts.startedBy || 'terminal'}`);
+    logger.debug(`[codex] Starting with options: startedBy=${opts.startedBy || 'terminal'}, resume=${opts.resumeFile ? 'yes' : 'no'}`);
 
     //
     // Machine
@@ -440,8 +457,8 @@ export async function runCodex(opts: {
     let abortFeedbackSent = false;
     let storedSessionIdForResume: string | null = null;
 
-    // Resume file from App-side resume/duplicate (passed via daemon env var)
-    const envResumeFile = process.env.HAPPY_CODEX_RESUME_FILE || null;
+    // Resume file from the CLI or App-side resume/duplicate (passed via daemon env var)
+    const initialResumeFile = opts.resumeFile || process.env.HAPPY_CODEX_RESUME_FILE || null;
     // Current backend instance (re-created on mode change)
     // Typed as any to prevent TS narrowing issues (assigned inside createBackend())
     let backend: any = null;
@@ -1049,7 +1066,9 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
 
     // Backfill history from previous session (if resuming/copying)
     // Awaited so that replace-mode batch completes before the main loop processes new messages
-    if (envResumeFile && ['1', 'true', 'yes'].includes(String(process.env.HAPPY_CODEX_BACKFILL).toLowerCase())) {
+    const shouldBackfillResume = !!opts.resumeFile
+        || ['1', 'true', 'yes'].includes(String(process.env.HAPPY_CODEX_BACKFILL).toLowerCase());
+    if (initialResumeFile && shouldBackfillResume) {
         try {
             // Wait briefly for socket connection to avoid dropping backfill messages
             for (let i = 0; i < 15 && !session.isConnected(); i++) {
@@ -1057,7 +1076,7 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
             }
             if (session.isConnected()) {
                 await backfillCodexSessionHistory({
-                    sessionIdOrPath: envResumeFile,
+                    sessionIdOrPath: initialResumeFile,
                     sendBatch: async (messages) => {
                         await session.sendBackfillBatch(messages, 'replace');
                     },
@@ -1174,8 +1193,8 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
                     if (nextResumeFile) {
                         commandResumeFile = nextResumeFile;
                         nextResumeFile = null;
-                    } else if (first && envResumeFile) {
-                        commandResumeFile = envResumeFile;
+                    } else if (first && initialResumeFile) {
+                        commandResumeFile = initialResumeFile;
                         messageBuffer.addMessage('Resuming from previous session...', 'status');
                     } else if (storedSessionIdForResume) {
                         commandResumeFile = findCodexResumeFile(storedSessionIdForResume);
@@ -1252,8 +1271,8 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
                         resumeFile = nextResumeFile;
                         nextResumeFile = null;
                         logger.debug('[Codex] Using resume file from mode change:', resumeFile);
-                    } else if (first && envResumeFile) {
-                        resumeFile = envResumeFile;
+                    } else if (first && initialResumeFile) {
+                        resumeFile = initialResumeFile;
                         logger.debug('[Codex] Using resume file from App-side resume:', resumeFile);
                         messageBuffer.addMessage('Resuming from previous session...', 'status');
                     } else if (storedSessionIdForResume) {
@@ -1333,6 +1352,7 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
                 }
             } catch (error) {
                 const errMsg = formatUnknownCodexError(error);
+                const processExitMessage = formatCodexProcessExitMessage(error);
                 logger.warn('Error in codex session:', errMsg);
                 const isAbortError = error instanceof Error && error.name === 'AbortError';
                 const isUserAbort = isAbortError || abortRequested;
@@ -1346,8 +1366,8 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
                         id: randomUUID(),
                     });
                 } else if (!isUserAbort) {
-                    messageBuffer.addMessage(`Process exited unexpectedly: ${errMsg}`, 'status');
-                    session.sendSessionEvent({ type: 'message', message: `Process exited unexpectedly: ${errMsg}` });
+                    messageBuffer.addMessage(processExitMessage, 'status');
+                    session.sendSessionEvent({ type: 'message', message: processExitMessage });
                     // Store session for potential recovery
                     if (backend && backend.isAlive) {
                         storedSessionIdForResume = backend.getSessionId();
