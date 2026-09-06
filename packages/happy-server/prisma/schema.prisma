@@ -88,14 +88,17 @@ model AccountAuthRequest {
 }
 
 model AccountPushToken {
-  id        String   @id @default(cuid())
-  accountId String
-  account   Account  @relation(fields: [accountId], references: [id])
-  token     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id])
+  token          String   @unique
+  provider       String   @default("expo")
+  installationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([accountId])
+  @@index([accountId, installationId])
 }
 
 //

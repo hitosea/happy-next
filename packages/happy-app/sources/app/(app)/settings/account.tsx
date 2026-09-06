@@ -99,13 +99,17 @@ export default React.memo(() => {
             { confirmText: t('common.logout'), destructive: true }
         );
         if (confirmed) {
-            await auth.logout();
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'index' }],
-                })
-            );
+            try {
+                await auth.logout();
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [{ name: 'index' }],
+                    })
+                );
+            } catch {
+                Modal.alert(t('common.error'), t('errors.networkError'));
+            }
         }
     };
 

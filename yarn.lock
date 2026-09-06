@@ -7136,6 +7136,13 @@ domutils@^3.0.1:
     domelementtype "^2.3.0"
     domhandler "^5.0.3"
 
+doopush-react-native-sdk@^0.6.6:
+  version "0.6.6"
+  resolved "https://registry.yarnpkg.com/doopush-react-native-sdk/-/doopush-react-native-sdk-0.6.6.tgz#d0631e88b4eb9e7da577fa651300a3d3c87906f1"
+  integrity sha512-hrMzCQoOAk7wlLK/LxE3crs96ncbR4hkIq63WbDp2mTMAgNizd7F6XuSGZB9mOyPGQfeBwfp1cuIYvoOC64dZQ==
+  dependencies:
+    zod "^3.22.0"
+
 dotenv-cli@^8.0.0:
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/dotenv-cli/-/dotenv-cli-8.0.0.tgz#cea1519f5a06c7372a1428fca4605fcf3d50e1cf"
@@ -14634,7 +14641,7 @@ zod-to-json-schema@^3.23.3, zod-to-json-schema@^3.24.3, zod-to-json-schema@^3.25
   resolved "https://registry.yarnpkg.com/zod-to-json-schema/-/zod-to-json-schema-3.25.1.tgz#7f24962101a439ddade2bf1aeab3c3bfec7d84ba"
   integrity sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA==
 
-zod@3.25.76, "zod@^3.25 || ^4.0":
+zod@3.25.76, zod@^3.22.0, "zod@^3.25 || ^4.0":
   version "3.25.76"
   resolved "https://registry.yarnpkg.com/zod/-/zod-3.25.76.tgz#26841c3f6fd22a6a2760e7ccb719179768471e34"
   integrity sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==

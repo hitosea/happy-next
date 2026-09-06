@@ -146,16 +146,20 @@ export default function ServerConfigScreen() {
         );
 
         if (confirmed) {
-            await logout(async () => {
-                setServerUrl(inputUrl);
-                await resolveServerConfig();
-            });
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'index' }],
-                })
-            );
+            try {
+                await logout(async () => {
+                    setServerUrl(inputUrl);
+                    await resolveServerConfig();
+                });
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [{ name: 'index' }],
+                    })
+                );
+            } catch {
+                setError(t('errors.networkError'));
+            }
         }
     };
 
@@ -167,17 +171,21 @@ export default function ServerConfigScreen() {
         );
 
         if (confirmed) {
-            await logout(async () => {
-                setServerUrl(null);
-                await resolveServerConfig();
-                setInputUrl('');
-            });
-            navigation.dispatch(
-                CommonActions.reset({
-                    index: 0,
-                    routes: [{ name: 'index' }],
-                })
-            );
+            try {
+                await logout(async () => {
+                    setServerUrl(null);
+                    await resolveServerConfig();
+                    setInputUrl('');
+                });
+                navigation.dispatch(
+                    CommonActions.reset({
+                        index: 0,
+                        routes: [{ name: 'index' }],
+                    })
+                );
+            } catch {
+                setError(t('errors.networkError'));
+            }
         }
     };
 

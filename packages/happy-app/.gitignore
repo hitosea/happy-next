@@ -12,3 +12,11 @@ build-*
 # Compiled by Xcode actool from src-tauri/icons/HappyNext.icon during builds.
 src-tauri/icons/generated/
 src-tauri/icons/generated.*/
+
+# Local Android vendor push credentials (inject through EAS file secrets in CI)
+agconnect-services.json
+mcs-services.json
+xiaomi-services.json
+oppo-services.json
+vivo-services.json
+meizu-services.json

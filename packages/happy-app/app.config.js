@@ -1,4 +1,7 @@
+const { createDooPushConfig } = require('./doopush.config');
+
 const variant = process.env.APP_ENV || 'development';
+const dooPushConfig = createDooPushConfig({ env: process.env, variant });
 const abiFilters = process.env.ABI_FILTERS
     ? process.env.ABI_FILTERS.split(',').map(s => s.trim())
     : undefined;
@@ -46,6 +49,10 @@ export default {
             associatedDomains: ["applinks:app.happy-next.com"]
         },
         android: {
+            ...(dooPushConfig.enabled && {
+                // Match the DooPush SDK manifest only in builds that link the SDK.
+                allowBackup: false,
+            }),
             adaptiveIcon: {
                 foregroundImage: "./sources/assets/images/icon-adaptive.png",
                 monochromeImage: "./sources/assets/images/icon-monochrome.png",
@@ -56,9 +63,18 @@ export default {
                 "android.permission.MODIFY_AUDIO_SETTINGS",
                 "android.permission.ACCESS_NETWORK_STATE",
                 "android.permission.POST_NOTIFICATIONS",
+                ...(dooPushConfig.enabled ? [
+                    "android.permission.INTERNET",
+                    "android.permission.WAKE_LOCK",
+                    "android.permission.VIBRATE",
+                    "android.permission.RECEIVE_BOOT_COMPLETED",
+                    "com.oppo.launcher.permission.READ_SETTINGS",
+                    "com.oppo.launcher.permission.WRITE_SETTINGS",
+                ] : []),
             ],
             blockedPermissions: [
-                "android.permission.ACTIVITY_RECOGNITION"
+                "android.permission.ACTIVITY_RECOGNITION",
+                "android.permission.QUERY_ALL_PACKAGES",
             ],
             edgeToEdgeEnabled: true,
             package: bundleId,
@@ -89,6 +105,14 @@ export default {
             require("./plugins/withVolcEngineAndroidMaven.js"),
             require("./plugins/withVolcEnginePodsSource.js"),
             require("./plugins/withRNAudioAPIIosFFmpeg.js"),
+            [
+                require("./plugins/withDooPushAutolinking.js"),
+                { enabled: dooPushConfig.enabled },
+            ],
+            [
+                require("./plugins/withDooPushNotificationChannel.js"),
+                { enabled: dooPushConfig.enabled },
+            ],
             [
                 "expo-build-properties",
                 {
@@ -162,9 +186,20 @@ export default {
             [
                 "expo-notifications",
                 {
-                    "enableBackgroundRemoteNotifications": true
+                    "enableBackgroundRemoteNotifications": true,
+                    ...(dooPushConfig.enabled && {
+                        // This writes Android's native Firebase default-channel
+                        // metadata. It does not route delivery through Expo Push.
+                        "defaultChannel": "doopush_default_channel",
+                    }),
                 }
             ],
+            ...(dooPushConfig.enabled ? [
+                [
+                    "doopush-react-native-sdk",
+                    dooPushConfig.pluginOptions,
+                ],
+            ] : []),
             [
                 'expo-splash-screen',
                 {
@@ -205,7 +240,8 @@ export default {
             },
             app: {
                 postHogKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY
-            }
+            },
+            doopush: dooPushConfig.runtimeConfig
         },
         owner: "hitosea"
     }

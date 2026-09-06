@@ -20,8 +20,14 @@ import { InvalidateSync } from '@/utils/sync';
 import { ActivityUpdateAccumulator } from './reducer/activityUpdateAccumulator';
 import { randomUUID, getRandomBytes } from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
-import { registerPushToken } from './apiPush';
+import { deletePushToken, registerPushToken } from './apiPush';
 import { PushTokenRegistrationGate } from './pushTokenRegistrationGate';
+import { acknowledgeDooPushTokenCleanup, registerDooPushIfSupported } from './doopush';
+import {
+    markExpoFallbackRegistered,
+} from './expoPushMigrationState';
+import { cleanupSupersededPushTokens } from './pushTokenCleanup';
+import { getPushInstallationId } from './pushInstallationId';
 import { Platform, AppState } from 'react-native';
 import { isRunningOnMac } from '@/utils/platform';
 import { NormalizedMessage, normalizeRawMessage, RawRecord, RawRecordSchema, ImageContent } from './typesRaw';
@@ -4045,6 +4051,16 @@ class Sync {
         await this.pushTokenRegistrationGate.stop();
     }
 
+    public resumePushTokenRegistration = () => {
+        this.pushTokenRegistrationGate = new PushTokenRegistrationGate();
+        this.pushTokenSync = new InvalidateSync(async () => {
+            await this.pushTokenRegistrationGate.run(
+                (signal, startMutation) => this.registerPushToken(signal, startMutation),
+            );
+        });
+        this.pushTokenSync.invalidate();
+    }
+
     private registerPushToken = async (
         signal: AbortSignal,
         startMutation: () => boolean,
@@ -4077,22 +4093,100 @@ class Sync {
             return;
         }
 
-        // Get push token
-        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+        const installationId = getPushInstallationId();
 
+        // Mobile devices prefer DooPush: APNs on iOS and native OEM routing
+        // with FCM fallback on Android.
+        try {
+            const dooPushRegistration = await registerDooPushIfSupported();
+            if (signal.aborted) {
+                return;
+            }
+            if (dooPushRegistration) {
+                log.log(`DooPush device registration verified (${dooPushRegistration.vendor})`);
+                if (!startMutation()) {
+                    return;
+                }
+                await registerPushToken(
+                    this.credentials,
+                    dooPushRegistration.token,
+                    'doopush',
+                    installationId,
+                    signal,
+                );
+                log.log('Happy push token binding succeeded');
+
+                const migrationScope = `${getServerUrl()}|${this.serverID}`;
+                const cleanupResults = await cleanupSupersededPushTokens({
+                    scope: migrationScope,
+                    currentToken: dooPushRegistration.token,
+                    replacedTokens: dooPushRegistration.replacedTokens ?? [],
+                    deleteToken: (token) => deletePushToken(this.credentials, token),
+                });
+                acknowledgeDooPushTokenCleanup(
+                    dooPushRegistration.token,
+                    dooPushRegistration.replacedTokens ?? [],
+                );
+                for (const result of cleanupResults) {
+                    if (result.status === 'removed') {
+                        log.log('Removed superseded push token');
+                    } else {
+                        log.log('Failed to remove superseded push token: ' + JSON.stringify(result.error));
+                    }
+                }
+
+                // Keep an Expo token for older CLIs. The server correlates both
+                // providers by installation and returns only one to capable CLIs.
+                try {
+                    const expoToken = (
+                        await Notifications.getExpoPushTokenAsync({
+                            projectId: Constants?.expoConfig?.extra?.eas?.projectId
+                                ?? Constants?.easConfig?.projectId,
+                        })
+                    ).data;
+                    await registerPushToken(
+                        this.credentials,
+                        expoToken,
+                        'expo',
+                        installationId,
+                        signal,
+                    );
+                    markExpoFallbackRegistered(expoToken);
+                    log.log('Expo compatibility token registered successfully');
+                } catch (error) {
+                    log.log('Failed to register Expo compatibility token: ' + JSON.stringify(error));
+                }
+                return;
+            }
+        } catch (error) {
+            if (signal.aborted) {
+                return;
+            }
+            // Keep Expo as a best-effort fallback so a transient DooPush
+            // registration failure does not disable notifications entirely.
+            log.log('DooPush registration failed, falling back to Expo: ' + JSON.stringify(error));
+        }
+
+        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
         const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
         if (signal.aborted) {
             return;
         }
         log.log('tokenData: ' + JSON.stringify(tokenData));
 
-        // Register with server
         if (!startMutation()) {
             return;
         }
         try {
-            await registerPushToken(this.credentials, tokenData.data);
-            log.log('Push token registered successfully');
+            await registerPushToken(
+                this.credentials,
+                tokenData.data,
+                'expo',
+                installationId,
+                signal,
+            );
+            markExpoFallbackRegistered(tokenData.data);
+            log.log('Expo push token registered successfully');
         } catch (error) {
             log.log('Failed to register push token: ' + JSON.stringify(error));
             throw error;
@@ -5470,6 +5564,10 @@ export async function syncRestore(credentials: AuthCredentials) {
 
 export async function stopPushTokenRegistration() {
     await sync.stopPushTokenRegistration();
+}
+
+export function resumePushTokenRegistration() {
+    sync.resumePushTokenRegistration();
 }
 
 async function syncInit(credentials: AuthCredentials, restore: boolean) {

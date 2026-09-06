@@ -33,6 +33,10 @@ services:
       # Public service discovery (/v1/app-config)
       - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
       - PUBLIC_VOICE_BASE_URL=${PUBLIC_VOICE_BASE_URL}
+      # Server-side DooPush notification relay.
+      - DOOPUSH_APP_ID=${DOOPUSH_APP_ID}
+      - DOOPUSH_APP_SECRET=${DOOPUSH_APP_SECRET}
+      - DOOPUSH_BASE_URL=${DOOPUSH_BASE_URL:-https://doopush.com/api/v1}
       # Shared with happy-voice. Used to sign short-lived voice bearer tokens.
       - VOICE_AUTH_SECRET=${VOICE_AUTH_SECRET:-dev-voice-auth-secret-change-me-32-bytes}
       # Database

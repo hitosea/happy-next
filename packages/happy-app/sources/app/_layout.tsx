@@ -42,18 +42,10 @@ import { DesktopWindowFrame } from '@/desktop/DesktopWindowFrame';
 import { DesktopAuthWindowSync } from '@/desktop/DesktopAuthWindowSync';
 import { ThemePreferenceSync } from '@/components/ThemePreferenceSync';
 import { ActionMenuOverlayProvider } from '@/components/ActionMenuOverlayProvider';
+import { getNotificationSessionId } from '@/utils/notificationData';
 
 let currentAppState: string = AppState.currentState;
 let currentSessionId: string | null = null;
-
-function getNotificationSessionId(notification: Notifications.Notification): string | null {
-    const data = notification.request?.content?.data;
-    if (!data || typeof data !== 'object') {
-        return null;
-    }
-    const sessionId = (data as Record<string, unknown>).sessionId;
-    return typeof sessionId === 'string' ? sessionId : null;
-}
 
 function shouldHideForegroundNotification(notification: Notifications.Notification): boolean {
     if (currentAppState !== 'active') {
@@ -70,7 +62,7 @@ function shouldHideForegroundNotification(notification: Notifications.Notificati
         return false;
     }
 
-    const notificationSessionId = getNotificationSessionId(notification);
+    const notificationSessionId = getNotificationSessionId(notification.request?.content?.data);
     return !!notificationSessionId && notificationSessionId === currentSessionId;
 }
 
@@ -115,11 +107,25 @@ Notifications.setNotificationHandler({
 
 // Setup Android notification channel (required for Android 8.0+)
 if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
-        name: 'Default',
+    const channelOptions: Notifications.NotificationChannelInput = {
+        name: 'Alerts',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
+        sound: 'default',
+    };
+
+    // `default` is used by HMS/Xiaomi payloads. DooPush's Android fallback
+    // service uses `doopush_default_channel`, so create that exact OS channel
+    // before the SDK receives its first notification.
+    void Promise.all([
+        Notifications.setNotificationChannelAsync('default', channelOptions),
+        Notifications.setNotificationChannelAsync('doopush_default_channel', {
+            ...channelOptions,
+            name: 'DooPush Alerts',
+        }),
+    ]).catch((error) => {
+        console.warn('Failed to configure Android notification channels', error);
     });
 }
 

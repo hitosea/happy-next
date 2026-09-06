@@ -63,7 +63,13 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
                 t('settingsAccount.logoutConfirm'),
                 { confirmText: t('common.logout'), destructive: true },
             );
-            if (confirmed) await logout();
+            if (confirmed) {
+                try {
+                    await logout();
+                } catch {
+                    Modal.alert(t('common.error'), t('errors.networkError'));
+                }
+            }
         },
     }), [commandState, logout, navigateToSession, pathname, router]);
 

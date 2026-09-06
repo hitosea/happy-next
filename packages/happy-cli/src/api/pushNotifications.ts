@@ -1,17 +1,46 @@
 import axios from 'axios'
+import { randomUUID } from 'node:crypto'
 import { logger } from '@/ui/logger'
 import { Expo, ExpoPushMessage } from 'expo-server-sdk'
 import { isOrchestratorWorkerSession } from '@/orchestrator/prompt'
+import { delay } from '@/utils/time'
+
+const PUSH_CAPABILITIES = 'doopush-relay-v1'
 
 export interface PushToken {
     id: string
     token: string
+    provider?: 'expo' | 'doopush'
     createdAt: number
     updatedAt: number
 }
 
+export function partitionPushTokens(tokens: PushToken[]): {
+    expoTokens: PushToken[]
+    dooPushTokens: PushToken[]
+} {
+    return {
+        expoTokens: tokens.filter(({ token, provider }) =>
+            provider === 'expo' || (!provider && Expo.isExpoPushToken(token))
+        ),
+        dooPushTokens: tokens.filter(({ token, provider }) =>
+            provider === 'doopush' || (!provider && !Expo.isExpoPushToken(token))
+        ),
+    }
+}
+
 const COMPLETION_CHECK_RETRY_DELAYS_MS = [1_000, 3_000] as const
 const COMPLETION_CHECK_TIMEOUT_MS = 10_000
+const DOOPUSH_RETRY_DELAYS_MS = [1_000, 3_000] as const
+const RETRYABLE_DOOPUSH_STATUSES = new Set([502, 503, 504])
+
+interface DooPushSendResult {
+    accepted: boolean
+    duplicate: boolean
+    deviceCount: number
+    attempts: number
+    status?: number
+}
 
 
 export class PushNotificationClient {
@@ -36,7 +65,8 @@ export class PushNotificationClient {
                 {
                     headers: {
                         'Authorization': `Bearer ${this.token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-Happy-Push-Capabilities': PUSH_CAPABILITIES,
                     }
                 }
             )
@@ -53,6 +83,74 @@ export class PushNotificationClient {
             logger.debug('[PUSH] [ERROR] Failed to fetch push tokens:', error)
             throw new Error(`Failed to fetch push tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
+    }
+
+    private async sendDooPushNotifications(
+        title: string,
+        body: string,
+        data: Record<string, any> | undefined,
+        badge: number
+    ): Promise<DooPushSendResult> {
+        const idempotencyKey = randomUUID()
+        for (let attempt = 0; attempt <= DOOPUSH_RETRY_DELAYS_MS.length; attempt++) {
+            try {
+                const response = await axios.post<{
+                    accepted: boolean
+                    duplicate: boolean
+                    deviceCount: number
+                    state?: 'processing'
+                }>(
+                    `${this.baseUrl}/v1/push/send`,
+                    { idempotencyKey, title, body, data, badge },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 20_000
+                    }
+                )
+                if (!response.data.accepted) {
+                    if (attempt === DOOPUSH_RETRY_DELAYS_MS.length) {
+                        return {
+                            accepted: false,
+                            duplicate: response.data.duplicate,
+                            deviceCount: response.data.deviceCount,
+                            attempts: attempt + 1,
+                            status: response.status,
+                        }
+                    }
+                    const retryDelay = DOOPUSH_RETRY_DELAYS_MS[attempt]
+                    logger.debug(`[PUSH] DooPush relay is still processing; retrying in ${retryDelay}ms`)
+                    await delay(retryDelay)
+                    continue
+                }
+                return {
+                    accepted: true,
+                    duplicate: response.data.duplicate,
+                    deviceCount: response.data.deviceCount,
+                    attempts: attempt + 1,
+                }
+            } catch (error) {
+                const status = axios.isAxiosError(error) ? error.response?.status : undefined
+                const retryable = status === undefined || RETRYABLE_DOOPUSH_STATUSES.has(status)
+                if (!retryable || attempt === DOOPUSH_RETRY_DELAYS_MS.length) {
+                    return {
+                        accepted: false,
+                        duplicate: false,
+                        deviceCount: 0,
+                        attempts: attempt + 1,
+                        status,
+                    }
+                }
+
+                const retryDelay = DOOPUSH_RETRY_DELAYS_MS[attempt]
+                logger.debug(`[PUSH] DooPush relay failed; retrying in ${retryDelay}ms`, error)
+                await delay(retryDelay)
+            }
+        }
+
+        return { accepted: false, duplicate: false, deviceCount: 0, attempts: 1 }
     }
 
     /**
@@ -178,9 +276,10 @@ export class PushNotificationClient {
                     return
                 }
 
-                // Create messages for all tokens
-                const messages: ExpoPushMessage[] = tokens.map((token, index) => {
-                    logger.debug(`[PUSH] Creating message ${index + 1} for token`)
+                const { expoTokens, dooPushTokens } = partitionPushTokens(tokens)
+
+                const expoMessages: ExpoPushMessage[] = expoTokens.map((token, index) => {
+                    logger.debug(`[PUSH] Creating Expo message ${index + 1}`)
                     return {
                         to: token.token,
                         title,
@@ -193,10 +292,23 @@ export class PushNotificationClient {
                     }
                 })
 
-                // Send notifications
-                logger.debug(`[PUSH] Sending ${messages.length} push notifications...`)
-                await this.sendPushNotifications(messages)
-                logger.debug('[PUSH] Push notifications sent successfully')
+                logger.debug(`[PUSH] Sending ${expoMessages.length} Expo and ${dooPushTokens.length} DooPush notifications...`)
+                const [, dooPushResult] = await Promise.all([
+                    this.sendPushNotifications(expoMessages),
+                    dooPushTokens.length > 0
+                        ? this.sendDooPushNotifications(title, body, data, badgeCount)
+                        : Promise.resolve(null)
+                ])
+                if (dooPushResult && !dooPushResult.accepted) {
+                    const status = dooPushResult.status ? ` (HTTP ${dooPushResult.status})` : ''
+                    if (expoTokens.length > 0) {
+                        logger.debug(`[PUSH] Push notifications completed with DooPush relay failure${status}`)
+                    } else {
+                        logger.debug(`[PUSH] Push notifications failed: DooPush relay unavailable${status}`)
+                    }
+                } else {
+                    logger.debug('[PUSH] Push notifications sent successfully')
+                }
             } catch (error) {
                 logger.debug('[PUSH] Error sending to all devices:', error)
             }

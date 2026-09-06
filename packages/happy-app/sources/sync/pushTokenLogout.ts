@@ -3,6 +3,14 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { AuthCredentials } from '@/auth/tokenStorage';
 import { deletePushToken } from './apiPush';
+import {
+    getStoredDooPushRegistrationToken,
+    invalidateDooPushRegistration,
+} from './doopushRegistrationState';
+import {
+    clearStoredExpoFallbackToken,
+    getStoredExpoFallbackToken,
+} from './expoPushMigrationState';
 
 const LOGOUT_UNREGISTER_TIMEOUT_MS = 3_000;
 
@@ -15,10 +23,10 @@ async function waitWithTimeout(
     try {
         await Promise.race([
             task,
-            new Promise<void>((resolve) => {
+            new Promise<void>((_, reject) => {
                 timeout = setTimeout(() => {
                     onTimeout?.();
-                    resolve();
+                    reject(new Error('Timed out while unregistering push tokens'));
                 }, timeoutMs);
             }),
         ]);
@@ -37,20 +45,49 @@ export async function unregisterCurrentPushToken(
         return;
     }
 
+    const storedExpoToken = getStoredExpoFallbackToken();
     const controller = new AbortController();
     const unregister = (async () => {
-        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-        const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
-        await deletePushToken(credentials, expoToken.data, controller.signal);
+        const removals: Promise<void>[] = [];
+        const dooPushToken = getStoredDooPushRegistrationToken();
+        if (dooPushToken) {
+            removals.push(deletePushToken(credentials, dooPushToken, controller.signal));
+        }
+        let expoTokenToRemove = storedExpoToken;
+        if (!expoTokenToRemove) {
+            const { status } = await Notifications.getPermissionsAsync();
+            if (status === 'granted') {
+                const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+                expoTokenToRemove = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            }
+        }
+        if (expoTokenToRemove && expoTokenToRemove !== dooPushToken) {
+            removals.push(deletePushToken(credentials, expoTokenToRemove, controller.signal));
+        }
+        const results = await Promise.allSettled(removals);
+        const failure = results.find(
+            (result): result is PromiseRejectedResult => result.status === 'rejected',
+        );
+        if (failure) {
+            throw failure.reason;
+        }
     })();
     try {
         await waitWithTimeout(
-            unregister.catch(() => {}),
+            unregister,
             timeoutMs,
             () => controller.abort(),
         );
     } finally {
         controller.abort();
-        await Notifications.unregisterForNotificationsAsync().catch(() => {});
+        try {
+            await Notifications.unregisterForNotificationsAsync();
+            invalidateDooPushRegistration();
+            if (storedExpoToken) {
+                clearStoredExpoFallbackToken(storedExpoToken);
+            }
+        } catch {
+            // Keep the snapshot reusable when native token invalidation failed.
+        }
     }
 }

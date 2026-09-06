@@ -4,6 +4,8 @@ import { getServerUrl } from './serverConfig';
 export async function registerPushToken(
     credentials: AuthCredentials,
     token: string,
+    provider: 'expo' | 'doopush',
+    installationId: string,
     signal?: AbortSignal,
 ): Promise<void> {
     const API_ENDPOINT = getServerUrl();
@@ -13,7 +15,7 @@ export async function registerPushToken(
             'Authorization': `Bearer ${credentials.token}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, provider, installationId }),
         signal,
     });
 
