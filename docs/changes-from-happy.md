@@ -97,7 +97,7 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Refreshed Gemini catalog** adds Gemini 3.8 Flash and Gemini 3.7 Flash alongside the existing Gemini models
 - **Streamlined model picker**: Claude 1M-context variants collapse into a single toggle (7 models instead of 12); reasoning-effort presets show side by side on wide screens and Claude defaults to High effort
 - **GPT-6 Astra and GPT-5.6 catalog support**: current model families include their reasoning-effort and context settings
-- **Codex v0.153.4**: bundled Codex CLI updated with current App-Server interaction support
+- **Codex v0.154.0**: bundled Codex CLI updated with current App-Server interaction support
 - **Cost tracking** with accurate token usage for Claude models (cache tokens, reasoning tokens)
 - **Codex reasoning effort** configuration (low / medium / high / xhigh)
 - **ACP (Agent Client Protocol) backend**: JSON-RPC agent protocol (originally introduced for Codex to replace the MCP client approach, now used for Gemini)
@@ -116,6 +116,7 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Tool name normalization**: `normalizeToolName` aligns MCP tool names with Codex convention
 
 ## GitHub Integration
+- **Repository navigation**: browse connected repositories and navigate directly to GitHub-backed work from the app
 
 - **Connected repositories**: connect your GitHub account and browse repositories, issues, and pull requests
 - **Issue and pull request workflows**: create, comment on, close, and reopen work items from the app
@@ -157,6 +158,7 @@ A major new capability: manage multiple repositories as a unified workspace.
 - **Path display** with `~/` notation instead of absolute paths
 
 ## Code Browser & Git Management
+- **Secure previews and downloads**: preview supported images and files safely, and download files up to 100 MiB
 
 The app now includes a full code browsing and git management experience.
 
@@ -357,7 +359,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Latest CLI version** fetched from npm instead of hardcoded minimum
 - **Daemon auto-start on boot**: `happy daemon enable` / `happy daemon disable`
 - **Daemon restart command**: restart the daemon without manual kill
-- **Happy CLI v0.7.0 with Codex v0.153.4**: current App-Server interaction support and fast mode
+- **Happy CLI v0.8.0 with Codex v0.154.0**: current App-Server interaction support and fast mode
 - **Codex session resume**: select from a scrolling session picker, resume by ID or continue the latest session, and choose the working directory
 - **Clean Codex exit**: avoid leaving the terminal hanging when a session ends
 - **Attribution setting**: new setting to control commit attribution, default off

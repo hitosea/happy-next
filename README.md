@@ -114,7 +114,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - All three agents are first-class citizens with session resume, duplicate/fork, and history
 - Multi-agent history page with per-provider tabs, device and agent filter dropdowns
 - Per-agent model selection, cost tracking, and context window display
-- ACP and App-Server (JSON-RPC) backends for Codex, with Codex v0.153.4 and fast mode
+- ACP and App-Server (JSON-RPC) backends for Codex, with Codex v0.154.0 and fast mode
 - Codex archive actions synchronize with native history, show archived state consistently, and support restoring archived sessions when continuing work
 - Reliable Codex duplication and forking, with clear active-session conflict errors
 - Codex interactive questions and approval requests render in the app, including choices, custom Other values, free-form text, and masked sensitive answers
@@ -139,6 +139,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Manage sessions by voice — start, switch, and message a session through dedicated voice tools with a single session-settings mode parameter, clearer titles, and an auto-close countdown on the session-picker cancel button
 
 ### GitHub Integration
+- Browse connected repositories and move between GitHub-backed work from the app
 - Connect your GitHub account and browse repositories, issues, and pull requests
 - Create, comment on, close, and reopen issues and pull requests from the app
 - Start an AI session with issue or pull request context, and return to linked sessions from the detail page
@@ -152,6 +153,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - AI-powered PR code review with results posted as GitHub comments
 
 ### Code Browser & Git Management
+- Securely preview images and supported files, with downloads up to 100 MiB
 - Full file browser with search, Monaco editor viewing/editing
 - Commit history with branch selector (local + remote)
 - Git changes page: stage, unstage, commit, discard
@@ -258,7 +260,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Switching model or toggling plan mode hot-swaps on the already-warm Claude subprocess instead of cold-restarting, so changes apply instantly mid-session
 - Switching a session from remote back to local cleans up terminal stdin so leftover raw-mode input no longer leaks into the terminal
 - Multiline skill metadata parses correctly, and enabled Codex plugin skills are discovered consistently
-- Happy CLI v0.7.0 bundles Codex v0.153.4 with current App-Server interaction support
+- Happy CLI v0.8.0 bundles Codex v0.154.0 with current App-Server interaction support
 - Resume Codex sessions from a scrolling picker, by session ID, or from the latest session, with working-directory selection
 - Codex exits cleanly without leaving the terminal hanging
 

@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": 24,
+      "date": "2026-09-11",
+      "summary": "Happy Next v2.10.0 brings richer GitHub workflows and safer file previews, including repository navigation, secure image and file previews, and downloads up to 100 MiB. Diff viewing is more reliable across browsers, and Happy CLI updates to v0.8.0 with Codex v0.154.0.",
+      "changes": [
+        "GitHub: browse repositories and navigate directly to GitHub-backed work from the app",
+        "Files: preview images and supported files securely, with clearer preview controls",
+        "Downloads: download arbitrary files up to 100 MiB from sessions",
+        "Diff viewer: preserve web text selection and prevent Safari proxy scrolling from undoing minimap jumps",
+        "Tools: show localized tool details alongside secure image previews",
+        "CLI: Happy CLI v0.8.0 bundles Codex v0.154.0"
+      ],
+      "rawMarkdown": "## Version 24 - 2026-09-11\n\n\nHappy Next v2.10.0 brings richer GitHub workflows and safer file previews, including repository navigation, secure image and file previews, and downloads up to 100 MiB. Diff viewing is more reliable across browsers, and Happy CLI updates to v0.8.0 with Codex v0.154.0.\n\n- GitHub: browse repositories and navigate directly to GitHub-backed work from the app\n- Files: preview images and supported files securely, with clearer preview controls\n- Downloads: download arbitrary files up to 100 MiB from sessions\n- Diff viewer: preserve web text selection and prevent Safari proxy scrolling from undoing minimap jumps\n- Tools: show localized tool details alongside secure image previews\n- CLI: Happy CLI v0.8.0 bundles Codex v0.154.0"
+    },
+    {
       "version": 23,
       "date": "2026-09-09",
       "summary": "Happy Next v2.9.0 brings GitHub repositories, issues, and pull requests into the app, with linked AI sessions for follow-up work. Codex sessions are easier to resume and archive, mobile notifications gain DooPush support, and macOS navigation and Claude cost estimates are more reliable. Happy CLI is updated to v0.7.0 with Codex v0.153.4.",
@@ -403,5 +417,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 23
+  "latestVersion": 24
 }

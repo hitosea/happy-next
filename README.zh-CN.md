@@ -116,7 +116,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 三个 Agent 均为一等公民，支持会话恢复、复制/分叉和历史记录
 - 多 Agent 历史页面，按供应商分标签页，支持设备和 Agent 类型筛选
 - 按 Agent 选择模型、费用追踪和上下文窗口显示
-- Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，内置 Codex v0.153.4 并支持 fast mode
+- Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，内置 Codex v0.154.0 并支持 fast mode
 - Codex 归档操作同步到原生历史，保持归档状态显示一致，并可在继续工作时恢复已归档会话
 - 更可靠的 Codex 会话复制和分叉，并明确提示活动会话冲突
 - Codex 交互式问题和审批请求可直接在应用中处理，支持选项、自定义“其他”、自由文本和敏感回答掩码
@@ -141,6 +141,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 语音管理会话——通过专用语音工具启动、切换、向会话发送消息，会话设置收敛为单一 mode 参数，标题更清晰，会话选择器取消按钮带自动关闭倒计时
 
 ### GitHub 集成
+- 浏览已连接的仓库，并在应用中直接跳转到 GitHub 关联内容
 - 连接 GitHub 账号，浏览仓库、Issue 和 PR
 - 在应用中创建、评论、关闭和重新打开 Issue 与 PR
 - 携带 Issue 或 PR 上下文启动 AI 会话，并从详情页返回关联会话
@@ -154,6 +155,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - AI 驱动的 PR 代码审查，结果发布为 GitHub 评论
 
 ### 代码浏览器和 Git 管理
+- 安全预览图片和支持的文件，支持下载最大 100 MiB 的文件
 - 完整的文件浏览器，支持搜索、Monaco 编辑器查看/编辑
 - 提交历史，支持分支选择器（本地 + 远程）
 - Git 变更页面：暂存、取消暂存、提交、丢弃
@@ -260,7 +262,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 切换模型或开关 plan 模式时，在已 warm 的 Claude 子进程上原地热切换，不再冷重启，改动会话中途立即生效
 - 会话从 remote 切回 local 时清理终端 stdin，残留的 raw-mode 输入不再泄漏到终端
 - 正确解析多行 skill metadata，并稳定发现已启用的 Codex plugin skills
-- Happy CLI v0.7.0 内置 Codex v0.153.4，并支持当前 App-Server 交互
+- Happy CLI v0.8.0 内置 Codex v0.154.0，并支持当前 App-Server 交互
 - 从可滚动列表、指定会话 ID 或最近会话恢复 Codex，并可选择工作目录
 - Codex 可正常退出，避免终端挂起
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 24 - 2026-09-11
+
+Happy Next v2.10.0 brings richer GitHub workflows and safer file previews, including repository navigation, secure image and file previews, and downloads up to 100 MiB. Diff viewing is more reliable across browsers, and Happy CLI updates to v0.8.0 with Codex v0.154.0.
+
+- GitHub: browse repositories and navigate directly to GitHub-backed work from the app
+- Files: preview images and supported files securely, with clearer preview controls
+- Downloads: download arbitrary files up to 100 MiB from sessions
+- Diff viewer: preserve web text selection and prevent Safari proxy scrolling from undoing minimap jumps
+- Tools: show localized tool details alongside secure image previews
+- CLI: Happy CLI v0.8.0 bundles Codex v0.154.0
+
 ## Version 23 - 2026-09-09
 
 Happy Next v2.9.0 brings GitHub repositories, issues, and pull requests into the app, with linked AI sessions for follow-up work. Codex sessions are easier to resume and archive, mobile notifications gain DooPush support, and macOS navigation and Claude cost estimates are more reliable. Happy CLI is updated to v0.7.0 with Codex v0.153.4.

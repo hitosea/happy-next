@@ -97,7 +97,7 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **刷新 Gemini 模型目录**，加入 Gemini 3.8 Flash 和 Gemini 3.7 Flash，并保留现有 Gemini 模型
 - **精简模型选择器**：Claude 1M 上下文变体收进单个开关（模型从 12 个减到 7 个）；宽屏下推理强度并排显示，Claude 默认 High 强度
 - **GPT-6 Astra 与 GPT-5.6 模型目录支持**：当前模型家族包含对应的推理强度和上下文配置
-- **Codex v0.153.4**：内置 Codex CLI 升级，并支持当前 App-Server 交互
+- **Codex v0.154.0**：内置 Codex CLI 升级，并支持当前 App-Server 交互
 - **费用追踪**，Claude 模型的精确 token 用量（缓存 token、推理 token）
 - **Codex 推理强度**配置（low / medium / high / xhigh）
 - **ACP（Agent Client Protocol）后端**：JSON-RPC Agent 协议（最初为 Codex 引入以替代 MCP 客户端方案，现用于 Gemini）
@@ -116,6 +116,7 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **工具名规范化**：`normalizeToolName` 对齐 MCP 工具名与 Codex 约定
 
 ## GitHub 集成
+- **仓库导航**：浏览已连接的仓库，并在应用中直接跳转到 GitHub 关联内容
 
 - **关联仓库**：连接 GitHub 账号，浏览仓库、Issue 和 PR
 - **Issue 与 PR 管理**：在应用中创建、评论、关闭和重新打开工作项
@@ -157,6 +158,7 @@ Happy Next 包含完整的语音网关栈，基于火山引擎（豆包）实时
 - **路径显示**，使用 `~/` 符号代替绝对路径
 
 ## 代码浏览器和 Git 管理
+- **安全预览和下载**：安全预览支持的图片和文件，并下载最大 100 MiB 的文件
 
 应用现在包含完整的代码浏览和 git 管理体验。
 
@@ -357,7 +359,7 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **最新 CLI 版本**，从 npm 获取而非硬编码最低版本
 - **守护进程开机自启动**：`happy daemon enable` / `happy daemon disable`
 - **守护进程重启命令**：无需手动 kill 即可重启守护进程
-- **Happy CLI v0.7.0 与 Codex v0.153.4**：支持当前 App-Server 交互和 fast mode
+- **Happy CLI v0.8.0 与 Codex v0.154.0**：支持当前 App-Server 交互和 fast mode
 - **Codex 会话恢复**：从可滚动列表选择会话、按 ID 恢复或继续最近会话，并可选择工作目录
 - **Codex 正常退出**：避免会话结束后终端挂起
 - **归因设置**：新设置控制提交归因，默认关闭
