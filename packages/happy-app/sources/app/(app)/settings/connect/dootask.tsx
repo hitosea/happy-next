@@ -23,13 +23,15 @@ import { useRouter } from 'expo-router';
 import { useHeaderHeight } from '@react-navigation/elements';
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { randomUUID } from 'expo-crypto';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
 import { ItemGroup } from '@/components/ItemGroup';
+import { QRCode } from '@/components/qr';
 import { storage } from '@/sync/storage';
 import { loadDooTaskLoginCache, saveDooTaskLoginCache } from '@/sync/persistence';
 import { t } from '@/text';
-import { dootaskLogin, dootaskGetTokenExpire, dootaskGetCaptcha, syncDootaskToServer } from '@/sync/dootask/api';
+import { dootaskLogin, dootaskGetTokenExpire, dootaskGetCaptcha, dootaskGetQrLoginStatus, syncDootaskToServer } from '@/sync/dootask/api';
 import type { DooTaskProfile } from '@/sync/dootask/types';
 
 function ensureHttpsPrefix(url: string): string {
@@ -37,6 +39,16 @@ function ensureHttpsPrefix(url: string): string {
     if (!trimmed) return trimmed;
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
     return 'https://' + trimmed;
+}
+
+const SERVER_URL_PATTERN = /^(?:https:\/\/(?:localhost|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})|http:\/\/localhost)(?::\d{1,5})?(?:\/[^\s?#]*)?$/i;
+
+function normalizeServerUrl(url: string): string {
+    return ensureHttpsPrefix(url).replace(/\/+$/, '');
+}
+
+function isValidServerUrl(url: string): boolean {
+    return SERVER_URL_PATTERN.test(normalizeServerUrl(url));
 }
 
 export default React.memo(function DooTaskConnectPage() {
@@ -48,6 +60,7 @@ export default React.memo(function DooTaskConnectPage() {
     // Form state
     const [loginCache] = React.useState(() => loadDooTaskLoginCache());
     const [serverUrl, setServerUrl] = React.useState(loginCache.serverUrl);
+    const [serverUrlValid, setServerUrlValid] = React.useState(() => isValidServerUrl(loginCache.serverUrl));
     const [email, setEmail] = React.useState(loginCache.email);
     const [password, setPassword] = React.useState('');
     const [code, setCode] = React.useState('');
@@ -55,6 +68,8 @@ export default React.memo(function DooTaskConnectPage() {
     const [codeKey, setCodeKey] = React.useState<string | null>(null);
     const [codeImg, setCodeImg] = React.useState<string | null>(null);
     const [codeLoading, setCodeLoading] = React.useState(false);
+    const [loginMode, setLoginMode] = React.useState<'account' | 'qr'>('account');
+    const [qrCode, setQrCode] = React.useState<string | null>(null);
 
     // UI state
     const [loading, setLoading] = React.useState(false);
@@ -65,6 +80,30 @@ export default React.memo(function DooTaskConnectPage() {
     const emailRef = React.useRef(email);
     React.useEffect(() => { serverUrlRef.current = serverUrl; }, [serverUrl]);
     React.useEffect(() => { emailRef.current = email; }, [email]);
+
+    const updateServerUrl = React.useCallback((value: string) => {
+        setServerUrl(value);
+        setServerUrlValid(false);
+        setError(null);
+        // Persist every edit, including clearing the field.
+        saveDooTaskLoginCache({ serverUrl: value, email: emailRef.current });
+    }, []);
+
+    const validateServerUrl = React.useCallback(() => {
+        const normalized = normalizeServerUrl(serverUrl);
+        if (normalized !== serverUrl) {
+            setServerUrl(normalized);
+            saveDooTaskLoginCache({ serverUrl: normalized, email: emailRef.current });
+        }
+        const valid = isValidServerUrl(normalized);
+        setServerUrlValid(valid);
+        setError(valid || !normalized ? null : t('dootask.errorInvalidUrl'));
+        if (!valid) {
+            setLoginMode('account');
+            setQrCode(null);
+        }
+        return valid;
+    }, [serverUrl]);
 
     React.useEffect(() => {
         return () => {
@@ -92,37 +131,54 @@ export default React.memo(function DooTaskConnectPage() {
     }, [serverUrl]);
 
     const canSubmit = React.useMemo(() => {
-        return serverUrl.trim().length > 0 && email.trim().length > 0 && password.length > 0;
-    }, [serverUrl, email, password]);
+        return serverUrlValid && email.trim().length > 0 && password.length > 0;
+    }, [serverUrlValid, email, password]);
+
+    const finishLogin = React.useCallback(async (data: any) => {
+        const userId = Number(data?.userid);
+        if (!data?.token || !Number.isFinite(userId) || userId <= 0) {
+            setError(t('dootask.loginFailed'));
+            return;
+        }
+        const profile: DooTaskProfile = {
+            serverUrl: normalizeServerUrl(serverUrl),
+            token: data.token,
+            userId,
+            username: data.nickname || data.email || '',
+            avatar: data.userimg || null,
+            tokenExpiredAt: null,
+            tokenRemainingSeconds: null,
+            lastCheckedAt: new Date().toISOString(),
+        };
+        try {
+            const expireRes = await dootaskGetTokenExpire(profile.serverUrl, profile.token);
+            if (expireRes.ret === 1 && expireRes.data) {
+                profile.tokenExpiredAt = expireRes.data.expired_at ?? null;
+                profile.tokenRemainingSeconds = expireRes.data.remaining_seconds ?? null;
+            }
+        } catch {
+            // Expiration metadata is optional.
+        }
+        storage.getState().setDootaskProfile(profile);
+        await syncDootaskToServer({
+            serverUrl: profile.serverUrl,
+            token: profile.token,
+            userId: profile.userId,
+            username: profile.username,
+            avatar: profile.avatar,
+        }).catch(() => {});
+        router.back();
+    }, [router, serverUrl]);
 
     const handleLogin = React.useCallback(async () => {
-        if (!canSubmit || loading) return;
+        if (!canSubmit || loading || !validateServerUrl()) return;
 
         setError(null);
         setLoading(true);
 
         try {
-            // Auto-prefix https:// if missing
-            const prefixed = ensureHttpsPrefix(serverUrl);
-            if (prefixed !== serverUrl) setServerUrl(prefixed);
-
-            // Validate URL format before sending
-            const trimmedUrl = prefixed.trim().replace(/\/+$/, '');
-            try {
-                const parsed = new URL(trimmedUrl);
-                if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && parsed.hostname === 'localhost')) {
-                    setError(t('dootask.errorHttpsRequired'));
-                    setLoading(false);
-                    return;
-                }
-            } catch {
-                setError(t('dootask.errorInvalidUrl'));
-                setLoading(false);
-                return;
-            }
-
             const result = await dootaskLogin({
-                serverUrl: trimmedUrl,
+                serverUrl: normalizeServerUrl(serverUrl),
                 email: email.trim(),
                 password,
                 code: codeKey ? code : undefined,
@@ -131,42 +187,7 @@ export default React.memo(function DooTaskConnectPage() {
 
             switch (result.type) {
                 case 'success': {
-                    // Fetch token expiry info
-                    let tokenExpiredAt: string | null = null;
-                    let tokenRemainingSeconds: number | null = null;
-                    try {
-                        const expireRes = await dootaskGetTokenExpire(trimmedUrl, result.token);
-                        if (expireRes.ret === 1 && expireRes.data) {
-                            tokenExpiredAt = expireRes.data.expired_at ?? null;
-                            tokenRemainingSeconds = expireRes.data.remaining_seconds ?? null;
-                        }
-                    } catch {
-                        // Non-critical, proceed without expiry info
-                    }
-
-                    const profile: DooTaskProfile = {
-                        serverUrl: trimmedUrl,
-                        token: result.token,
-                        userId: result.userId,
-                        username: result.username,
-                        avatar: result.avatar,
-                        tokenExpiredAt,
-                        tokenRemainingSeconds,
-                        lastCheckedAt: new Date().toISOString(),
-                    };
-
-                    storage.getState().setDootaskProfile(profile);
-
-                    // Sync to server (fire-and-forget)
-                    syncDootaskToServer({
-                        serverUrl: profile.serverUrl,
-                        token: profile.token,
-                        userId: profile.userId,
-                        username: profile.username,
-                        avatar: profile.avatar,
-                    }).catch(() => {});
-
-                    router.back();
+                    await finishLogin({ token: result.token, userid: result.userId, nickname: result.username, userimg: result.avatar });
                     break;
                 }
 
@@ -192,7 +213,44 @@ export default React.memo(function DooTaskConnectPage() {
         } finally {
             setLoading(false);
         }
-    }, [canSubmit, loading, serverUrl, email, password, code, codeKey, router, fetchCaptcha]);
+    }, [canSubmit, loading, serverUrl, email, password, code, codeKey, fetchCaptcha, finishLogin, validateServerUrl]);
+
+    const refreshQr = React.useCallback(() => {
+        if (serverUrlValid) {
+            setQrCode(randomUUID().replace(/-/g, ''));
+            setError(null);
+        }
+    }, [serverUrlValid]);
+
+    React.useEffect(() => {
+        if (loginMode === 'qr' && serverUrlValid) refreshQr();
+        else setQrCode(null);
+    }, [loginMode, refreshQr, serverUrlValid]);
+
+    React.useEffect(() => {
+        if (loginMode !== 'qr' || !serverUrlValid || !qrCode) return;
+        let cancelled = false;
+        let polling = false;
+        const poll = async () => {
+            if (cancelled || polling) return;
+            polling = true;
+            try {
+                const result = await dootaskGetQrLoginStatus(normalizeServerUrl(serverUrl), qrCode);
+                if (!cancelled && result.ret === 1 && result.data?.token) {
+                    await finishLogin(result.data);
+                } else if (!cancelled && result.ret !== -1 && result.msg && result.msg !== 'No identity') {
+                    setError(result.msg);
+                }
+            } catch {
+                // Keep polling through transient network failures.
+            } finally {
+                polling = false;
+            }
+        };
+        poll();
+        const timer = setInterval(poll, 2000);
+        return () => { cancelled = true; clearInterval(timer); };
+    }, [finishLogin, loginMode, qrCode, serverUrl, serverUrlValid]);
 
     return (
         <KeyboardAvoidingView
@@ -213,17 +271,45 @@ export default React.memo(function DooTaskConnectPage() {
                         <TextInput
                             style={[styles.fieldInput, Platform.OS === 'web' && { outlineStyle: 'none', outline: 'none', outlineWidth: 0, outlineColor: 'transparent' } as any]}
                             value={serverUrl}
-                            onChangeText={setServerUrl}
-                            onBlur={() => setServerUrl(ensureHttpsPrefix(serverUrl))}
+                            onChangeText={updateServerUrl}
+                            onBlur={validateServerUrl}
+                            onSubmitEditing={validateServerUrl}
                             placeholder="https://your-dootask-server.com"
                             placeholderTextColor={theme.colors.textSecondary}
                             autoCapitalize="none"
                             autoCorrect={false}
                             keyboardType="url"
                             textContentType="URL"
-                            returnKeyType="next"
+                            returnKeyType="done"
                         />
                     </View>
+                </ItemGroup>
+
+                {error && !serverUrlValid && (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                )}
+
+                {serverUrlValid && (
+                <>
+                    <View style={styles.loginHeader}>
+                        <View>
+                            <Text style={styles.loginTitle}>{loginMode === 'qr' ? t('dootask.qrLogin') : t('dootask.accountLogin')}</Text>
+                            {loginMode === 'qr' && <Text style={styles.loginHint}>{t('dootask.qrLoginHint')}</Text>}
+                        </View>
+                        <Pressable onPress={() => setLoginMode(loginMode === 'qr' ? 'account' : 'qr')}>
+                            <Text style={styles.modeToggle}>{loginMode === 'qr' ? t('dootask.switchToAccount') : t('dootask.switchToQr')}</Text>
+                        </Pressable>
+                    </View>
+                    {loginMode === 'qr' ? (
+                        qrCode ? (
+                            <Pressable onPress={refreshQr} style={styles.qrContainer} accessibilityLabel={t('dootask.qrRefresh')}>
+                                <QRCode data={normalizeServerUrl(serverUrl) + '/login?qrcode=' + qrCode} size={200} />
+                            </Pressable>
+                        ) : null
+                    ) : (
+                    <ItemGroup>
                     {/* Email */}
                     <View style={styles.fieldRow}>
                         <Text style={styles.fieldLabel}>{t('dootask.email')}</Text>
@@ -287,6 +373,7 @@ export default React.memo(function DooTaskConnectPage() {
                         </View>
                     )}
                 </ItemGroup>
+                    )}
 
                 {/* Error Message */}
                 {error && (
@@ -307,6 +394,8 @@ export default React.memo(function DooTaskConnectPage() {
                         <Text style={styles.submitButtonText}>{t('dootask.connect')}</Text>
                     )}
                 </Pressable>
+                </>
+                )}
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -368,6 +457,34 @@ const styles = StyleSheet.create((theme) => ({
         fontSize: 11,
         color: theme.colors.textDestructive,
         ...Typography.default('regular'),
+    },
+    loginHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: 25,
+        paddingBottom: 8,
+    },
+    loginTitle: {
+        color: theme.colors.text,
+        fontSize: 18,
+        ...Typography.default('semiBold'),
+    },
+    loginHint: {
+        color: theme.colors.textSecondary,
+        fontSize: 13,
+        marginTop: 4,
+        ...Typography.default('regular'),
+    },
+    modeToggle: {
+        color: theme.colors.textLink,
+        fontSize: 14,
+        ...Typography.default('semiBold'),
+    },
+    qrContainer: {
+        alignItems: 'center',
+        paddingVertical: 16,
     },
     errorContainer: {
         marginHorizontal: 16,

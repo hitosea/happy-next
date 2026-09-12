@@ -7,7 +7,7 @@ vi.mock('@/sync/serverConfig', () => ({
     getServerUrl: () => 'https://api.happy-next.com',
 }));
 
-import { dootaskLogin, dootaskGetTokenExpire, dootaskFetchTasks } from './api';
+import { dootaskLogin, dootaskGetTokenExpire, dootaskFetchTasks, dootaskGetQrLoginStatus } from './api';
 
 describe('dootask api', () => {
     beforeEach(() => {
@@ -84,6 +84,20 @@ describe('dootask api', () => {
             });
             const result = await dootaskGetTokenExpire(serverUrl, token);
             expect(result.ret).toBe(1);
+        });
+    });
+
+    describe('dootaskGetQrLoginStatus', () => {
+        it('passes the QR code to the DooTask polling endpoint', async () => {
+            (global.fetch as any).mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ ret: -1, msg: 'No identity', data: {} }),
+            });
+            await dootaskGetQrLoginStatus(serverUrl, 'qr-code-123');
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${serverUrl}/api/users/login/qrcode?code=qr-code-123`,
+                expect.objectContaining({ method: 'GET' }),
+            );
         });
     });
 

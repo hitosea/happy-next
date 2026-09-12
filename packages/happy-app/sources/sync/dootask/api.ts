@@ -103,6 +103,19 @@ export async function dootaskLogout(serverUrl: string, token: string): Promise<v
     });
 }
 
+/** Poll the DooTask QR login endpoint. A successful response contains the
+ * same user payload as password login; until the QR code is scanned DooTask
+ * returns ret=-1 with "No identity".
+ */
+export async function dootaskGetQrLoginStatus(serverUrl: string, code: string): Promise<DooTaskResponse> {
+    const url = validateServerUrl(serverUrl);
+    const response = await fetch(`${url}/api/users/login/qrcode?code=${encodeURIComponent(code)}`, {
+        method: 'GET',
+        headers: buildHeaders(),
+    });
+    return response.json();
+}
+
 // --- Data ---
 
 type FetchTasksParams = {
