@@ -113,7 +113,7 @@ services:
       - AGENT_WELCOME_MESSAGE=${AGENT_WELCOME_MESSAGE:-你好，需要我做点什么？}
 
   minio:
-    image: minio/minio
+    image: quay.io/minio/minio:latest
     command: server /data
     environment:
       - MINIO_ROOT_USER=${S3_ACCESS_KEY}
