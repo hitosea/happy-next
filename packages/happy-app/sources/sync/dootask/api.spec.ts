@@ -6,8 +6,11 @@ vi.mock('@/auth/tokenStorage', () => ({
 vi.mock('@/sync/serverConfig', () => ({
     getServerUrl: () => 'https://api.happy-next.com',
 }));
+vi.mock('expo-constants', () => ({
+    default: { expoConfig: { version: '2.10.0' } },
+}));
 
-import { dootaskLogin, dootaskGetTokenExpire, dootaskFetchTasks, dootaskGetQrLoginStatus } from './api';
+import { dootaskLogin, dootaskGetTokenExpire, dootaskFetchTasks, dootaskGetQrLoginStatus, dootaskUpdateDevice } from './api';
 
 describe('dootask api', () => {
     beforeEach(() => {
@@ -68,7 +71,10 @@ describe('dootask api', () => {
             await dootaskLogin({ serverUrl, email: 'a@b.com', password: 'pass' });
             expect(global.fetch).toHaveBeenCalledWith(
                 `${serverUrl}/api/users/login`,
-                expect.objectContaining({ method: 'POST' })
+                expect.objectContaining({
+                    method: 'POST',
+                    headers: expect.objectContaining({ version: '2.10.0' }),
+                })
             );
         });
     });
@@ -84,6 +90,24 @@ describe('dootask api', () => {
             });
             const result = await dootaskGetTokenExpire(serverUrl, token);
             expect(result.ret).toBe(1);
+        });
+    });
+
+    describe('dootaskUpdateDevice', () => {
+        it('labels the authenticated device and enables DooTask UA recording', async () => {
+            (global.fetch as any).mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ ret: 1, msg: 'ok', data: {} }),
+            });
+            await dootaskUpdateDevice(serverUrl, token, { device_name: 'Happy Next', app_os: 'iOS 18.0' });
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${serverUrl}/api/users/device/edit`,
+                expect.objectContaining({
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', version: '2.10.0', 'dootask-token': token },
+                    body: JSON.stringify({ device_name: 'Happy Next', app_os: 'iOS 18.0' }),
+                }),
+            );
         });
     });
 

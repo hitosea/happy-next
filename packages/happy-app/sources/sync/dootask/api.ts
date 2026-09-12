@@ -3,6 +3,7 @@
 import type { CreateTaskParams, CreateProjectParams } from './types';
 import { TokenStorage } from '@/auth/tokenStorage';
 import { getServerUrl } from '@/sync/serverConfig';
+import Constants from 'expo-constants';
 
 type LoginParams = {
     serverUrl: string;
@@ -21,7 +22,11 @@ type LoginResult =
 export type DooTaskResponse<T = any> = { ret: number; msg: string; data: T };
 
 function buildHeaders(token?: string): Record<string, string> {
-    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    const h: Record<string, string> = {
+        'Content-Type': 'application/json',
+        // DooTask uses this header to refresh the current device metadata.
+        version: Constants.expoConfig?.version || '2.0.0',
+    };
     if (token) h['dootask-token'] = token;
     return h;
 }
@@ -101,6 +106,24 @@ export async function dootaskLogout(serverUrl: string, token: string): Promise<v
         method: 'GET',
         headers: buildHeaders(token),
     });
+}
+
+/** Set a friendly name for the current DooTask login device. */
+export async function dootaskUpdateDevice(
+    serverUrl: string,
+    token: string,
+    detail: { device_name?: string; app_brand?: string; app_model?: string; app_os?: string },
+): Promise<void> {
+    const url = validateServerUrl(serverUrl);
+    const response = await fetch(`${url}/api/users/device/edit`, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify(detail),
+    });
+    const json: DooTaskResponse = await response.json();
+    if (!response.ok || json.ret !== 1) {
+        throw new Error(json.msg || 'Failed to update DooTask device');
+    }
 }
 
 /** Poll the DooTask QR login endpoint. A successful response contains the

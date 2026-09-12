@@ -8,6 +8,8 @@
  */
 
 import { useEffect } from 'react';
+import * as Device from 'expo-device';
+import { dootaskUpdateDevice } from '@/sync/dootask/api';
 import { dootaskWS } from '@/sync/dootask/dootaskWebSocket';
 import { useDootaskProfile } from '@/sync/storage';
 import { storage } from '@/sync/storage';
@@ -25,6 +27,17 @@ export function useDootaskGlobalWebSocket() {
         return () => {
             dootaskWS.disconnect();
         };
+    }, [profile?.serverUrl, profile?.token]);
+
+    // Also labels restored connections and newly refreshed tokens. Keep the
+    // real UA; web browsers cannot reliably override the User-Agent header.
+    useEffect(() => {
+        if (!profile) return;
+        const appOs = [Device.osName, Device.osVersion].filter(Boolean).join(' ');
+        dootaskUpdateDevice(profile.serverUrl, profile.token, {
+            device_name: 'Happy Next',
+            ...(appOs ? { app_os: appOs } : {}),
+        }).catch(() => {});
     }, [profile?.serverUrl, profile?.token]);
 
     // Register projectTask handler
