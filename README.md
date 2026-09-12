@@ -188,6 +188,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - DooTask recents merged into the main inbox with persistent cache and silent background refresh
 - Session avatars on DooTask-related sessions, chat header adapts to dialog type
 - Empty chats show a consistently centered empty state
+- DooTask devices are identified as Happy Next, with a simpler connection login and cross-device connection sync
 
 ### Self-Hosting
 - One-command `docker-compose up` (Web + API + Voice + Postgres + Redis + MinIO)
@@ -245,6 +246,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - CLI hot-upgrade support mid-session
 - Path picker with directory autocomplete via remote machine listing (web + mobile)
 - Session header unified across iOS / Android / web with left-aligned title, new-session button on the header right, and a header title in the session info screen
+- Desktop project headers include a direct new-session action
 - Consistent back-button and header-action alignment across session and machine screens
 - Long user messages (>20k characters) collapse to a preview with a Show More toggle; text selection inside messages on web is fixed
 - Installed Codex skills appear in slash-command autocomplete; short-screen empty states and initial web-message layout are more reliable

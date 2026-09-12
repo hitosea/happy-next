@@ -1,8 +1,8 @@
 # Changelog
 
-## Version 24 - 2026-09-11
+## Version 24 - 2026-09-12
 
-Happy Next v2.10.0 brings richer GitHub workflows and safer file previews, including repository navigation, secure image and file previews, and downloads up to 100 MiB. Diff viewing is more reliable across browsers, and Happy CLI updates to v0.8.0 with Codex v0.154.0.
+Happy Next v2.10.1 improves DooTask sign-in and cross-device connection sync, and adds a quick new-session action to desktop project headers. It also includes the GitHub workflows, safer file previews, and downloads introduced in v2.10.0.
 
 - GitHub: browse repositories and navigate directly to GitHub-backed work from the app
 - Files: preview images and supported files securely, with clearer preview controls
@@ -10,6 +10,8 @@ Happy Next v2.10.0 brings richer GitHub workflows and safer file previews, inclu
 - Diff viewer: preserve web text selection and prevent Safari proxy scrolling from undoing minimap jumps
 - Tools: show localized tool details alongside secure image previews
 - CLI: Happy CLI v0.8.0 bundles Codex v0.154.0
+- DooTask: simplify connection login and keep connections synchronized across devices
+- Desktop: start a new session directly from a project header
 
 ## Version 23 - 2026-09-09
 

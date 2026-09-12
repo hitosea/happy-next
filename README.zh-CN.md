@@ -190,6 +190,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - DooTask 最近会话合并进收件箱，持久化缓存 + 后台静默刷新
 - DooTask 关联会话显示头像，chat header 按对话类型自适应
 - 空白聊天状态始终保持居中显示
+- DooTask 设备会识别为 Happy Next，连接登录流程更简单，并支持跨设备同步连接
 
 ### 自托管
 - 一条命令 `docker-compose up`（Web + API + Voice + Postgres + Redis + MinIO）
@@ -247,6 +248,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - CLI 会话中途热升级
 - 路径选择器支持目录自动补全，通过远程机器列表实现（Web + 移动端）
 - Session header 在 iOS / Android / Web 端统一为左对齐标题，header 右侧新增"新建会话"按钮，会话详情页加上 header 标题
+- 桌面端项目 header 可直接新建会话
 - 会话与机器页面的返回按钮和 header 操作保持一致对齐
 - 超长用户消息（>20k 字符）折叠为带"展开更多"按钮的预览；Web 端消息内文本选择修复
 - 已安装的 Codex skills 会出现在斜杠命令自动补全中；短屏空状态和 Web 首条消息布局更加可靠

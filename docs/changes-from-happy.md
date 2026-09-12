@@ -229,6 +229,7 @@ Deep integration with DooTask project management, from browsing tasks to launchi
 - **One-click AI session launch** from task detail (with MCP server passthrough)
 - **External context linking**: sessions launched from DooTask show a context banner and are linked back
 - **DooTask connection page** with login, captcha support, and field caching
+- **Simplified DooTask sign-in** with Happy Next device identification and connection sync across devices
 - **Task status management**: clickable status badges with workflow transitions
 - **DooTask tab** in main navigation with connected account management
 - **Create tasks and projects** directly from the app with dedicated form pages
@@ -312,6 +313,7 @@ Extensive improvements to the chat and session management experience.
 - **Smart session defaults**: new session creation automatically picks the best available machine
 - **Per-machine session tabs**: the active/inactive split is replaced by per-machine tabs that group sessions by the machine they run on, so multi-machine setups are easier to navigate; each tab carries a stable status dot — orange when a session on that machine needs permission, reflecting the live thinking state — while the aggregate 'all' tab stays dot-free
 - **Collapsible project folders**: related sessions are grouped into folders that can be collapsed, with folder state retained locally
+- **Project header action**: desktop project headers can start a new session directly
 - **Device and agent filter dropdowns**: filter session history by machine and agent type
 - **Session preview expand/collapse**: expand messages inline with increased preview limit
 - **Metadata caching**: session listing performance improved via metadata cache
