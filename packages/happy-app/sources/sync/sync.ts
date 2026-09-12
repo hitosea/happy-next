@@ -51,6 +51,7 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { Message, UserTextMessage } from './typesMessage';
 import { EncryptionCache } from './encryption/encryptionCache';
 import { systemPrompt, buildDootaskSystemPrompt } from './prompt/systemPrompt';
+import { getDootaskFromServer } from './dootask/api';
 import { fetchArtifact, fetchArtifacts, createArtifact, updateArtifact } from './apiArtifacts';
 import { DecryptedArtifact, Artifact, ArtifactCreateRequest, ArtifactUpdateRequest } from './artifactTypes';
 import { ArtifactEncryption } from './encryption/artifactEncryption';
@@ -305,6 +306,55 @@ class Sync {
     private sessionsCacheSaveTimer: ReturnType<typeof setTimeout> | null = null;
     private lastSessionsCacheSaveAt = 0;
 
+    /**
+     * Reconcile the local DooTask connection with the account-scoped copy on
+     * Happy Server.  A profile can be removed or replaced by another device,
+     * so local presence alone is not authoritative.
+     */
+    private reconcileDootaskProfile = async () => {
+        try {
+            const serverProfile = await getDootaskFromServer();
+
+            if (!serverProfile) {
+                if (storage.getState().dootaskProfile) {
+                    storage.getState().clearDootaskData();
+                }
+                return;
+            }
+
+            const current = storage.getState().dootaskProfile;
+            const metadata = current
+                && current.serverUrl === serverProfile.serverUrl
+                && current.userId === serverProfile.userId
+                ? {
+                    tokenExpiredAt: current.tokenExpiredAt ?? null,
+                    tokenRemainingSeconds: current.tokenRemainingSeconds ?? null,
+                    lastCheckedAt: current.lastCheckedAt ?? null,
+                }
+                : {
+                    tokenExpiredAt: null,
+                    tokenRemainingSeconds: null,
+                    lastCheckedAt: null,
+                };
+
+            // Avoid a redundant Zustand update when another device has not
+            // changed the profile.  This also prevents needless WS reconnects.
+            if (current
+                && current.serverUrl === serverProfile.serverUrl
+                && current.token === serverProfile.token
+                && current.userId === serverProfile.userId
+                && current.username === serverProfile.username
+                && current.avatar === serverProfile.avatar) {
+                return;
+            }
+
+            storage.getState().setDootaskProfile({ ...serverProfile, ...metadata });
+        } catch {
+            // A transient Happy Server/network failure must not log the user
+            // out locally.  The next foreground event retries reconciliation.
+        }
+    };
+
     constructor() {
         this.sessionsSync = new InvalidateSync(this.runSessionsSync);
         this.settingsSync = new InvalidateSync(this.syncSettings);
@@ -356,9 +406,14 @@ class Sync {
                     this.fetchOrchestratorActivity(this.viewingSessionId);
                 }
 
-                // DooTask token refresh (throttled to 1h)
-                const dootaskProfile = storage.getState().dootaskProfile;
-                if (dootaskProfile && this.credentials) {
+                // Reconcile first so a disconnect made on another device is
+                // reflected before any local token refresh can write stale
+                // credentials back to the server.
+                this.reconcileDootaskProfile().then(() => {
+                    const dootaskProfile = storage.getState().dootaskProfile;
+                    if (!dootaskProfile || !this.credentials) return;
+
+                    // DooTask token refresh (throttled to 1h)
                     const lastChecked = dootaskProfile.lastCheckedAt
                         ? new Date(dootaskProfile.lastCheckedAt).getTime()
                         : 0;
@@ -371,6 +426,13 @@ class Sync {
                             headers: { 'Content-Type': 'application/json', 'dootask-token': dootaskProfile.token },
                         }).then(res => res.json()).then((json: any) => {
                             if (json.ret !== 1) throw new Error('refresh failed');
+                            const current = storage.getState().dootaskProfile;
+                            if (!current
+                                || current.serverUrl !== dootaskProfile.serverUrl
+                                || current.userId !== dootaskProfile.userId
+                                || current.token !== dootaskProfile.token) {
+                                return;
+                            }
                             const newToken: string | null = json.data?.token ?? null;
                             const updatedProfile = {
                                 ...dootaskProfile,
@@ -402,7 +464,7 @@ class Sync {
                             // No-op: keep existing data, retry on next foreground resume
                         });
                     }
-                }
+                }).catch(() => {});
             } else {
                 log.log(`📱 App state changed to: ${nextAppState}`);
             }
@@ -518,33 +580,9 @@ class Sync {
                 console.warn('Failed to reconcile sessions after init:', error);
             });
 
-            // Restore DooTask profile from server if not available locally
-            if (!storage.getState().dootaskProfile && this.credentials) {
-                const endpoint = getServerUrl();
-                const token = this.credentials.token;
-                fetch(`${endpoint}/v1/connect/dootask`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                }).then(res => {
-                    if (!res.ok) return null;
-                    return res.json();
-                }).then(json => {
-                    const profile = json?.profile;
-                    log.log(`🔗 DooTask: Server restore: ${profile ? 'found' : 'null'}`);
-                    if (profile && !storage.getState().dootaskProfile) {
-                        storage.getState().setDootaskProfile({
-                            serverUrl: profile.serverUrl,
-                            token: profile.token,
-                            userId: profile.userId,
-                            username: profile.username,
-                            avatar: profile.avatar,
-                            tokenExpiredAt: null,
-                            tokenRemainingSeconds: null,
-                            lastCheckedAt: null,
-                        });
-                    }
-                }).catch(() => {});
-            }
+            // Reconcile even when a local profile exists so another device's
+            // disconnect or account switch is reflected here.
+            this.reconcileDootaskProfile().catch(() => {});
         }).catch((error) => {
             console.error('Failed to load initial data:', error);
         });

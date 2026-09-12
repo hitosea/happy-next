@@ -508,7 +508,9 @@ export async function getDootaskFromServer(): Promise<DootaskProfile | null> {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${credentials.token}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+        throw new Error(`Failed to fetch DooTask profile (${res.status})`);
+    }
     const json = await res.json();
     return json.profile ?? null;
 }

@@ -159,11 +159,14 @@ export const SettingsView = React.memo(function SettingsView() {
         );
         if (confirmed) {
             if (dootaskProfile) {
-                // Fire-and-forget: don't block disconnect on server response
-                import('@/sync/dootask/api').then(({ dootaskLogout, deleteDootaskFromServer }) => {
-                    dootaskLogout(dootaskProfile.serverUrl, dootaskProfile.token).catch(() => {});
-                    deleteDootaskFromServer().catch(() => {});
-                });
+                // Complete both remote disconnects before clearing local state.
+                // This makes the account-scoped deletion visible to other
+                // devices as soon as they reconcile their profile.
+                const { dootaskLogout, deleteDootaskFromServer } = await import('@/sync/dootask/api');
+                await Promise.allSettled([
+                    dootaskLogout(dootaskProfile.serverUrl, dootaskProfile.token),
+                    deleteDootaskFromServer(),
+                ]);
             }
             storage.getState().clearDootaskData();
         }
