@@ -96,6 +96,20 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         maxWidth: 140,
         textAlign: 'right',
     },
+    newSessionHeaderButton: {
+        width: 28,
+        height: 28,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        borderRadius: 6,
+    },
+    sectionHeaderActionSlot: {
+        position: 'relative',
+        minWidth: 28,
+        minHeight: 28,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+    },
     sessionRow: {
         height: 56,
         flexDirection: 'row',
@@ -198,16 +212,23 @@ function ProjectSectionHeader({
     projectGroup,
     collapsed,
     onToggle,
+    onNewSession,
     avatar,
     rightContent,
 }: {
     projectGroup: SessionProjectGroup;
     collapsed: boolean;
     onToggle: () => void;
+    onNewSession?: () => void;
     avatar: React.ReactNode;
     rightContent: React.ReactNode;
 }) {
     const styles = stylesheet;
+    const [hovered, setHovered] = React.useState(false);
+    const hoverHandlers = Platform.OS === 'web' ? {
+        onPointerEnter: () => setHovered(true),
+        onPointerLeave: () => setHovered(false),
+    } : {};
     const expansion = React.useRef(new Animated.Value(collapsed ? 0 : 1)).current;
     React.useEffect(() => {
         Animated.timing(expansion, {
@@ -218,13 +239,14 @@ function ProjectSectionHeader({
     }, [collapsed, expansion]);
 
     return (
-        <Pressable
-            style={styles.sectionHeader}
-            onPress={onToggle}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: !collapsed }}
-            accessibilityLabel={`${collapsed ? t('duplicate.expandText') : t('duplicate.collapseText')} ${projectGroup.displayPath}`}
-        >
+        <View {...(hoverHandlers as any)}>
+            <Pressable
+                style={styles.sectionHeader}
+                onPress={onToggle}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !collapsed }}
+                accessibilityLabel={`${collapsed ? t('duplicate.expandText') : t('duplicate.collapseText')} ${projectGroup.displayPath}`}
+            >
             <View style={styles.sectionHeaderLeft}>
                 <Animated.View
                     style={[
@@ -247,16 +269,39 @@ function ProjectSectionHeader({
                     {projectGroup.displayPath}
                 </Text>
             </View>
-            <View style={styles.sectionHeaderRight}>
-                {rightContent}
-            </View>
-        </Pressable>
+                <View style={styles.sectionHeaderRight}>
+                    <View style={styles.sectionHeaderActionSlot}>
+                        <View style={hovered && onNewSession ? { opacity: 0 } : undefined}>
+                            {rightContent}
+                        </View>
+                        {onNewSession && hovered && Platform.OS === 'web' && (
+                            <Pressable
+                                style={({ pressed }) => [
+                                    styles.newSessionHeaderButton,
+                                    { position: 'absolute', right: 0 },
+                                    pressed && { backgroundColor: '#00000012' },
+                                ]}
+                                onPress={(event) => {
+                                    event.stopPropagation?.();
+                                    onNewSession();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('newSession.startNewSessionInFolder')}
+                            >
+                                <Ionicons name="add" size={20} color={styles.sectionHeaderPath.color} />
+                            </Pressable>
+                        )}
+                    </View>
+                </View>
+            </Pressable>
+        </View>
     );
 }
 
 
 export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, registerSessionRowRef }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
+    const router = useRouter();
     const projectGroups = useSessionProjectGroups(sessions);
     const { collapsedGroups, toggleGroup } = useCollapsedSessionProjectGroups(projectGroups, selectedSessionId);
 
@@ -270,6 +315,14 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, regist
                 const avatarId = firstSession ? getSessionAvatarId(firstSession) : undefined;
                 const singleMachineEntry = machineEntries.length === 1 ? machineEntries[0] : null;
                 const singleMachineId = singleMachineEntry?.[0];
+                const newSessionSource = projectGroup.sessions[0];
+                const newSessionMetadata = newSessionSource?.metadata;
+                const handleNewSession = newSessionMetadata?.path ? () => {
+                    const params = new URLSearchParams();
+                    if (newSessionMetadata.machineId) params.set('machineId', newSessionMetadata.machineId);
+                    params.set('path', newSessionMetadata.path);
+                    router.push(`/new?${params.toString()}`);
+                } : undefined;
 
                 return (
                     <View key={projectPath}>
@@ -278,6 +331,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, regist
                             projectGroup={projectGroup}
                             collapsed={!!collapsedGroups[collapseKey]}
                             onToggle={() => toggleGroup(collapseKey)}
+                            onNewSession={handleNewSession}
                             avatar={avatarId && firstSession ? (
                                 <Avatar id={avatarId} size={24} flavor={firstSession.metadata?.flavor} sessionIcon={firstSession.metadata?.sessionIcon} />
                             ) : null}
