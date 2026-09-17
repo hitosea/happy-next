@@ -661,6 +661,7 @@ export const ca: TranslationStructure = {
         operationFailed: 'L\'operació ha fallat',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'No es pot enviar: aquesta sessió no està disponible. Pot ser que s\'hagi eliminat o que s\'hagi deixat de compartir.',
         tryAgain: 'Torna-ho a provar',
         contactSupport: 'Contacta amb el suport si el problema persisteix',
         sessionNotFound: 'Sessió no trobada',

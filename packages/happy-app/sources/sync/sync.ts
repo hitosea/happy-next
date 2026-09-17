@@ -130,22 +130,44 @@ type PreparedNewMessageUpdate = {
     isTaskStarted: boolean;
 };
 
+/**
+ * Why a send failed, so the UI can name the real cause instead of inferring
+ * "image upload failed" from the mere presence of attachments.
+ *
+ * - image-upload: an attached image could not be uploaded
+ * - no-access: the server refused the session (deleted, or sharing revoked)
+ * - network: no attempt got a response (timeout / offline)
+ * - send: the request reached the server and was otherwise rejected
+ */
+export type SendFailureReason = 'image-upload' | 'no-access' | 'network' | 'send';
+
 type SendMessageResult = {
     success: boolean;
     error?: string;
+    reason?: SendFailureReason;
     localId: string;
 };
 
 type SendOrQueueResult = (
     { success: true; mode: 'sent'; localId: string; }
     | { success: true; mode: 'queued'; localId: string; pendingId: string; }
-    | { success: false; localId: string; error?: string; }
+    | { success: false; localId: string; error?: string; reason: SendFailureReason; }
 );
 
 type PreparedOutgoingMessage = {
     localId: string;
     encryptedRawRecord: string;
     normalizedMessage: NormalizedMessage | null;
+};
+
+/**
+ * Failure from the prepare step. `reason` is the UI-facing cause; `error` is the
+ * raw string kept for logging.
+ */
+type PreparedOutgoingMessageFailure = {
+    error: string;
+    reason: SendFailureReason;
+    localId: string;
 };
 
 type SessionMessagesResponse = {
@@ -1134,15 +1156,17 @@ class Sync {
         displayText?: string,
         images?: LocalImage[],
         existingLocalId?: string
-    ): Promise<PreparedOutgoingMessage | { error: string; localId: string }> {
+    ): Promise<PreparedOutgoingMessage | PreparedOutgoingMessageFailure> {
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
-            return { error: 'Session encryption not found', localId: '' };
+            return { error: 'Session encryption not found', reason: 'send', localId: '' };
         }
 
         const session = getSession(sessionId);
         if (!session) {
-            return { error: 'Session not found', localId: '' };
+            // Local storage no longer has the session — for a shared session this
+            // usually means the share was revoked on another device.
+            return { error: 'Session not found', reason: 'no-access', localId: '' };
         }
 
         const permissionMode = session.permissionMode || 'default';
@@ -1179,7 +1203,7 @@ class Sync {
                 }
             } catch (error) {
                 log.log(`[SEND_DEBUG][SYNC] image_upload_failed sid=${sessionId} localId=${localId} error=${error instanceof Error ? error.message : 'Unknown error'}`);
-                return { error: 'Image upload failed', localId };
+                return { error: 'Image upload failed', reason: 'image-upload', localId };
             }
 
             messageContent = {
@@ -1234,7 +1258,7 @@ class Sync {
     ): Promise<SendMessageResult> {
         const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId);
         if ('error' in prepared) {
-            return { success: false, error: prepared.error, localId: prepared.localId };
+            return { success: false, error: prepared.error, reason: prepared.reason, localId: prepared.localId };
         }
 
         const { localId, encryptedRawRecord, normalizedMessage } = prepared;
@@ -1269,7 +1293,12 @@ class Sync {
                 const errorText = await response.text().catch(() => 'Unknown error');
                 log.log(`[SEND_DEBUG][SYNC] fail sid=${sessionId} localId=${localId} via=v3-http status=${response.status} error=${errorText}`);
                 this.pendingSendCallbacks.delete(localId);
-                return { success: false, error: `Send failed: ${response.status}`, localId };
+                return {
+                    success: false,
+                    error: `Send failed: ${response.status}`,
+                    reason: response.status === 404 ? 'no-access' : 'send',
+                    localId,
+                };
             }
 
             const pending = this.pendingSendCallbacks.get(localId);
@@ -1364,7 +1393,7 @@ class Sync {
         } catch (error) {
             log.log(`[SEND_DEBUG][SYNC] fail sid=${sessionId} localId=${localId} via=v3-exception error=${error instanceof Error ? error.message : 'Unknown error'}`);
             this.pendingSendCallbacks.delete(localId);
-            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', localId };
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error', reason: 'network', localId };
         }
     }
 
@@ -1378,12 +1407,12 @@ class Sync {
     ): Promise<SendOrQueueResult> {
         const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId);
         if ('error' in prepared) {
-            return { success: false, error: prepared.error, localId: prepared.localId };
+            return { success: false, error: prepared.error, reason: prepared.reason, localId: prepared.localId };
         }
 
         const { localId, encryptedRawRecord, normalizedMessage } = prepared;
         if (!this.credentials) {
-            return { success: false, localId, error: 'Not authenticated' };
+            return { success: false, localId, error: 'Not authenticated', reason: 'send' };
         }
         if (onBeforeApply) {
             this.pendingSendCallbacks.set(localId, onBeforeApply);
@@ -1391,31 +1420,49 @@ class Sync {
 
         try {
             const API_ENDPOINT = getServerUrl();
-            const response = await this.hedgedSend(
-                `${API_ENDPOINT}/v3/sessions/${sessionId}/send`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.credentials.token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: encryptedRawRecord,
-                        localId,
-                        trackCliDelivery: true
-                    })
-                }
-            );
+            let response: Response;
+            try {
+                response = await this.hedgedSend(
+                    `${API_ENDPOINT}/v3/sessions/${sessionId}/send`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.credentials.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content: encryptedRawRecord,
+                            localId,
+                            trackCliDelivery: true
+                        })
+                    }
+                );
+            } catch (error) {
+                // hedgedSend only rejects when every attempt failed to get a response
+                // (timeout or offline), never on an HTTP status.
+                this.pendingSendCallbacks.delete(localId);
+                return {
+                    success: false,
+                    localId,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    reason: 'network',
+                };
+            }
 
             if (!response.ok) {
                 this.pendingSendCallbacks.delete(localId);
-                return { success: false, localId, error: `Send failed: ${response.status}` };
+                return {
+                    success: false,
+                    localId,
+                    error: `Send failed: ${response.status}`,
+                    reason: response.status === 404 ? 'no-access' : 'send',
+                };
             }
 
             const parsed = ApiSendOrQueueResponseSchema.safeParse(await response.json());
             if (!parsed.success) {
                 this.pendingSendCallbacks.delete(localId);
-                return { success: false, localId, error: 'Invalid send response' };
+                return { success: false, localId, error: 'Invalid send response', reason: 'send' };
             }
 
             const responseData = parsed.data;
@@ -1487,8 +1534,15 @@ class Sync {
 
             return { success: true, mode: 'sent', localId };
         } catch (error) {
+            // Response in hand, so this is a local post-processing failure, not a
+            // network one — the server may well have accepted the message.
             this.pendingSendCallbacks.delete(localId);
-            return { success: false, localId, error: error instanceof Error ? error.message : 'Unknown error' };
+            return {
+                success: false,
+                localId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                reason: 'send',
+            };
         }
     }
 

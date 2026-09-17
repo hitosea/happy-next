@@ -673,6 +673,7 @@ export const pl: TranslationStructure = {
         operationFailed: 'Operacja nie powiodła się',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'Nie można wysłać: ta sesja jest niedostępna. Mogła zostać usunięta lub udostępnianie zostało cofnięte.',
         tryAgain: 'Spróbuj ponownie',
         contactSupport: 'Skontaktuj się z pomocą techniczną, jeśli problem będzie się powtarzał',
         sessionNotFound: 'Sesja nie została znaleziona',

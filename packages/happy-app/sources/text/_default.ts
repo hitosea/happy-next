@@ -671,6 +671,7 @@ export const en = {
         operationFailed: 'Operation failed',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'Cannot send: this session is unavailable. It may have been deleted or unshared.',
         tryAgain: 'Please try again',
         contactSupport: 'Contact support if the problem persists',
         sessionNotFound: 'Session not found',

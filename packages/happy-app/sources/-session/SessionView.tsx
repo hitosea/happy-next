@@ -34,6 +34,7 @@ import { isRunningOnMac } from '@/utils/platform';
 import { useDeviceType, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { canEditSession, canForkSession } from '@/utils/sessionLifecycle';
+import { sendFailureKey } from '@/utils/sendFailure';
 import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
@@ -1187,13 +1188,8 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                             trackMessageSent();
                         } else {
                             failedMessageRef.current = { localId: result.localId, content: contentForRetry };
-                            log.log(`[SEND_DEBUG][UI] record_retry sid=${sessionId} localId=${result.localId}`);
-                            Modal.alert(
-                                t('common.error'),
-                                imagesToSend?.length
-                                    ? t('errors.imageUploadFailed')
-                                    : t('errors.messageSendFailed'),
-                            );
+                            log.log(`[SEND_DEBUG][UI] record_retry sid=${sessionId} localId=${result.localId} reason=${result.reason}`);
+                            Modal.alert(t('common.error'), t(sendFailureKey(result.reason)));
                         }
                     } finally {
                         setIsSending(false);

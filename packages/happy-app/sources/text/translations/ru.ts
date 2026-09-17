@@ -626,6 +626,7 @@ export const ru: TranslationStructure = {
         operationFailed: 'Операция не выполнена',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'Не удалось отправить: сессия недоступна. Возможно, она удалена или доступ к ней отозван.',
         tryAgain: 'Пожалуйста, попробуйте снова',
         contactSupport: 'Если проблема сохранится, обратитесь в поддержку',
         sessionNotFound: 'Сессия не найдена',

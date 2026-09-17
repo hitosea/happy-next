@@ -663,6 +663,7 @@ export const zhHans: TranslationStructure = {
         operationFailed: '操作失败',
         imageUploadFailed: '图片上传失败，请检查网络后重试。',
         messageSendFailed: '消息发送失败，请检查连接后重试。',
+        sessionUnavailable: '无法发送消息：该会话已不可用，可能已被删除或取消共享。',
         tryAgain: '请重试',
         contactSupport: '如果问题持续存在，请联系支持',
         sessionNotFound: '会话未找到',

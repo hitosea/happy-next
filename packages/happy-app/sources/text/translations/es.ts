@@ -661,6 +661,7 @@ export const es: TranslationStructure = {
         operationFailed: 'Operación falló',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'No se puede enviar: esta sesión no está disponible. Puede que se haya eliminado o que se haya dejado de compartir.',
         tryAgain: 'Intenta de nuevo',
         contactSupport: 'Contacta soporte si el problema persiste',
         sessionNotFound: 'Sesión no encontrada',

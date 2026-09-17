@@ -663,6 +663,7 @@ export const zhHant: TranslationStructure = {
         operationFailed: '操作失敗',
         imageUploadFailed: '圖片上傳失敗，請檢查網路後重試。',
         messageSendFailed: '訊息傳送失敗，請檢查連線後重試。',
+        sessionUnavailable: '無法傳送訊息：此工作階段已無法使用，可能已被刪除或取消共享。',
         tryAgain: '請重試',
         contactSupport: '如果問題持續存在，請聯絡支援',
         sessionNotFound: '工作階段未找到',

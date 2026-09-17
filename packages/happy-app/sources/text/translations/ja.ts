@@ -693,6 +693,7 @@ export const ja: TranslationStructure = {
         operationFailed: '操作に失敗しました',
         imageUploadFailed: 'Image upload failed. Check your connection and try again.',
         messageSendFailed: 'Message send failed. Check your connection and try again.',
+        sessionUnavailable: 'このセッションは利用できないため送信できません。削除されたか、共有が解除された可能性があります。',
         tryAgain: '再試行してください',
         contactSupport: '問題が続く場合はサポートにお問い合わせください',
         sessionNotFound: 'セッションが見つかりません',
