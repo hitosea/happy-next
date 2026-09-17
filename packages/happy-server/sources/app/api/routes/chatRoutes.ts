@@ -1,6 +1,7 @@
 import { Fastify } from "../types";
 import { chatImageUpload } from "@/app/chat/chatImageUpload";
 import { db } from "@/storage/db";
+import { canSendMessages } from "@/app/share/accessControl";
 
 export function chatRoutes(app: Fastify) {
     /**
@@ -43,14 +44,18 @@ export function chatRoutes(app: Fastify) {
             return reply.status(400).send({ error: "sessionId is required" });
         }
 
-        // Verify session belongs to user
-        const session = await db.session.findFirst({
-            where: {
-                id: sessionId,
-                accountId: userId,
-            },
-        });
+        // Verify the user can send messages to this session. The session may be
+        // shared: a recipient with edit access must be able to attach images,
+        // matching the gate on POST /v3/sessions/:sessionId/send. The image is
+        // stored under the session owner's directory, not the uploader's.
+        if (!await canSendMessages(userId, sessionId)) {
+            return reply.status(404).send({ error: "Session not found" });
+        }
 
+        const session = await db.session.findUnique({
+            where: { id: sessionId },
+            select: { accountId: true },
+        });
         if (!session) {
             return reply.status(404).send({ error: "Session not found" });
         }
@@ -61,8 +66,8 @@ export function chatRoutes(app: Fastify) {
             return reply.status(400).send({ error: "Only JPEG and PNG images are supported" });
         }
 
-        // Upload image
-        const result = await chatImageUpload(userId, sessionId, fileBuffer, mimeType);
+        // Upload image (owner directory + attribution)
+        const result = await chatImageUpload(session.accountId, sessionId, fileBuffer, mimeType);
 
         return reply.send({
             success: true,
