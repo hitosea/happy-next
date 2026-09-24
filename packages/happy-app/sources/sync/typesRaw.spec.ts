@@ -1268,6 +1268,29 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             }
         });
 
+        it('Qoder (ACP provider) works with hyphenated types', () => {
+            // Qoder emits the shared ACP record shape, like Gemini/Codex.
+            const qoderMessage = {
+                role: 'agent',
+                content: {
+                    type: 'acp',
+                    provider: 'qoder',
+                    data: {
+                        type: 'reasoning',
+                        message: 'Qoder reasoning output'
+                    }
+                }
+            };
+
+            const result = RawRecordSchema.safeParse(qoderMessage);
+
+            expect(result.success).toBe(true);
+            if (result.success && result.data.content.type === 'acp' && result.data.content.data.type === 'reasoning') {
+                expect(result.data.content.provider).toBe('qoder');
+                expect(result.data.content.data.message).toBe('Qoder reasoning output');
+            }
+        });
+
         it('handles hypothetical hyphenated types in output path (defensive)', () => {
             // This tests the defensive nature of the transform
             // If CLI ever sends hyphenated in output path, it should work

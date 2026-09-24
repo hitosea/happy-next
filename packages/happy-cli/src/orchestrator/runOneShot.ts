@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { qoderModelModeToCliModel } from 'happy-wire';
+import { qoderSdkIsolationEnv } from '@/qoder/constants';
+import { resolveQoderCommand } from '@/agent/factories/qoder';
 import { existsSync } from 'node:fs';
 import { claudeCliPath } from '@/claude/claudeLocal';
 import { CODEX_PACKAGE } from '@/codex/package';
@@ -153,6 +156,27 @@ export function buildSpawnPlan(
         args: geminiArgs,
         cwd: workingDirectory,
         env: { ...process.env },
+      };
+    }
+    case 'qoder': {
+      // Headless one-shot: `-p` prints a single response and exits, so this path does
+      // not need ACP. `--output-format json` is what the daemon's output parser reads.
+      const qoderArgs = ['--yolo'];
+      if (executionType === 'resume') {
+        qoderArgs.push('--resume', childSessionId!, '-p', prompt);
+      } else {
+        qoderArgs.push('-p', prompt, '--output-format', 'json');
+        if (normalizedModelMode) {
+          qoderArgs.push('--model', qoderModelModeToCliModel(normalizedModelMode) ?? normalizedModelMode);
+        }
+      }
+      return {
+        command: resolveQoderCommand(),
+        args: qoderArgs,
+        cwd: workingDirectory,
+        // Isolation matters here too: an orchestrator worker spawned from a Qoder-host
+        // shell inherits QODER_AGENT_SDK_ENTRYPOINT and would fail before --print.
+        env: { ...process.env, ...qoderSdkIsolationEnv() },
       };
     }
     default:

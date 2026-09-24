@@ -182,6 +182,16 @@ export interface AcpBackendOptions {
    * E.g., maps "change_title" → "mcp:happy:change_title"
    */
   normalizeToolName?: (rawName: string) => string;
+
+  /**
+   * Native ACP session id to reopen instead of calling `session/new`.
+   *
+   * Requires the agent to advertise `loadSession` (Qoder CLI does; Gemini CLI's
+   * `--experimental-acp` does not, which is why the Gemini runner keeps its own JSONL
+   * transcript instead). When set, `startSession()` goes through `session/load`, so the
+   * engine — not Happy — stays the source of truth for conversation state.
+   */
+  resumeSessionId?: string | null;
 }
 
 /**
@@ -245,6 +255,29 @@ function nodeToWebStreams(
 }
 
 /**
+ * Normalise anything a JSON-RPC layer may reject with into a usable Error.
+ *
+ * ACP agents reply with plain `{code, message, data}` error objects, and the SDK does
+ * not always wrap them (verified: an unauthenticated `qoder --acp` rejects with a bare
+ * object). Coercing via `String(value)` produced "[object Object]", which turned a
+ * fixable "please run qodercli login" into an undebuggable message in the app.
+ */
+export function toAcpError(value: unknown): Error {
+  if (value instanceof Error) {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    const candidate = value as { message?: unknown; code?: unknown };
+    const message = typeof candidate.message === 'string' && candidate.message
+      ? candidate.message
+      : JSON.stringify(value);
+    const suffix = typeof candidate.code === 'number' ? ` (JSON-RPC code ${candidate.code})` : '';
+    return new Error(`${message}${suffix}`);
+  }
+  return new Error(String(value));
+}
+
+/**
  * Helper to run an async operation with retry logic
  */
 async function withRetry<T>(
@@ -264,7 +297,7 @@ async function withRetry<T>(
     try {
       return await operation();
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      lastError = toAcpError(error);
 
       const shouldRetry = options.shouldRetry ? options.shouldRetry(lastError) : true;
       if (attempt < options.maxAttempts && shouldRetry) {
@@ -328,6 +361,16 @@ export class AcpBackend implements AgentBackend {
   onMessage(handler: AgentMessageHandler): void {
     this.listeners.push(handler);
   } 
+
+  /**
+   * The agent's own session id, once a session exists.
+   *
+   * Runners persist this into Happy session metadata so a later launch can hand it
+   * back as `resumeSessionId` and let the engine restore its own history.
+   */
+  getSessionId(): SessionId | null {
+    return this.acpSessionId;
+  }
 
   offMessage(handler: AgentMessageHandler): void {
     const index = this.listeners.indexOf(handler);
@@ -815,7 +858,10 @@ export class AcpBackend implements AgentBackend {
         mcpServers: mcpServers as unknown as NewSessionRequest['mcpServers'],
       };
 
-      logger.debug(`[AcpBackend] Creating new session...`);
+      const resumeSessionId = this.options.resumeSessionId ?? null;
+      logger.debug(resumeSessionId
+        ? `[AcpBackend] Loading existing ${this.transport.agentName} session ${resumeSessionId}...`
+        : `[AcpBackend] Creating new session...`);
 
       const sessionResponse = await withRetry(
         async () => {
@@ -823,7 +869,14 @@ export class AcpBackend implements AgentBackend {
           try {
             const result = await Promise.race([
               startupFailurePromise,
-              this.connection!.newSession(newSessionRequest).then((res) => {
+              (resumeSessionId
+                ? this.connection!.loadSession({
+                    sessionId: resumeSessionId,
+                    cwd: this.options.cwd,
+                    mcpServers: newSessionRequest.mcpServers,
+                  })
+                : this.connection!.newSession(newSessionRequest)
+              ).then((res) => {
                 if (timeoutHandle) {
                   clearTimeout(timeoutHandle);
                   timeoutHandle = null;
@@ -832,7 +885,7 @@ export class AcpBackend implements AgentBackend {
               }),
               new Promise<never>((_, reject) => {
                 timeoutHandle = setTimeout(() => {
-                  reject(new Error(`New session timeout after ${initTimeout}ms - ${this.transport.agentName} did not respond`));
+                  reject(new Error(`${resumeSessionId ? 'Load session' : 'New session'} timeout after ${initTimeout}ms - ${this.transport.agentName} did not respond`));
                 }, initTimeout);
               }),
             ]);
@@ -844,16 +897,24 @@ export class AcpBackend implements AgentBackend {
           }
         },
         {
-          operationName: 'NewSession',
+          operationName: resumeSessionId ? 'LoadSession' : 'NewSession',
           maxAttempts: RETRY_CONFIG.maxAttempts,
           baseDelayMs: RETRY_CONFIG.baseDelayMs,
           maxDelayMs: RETRY_CONFIG.maxDelayMs,
           shouldRetry: (error) => !isNonRetryableStartupError(error),
         }
       );
-      this.acpSessionId = sessionResponse.sessionId;
-      logger.debug(`[AcpBackend] Session created: ${this.acpSessionId}`);
-      this.emitInitialSessionMetadata(sessionResponse);
+      // `session/load` replies without echoing the id back, so keep the one we asked
+      // for; only a freshly created session carries a NewSessionResponse payload.
+      const loadedSessionId = resumeSessionId
+        ? resumeSessionId
+        : (sessionResponse as { sessionId?: string }).sessionId ?? '';
+      this.acpSessionId = loadedSessionId;
+      logger.debug(`[AcpBackend] Session ready: ${this.acpSessionId}${resumeSessionId ? ' (loaded)' : ''}`);
+      if (!resumeSessionId) {
+        // Only a fresh session returns NewSessionResponse; session/load replies with no id.
+        this.emitInitialSessionMetadata(sessionResponse as NewSessionResponse);
+      }
 
       this.emitIdleStatus();
 
@@ -1135,32 +1196,16 @@ export class AcpBackend implements AgentBackend {
     } catch (error) {
       logger.debug('[AcpBackend] Error sending prompt:', error);
       this.waitingForResponse = false;
-      
-      // Extract error details for better error handling
-      let errorDetail: string;
-      if (error instanceof Error) {
-        errorDetail = error.message;
-      } else if (typeof error === 'object' && error !== null) {
-        const errObj = error as Record<string, unknown>;
-        // Try to extract structured error information
-        const fallbackMessage = (typeof errObj.message === 'string' ? errObj.message : undefined) || String(error);
-        if (errObj.code !== undefined) {
-          errorDetail = JSON.stringify({ code: errObj.code, message: fallbackMessage });
-        } else if (typeof errObj.message === 'string') {
-          errorDetail = errObj.message;
-        } else {
-          errorDetail = String(error);
-        }
-      } else {
-        errorDetail = String(error);
-      }
-      
-      this.emit({ 
-        type: 'status', 
-        status: 'error', 
-        detail: errorDetail
+
+      // The SDK rejects with the raw JSON-RPC error object, so normalize before anyone
+      // downstream tries to read `.message` off it.
+      const acpError = toAcpError(error);
+      this.emit({
+        type: 'status',
+        status: 'error',
+        detail: acpError.message
       });
-      throw error;
+      throw acpError;
     }
   }
 
@@ -1282,6 +1327,12 @@ export class AcpBackend implements AgentBackend {
    */
   private emitIdleStatus(): void {
     this.emit({ type: 'status', status: 'idle' });
+    // Clear the flag even when nobody is waiting yet. Without this, a caller that
+    // awaits sendPrompt() first (which resolves at the end of the turn) and only then
+    // calls waitForResponseComplete() waits for an idle that has already happened and
+    // blocks until it times out. cancel() was the only path that reset this, so the
+    // trap was invisible to any agent that cancelled between turns.
+    this.waitingForResponse = false;
     // Resolve any waiting promises
     if (this.idleResolver) {
       logger.debug('[AcpBackend] Resolving idle waiter');

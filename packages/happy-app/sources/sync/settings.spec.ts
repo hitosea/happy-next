@@ -577,7 +577,7 @@ describe('settings', () => {
         });
 
         it('accepts all 7 permission modes', () => {
-            const modes = ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo'];
+            const modes = ['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo', 'dontAsk', 'accept_edits', 'bypass_permissions', 'dont_ask'];
             modes.forEach(mode => {
                 const profile = {
                     id: crypto.randomUUID(),
@@ -643,7 +643,7 @@ describe('settings', () => {
                         name: 'Server Profile',
                         anthropicConfig: {},
                         environmentVariables: [],
-                        compatibility: { claude: true, codex: true, gemini: true },
+                        compatibility: { claude: true, codex: true, gemini: true, qoder: true },
                         isBuiltIn: false,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
@@ -661,7 +661,7 @@ describe('settings', () => {
                         name: 'Local Profile',
                         anthropicConfig: {},
                         environmentVariables: [],
-                        compatibility: { claude: true, codex: true, gemini: true },
+                        compatibility: { claude: true, codex: true, gemini: true, qoder: true },
                         isBuiltIn: false,
                         createdAt: Date.now(),
                         updatedAt: Date.now(),
@@ -763,7 +763,7 @@ describe('settings', () => {
                     name: 'Test',
                     anthropicConfig: {},
                     environmentVariables: [],
-                    compatibility: { claude: true, codex: true, gemini: true },
+                    compatibility: { claude: true, codex: true, gemini: true, qoder: true },
                     isBuiltIn: false,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
@@ -927,7 +927,7 @@ describe('settings', () => {
                     name: 'Local Profile',
                     anthropicConfig: {},
                     environmentVariables: [],
-                    compatibility: { claude: true, codex: true, gemini: true },
+                    compatibility: { claude: true, codex: true, gemini: true, qoder: true },
                     isBuiltIn: false,
                     createdAt: 2000,
                     updatedAt: 2000,

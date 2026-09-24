@@ -76,7 +76,7 @@ export type McpServerConfig = McpServerStdioConfig | McpServerHttpConfig;
 export type AgentTransport = 'native-claude' | 'codex-appserver' | 'acp';
 
 /** Agent identifier */
-export type AgentId = 'claude' | 'codex' | 'gemini' | 'opencode' | 'claude-acp' | 'codex-acp';
+export type AgentId = 'claude' | 'codex' | 'gemini' | 'qoder' | 'opencode' | 'claude-acp' | 'codex-acp';
 
 /**
  * Configuration for creating an agent backend
@@ -155,6 +155,15 @@ export interface AgentBackend {
    *          backend warm), false if it failed/timed out (caller should tear down)
    */
   cancel(sessionId: SessionId): Promise<boolean>;
+
+  /**
+   * The agent's own native session id, once one exists.
+   *
+   * Distinct from the id `startSession()` hands back, which is Happy's. Runners store
+   * this in session metadata so a later launch can resume through the engine's own
+   * history (ACP `session/load`) instead of a transcript Happy copied.
+   */
+  getSessionId?(): SessionId | null;
   
   /**
    * Register a handler for agent messages.

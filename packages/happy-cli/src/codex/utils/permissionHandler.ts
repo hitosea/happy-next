@@ -11,6 +11,7 @@ import { PushNotificationClient } from "@/api/pushNotifications";
 import type { PermissionMode } from '@/api/types';
 import {
     BasePermissionHandler,
+    isAlwaysAutoApproved,
     PermissionResult,
     PendingRequest
 } from '@/utils/BasePermissionHandler';
@@ -41,22 +42,39 @@ export class CodexPermissionHandler extends BasePermissionHandler {
         logger.debug(`${this.getLogPrefix()} Permission mode set to: ${mode}`);
     }
 
-    private shouldAutoApprove(toolName: string, toolCallId: string): boolean {
+    protected decideAutoApproval(toolCallId: string, toolName: string): PermissionResult | null {
         // User-input requests always need an explicit answer, even in full-auto mode.
         if (toolName === 'AskUserQuestion') {
-            return false;
+            return null;
         }
-
-        const alwaysAutoApproveNames = ['change_title', 'happy__change_title', 'preview_html', 'happy__preview_html', 'CodexReasoning', 'think', 'save_memory'];
-        const alwaysAutoApproveIds = ['change_title', 'preview_html', 'save_memory'];
-
-        if (alwaysAutoApproveNames.some(name => toolName.toLowerCase().includes(name.toLowerCase()))) {
-            return true;
+        if (!isAlwaysAutoApproved(toolName, toolCallId) && !this.autoApprovesByMode(toolName)) {
+            return null;
         }
-        if (alwaysAutoApproveIds.some(id => toolCallId.toLowerCase().includes(id.toLowerCase()))) {
-            return true;
-        }
+        return { decision: this.currentPermissionMode === 'full-auto' ? 'approved_for_session' : 'approved' };
+    }
 
+    /** Codex records auto-approvals so its tool cards keep the permission footer. */
+    protected recordAutoApproval(
+        toolCallId: string,
+        toolName: string,
+        decision: PermissionResult['decision'],
+    ): void {
+        this.session.updateAgentState((currentState) => ({
+            ...currentState,
+            completedRequests: {
+                ...currentState.completedRequests,
+                [toolCallId]: {
+                    tool: toolName,
+                    createdAt: Date.now(),
+                    completedAt: Date.now(),
+                    status: 'approved',
+                    decision
+                }
+            }
+        }));
+    }
+
+    private autoApprovesByMode(toolName: string): boolean {
         switch (this.currentPermissionMode) {
             case 'full-auto':
                 return true;
@@ -70,55 +88,5 @@ export class CodexPermissionHandler extends BasePermissionHandler {
             default:
                 return false;
         }
-    }
-
-    /**
-     * Handle a tool permission request
-     * @param toolCallId - The unique ID of the tool call
-     * @param toolName - The name of the tool being called
-     * @param input - The input parameters for the tool
-     * @returns Promise resolving to permission result
-     */
-    async handleToolCall(
-        toolCallId: string,
-        toolName: string,
-        input: unknown
-    ): Promise<PermissionResult> {
-        if (this.shouldAutoApprove(toolName, toolCallId)) {
-            logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId}) in ${this.currentPermissionMode} mode`);
-
-            this.session.updateAgentState((currentState) => ({
-                ...currentState,
-                completedRequests: {
-                    ...currentState.completedRequests,
-                    [toolCallId]: {
-                        tool: toolName,
-                        createdAt: Date.now(),
-                        completedAt: Date.now(),
-                        status: 'approved',
-                        decision: this.currentPermissionMode === 'full-auto' ? 'approved_for_session' : 'approved'
-                    }
-                }
-            }));
-
-            return {
-                decision: this.currentPermissionMode === 'full-auto' ? 'approved_for_session' : 'approved'
-            };
-        }
-
-        return new Promise<PermissionResult>((resolve, reject) => {
-            // Store the pending request
-            this.pendingRequests.set(toolCallId, {
-                resolve,
-                reject,
-                toolName,
-                input
-            });
-
-            // Update agent state with pending request
-            this.addPendingRequestToState(toolCallId, toolName, input);
-
-            logger.debug(`${this.getLogPrefix()} Permission request sent for tool: ${toolName} (${toolCallId}) in ${this.currentPermissionMode} mode`);
-        });
     }
 }

@@ -1,6 +1,6 @@
 import { saveToolOutputRecord } from './toolOutputStore';
 
-export type ToolOutputAgent = 'claude' | 'codex' | 'gemini';
+export type ToolOutputAgent = 'claude' | 'codex' | 'gemini' | 'qoder';
 export type ToolResultKind = 'command' | 'structured' | 'text';
 
 interface CreateLoadableToolOutputOptions {

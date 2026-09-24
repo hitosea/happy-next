@@ -1,4 +1,7 @@
-export type AgentFlavor = 'claude' | 'codex' | 'gemini';
+export type AgentFlavor = 'claude' | 'codex' | 'gemini' | 'qoder';
+
+/** Every agent flavor, for tables and UI lists that must not be hand-maintained per agent. */
+export const AGENT_FLAVORS = ['claude', 'codex', 'gemini', 'qoder'] as const satisfies readonly AgentFlavor[];
 
 export const MODEL_MODE_DEFAULT = 'default' as const;
 
@@ -141,6 +144,29 @@ export const MODEL_MODES = [
     'gemini-3.1-flash-lite',
     'gemini-2.5-pro',
     'gemini-2.5-flash-lite',
+    // Qoder model ids, measured from a signed-in Qoder CLI's ACP `session/new`
+    // configOptions (option id "model"). The opaque `value` is what `--model` and
+    // `set_session_model` accept; the display name is the vendor model.
+    //
+    // This list is ACCOUNT- AND REGION-dependent (credit multipliers, and CN vs
+    // international catalogues differ), so it is only a fallback: the authoritative list
+    // arrives per session through config metadata and is merged into session metadata by
+    // happy-cli's handleConfigMetadataEvent. Add tiers here only to make a picker show a
+    // model before the first config update lands.
+    'qoder-auto',
+    'qoder-qmodel_38max',
+    'qoder-qfmodel',
+    'qoder-qmodel_latest',
+    'qoder-qmodel',
+    'qoder-q37fmodel',
+    'qoder-dmodel',
+    'qoder-dfmodel',
+    'qoder-gmodel',
+    'qoder-gfmodel',
+    'qoder-gm51model',
+    'qoder-kmodel_latest',
+    'qoder-kmodel',
+    'qoder-mmodel',
 ] as const;
 
 export type ModelMode = typeof MODEL_MODES[number];
@@ -268,10 +294,29 @@ export const CODEX_MODEL_MODES = [
     'gpt-5.5-xhigh',
 ] as const satisfies readonly ModelMode[];
 
+export const QODER_MODEL_MODES = [
+    MODEL_MODE_DEFAULT,
+    'qoder-auto',
+    'qoder-qmodel_38max',
+    'qoder-qfmodel',
+    'qoder-qmodel_latest',
+    'qoder-qmodel',
+    'qoder-q37fmodel',
+    'qoder-dmodel',
+    'qoder-dfmodel',
+    'qoder-gmodel',
+    'qoder-gfmodel',
+    'qoder-gm51model',
+    'qoder-kmodel_latest',
+    'qoder-kmodel',
+    'qoder-mmodel',
+] as const satisfies readonly ModelMode[];
+
 const MODEL_MODE_SET = new Set<ModelMode>(MODEL_MODES);
 const CLAUDE_MODEL_MODE_SET = new Set<ModelMode>(CLAUDE_MODEL_MODES);
 const GEMINI_MODEL_MODE_SET = new Set<ModelMode>(GEMINI_MODEL_MODES);
 const CODEX_MODEL_MODE_SET = new Set<ModelMode>(CODEX_MODEL_MODES);
+const QODER_MODEL_MODE_SET = new Set<ModelMode>(QODER_MODEL_MODES);
 
 export function isModelMode(value: string): value is ModelMode {
     return MODEL_MODE_SET.has(value as ModelMode);
@@ -281,13 +326,26 @@ export function isModelModeForAgent(agent: AgentFlavor, mode: string): mode is M
     if (!isModelMode(mode)) return false;
     if (agent === 'claude') return CLAUDE_MODEL_MODE_SET.has(mode);
     if (agent === 'gemini') return GEMINI_MODEL_MODE_SET.has(mode);
+    if (agent === 'qoder') return QODER_MODEL_MODE_SET.has(mode);
     return CODEX_MODEL_MODE_SET.has(mode);
 }
 
+/**
+ * The model modes each flavor accepts, keyed by provider.
+ *
+ * Exported as data, not only through the accessor below, because the orchestrator API
+ * hands the whole table to a client so it can validate a `model` before dispatching, and
+ * the server and the CLI must not each restate it.
+ */
+export const MODEL_MODES_BY_PROVIDER: Record<AgentFlavor, readonly ModelMode[]> = {
+    claude: CLAUDE_MODEL_MODES,
+    codex: CODEX_MODEL_MODES,
+    gemini: GEMINI_MODEL_MODES,
+    qoder: QODER_MODEL_MODES,
+};
+
 export function getValidModelModesForAgent(agent: AgentFlavor): readonly ModelMode[] {
-    if (agent === 'claude') return CLAUDE_MODEL_MODES;
-    if (agent === 'gemini') return GEMINI_MODEL_MODES;
-    return CODEX_MODEL_MODES;
+    return MODEL_MODES_BY_PROVIDER[agent];
 }
 
 export const CLAUDE_MODEL_OPTIONS = [
@@ -394,6 +452,55 @@ export const GEMINI_MODEL_OPTIONS = [
     { value: 'gemini-2.5-pro', label: '2.5 Pro', shortLabel: '2.5 Pro', description: 'Previous generation' },
     { value: 'gemini-2.5-flash-lite', label: '2.5 Flash-Lite', shortLabel: '2.5 Flash-Lite', description: 'Lightweight free-tier friendly model' },
 ] as const;
+
+export const QODER_MODEL_OPTIONS = [
+    { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
+    { value: 'qoder-auto', label: 'Auto (default)', shortLabel: 'Auto', description: 'Qoder routes each request; 0.50x credit' },
+    { value: 'qoder-qmodel_38max', label: 'Qwen3.8-Max', shortLabel: 'Qwen3.8-Max', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-qfmodel', label: 'Qwen3.8-Flash', shortLabel: 'Qwen3.8-Flash', description: 'Reasoning, vision; free tier (0.00x credit)' },
+    { value: 'qoder-qmodel_latest', label: 'Qwen3.7-Max', shortLabel: 'Qwen3.7-Max', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-qmodel', label: 'Qwen3.7-Plus', shortLabel: 'Qwen3.7-Plus', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-q37fmodel', label: 'Qwen3.7-Flash', shortLabel: 'Qwen3.7-Flash', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-dmodel', label: 'DeepSeek-V4-Pro', shortLabel: 'DS-V4-Pro', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-dfmodel', label: 'DeepSeek-Flash', shortLabel: 'DS-Flash', description: 'Vision; 0.10x credit' },
+    { value: 'qoder-gmodel', label: 'GLM-5.3', shortLabel: 'GLM-5.3', description: 'Reasoning, vision; 0.80x credit' },
+    { value: 'qoder-gfmodel', label: 'GLM-5.3-Flash', shortLabel: 'GLM-5.3-Flash', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-gm51model', label: 'GLM-5.2', shortLabel: 'GLM-5.2', description: 'Reasoning, vision; 0.60x credit' },
+    { value: 'qoder-kmodel_latest', label: 'Kimi-K3', shortLabel: 'Kimi-K3', description: 'Vision; 1.40x credit' },
+    { value: 'qoder-kmodel', label: 'Kimi-K2.8-Preview', shortLabel: 'Kimi-K2.8', description: 'Reasoning, vision; 0.80x credit' },
+    { value: 'qoder-mmodel', label: 'MiniMax-M2.7', shortLabel: 'MiniMax-M2.7', description: '0.20x credit' },
+] as const;
+
+/**
+ * Qoder model mode id -> value handed to `qoder --model <value>`, and the reverse.
+ * Kept as an explicit table rather than `mode.slice(6)` so an unprefixed model id
+ * reported by the CLI (`auto`) can still round-trip when it comes back from ACP.
+ */
+// Stripping the `qoder-` prefix reproduces the measured ACP/`--model` value exactly,
+// so the table only documents the invariant rather than listing 14 rows.
+const QODER_MODE_TO_CLI_MODEL: Partial<Record<ModelMode, string>> = Object.fromEntries(
+    QODER_MODEL_MODES
+        .filter(mode => mode !== MODEL_MODE_DEFAULT)
+        .map(mode => [mode, mode.slice('qoder-'.length)]),
+) as Partial<Record<ModelMode, string>>;
+
+const QODER_CLI_MODEL_TO_MODE: Record<string, ModelMode> = Object.fromEntries(
+    Object.entries(QODER_MODE_TO_CLI_MODEL).map(([mode, cli]) => [cli, mode as ModelMode]),
+) as Record<string, ModelMode>;
+
+export function qoderModelModeToCliModel(modelMode: string | null | undefined): string | null {
+    if (!modelMode || modelMode === MODEL_MODE_DEFAULT) return null;
+    const mapped = QODER_MODE_TO_CLI_MODEL[modelMode as ModelMode];
+    if (mapped) return mapped;
+    // Unknown qoder-* id: assume the prefix is all that separates it from the CLI value.
+    return modelMode.startsWith('qoder-') ? modelMode.slice('qoder-'.length) : modelMode;
+}
+
+export function cliModelToQoderModelMode(cliModel: string | null | undefined): ModelMode | null {
+    if (!cliModel) return null;
+    if (isModelMode(cliModel)) return cliModel;
+    return QODER_CLI_MODEL_TO_MODE[cliModel] ?? null;
+}
 
 export const CODEX_MODEL_FAMILY_OPTIONS = [
     { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
@@ -611,6 +718,24 @@ const MODEL_NAME_LABELS: Record<string, string> = {
     'gemini-3.1-flash-lite': 'Gemini 3.1 Flash-Lite',
     'gemini-2.5-pro': 'Gemini 2.5 Pro',
     'gemini-2.5-flash-lite': 'Gemini 2.5 Flash-Lite',
+    'qoder-auto': 'Auto',
+    'qoder-qmodel_38max': 'Qwen3.8-Max',
+    'qoder-qfmodel': 'Qwen3.8-Flash',
+    'qoder-qmodel_latest': 'Qwen3.7-Max',
+    'qoder-qmodel': 'Qwen3.7-Plus',
+    'qoder-q37fmodel': 'Qwen3.7-Flash',
+    'qoder-dmodel': 'DeepSeek-V4-Pro',
+    'qoder-dfmodel': 'DeepSeek-Flash',
+    'qoder-gmodel': 'GLM-5.3',
+    'qoder-gfmodel': 'GLM-5.3-Flash',
+    'qoder-gm51model': 'GLM-5.2',
+    'qoder-kmodel_latest': 'Kimi-K3',
+    'qoder-kmodel': 'Kimi-K2.8-Preview',
+    'qoder-mmodel': 'MiniMax-M2.7',
+    // Raw ids as Qoder reports them back through ACP config metadata and `--model`.
+    // Deliberately vendor-neutral: this map is keyed by model name only, so another
+    // engine reporting the same opaque token must not end up labelled with a brand.
+    'auto': 'Auto',
 };
 
 const REASONING_EFFORT_LABELS: Record<string, string> = {
@@ -639,6 +764,9 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
         return { model: parsed.family, reasoningEffort: parsed.effort };
     }
     if (flavor === 'gemini') return { model: modelMode, reasoningEffort: null };
+    // Qoder keeps the prefixed mode id on the wire (same invariant as gemini); the
+    // CLI-facing `--model` value is derived by qoderModelModeToCliModel at spawn time.
+    if (flavor === 'qoder') return { model: modelMode, reasoningEffort: null };
     return { model: null, reasoningEffort: null };
 }
 
@@ -713,6 +841,10 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 272_000,
     gemini: 1_000_000,
+    // Conservative until confirmed: Qoder exposes `--context-window` as an override,
+    // and the CLI reports its real window through ACP config metadata, which takes
+    // precedence over this default in getMaxContextSize.
+    qoder: 200_000,
 };
 
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {

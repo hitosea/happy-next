@@ -11,6 +11,7 @@ import { getSessionName } from '@/utils/sessionUtils';
 import { isTauriDesktop } from '@/utils/tauri';
 import { subscribeToDesktopMessages, subscribeToDesktopPermissionRequests } from './desktopEvents';
 import { subscribeToDesktopAuthentication } from './desktopAuthEvents';
+import { agentDisplayName } from 'happy-wire';
 import {
     agentMessagePreview,
     countDesktopAttentionSessions,
@@ -497,11 +498,7 @@ export function DesktopBridge() {
             const state = storage.getState();
             const session = state.sessions[sessionId] ?? state.sharedSessions[sessionId];
             const title = session ? getSessionName(session) : 'Permission Request';
-            const agentName = session?.metadata?.flavor === 'codex'
-                ? 'Codex'
-                : session?.metadata?.flavor === 'gemini'
-                    ? 'Gemini'
-                    : 'Claude';
+            const agentName = agentDisplayName(session?.metadata?.flavor);
             const id = notificationId(sessionId);
             notificationSessionsRef.current.set(id, sessionId);
             rememberDesktopNotificationRoute(id, sessionId);

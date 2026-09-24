@@ -1,25 +1,33 @@
 import { z } from 'zod';
+import {
+    AGENT_FLAVORS,
+    PERMISSION_MODES_BY_AGENT,
+    getPermissionModesForAgent,
+    isPermissionModeForAgent,
+    type AgentFlavor,
+} from 'happy-wire';
 
-export const VOICE_PERMISSION_MODES_BY_AGENT = {
-    claude: ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'],
-    codex: ['default', 'read-only', 'on-failure', 'full-auto'],
-    gemini: ['default', 'auto_edit', 'plan', 'yolo'],
-} as const;
+/**
+ * Voice tooling speaks about the same per-agent permission vocabulary as the rest of the
+ * app, so it reads happy-wire's table rather than keeping a copy that has to be edited in
+ * lockstep.
+ */
+export const VOICE_PERMISSION_MODES_BY_AGENT = PERMISSION_MODES_BY_AGENT;
 
-export type VoicePermissionAgent = keyof typeof VOICE_PERMISSION_MODES_BY_AGENT;
-export type VoicePermissionMode = typeof VOICE_PERMISSION_MODES_BY_AGENT[VoicePermissionAgent][number];
+export type VoicePermissionAgent = AgentFlavor;
+export type VoicePermissionMode = typeof PERMISSION_MODES_BY_AGENT[VoicePermissionAgent][number];
 
 export function resolveVoicePermissionAgent(flavor: string | null | undefined): VoicePermissionAgent {
-    if (flavor === 'codex' || flavor === 'gemini') return flavor;
-    return 'claude';
+    const match = AGENT_FLAVORS.find(candidate => candidate === flavor);
+    return match ?? 'claude';
 }
 
 export function getVoicePermissionModesForAgent(agent: VoicePermissionAgent): readonly string[] {
-    return VOICE_PERMISSION_MODES_BY_AGENT[agent];
+    return getPermissionModesForAgent(agent);
 }
 
 export function isVoicePermissionModeForAgent(agent: VoicePermissionAgent, mode: string): mode is VoicePermissionMode {
-    return getVoicePermissionModesForAgent(agent).includes(mode);
+    return isPermissionModeForAgent(agent, mode);
 }
 
 export const messageHappyCodeParametersSchema = z.object({

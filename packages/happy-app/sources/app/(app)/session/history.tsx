@@ -33,6 +33,8 @@ import { t } from '@/text';
 import { sync } from '@/sync/sync';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { MMKV } from 'react-native-mmkv';
+import { flavorIcons } from '@/components/Avatar';
+import type { AgentFlavor } from 'happy-wire';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'agent-history-selected-machine';
@@ -45,12 +47,6 @@ const AGENT_TABS: { key: AgentTab; label: () => string }[] = [
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
 ];
-
-const agentIcons: Record<AgentTab, any> = {
-    claude: require('@/assets/images/icon-claude.png'),
-    gemini: require('@/assets/images/icon-gemini.png'),
-    codex: require('@/assets/images/icon-gpt.png'),
-};
 
 const rightIconStyle = {
     width: 29,
@@ -583,7 +579,7 @@ export default function AgentHistoryPage() {
                         onPress={() => setAgentMenuVisible(true)}
                     >
                         <Image
-                            source={agentIcons[activeTab]}
+                            source={flavorIcons[activeTab]}
                             style={{ width: 16, height: 16, marginRight: 6 }}
                             contentFit="contain"
                             tintColor={activeTab === 'codex' ? theme.colors.text : undefined}
@@ -652,7 +648,7 @@ export default function AgentHistoryPage() {
                                     }}
                                     icon={(
                                         <Image
-                                            source={agentIcons[entry.agent]}
+                                            source={flavorIcons[entry.agent as AgentFlavor]}
                                             style={[
                                                 { width: 48, height: 48 },
                                                 entry.agent === 'codex' && { transform: [{ scale: 0.92 }] }

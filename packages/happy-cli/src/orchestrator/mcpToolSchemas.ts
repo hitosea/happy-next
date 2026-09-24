@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ORCHESTRATOR_PROVIDERS } from './common';
 
 const orchestratorTargetTypeSchema = z.preprocess(
   (value) => value === 'machine' ? 'machine_id' : value,
@@ -8,7 +9,7 @@ const orchestratorTargetTypeSchema = z.preprocess(
 const orchestratorTaskSchema = z.object({
   taskKey: z.string().min(1).max(128).optional(),
   title: z.string().min(1).max(256).optional(),
-  provider: z.enum(['claude', 'codex', 'gemini'])
+  provider: z.enum(ORCHESTRATOR_PROVIDERS)
     .describe('AI agent provider to execute the task.'),
   model: z.string().min(1).max(128).optional()
     .describe('Model mode for this provider; prefer orchestrator_get_context.data.modelModes[provider]. Use "default" for CLI default.'),

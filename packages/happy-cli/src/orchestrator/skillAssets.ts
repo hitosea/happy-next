@@ -2,12 +2,14 @@
  * Bundled orchestrator skill + command assets for controller sessions.
  *
  * These strings are synced to the Claude / Codex config dirs at startup by skillSync.ts, so that
- * `/orchestrator:claude|codex|gemini` and the `orchestrator` skill are available out of the box.
- * They are embedded as strings (not shipped files) so they travel inside the bundled dist with no
- * runtime asset-path or packaging concerns.
+ * `/orchestrator:claude|codex|gemini|qoder` and the `orchestrator` skill are available out of the
+ * box. They are embedded as strings (not shipped files) so they travel inside the bundled dist
+ * with no runtime asset-path or packaging concerns.
  *
  * Edit here — the on-disk copies are content-compared and overwritten on update.
  */
+
+import { ORCHESTRATOR_PROVIDERS, type OrchestratorProvider } from './common';
 
 // NOTE: keep this bundled public description stable and single-line so it remains compatible with
 // every client that consumes the generated skill, including clients with minimal frontmatter parsers.
@@ -70,14 +72,14 @@ ${ORCHESTRATOR_PUBLIC_MODE}
 
 ${ORCHESTRATOR_CORE_GUIDANCE}
 
-Explicit entries: \`/orchestrator:claude\`, \`/orchestrator:codex\`, and
-\`/orchestrator:gemini\` select the primary provider. A run may still mix providers or use task
-dependencies when appropriate.
+Explicit entries: \`/orchestrator:claude\`, \`/orchestrator:codex\`,
+\`/orchestrator:gemini\` and \`/orchestrator:qoder\` select the primary provider. A run may
+still mix providers or use task dependencies when appropriate.
 `;
 
-export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini'] as const;
-
-export type OrchestratorProvider = typeof ORCHESTRATOR_PROVIDERS[number];
+// Declared in ./common so the provider list has one home; re-exported here because this
+// module is what the orchestrator skill/command builders import from.
+export { ORCHESTRATOR_PROVIDERS, type OrchestratorProvider };
 
 export function buildOrchestratorCommandPrompt(
   provider: OrchestratorProvider,
@@ -110,3 +112,4 @@ ${buildOrchestratorCommandPrompt(provider)}
 export const ORCHESTRATOR_COMMAND_CLAUDE = commandFor('claude');
 export const ORCHESTRATOR_COMMAND_CODEX = commandFor('codex');
 export const ORCHESTRATOR_COMMAND_GEMINI = commandFor('gemini');
+export const ORCHESTRATOR_COMMAND_QODER = commandFor('qoder');

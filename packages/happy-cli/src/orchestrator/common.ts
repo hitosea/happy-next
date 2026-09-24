@@ -1,4 +1,7 @@
-export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini'] as const;
+import { AGENT_FLAVORS } from 'happy-wire';
+
+/** Every agent the orchestrator can dispatch to, in picker order. */
+export const ORCHESTRATOR_PROVIDERS = AGENT_FLAVORS;
 
 export type OrchestratorProvider = (typeof ORCHESTRATOR_PROVIDERS)[number];
 

@@ -32,6 +32,7 @@
                   "cli/claude",
                   "cli/codex",
                   "cli/gemini",
+                  "cli/qoder",
                   "cli/daemon"
                 ]
               },
@@ -119,6 +120,7 @@
                   "zh/cli/claude",
                   "zh/cli/codex",
                   "zh/cli/gemini",
+                  "zh/cli/qoder",
                   "zh/cli/daemon"
                 ]
               },

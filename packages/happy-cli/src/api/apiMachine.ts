@@ -13,6 +13,11 @@ import { registerOpenClawHandlers, openClawTunnelManager } from '../modules/open
 import { registerTerminalHandlers } from '../modules/terminal/registerTerminalHandlers';
 import type { TerminalManager } from '../modules/terminal/terminalManager';
 import type { TerminalFrame } from 'happy-wire';
+import {
+  forkQoderNativeSession,
+  listQoderNativeSessions,
+  type QoderNativeSession,
+} from '@/qoder/utils/nativeSessions';
 import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProjectId, readAllClaudeSessionUserMessages, saveClaudeSessionCacheStats } from '@/claude/utils/claudeSessionIndex';
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
 import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, saveGeminiSessionCacheStats } from '@/gemini/utils/sessionReader';
@@ -140,7 +145,7 @@ type MachineRpcHandlers = {
         runId: string;
         taskId: string;
         dispatchToken: string;
-        provider: 'claude' | 'codex' | 'gemini';
+        provider: 'claude' | 'codex' | 'gemini' | 'qoder';
         executionType: 'initial' | 'resume';
         childSessionId?: string;
         model?: string;
@@ -190,6 +195,36 @@ export class ApiMachineClient {
     });
 
     private codexArchiveLock = new AsyncLock();
+
+    /**
+     * One session cache per directory, because Qoder can only answer per directory (see the
+     * `qoder-list-sessions` handler). A short TTL: the CLI is the source of truth and Happy
+     * has no event telling it when a session is added or deleted, so a long one would show
+     * stale history.
+     */
+    private qoderCaches = new Map<string, SessionCache<QoderNativeSession>>();
+
+    /** Bound on distinct directories held at once; each entry is a directory's whole session list. */
+    private static readonly QODER_DIRECTORY_CACHE_MAX = 16;
+
+    private qoderCache(directory: string): SessionCache<QoderNativeSession> {
+        const existing = this.qoderCaches.get(directory);
+        if (existing) return existing;
+
+        // `Map` keeps insertion order, so the oldest key is the first one.
+        if (this.qoderCaches.size >= ApiMachineClient.QODER_DIRECTORY_CACHE_MAX) {
+            const oldest = this.qoderCaches.keys().next();
+            if (!oldest.done) this.qoderCaches.delete(oldest.value);
+        }
+
+        const cache = new SessionCache<QoderNativeSession>({
+            loader: () => listQoderNativeSessions({ cwd: directory }),
+            staleTTL: 15_000,
+            matchFn: (session, query) => matchFields(query, [session.sessionId, session.title]),
+        });
+        this.qoderCaches.set(directory, cache);
+        return cache;
+    }
 
     constructor(
         private token: string,
@@ -655,6 +690,59 @@ export class ApiMachineClient {
                 throw new Error('sessionId is required');
             }
             return await forkGeminiSession(sessionId);
+        });
+
+        // --- Qoder native-session handlers ---
+        //
+        // Qoder exposes its history only through the CLI, and `session/list` filters by
+        // the spawned process's own cwd, so there is no way to list a whole machine at
+        // once: every query names one directory and the per-directory cache keeps
+        // search-as-you-type and paging from spawning one ACP process per keystroke.
+
+        this.rpcHandlerManager.registerHandler('qoder-list-sessions', async (params: any) => {
+            const directory = typeof params?.directory === 'string' ? params.directory.trim() : '';
+            if (!directory) {
+                throw new Error('directory is required: Qoder can only list sessions for one directory');
+            }
+            const offset = typeof params?.offset === 'number' && params.offset >= 0 ? Math.floor(params.offset) : 0;
+            const limit = typeof params?.limit === 'number' && params.limit > 0 ? Math.floor(params.limit) : 50;
+            const query = typeof params?.query === 'string' ? params.query : undefined;
+            const waitForRefresh = params?.waitForRefresh === true;
+
+            const { sessions, total } = await this.qoderCache(directory).list({ offset, limit, query, waitForRefresh });
+
+            return {
+                sessions: sessions.map(session => ({
+                    sessionId: session.sessionId,
+                    // Authoritative because the listing was scoped by spawning inside
+                    // `directory`; Qoder's echoed-back cwd is not normalised, so using it
+                    // here would make the row's path disagree with the session metadata the
+                    // UI compares against (e.g. /tmp vs /private/tmp on macOS).
+                    originalPath: directory,
+                    title: session.title,
+                    updatedAt: session.updatedAt,
+                    agent: 'qoder' as const,
+                })),
+                total,
+            };
+        });
+
+        this.rpcHandlerManager.registerHandler('qoder-fork-session', async (params: any) => {
+            const { sessionId, directory } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') {
+                throw new Error('sessionId is required');
+            }
+            if (!directory || typeof directory !== 'string') {
+                throw new Error('directory is required');
+            }
+            try {
+                const newSessionId = await forkQoderNativeSession({ cwd: directory, sessionId });
+                // A fork invalidates what we cached for that directory.
+                this.qoderCaches.get(directory)?.invalidate();
+                return { success: true, newSessionId };
+            } catch (error) {
+                return { success: false, error: error instanceof Error ? error.message : String(error) };
+            }
         });
 
         // --- Codex session handlers ---

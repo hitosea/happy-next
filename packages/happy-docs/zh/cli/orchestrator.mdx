@@ -3,7 +3,7 @@ title: "编排器"
 description: "通过依赖图调度多代理工作流。"
 ---
 
-编排器允许你定义多步骤任务，并通过依赖管理将它们分发到多个 AI 代理（Claude、Codex、Gemini）执行。
+编排器允许你定义多步骤任务，并通过依赖管理将它们分发到多个 AI 代理（Claude、Codex、Gemini、Qoder）执行。
 
 ## 什么是编排器？
 
@@ -15,7 +15,7 @@ description: "通过依赖图调度多代理工作流。"
 
 - **任务** — 独立的工作单元，每个任务包含：
   - 描述要做什么的提示词
-  - 提供者（Claude、Codex 或 Gemini）
+  - 提供者（Claude、Codex、Gemini 或 Qoder）
   - 模型选择
   - 可选的工作目录
   - 对其他任务的依赖
@@ -27,13 +27,14 @@ description: "通过依赖图调度多代理工作流。"
 
 ### 斜杠命令
 
-首次启动编排会话时（升级 CLI 后），会自动安装三个命令。在 **Claude** 或 **Codex** 会话中调用：
+首次启动编排会话时（升级 CLI 后），会自动安装四个命令。在 **Claude** 或 **Codex** 会话中调用：
 
 | 命令 | 主要委派给 |
 |------|-----------|
 | `/orchestrator:claude [任务]` | Claude |
 | `/orchestrator:codex [任务]` | Codex |
 | `/orchestrator:gemini [任务]` | Gemini |
+| `/orchestrator:qoder [任务]` | Qoder |
 
 把要委派的工作作为参数传入，例如 `/orchestrator:claude 审查 auth.ts 的安全问题`。命令中指定的提供者只是默认值——单次运行仍可混用多个提供者并添加依赖。
 
@@ -45,7 +46,7 @@ description: "通过依赖图调度多代理工作流。"
 |------|--------|
 | 并行执行任务 | "同时"、"并行"、"一起" |
 | 控制执行顺序 | "先……然后……"、"完成后" |
-| 使用不同代理 | "分发给 Claude/Codex/Gemini" |
+| 使用不同代理 | "分发给 Claude/Codex/Gemini/Qoder" |
 | 后台运行 | "异步模式"、"在后台" |
 | 指定模型 | "使用 opus"、"用 gpt-5.5" |
 

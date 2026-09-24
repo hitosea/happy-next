@@ -6,6 +6,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { AIBackendProfile } from '@/sync/settings';
+import { getPermissionModesForAgent } from 'happy-wire';
 import { PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { SessionTypeSelector } from '@/components/SessionTypeSelector';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -14,6 +15,7 @@ import { getBuiltInProfileDocumentation } from '@/sync/profileUtils';
 import { useEnvironmentVariables, extractEnvVarReferences } from '@/hooks/useEnvironmentVariables';
 import { EnvironmentVariablesList } from '@/components/EnvironmentVariablesList';
 import { openExternalUrl } from '@/utils/tauri';
+import { permissionModeOptionsForAgent } from '@/utils/permissionModeOptions';
 
 export interface ProfileEditFormProps {
     profile: AIBackendProfile;
@@ -59,19 +61,17 @@ export function ProfileEditForm({
     const [startupScript, setStartupScript] = React.useState(profile.startupBashScript || '');
     const [defaultSessionType, setDefaultSessionType] = React.useState<'simple' | 'worktree'>(profile.defaultSessionType || 'simple');
     const [defaultPermissionMode, setDefaultPermissionMode] = React.useState<PermissionMode>((profile.defaultPermissionMode as PermissionMode) || 'default');
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
+    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'qoder'>(() => {
         if (profile.compatibility.claude && !profile.compatibility.codex) return 'claude';
         if (profile.compatibility.codex && !profile.compatibility.claude) return 'codex';
         if (profile.compatibility.gemini && !profile.compatibility.claude && !profile.compatibility.codex) return 'gemini';
+        if (profile.compatibility.qoder && !profile.compatibility.claude && !profile.compatibility.codex && !profile.compatibility.gemini) return 'qoder';
         return 'claude'; // Default to Claude if both or neither
     });
 
     // Reset permission mode when agent type changes if current mode is invalid
     React.useEffect(() => {
-        const claudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
-        const codexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
-        const geminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? codexModes : agentType === 'gemini' ? geminiModes : claudeModes;
+        const validModes = getPermissionModesForAgent(agentType);
 
         if (!validModes.includes(defaultPermissionMode)) {
             setDefaultPermissionMode('default');
@@ -238,23 +238,7 @@ export function ProfileEditForm({
                         {t('wizard.defaultPermissionMode')}
                     </Text>
                     <ItemGroup title="">
-                        {(agentType === 'codex' ? [
-                            { value: 'default' as PermissionMode, label: t('agentInput.codexPermissionMode.default'), description: t('wizard.permCodexDefaultDesc'), icon: 'shield-outline' },
-                            { value: 'read-only' as PermissionMode, label: t('agentInput.codexPermissionMode.readOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
-                            { value: 'on-failure' as PermissionMode, label: t('agentInput.codexPermissionMode.onFailure'), description: t('wizard.permOnFailureDesc'), icon: 'shield-checkmark-outline' },
-                            { value: 'full-auto' as PermissionMode, label: t('agentInput.codexPermissionMode.fullAuto'), description: t('wizard.permFullAutoDesc'), icon: 'warning-outline' },
-                        ] : agentType === 'gemini' ? [
-                            { value: 'default' as PermissionMode, label: t('agentInput.geminiPermissionMode.default'), description: t('wizard.permGeminiDefaultDesc'), icon: 'shield-outline' },
-                            { value: 'auto_edit' as PermissionMode, label: t('wizard.permAutoEdit'), description: t('wizard.permAutoEditDesc'), icon: 'create-outline' },
-                            { value: 'plan' as PermissionMode, label: t('agentInput.geminiPermissionMode.plan'), description: t('wizard.permGeminiPlanDesc'), icon: 'list-outline' },
-                            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'warning-outline' },
-                        ] : [
-                            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-                            { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
-                            { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
-                            { value: 'auto' as PermissionMode, label: t('wizard.permAuto'), description: t('wizard.permAutoDesc'), icon: 'sparkles-outline' },
-                            { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'flash-outline' },
-                        ]).map((option, index, array) => (
+                        {permissionModeOptionsForAgent(agentType).map((option, index, array) => (
                             <Item
                                 key={option.value}
                                 title={option.label}

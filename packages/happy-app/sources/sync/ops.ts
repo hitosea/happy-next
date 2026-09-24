@@ -170,7 +170,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini';
+    agent?: 'codex' | 'claude' | 'gemini' | 'qoder';
     resumeSessionId?: string;
     sessionTitle?: string;
     skipForkSession?: boolean;
@@ -252,7 +252,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 /** Unified session entry type for multi-agent history browser */
 export interface AgentSessionIndexEntry {
     sessionId: string;
-    agent: 'claude' | 'gemini' | 'codex';
+    agent: 'claude' | 'gemini' | 'codex' | 'qoder';
     originalPath: string | null;
     title?: string | null;
     updatedAt?: number;
@@ -413,6 +413,74 @@ export async function machineListGeminiSessions(
     return { sessions, total, fromCache: result.fromCache };
 }
 
+/**
+ * List Qoder's own sessions for one directory.
+ *
+ * Unlike the Claude/Gemini/Codex listings, this is per-directory on purpose: Qoder's
+ * `session/list` filters by the working directory of the CLI process, so the daemon cannot
+ * answer a machine-wide question. Callers must pass the session's directory.
+ */
+export async function machineListQoderSessions(
+    machineId: string,
+    options: { directory: string; offset?: number; limit?: number; query?: string; waitForRefresh?: boolean; timeoutMs?: number }
+): Promise<{ sessions: AgentSessionIndexEntry[]; total: number }> {
+    const timeoutMs = options.timeoutMs ?? 60000;
+
+    const rpcPromise = apiSocket.machineRPC<any, { directory: string; offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }>(
+        machineId,
+        'qoder-list-sessions',
+        {
+            directory: options.directory,
+            offset: options.offset,
+            limit: options.limit,
+            query: options.query,
+            waitForRefresh: options.waitForRefresh,
+        }
+    );
+
+    // Each listing spawns a short-lived `qoder --acp`, so this is slower than reading an
+    // index file and gets its own longer default timeout.
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Request timed out')), timeoutMs);
+    });
+
+    const result = await Promise.race([rpcPromise, timeoutPromise]);
+
+    if (!result) throw new Error('RPC returned empty response');
+    if (result.error) throw new Error(result.error);
+    if (!Array.isArray(result.sessions)) return { sessions: [], total: 0 };
+
+    const sessions: AgentSessionIndexEntry[] = result.sessions.map((session: any) => ({
+        ...session,
+        agent: 'qoder' as const,
+    }));
+
+    return { sessions, total: typeof result.total === 'number' ? result.total : sessions.length };
+}
+
+/**
+ * Fork a Qoder session so a duplicated Happy session gets its own native conversation.
+ * Without this the copy would resume the same native id and keep writing into the
+ * original session's history.
+ */
+export async function machineForkQoderSession(
+    machineId: string,
+    sessionId: string,
+    directory: string
+): Promise<{ success: boolean; newSessionId?: string; error?: string }> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string }>(
+        machineId,
+        'qoder-fork-session',
+        { sessionId, directory }
+    );
+
+    if (!result) return { success: false, error: 'RPC returned empty response' };
+    return {
+        success: result.success === true,
+        newSessionId: typeof result.newSessionId === 'string' ? result.newSessionId : undefined,
+        error: typeof result.error === 'string' ? result.error : undefined,
+    };
+}
 /**
  * Get preview messages from a Gemini session
  */

@@ -39,6 +39,7 @@ export const MetadataSchema = z.object({
     machineId: z.string().optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID
+    qoderSessionId: z.string().optional(), // Qoder CLI native ACP session ID — Qoder resumes through this, not through a Happy transcript
     tools: z.array(z.string()).optional(),
     slashCommands: z.array(z.string()).optional(),
     slashCommandMetadata: z.array(z.object({
@@ -209,7 +210,7 @@ export interface Session {
     awaitingResponseSince?: number | null,
     messageSyncing?: boolean,
     presence: "online" | number, // "online" when active, timestamp when last seen
-    permissionMode?: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | null; // Session permission mode (cached locally; source of truth is UserKV)
+    permissionMode?: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk' | 'accept_edits' | 'bypass_permissions' | 'dont_ask' | null; // Session permission mode (cached locally; source of truth is UserKV)
     modelMode?: string | null; // Session model mode (cached locally; source of truth is UserKV)
     fastMode?: boolean; // Codex fast mode (service_tier: fast), local-only
     upgrading?: boolean; // True while session is being upgraded to new CLI version

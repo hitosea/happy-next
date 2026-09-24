@@ -71,3 +71,9 @@ export {
   isPermissionRequestMessage,
   getMessageText,
 } from './AgentMessage';
+
+// ============================================================================
+// PromptInstructions - Shared prompt-instruction detection
+// ============================================================================
+
+export { hasChangeTitleInstruction } from './PromptInstructions';

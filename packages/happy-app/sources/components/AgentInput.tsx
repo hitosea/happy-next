@@ -9,6 +9,7 @@ import { PermissionMode, ModelMode } from './PermissionModeSelector';
 import { hapticsLight, hapticsError } from './haptics';
 import { Shaker, ShakeInstance } from './Shaker';
 import { StatusDot } from './StatusDot';
+import { flavorIcons } from './Avatar';
 import { useActiveWord } from './autocomplete/useActiveWord';
 import { useActiveSuggestions } from './autocomplete/useActiveSuggestions';
 import { AgentInputAutocomplete } from './AgentInputAutocomplete';
@@ -52,6 +53,10 @@ import {
     MODEL_MODE_DEFAULT,
     parseClaudeModelMode,
     parseCodexModelMode,
+    AGENT_FLAVORS,
+    getPermissionModesForAgent,
+    QODER_MODEL_OPTIONS,
+    type AgentFlavor,
 } from 'happy-wire';
 
 interface AgentInputProps {
@@ -79,11 +84,8 @@ interface AgentInputProps {
         isPulsing?: boolean;
         onPress?: () => void;
         action?: 'openPermission';
-        cliStatus?: {
-            claude: boolean | null;
-            codex: boolean | null;
-            gemini?: boolean | null;
-        };
+        /** Per flavor; a flavor absent from the object is not shown. */
+        cliStatus?: Partial<Record<AgentFlavor, boolean | null>>;
     };
     autocompletePrefixes: string[];
     autocompleteSuggestions: (query: string) => Promise<{ key: string, text: string, component: React.ElementType }[]>;
@@ -97,7 +99,7 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder';
     onAgentClick?: () => void;
     machineName?: string | null;
     onMachineClick?: () => void;
@@ -126,21 +128,19 @@ interface AgentInputProps {
     onImageDrop?: (files: File[]) => void;
 }
 
-const agentFlavorIcons = {
-    claude: require('@/assets/images/icon-claude.png'),
-    codex: require('@/assets/images/icon-gpt.png'),
-    gemini: require('@/assets/images/icon-gemini.png'),
-};
-
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
 // inside it is scaled. Codex's knot fills its frame while Claude's starburst carries ~18%
 // padding of its own, so identical frames would still read as different sizes - measured ink
 // in a 12px frame: Codex 12px, Claude 9.8px.
 const AGENT_MARK_SLOT = 12;
-const agentMarkArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
+const agentMarkArtworkSize: Record<AgentFlavor, number> = {
     claude: 12,
     codex: 10,
     gemini: 12,
+    // Measured the same way as the others (ink bbox as a share of the frame): the Qoder
+    // mark fills 92%, so at artwork 12 its visual ink is ~11px - already between Codex
+    // (10px) and Gemini (12px), so it needs no correction of its own.
+    qoder: 12,
 };
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -462,19 +462,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Wide layout: show the reasoning-effort column beside the model list instead of below it.
     const isWideModelLayout = screenWidth > 700;
 
-    // Check if this is a Codex or Gemini session
+    // Check if this is a Codex, Gemini or Qoder session
     // Use metadata.flavor for existing sessions, agentType prop for new sessions
     const isCodex = props.metadata?.flavor === 'codex' || props.agentType === 'codex';
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
-    const isClaude = !isCodex && !isGemini;
+    const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
+    const isClaude = !isCodex && !isGemini && !isQoder;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
-    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : 'claude';
+    // Qoder must be listed here or a Qoder session would wear the Claude mark.
+    const agentFlavorKey: AgentFlavor = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : 'claude';
 
-    const permissionModeOptions: PermissionMode[] = isCodex
-        ? ['default', 'read-only', 'on-failure', 'full-auto']
-        : isGemini
-            ? ['default', 'auto_edit', 'plan', 'yolo']
-            : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
+    // The per-agent mode table lives in happy-wire so the app, the CLI and the server
+    // cannot disagree about what a given agent accepts.
+    const permissionModeOptions: PermissionMode[] = [...getPermissionModesForAgent(agentFlavorKey)];
 
     const getPermissionModeLabel = React.useCallback((mode: PermissionMode | undefined, badge = false): string => {
         if (!mode) return '';
@@ -492,13 +492,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             if (mode === 'yolo') return badge ? t('agentInput.geminiPermissionMode.badgeYolo') : t('agentInput.geminiPermissionMode.yolo');
             return '';
         }
+        if (isQoder) {
+            if (mode === 'default') return t('agentInput.qoderPermissionMode.default');
+            // Mode ids are the ACP ones Qoder actually advertises (measured): there is no
+            // `plan` tier, and `yolo` is what the CLI labels "Bypass Permissions", so it
+            // reuses that existing key rather than gaining a duplicate. Badge and full
+            // label are the same string here, so there is no badge variant to pick.
+            if (mode === 'auto') return t('agentInput.qoderPermissionMode.auto');
+            if (mode === 'acceptEdits') return t('agentInput.qoderPermissionMode.acceptEdits');
+            if (mode === 'yolo') return t('agentInput.qoderPermissionMode.bypassPermissions');
+            if (mode === 'dontAsk') return t('agentInput.qoderPermissionMode.dontAsk');
+            return '';
+        }
         if (mode === 'default') return t('agentInput.permissionMode.default');
         if (mode === 'acceptEdits') return badge ? t('agentInput.permissionMode.badgeAcceptAllEdits') : t('agentInput.permissionMode.acceptEdits');
         if (mode === 'auto') return badge ? t('agentInput.permissionMode.badgeAuto') : t('agentInput.permissionMode.auto');
         if (mode === 'bypassPermissions') return badge ? t('agentInput.permissionMode.badgeBypassAllPermissions') : t('agentInput.permissionMode.bypassPermissions');
         if (mode === 'plan') return badge ? t('agentInput.permissionMode.badgePlanMode') : t('agentInput.permissionMode.plan');
         return '';
-    }, [isCodex, isGemini]);
+    }, [isCodex, isGemini, isQoder]);
 
     const selectedModelMode: ModelMode = props.modelMode || 'default';
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
@@ -574,8 +586,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [claudeSelection.family, claudeIs1M, props.onModelModeChange]);
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string }>>(() => {
         if (isGemini) return [...GEMINI_MODEL_OPTIONS];
+        if (isQoder) return [...QODER_MODEL_OPTIONS];
         return [{ value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' }];
-    }, [isGemini]);
+    }, [isGemini, isQoder]);
 
     const currentModelLabel = React.useMemo(() => {
         if (isCodex) {
@@ -1102,7 +1115,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             : currentModelLabel;
                                         const tabs = [
                                             { key: 'model' as const, label: t('agentInput.model.title'), subtitle: currentModelSubtitle },
-                                            { key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel },
+                                            { key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : isQoder ? t('agentInput.qoderPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel },
                                         ];
                                         return tabs.map((tab) => {
                                             const isActive = showSettings === tab.key;
@@ -1377,68 +1390,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     {/* CLI Status - only shown when provided (wizard only) */}
                                     {props.connectionStatus.cliStatus && (
                                         <>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                <Text style={{
-                                                    fontSize: 11,
-                                                    color: props.connectionStatus.cliStatus.claude
-                                                        ? theme.colors.success
-                                                        : theme.colors.textDestructive,
-                                                    ...Typography.default()
-                                                }}>
-                                                    {props.connectionStatus.cliStatus.claude ? '✓' : '✗'}
-                                                </Text>
-                                                <Text style={{
-                                                    fontSize: 11,
-                                                    color: props.connectionStatus.cliStatus.claude
-                                                        ? theme.colors.success
-                                                        : theme.colors.textDestructive,
-                                                    ...Typography.default()
-                                                }}>
-                                                    claude
-                                                </Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                <Text style={{
-                                                    fontSize: 11,
-                                                    color: props.connectionStatus.cliStatus.codex
-                                                        ? theme.colors.success
-                                                        : theme.colors.textDestructive,
-                                                    ...Typography.default()
-                                                }}>
-                                                    {props.connectionStatus.cliStatus.codex ? '✓' : '✗'}
-                                                </Text>
-                                                <Text style={{
-                                                    fontSize: 11,
-                                                    color: props.connectionStatus.cliStatus.codex
-                                                        ? theme.colors.success
-                                                        : theme.colors.textDestructive,
-                                                    ...Typography.default()
-                                                }}>
-                                                    codex
-                                                </Text>
-                                            </View>
-                                            {props.connectionStatus.cliStatus.gemini !== undefined && (
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                    <Text style={{
-                                                        fontSize: 11,
-                                                        color: props.connectionStatus.cliStatus.gemini
-                                                            ? theme.colors.success
-                                                            : theme.colors.textDestructive,
-                                                        ...Typography.default()
-                                                    }}>
-                                                        {props.connectionStatus.cliStatus.gemini ? '✓' : '✗'}
-                                                    </Text>
-                                                    <Text style={{
-                                                        fontSize: 11,
-                                                        color: props.connectionStatus.cliStatus.gemini
-                                                            ? theme.colors.success
-                                                            : theme.colors.textDestructive,
-                                                        ...Typography.default()
-                                                    }}>
-                                                        gemini
-                                                    </Text>
-                                                </View>
-                                            )}
+                                            {AGENT_FLAVORS.map(flavor => {
+                                                const installed = props.connectionStatus?.cliStatus?.[flavor];
+                                                if (installed === undefined) return null;
+                                                const statusColor = installed
+                                                    ? theme.colors.success
+                                                    : theme.colors.textDestructive;
+                                                const statusStyle = { fontSize: 11, color: statusColor, ...Typography.default() };
+                                                return (
+                                                    <View key={flavor} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                        <Text style={statusStyle}>{installed ? '✓' : '✗'}</Text>
+                                                        <Text style={statusStyle}>{flavor}</Text>
+                                                    </View>
+                                                );
+                                            })}
                                         </>
                                     )}
                                 </>
@@ -1548,7 +1513,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             own - the vendor of a session cannot change. */}
                                         <View style={{ width: AGENT_MARK_SLOT, height: AGENT_MARK_SLOT, alignItems: 'center', justifyContent: 'center' }}>
                                             <Image
-                                                source={agentFlavorIcons[agentFlavorKey]}
+                                                source={flavorIcons[agentFlavorKey]}
                                                 style={{ width: agentMarkArtworkSize[agentFlavorKey], height: agentMarkArtworkSize[agentFlavorKey] }}
                                                 contentFit="contain"
                                                 tintColor={agentFlavorKey === 'codex' ? theme.colors.textSecondary : undefined}
@@ -1841,10 +1806,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             };
                                             return (
                                                 <Image
-                                                    source={agentFlavorIcons[props.agentType as keyof typeof agentFlavorIcons] || agentFlavorIcons.claude}
+                                                    source={flavorIcons[props.agentType as AgentFlavor] || flavorIcons.claude}
                                                     style={iconStyle}
                                                     contentFit="contain"
-                                                    tintColor={isCodex ? theme.colors.button.secondary.tint : undefined}
+                                                    tintColor={isCodex || isQoder ? theme.colors.button.secondary.tint : undefined}
                                                 />
                                             );
                                         })()}
@@ -1854,7 +1819,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             fontWeight: '600',
                                             ...Typography.default('semiBold'),
                                         }}>
-                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : t('agentInput.agent.gemini')}
+                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : props.agentType === 'qoder' ? t('agentInput.agent.qoder') : t('agentInput.agent.gemini')}
                                         </Text>
                                     </Pressable>
                                 )}

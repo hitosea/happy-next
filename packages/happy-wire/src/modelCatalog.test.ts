@@ -17,6 +17,8 @@ import {
     MODEL_MODE_DEFAULT,
     parseCodexModelMode,
     resolveLocalModelDisplay,
+    qoderModelModeToCliModel,
+    cliModelToQoderModelMode,
     resolveModelSelectionForFlavor,
 } from './modelCatalog';
 
@@ -41,6 +43,30 @@ describe('modelCatalog', () => {
         expect(isModelModeForAgent('gemini', 'gemini-3.8-flash')).toBe(true);
         expect(isModelModeForAgent('gemini', 'gemini-3.5-flash-lite')).toBe(true);
         expect(isModelModeForAgent('gemini', 'gemini-2.5-flash-lite')).toBe(true);
+    });
+
+    it('scopes qoder modes to qoder instead of inheriting the codex fallback', () => {
+        // isModelModeForAgent ends in `return CODEX_MODEL_MODE_SET.has(mode)`, so a
+        // flavor with no explicit branch silently validates against Codex's list.
+        expect(isModelModeForAgent('qoder', 'qoder-auto')).toBe(true);
+        expect(isModelModeForAgent('qoder', 'qoder-qmodel_38max')).toBe(true);
+        expect(isModelModeForAgent('qoder', MODEL_MODE_DEFAULT)).toBe(true);
+        expect(isModelModeForAgent('qoder', 'gpt-5.4-low')).toBe(false);
+        expect(isModelModeForAgent('qoder', 'gemini-3.8-flash')).toBe(false);
+        expect(isModelModeForAgent('codex', 'qoder-auto')).toBe(false);
+        expect(resolveModelSelectionForFlavor('qoder', 'qoder-auto')).toEqual({
+            model: 'qoder-auto',
+            reasoningEffort: null,
+        });
+        // The wire keeps the prefixed id; only the CLI arg is unprefixed.
+        expect(qoderModelModeToCliModel('qoder-auto')).toBe('auto');
+        // Measured ids are opaque vendor keys, not English tier names.
+        expect(qoderModelModeToCliModel('qoder-kmodel_latest')).toBe('kmodel_latest');
+        expect(qoderModelModeToCliModel(MODEL_MODE_DEFAULT)).toBeNull();
+        expect(cliModelToQoderModelMode('qmodel_38max')).toBe('qoder-qmodel_38max');
+        // A tier that never existed must not resolve, rather than falling back to auto.
+        expect(cliModelToQoderModelMode('performance')).toBeNull();
+        expect(getMaxContextSize('qoder-auto', 'qoder')).toBeGreaterThan(0);
     });
 
     it('parses codex model mode into family and effort', () => {

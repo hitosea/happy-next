@@ -127,7 +127,7 @@ export interface SpawnSessionOptions {
     sessionTitle?: string;
     skipForkSession?: boolean;
     approvedNewDirectoryCreation?: boolean;
-    agent?: 'claude' | 'codex' | 'gemini';
+    agent?: 'claude' | 'codex' | 'gemini' | 'qoder';
     token?: string;
     environmentVariables?: {
         // Anthropic Claude API configuration
@@ -586,7 +586,7 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
 
         rpcHandlerManager.registerHandler<
             { callId: string },
-            { success: boolean; toolName?: string; agent?: 'claude' | 'codex' | 'gemini'; result?: unknown; error?: string }
+            { success: boolean; toolName?: string; agent?: 'claude' | 'codex' | 'gemini' | 'qoder'; result?: unknown; error?: string }
         >('getToolOutput', async (data) => {
             logger.debug('getToolOutput request:', data.callId);
 

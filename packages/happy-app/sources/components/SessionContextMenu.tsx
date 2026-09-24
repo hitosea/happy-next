@@ -8,7 +8,7 @@ import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { Session } from '@/sync/storageTypes';
 import { useSessionMarkerColor } from '@/sync/storage';
-import { getSessionName, useSessionStatus, generateCopyTitle, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
+import { getSessionName, useSessionStatus, generateCopyTitle, copySessionMetadata, copySessionModeSettings, forkQoderSessionForCopy } from '@/utils/sessionUtils';
 import { promptRenameSession } from '@/utils/sessionRename';
 import { showToast } from './Toast';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,8 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
 import { storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
+import { hasForkableNativeId } from '@/utils/sessionLifecycle';
+import { agentDisplayName } from 'happy-wire';
 import { leaveSharedSession } from '@/sync/apiSharing';
 import {
     machineForkClaudeSession,
@@ -313,11 +315,12 @@ function useSessionQuickActions(session: Session) {
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
-        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId)) return;
+        if (!machineId || !directory || !hasForkableNativeId(session)) return;
 
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = agentDisplayName(flavor);
         const confirmed = await Modal.confirm(
             session.active ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle'),
             session.active
@@ -332,7 +335,7 @@ function useSessionQuickActions(session: Session) {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -357,6 +360,14 @@ function useSessionQuickActions(session: Session) {
                     return;
                 }
                 resumeSessionId = forkResult.newSessionId;
+            } else if (flavor === 'qoder') {
+                const qoderFork = await forkQoderSessionForCopy(machineId, qoderSessionId, directory);
+                if ('error' in qoderFork) {
+                    Modal.alert(t('common.error'), qoderFork.error ?? t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = qoderFork.newSessionId;
+                agent = 'qoder';
             }
 
             const result = await machineSpawnNewSession({

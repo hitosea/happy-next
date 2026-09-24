@@ -810,6 +810,7 @@ export const en = {
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
         tabCodex: 'Codex',
+        tabQoder: 'Qoder',
         searchPlaceholder: 'Search by name or ID',
     },
 
@@ -975,6 +976,9 @@ export const en = {
         geminiSessionId: 'Gemini Session ID',
         geminiSessionIdCopied: 'Gemini Session ID copied to clipboard',
         failedToCopyGeminiSessionId: 'Failed to copy Gemini Session ID',
+        qoderSessionId: 'Qoder Session ID',
+        qoderSessionIdCopied: 'Qoder Session ID copied to clipboard',
+        failedToCopyQoderSessionId: 'Failed to copy Qoder Session ID',
         metadataCopied: 'Metadata copied to clipboard',
         failedToCopyMetadata: 'Failed to copy metadata',
         failedToKillSession: 'Failed to kill session',
@@ -1137,6 +1141,7 @@ export const en = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1176,6 +1181,14 @@ export const en = {
             badgeAutoEdit: 'Auto Edit',
             badgePlan: 'Plan Mode',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            title: 'QODER PERMISSION MODE',
+            default: 'Default',
+            auto: 'Auto Mode',
+            acceptEdits: 'Accept Edits',
+            bypassPermissions: 'Privileged Mode',
+            dontAsk: 'Don\'t Ask',
         },
         opencodePermissionMode: {
             title: 'OPENCODE PERMISSION MODE',
@@ -2167,6 +2180,7 @@ export const en = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'No data available for this provider yet',
     },
@@ -2248,8 +2262,10 @@ export const en = {
         installClaude: 'Install: npm install -g @anthropic-ai/claude-code',
         installCodex: 'Install: npm install -g codex-cli',
         installGemini: 'Install gemini CLI if available',
+        installQoder: 'Install qoder CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
+        viewQoderDocs: 'View Qoder Docs →',
 
         // Profile actions
         add: 'Add',
@@ -2308,6 +2324,11 @@ export const en = {
         permFullAuto: 'Full Access',
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
+        permQoderDefaultDesc: 'Prompt for approval',
+        permQoderAutoDesc: 'Run automatically with safety checks',
+        permQoderAcceptEditsDesc: 'Accept file edits automatically',
+        permQoderBypassDesc: 'Skip permission checks',
+        permQoderDontAskDesc: 'Never ask for approval',
         permFullAccess: 'Full access, skip permissions',
     },
 } as const;

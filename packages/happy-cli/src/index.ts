@@ -11,7 +11,7 @@ import chalk from 'chalk'
 import { isDebug } from '@/utils/env'
 import { runClaude, StartOptions } from '@/claude/runClaude'
 import { logger } from './ui/logger'
-import { readCredentials, readSettings } from './persistence'
+import { readCredentials, readSettings, type Credentials } from './persistence'
 import { authAndSetupMachineIfNeeded } from './ui/auth'
 import packageJson from '../package.json'
 import { z } from 'zod'
@@ -43,6 +43,34 @@ import { resolveCodexResumeDirectory } from './codex/resumeDirectory'
 // `daemon/doctor.ts`, and as the truncated `comm` matched by `name.includes('happy')`)
 // and the original args (used to classify daemon / session / version-check processes).
 process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
+
+type AcpAgentRunner = (opts: { credentials: Credentials; startedBy?: 'daemon' | 'terminal' }) => Promise<void>;
+
+/**
+ * Shared launch path for the ACP agents (`happy gemini`, `happy qoder`): read
+ * `--started-by`, authenticate, make sure the background service is up, then hand the
+ * terminal over to the runner.
+ */
+async function launchAcpAgent(args: string[], run: AcpAgentRunner): Promise<void> {
+  let startedBy: 'daemon' | 'terminal' | undefined = undefined;
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--started-by') {
+      startedBy = args[++i] as 'daemon' | 'terminal';
+    }
+  }
+
+  const { credentials } = await authAndSetupMachineIfNeeded();
+
+  logger.debug('Ensuring Happy background service is running & matches our version...');
+  if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
+    logger.debug('Starting Happy background service...');
+    startDaemonDetached();
+    // Give daemon a moment to write PID & port file
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  await run({ credentials, startedBy });
+}
 
 (async () => {
   const rawArgs = process.argv.slice(2)
@@ -353,29 +381,20 @@ process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
     // Handle gemini command (ACP-based agent)
     try {
       const { runGemini } = await import('@/gemini/runGemini');
-      
-      // Parse startedBy argument
-      let startedBy: 'daemon' | 'terminal' | undefined = undefined;
-      for (let i = 1; i < args.length; i++) {
-        if (args[i] === '--started-by') {
-          startedBy = args[++i] as 'daemon' | 'terminal';
-        }
+      await launchAcpAgent(args, runGemini);
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
       }
-      
-      const {
-        credentials
-      } = await authAndSetupMachineIfNeeded();
-
-      // Auto-start daemon for gemini (same as claude)
-      logger.debug('Ensuring Happy background service is running & matches our version...');
-      if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
-        logger.debug('Starting Happy background service...');
-        startDaemonDetached();
-        // Give daemon a moment to write PID & port file
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-
-      await runGemini({credentials, startedBy});
+      process.exit(1)
+    }
+    return;
+  } else if (subcommand === 'qoder') {
+    // Handle qoder command (ACP-based agent, same transport family as gemini)
+    try {
+      const { runQoder } = await import('@/qoder/runQoder');
+      await launchAcpAgent(args, runQoder);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
       if (isDebug()) {
@@ -627,6 +646,7 @@ ${chalk.bold('Usage:')}
   happy codex             Start Codex mode
   happy codex resume      Select a Codex session to resume in this directory
   happy gemini            Start Gemini mode (ACP)
+  happy qoder             Start Qoder mode (ACP)
   happy connect           Connect AI vendor API keys
   happy notify            Send push notification
   happy daemon            Manage background service
@@ -677,6 +697,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
         { name: 'Claude', cmd: 'claude', args: ['--version'] },
         { name: 'Codex', cmd: 'codex', args: ['--version'] },
         { name: 'Gemini', cmd: 'gemini', args: ['--version'] },
+        { name: 'Qoder', cmd: 'qoder', args: ['--version'] },
       ]
       for (const { name, cmd, args: vArgs } of checks) {
         try {
