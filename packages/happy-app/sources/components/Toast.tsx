@@ -31,39 +31,51 @@ const BASE_BOTTOM = Platform.OS === 'ios' ? 100 : 80;
 
 export function ToastHost() {
     const opacity = React.useRef(new Animated.Value(0)).current;
+    const keyboardTranslation = React.useRef(new Animated.Value(0)).current;
     const timeout = React.useRef<ReturnType<typeof setTimeout>>(undefined);
     const [message, setMessage] = React.useState('');
     const [icon, setIcon] = React.useState<ToastIcon>(DEFAULT_ICON);
-    const [bottomOffset, setBottomOffset] = React.useState(BASE_BOTTOM);
+    const [visible, setVisible] = React.useState(false);
 
     React.useEffect(() => {
-        if (Platform.OS !== 'ios') return;
+        if (Platform.OS !== 'ios' || !visible) return;
+        const keyboardHeight = Keyboard.metrics()?.height ?? 0;
+        keyboardTranslation.setValue(keyboardHeight > 0 ? BASE_BOTTOM - keyboardHeight - 20 : 0);
         const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
-            setBottomOffset(e.endCoordinates.height + 20);
+            // Avoid a React layout commit during the keyboard animation.
+            keyboardTranslation.setValue(BASE_BOTTOM - e.endCoordinates.height - 20);
         });
         const hideSub = Keyboard.addListener('keyboardWillHide', () => {
-            setBottomOffset(BASE_BOTTOM);
+            keyboardTranslation.setValue(0);
         });
         return () => { showSub.remove(); hideSub.remove(); };
-    }, []);
+    }, [keyboardTranslation, visible]);
 
     const show = React.useCallback((msg?: string, nextIcon: ToastIcon = DEFAULT_ICON) => {
         if (timeout.current) clearTimeout(timeout.current);
         setMessage(msg ?? t('common.copied'));
         setIcon(nextIcon);
+        setVisible(true);
+        opacity.stopAnimation();
         opacity.setValue(1);
         timeout.current = setTimeout(() => {
-            Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+            Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true })
+                .start(({ finished }) => { if (finished) setVisible(false); });
         }, 1200);
     }, [opacity]);
 
     React.useEffect(() => {
         _show = show;
-        return () => { _show = null; };
+        return () => {
+            _show = null;
+            if (timeout.current) clearTimeout(timeout.current);
+        };
     }, [show]);
 
+    if (!visible) return null;
+
     return (
-        <Animated.View pointerEvents="none" style={[toastStyles.container, { opacity, bottom: bottomOffset }]}>
+        <Animated.View pointerEvents="none" style={[toastStyles.container, { opacity, transform: [{ translateY: keyboardTranslation }] }]}>
             {icon ? <Ionicons name={icon} size={16} color="#fff" style={{ marginRight: 6 }} /> : null}
             <Text style={toastStyles.text}>{message}</Text>
         </Animated.View>
