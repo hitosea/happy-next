@@ -15,6 +15,7 @@ import { sessionBash } from '@/sync/ops';
 import { Modal } from '@/modal';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
+import { softHeaderOptions, useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { FileIcon } from '@/components/FileIcon';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
@@ -31,6 +32,7 @@ export default function FilesScreen() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState('');
     const { theme } = useUnistyles();
+    const softHeaderInset = useSoftHeaderInset();
     const isWeb = Platform.OS === 'web';
 
     const session = useSession(sessionId);
@@ -379,9 +381,10 @@ export default function FilesScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.surface, paddingTop: softHeaderInset }]}>
             <Stack.Screen
                 options={{
+                    ...softHeaderOptions,
                     headerRight: () => (
                         <Pressable
                             onPress={() => router.push(`/session/${sessionId}/commits`)}

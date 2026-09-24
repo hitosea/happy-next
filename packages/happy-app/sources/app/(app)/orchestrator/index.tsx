@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import { View, FlatList, Platform, Pressable, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
+import { softHeaderOptions, useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { useAuth } from '@/auth/AuthContext';
 import { getOrchestratorRunCounts, listOrchestratorRuns, type ListOrchestratorRunsQuery, type OrchestratorRunCounts, type OrchestratorRunDetail } from '@/sync/apiOrchestrator';
 import { OrchestratorStatusBadge } from '@/components/orchestrator/OrchestratorStatusBadge';
@@ -12,7 +13,6 @@ import { OrchestratorProgressBar } from '@/components/orchestrator/OrchestratorP
 import { resolveOrchestratorSummaryLineData, resolveMachineName } from '@/components/orchestrator/display';
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
 import { formatDate } from '@/utils/formatDate';
-import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 
 type RunListItem = Pick<OrchestratorRunDetail, 'runId' | 'title' | 'status' | 'createdAt' | 'updatedAt' | 'summary'> & { machines?: string[]; };
@@ -168,28 +168,16 @@ export default function OrchestratorRunsScreen() {
             : searchParams.controllerSessionId
     ), [searchParams.controllerSessionId]);
     const isConversationScoped = !!controllerSessionId;
+    const softHeaderInset = useSoftHeaderInset();
     const navigation = useNavigation();
 
     React.useEffect(() => {
-        if (isConversationScoped) {
-            navigation.setOptions({
-                headerTitle: () => (
-                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={[Typography.default('semiBold'), { fontSize: 17, lineHeight: 24, color: theme.colors.header.tint }]}>
-                            {t('settings.orchestratorRuns')}
-                        </Text>
-                        <Text style={[Typography.default(), { fontSize: 12, color: theme.colors.header.tint, opacity: 0.7, marginTop: -2 }]}>
-                            {t('settings.orchestratorSessionRuns')}
-                        </Text>
-                    </View>
-                ),
-            });
-        } else {
-            navigation.setOptions({
-                headerTitle: t('settings.orchestratorRuns'),
-            });
-        }
-    }, [isConversationScoped, navigation, theme]);
+        navigation.setOptions({
+            ...softHeaderOptions,
+            headerTitle: t('settings.orchestratorRuns'),
+            headerSubtitle: isConversationScoped ? t('settings.orchestratorSessionRuns') : undefined,
+        });
+    }, [isConversationScoped, navigation]);
 
     const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
     const [runs, setRuns] = React.useState<RunListItem[]>([]);
@@ -340,7 +328,7 @@ export default function OrchestratorRunsScreen() {
     }, [loading, styles, error, isConversationScoped]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingTop: softHeaderInset }]}>
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -367,6 +355,7 @@ export default function OrchestratorRunsScreen() {
                 data={runs}
                 keyExtractor={(item) => item.runId}
                 renderItem={renderRunItem}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.4}
                 refreshControl={

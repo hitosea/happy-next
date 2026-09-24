@@ -17,6 +17,7 @@ import { DooTaskListView } from './DooTaskListView';
 import { GitHubListView } from './GitHubListView';
 import { SessionsListWrapper } from './SessionsListWrapper';
 import { HeaderLogo } from './HeaderLogo';
+import { softHeaderOptions } from './navigation/softHeader';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
@@ -477,8 +478,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         <Stack.Screen
             options={{
                 headerShown: true,
-                headerTransparent: true,
-                scrollEdgeEffects: { top: 'soft', bottom: 'hidden' },
+                ...softHeaderOptions,
                 headerTitle: activeTab === 'github'
                     ? () => <GitHubHeaderTitle githubRepo={githubRepo} onGithubRepoPress={handleOpenRepoPicker} />
                     : t(TAB_TITLES[activeTab as ActiveTabType]),

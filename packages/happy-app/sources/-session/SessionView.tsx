@@ -4,6 +4,7 @@ import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
 import { getSuggestions } from '@/components/autocomplete/suggestions';
 import { HeaderBackButton } from '@/components/navigation/Header';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { ChatList, type ForkMessageRequest } from '@/components/ChatList';
 import { ConversationMinimap, type ConversationMinimapEdgeTouch, type ConversationMinimapItem } from '@/components/ConversationMinimap';
 import type { MinimapMessage } from '@/sync/typesMessage';
@@ -209,12 +210,8 @@ export const SessionView = React.memo((props: { id: string }) => {
             <Stack.Screen
                 options={{
                     headerShown: !shouldHideHeader,
-                    headerTransparent: shouldUseTransparentNativeHeader,
-                    headerStyle: shouldUseTransparentNativeHeader ? { backgroundColor: 'transparent' } : undefined,
+                    ...(shouldUseTransparentNativeHeader ? softHeaderOptions : {}),
                     headerShadowVisible: !shouldUseTransparentNativeHeader,
-                    scrollEdgeEffects: shouldUseTransparentNativeHeader
-                        ? { top: 'soft', bottom: 'hidden' }
-                        : undefined,
                     headerTitle: headerProps.title,
                     headerSubtitle: headerProps.subtitle,
                     headerLeft: Platform.OS === 'web' ? () => (
