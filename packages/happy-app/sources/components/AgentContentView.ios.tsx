@@ -22,13 +22,14 @@ export const AgentContentView: React.FC<AgentContentViewProps> = React.memo(({ i
     return (
         <View style={{ flexBasis:0, flexGrow:1 }}>
             <View style={{ flexBasis:0, flexGrow:1 }}>
+                {/* The content keeps its frame while the keyboard is up — the message list lifts its
+                    own content natively instead (see ChatList's KeyboardChatScrollView). Translating
+                    this wrapper would drag the top edge of the scroll view off screen, and with it
+                    the iOS 26 scroll-edge effect that the transparent header draws there. */}
                 {content && (
-                    <KeyboardStickyView
-                        offset={{ opened: safeArea.bottom }}
-                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    >
+                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
                         {content}
-                    </KeyboardStickyView>
+                    </View>
                 )}
                 {placeholder && (
                     <Animated.ScrollView

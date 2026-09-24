@@ -1,0 +1,96 @@
+diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
+index 492390b..54adc85 100644
+--- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
++++ b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
+@@ -135,6 +135,8 @@ export function useHeaderConfigProps({
+   headerBlurEffect,
+   headerTintColor,
+   headerTitle,
++  headerSubtitle,
++  headerSubtitleColor,
+   headerTitleAlign,
+   headerTitleStyle,
+   headerTransparent,
+@@ -336,6 +338,8 @@ export function useHeaderConfigProps({
+     largeTitleFontSize,
+     largeTitleFontWeight,
+     largeTitleHideShadow: headerLargeTitleShadowVisible === false,
++    subtitle: headerSubtitle,
++    subtitleColor: headerSubtitleColor,
+     title: titleText,
+     titleColor,
+     titleFontFamily,
+diff --git a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+index 98c516c..59fa619 100644
+--- a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
++++ b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+@@ -311,6 +311,21 @@ export type NativeStackNavigationOptions = {
+      *
+      * Note that if you render a custom element by passing a function, animations for the title won't work.
+      */
++    /**
++     * Subtitle rendered underneath the header title (iOS 26+).
++     *
++     * Note: UIKit ignores it unless the title is a plain string, i.e. do not combine this with a
++     * custom `headerTitle` component (that becomes `UINavigationItem.titleView`).
++     *
++     * @platform ios
++     */
++    headerSubtitle?: string;
++    /**
++     * Color of `headerSubtitle`. Defaults to the system secondary color.
++     *
++     * @platform ios
++     */
++    headerSubtitleColor?: ColorValue;
+     headerTitle?: string | ((props: {
+         /**
+          * The title text of the header.
+diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
+index 12c5cf6..638b8ff 100644
+--- a/node_modules/@react-navigation/native-stack/src/types.tsx
++++ b/node_modules/@react-navigation/native-stack/src/types.tsx
+@@ -359,6 +359,21 @@ export type NativeStackNavigationOptions = {
+    *
+    * Note that if you render a custom element by passing a function, animations for the title won't work.
+    */
++  /**
++   * Subtitle rendered underneath the header title (iOS 26+).
++   *
++   * Note: UIKit ignores it unless the title is a plain string, i.e. do not combine this with a
++   * custom `headerTitle` component (that becomes `UINavigationItem.titleView`).
++   *
++   * @platform ios
++   */
++  headerSubtitle?: string;
++  /**
++   * Color of `headerSubtitle`. Defaults to the system secondary color.
++   *
++   * @platform ios
++   */
++  headerSubtitleColor?: ColorValue;
+   headerTitle?:
+     | string
+     | ((props: {
+diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
+index 14a0093..6f8a8eb 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
+@@ -186,6 +186,8 @@ export function useHeaderConfigProps({
+   headerBlurEffect,
+   headerTintColor,
+   headerTitle,
++  headerSubtitle,
++  headerSubtitleColor,
+   headerTitleAlign,
+   headerTitleStyle,
+   headerTransparent,
+@@ -489,6 +491,8 @@ export function useHeaderConfigProps({
+     largeTitleFontSize,
+     largeTitleFontWeight,
+     largeTitleHideShadow: headerLargeTitleShadowVisible === false,
++    subtitle: headerSubtitle,
++    subtitleColor: headerSubtitleColor,
+     title: titleText,
+     titleColor,
+     titleFontFamily,

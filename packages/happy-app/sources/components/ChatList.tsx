@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { useSession, useSessionMessages, useProfile, useSetting, storage } from "@/sync/storage";
-import { ActivityIndicator, Platform, Pressable, Text, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps } from 'react-native';
 import { useCallback, useRef, useState } from 'react';
 import { LegendList, LegendListRef, LegendListRenderItemProps } from '@legendapp/list/react-native';
+import { KeyboardChatScrollView } from 'react-native-keyboard-controller';
 import { useHeaderHeight } from '@/utils/responsive';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -90,6 +91,33 @@ const ListFooter = React.memo((props: { sessionId: string }) => {
         <ChatFooter controlledByUser={session.agentState?.controlledByUser || false} />
     )
 });
+
+/**
+ * The chat list's scroll view on iOS. While the keyboard is up it keeps its own frame and lifts the
+ * *content* instead (native chat-style inset handling), so the top edge of the scroll view stays
+ * beneath the navigation bar. Translating the list itself — what the `KeyboardStickyView` around
+ * the whole list used to do — drags that edge off screen, and with it the iOS 26 scroll-edge effect
+ * the transparent header draws there.
+ *
+ * `offset` is how much of the keyboard is already covered by chrome below the scroll view: the
+ * composer is a sibling beneath the list, so only the home-indicator inset still sits between them
+ * and the keyboard, and that much gets subtracted from the lift.
+ */
+const ChatScrollView = React.forwardRef<
+    React.ElementRef<typeof KeyboardChatScrollView>,
+    ScrollViewProps & { bottomInset: number }
+>(({ bottomInset, ...props }, ref) => (
+    <KeyboardChatScrollView
+        ref={ref}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="interactive"
+        keyboardLiftBehavior="always"
+        offset={bottomInset}
+        {...props}
+    />
+));
+ChatScrollView.displayName = 'ChatScrollView';
 
 // Avoid flashing the return-to-bottom button during transient layout adjustments.
 const SHOW_SCROLL_BUTTON_DELAY_MS = 300;
@@ -206,6 +234,12 @@ const ChatListInternal = React.memo((props: {
     const safeArea = useSafeAreaInsets();
     const listRef = useRef<LegendListRef | null>(null);
     const [viewportHeight, setViewportHeight] = useState(0);
+    // iOS only — the platform where the header floats over the list. Android already keeps the list
+    // in place and pads the container instead (see AgentContentView.tsx).
+    const renderScrollComponent = useCallback(
+        (props: ScrollViewProps) => <ChatScrollView {...props} bottomInset={safeArea.bottom} />,
+        [safeArea.bottom]
+    );
     const showThinkingMessages = useSetting('showThinkingMessages');
     const visibleMessages = React.useMemo(
         () => props.messages.filter((message) => !shouldHideMessageInChatList(message, showThinkingMessages)),
@@ -690,6 +724,7 @@ const ChatListInternal = React.memo((props: {
                 extraData={rowEnv}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+                renderScrollComponent={Platform.OS === 'ios' ? renderScrollComponent : undefined}
                 ListHeaderComponent={listHeader}
                 ListFooterComponent={<ListFooter sessionId={props.sessionId} />}
                 onLayout={handleListLayout}

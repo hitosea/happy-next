@@ -18,7 +18,6 @@ import { GitHubListView } from './GitHubListView';
 import { SessionsListWrapper } from './SessionsListWrapper';
 import { HeaderLogo } from './HeaderLogo';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
-import { StatusDot } from './StatusDot';
 import { Ionicons } from '@expo/vector-icons';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
@@ -118,17 +117,6 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '600',
         ...Typography.default('semiBold'),
     },
-    statusContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: -2,
-    },
-    statusText: {
-        fontSize: 12,
-        fontWeight: '500',
-        lineHeight: 16,
-        ...Typography.default(),
-    },
     headerButton: {
         width: 32,
         height: 32,
@@ -149,12 +137,16 @@ const TAB_TITLES = {
 // Active tabs
 type ActiveTabType = 'sessions' | 'inbox' | 'dootask' | 'github' | 'settings';
 
-// Header title component with connection status
-const HeaderTitle = React.memo(({ activeTab, githubRepo, onGithubRepoPress }: { activeTab: ActiveTabType; githubRepo?: string | null; onGithubRepoPress?: () => void }) => {
+// Connection status rendered underneath the header title. On iOS the system draws it itself now,
+// through the native subtitle (`headerSubtitle` → `UINavigationItem.subtitle`, iOS 26+): a custom
+// title view (`headerTitle` as a component) makes UIKit drop the header's scroll-edge effect, so
+// the subtitle may not live inside the title view anymore. Only the dot is lost — the text keeps
+// the status color.
+const useConnectionStatusSubtitle = () => {
     const { theme } = useUnistyles();
     const socketStatus = useSocketStatus();
 
-    const connectionStatus = React.useMemo(() => {
+    return React.useMemo(() => {
         const { status } = socketStatus;
         switch (status) {
             case 'connected':
@@ -189,41 +181,25 @@ const HeaderTitle = React.memo(({ activeTab, githubRepo, onGithubRepoPress }: { 
                 };
         }
     }, [socketStatus, theme]);
+};
 
-    if (activeTab === 'github') {
-        const repoName = githubRepo ? githubRepo.split('/').pop() || githubRepo : '';
-        const title = repoName || t('github.allRepos');
-        return (
-            <Pressable style={styles.titleContainer} onPress={onGithubRepoPress}>
-                <View style={styles.repoTitleRow}>
-                    <Text style={[styles.titleText, { maxWidth: 200 }]} numberOfLines={1} ellipsizeMode="tail">
-                        {title}
-                    </Text>
-                    <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
-                </View>
-            </Pressable>
-        );
-    }
+// Header title of the github tab — the repository picker. This one has to stay a custom title view
+// (it is a pressable with a chevron), and UIKit ignores the native `headerSubtitle` while a custom
+// title view is set, so this tab shows no connection status.
+const GitHubHeaderTitle = React.memo(({ githubRepo, onGithubRepoPress }: { githubRepo?: string | null; onGithubRepoPress?: () => void }) => {
+    const { theme } = useUnistyles();
+    const repoName = githubRepo ? githubRepo.split('/').pop() || githubRepo : '';
+    const title = repoName || t('github.allRepos');
 
     return (
-        <View style={styles.titleContainer}>
-            <Text style={styles.titleText}>
-                {t(TAB_TITLES[activeTab])}
-            </Text>
-            {connectionStatus.text && (
-                <View style={styles.statusContainer}>
-                    <StatusDot
-                        color={connectionStatus.color}
-                        isPulsing={connectionStatus.isPulsing}
-                        size={6}
-                        style={{ marginRight: 4 }}
-                    />
-                    <Text style={[styles.statusText, { color: connectionStatus.color }]}>
-                        {connectionStatus.text}
-                    </Text>
-                </View>
-            )}
-        </View>
+        <Pressable style={styles.titleContainer} onPress={onGithubRepoPress}>
+            <View style={styles.repoTitleRow}>
+                <Text style={[styles.titleText, { maxWidth: 200 }]} numberOfLines={1} ellipsizeMode="tail">
+                    {title}
+                </Text>
+                <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
+            </View>
+        </Pressable>
     );
 });
 
@@ -297,6 +273,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const router = useRouter();
     const friendRequests = useFriendRequests();
     const realtimeStatus = useRealtimeStatus();
+    const connectionStatus = useConnectionStatusSubtitle();
     const dootaskProfile = useDootaskProfile();
     const inboxHasContent = useInboxHasContent();
     const showDootaskTab = !!dootaskProfile;
@@ -500,9 +477,13 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         <Stack.Screen
             options={{
                 headerShown: true,
-                headerShadowVisible: false,
-                headerStyle: { backgroundColor: theme.colors.groupped.background },
-                headerTitle: () => <HeaderTitle activeTab={activeTab as ActiveTabType} githubRepo={githubRepo} onGithubRepoPress={handleOpenRepoPicker} />,
+                headerTransparent: true,
+                scrollEdgeEffects: { top: 'soft', bottom: 'hidden' },
+                headerTitle: activeTab === 'github'
+                    ? () => <GitHubHeaderTitle githubRepo={githubRepo} onGithubRepoPress={handleOpenRepoPicker} />
+                    : t(TAB_TITLES[activeTab as ActiveTabType]),
+                headerSubtitle: connectionStatus.text || undefined,
+                headerSubtitleColor: connectionStatus.color,
                 headerLeft: () => <HeaderLogo />,
                 headerRight: shouldProvideMainHeaderRight(activeTab) && !(activeTab === 'settings' && !isCustomServer)
                     ? () => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} />

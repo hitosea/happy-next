@@ -1,0 +1,101 @@
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.h b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.h
+index d5ea95f..900349e 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.h
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.h
+@@ -40,6 +40,8 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic, retain) NSNumber *titleFontSize;
+ @property (nonatomic, retain) NSString *titleFontWeight;
+ @property (nonatomic, retain) UIColor *titleColor;
++@property (nonatomic, retain) NSString *subtitle;
++@property (nonatomic, retain) UIColor *subtitleColor;
+ @property (nonatomic, retain) NSString *backTitle;
+ @property (nonatomic, retain) NSString *backTitleFontFamily;
+ @property (nonatomic, retain) NSNumber *backTitleFontSize;
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 3270127..537d9e1 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -504,6 +504,14 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+     appearance.titleTextAttributes = attrs;
+   }
+ 
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    if (config.subtitleColor != nil) {
++      appearance.subtitleTextAttributes = @{NSForegroundColorAttributeName : config.subtitleColor};
++    }
++  }
++#endif
++
+   if (config.largeTitleFontFamily || config.largeTitleFontSize || config.largeTitleFontWeight ||
+       config.largeTitleColor || config.titleColor) {
+     NSMutableDictionary *largeAttrs = [NSMutableDictionary new];
+@@ -718,6 +726,12 @@ + (void)updateViewController:(UIViewController *)vc
+   // This assignment should be done after `navitem.titleView = ...` assignment (iOS 16.0 bug).
+   // See: https://github.com/software-mansion/react-native-screens/issues/1570 (comments)
+   navitem.title = config.title;
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26.0, *)) {
++    // Ignored by UIKit while a custom titleView is set (see UINavigationItem.attributedSubtitle docs).
++    navitem.subtitle = config.subtitle;
++  }
++#endif
+   navitem.leftBarButtonItems = [config barButtonItemsFromConfigs:config.headerLeftBarButtonItems
+                                                 withCurrentItems:navitem.leftBarButtonItems];
+   navitem.rightBarButtonItems = [config barButtonItemsFromConfigs:config.headerRightBarButtonItems
+@@ -1119,6 +1133,8 @@ - (void)updateProps:(react::Props::Shared const &)props oldProps:(react::Props::
+   }
+ 
+   _title = RCTNSStringFromStringNilIfEmpty(newScreenProps.title);
++  _subtitle = RCTNSStringFromStringNilIfEmpty(newScreenProps.subtitle);
++  _subtitleColor = RCTUIColorFromSharedColor(newScreenProps.subtitleColor);
+   if (newScreenProps.titleFontFamily != oldScreenProps.titleFontFamily) {
+     _titleFontFamily = RCTNSStringFromStringNilIfEmpty(newScreenProps.titleFontFamily);
+   }
+@@ -1277,6 +1293,8 @@ - (RCTShadowView *)shadowView
+ RCT_EXPORT_VIEW_PROPERTY(titleFontSize, NSNumber)
+ RCT_EXPORT_VIEW_PROPERTY(titleFontWeight, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(titleColor, UIColor)
++RCT_EXPORT_VIEW_PROPERTY(subtitle, NSString)
++RCT_EXPORT_VIEW_PROPERTY(subtitleColor, UIColor)
+ RCT_EXPORT_VIEW_PROPERTY(backTitle, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(backTitleFontFamily, NSString)
+ RCT_EXPORT_VIEW_PROPERTY(backTitleFontSize, NSNumber)
+diff --git a/node_modules/react-native-screens/src/fabric/ScreenStackHeaderConfigNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ScreenStackHeaderConfigNativeComponent.ts
+index fcbb268..2150a3b 100644
+--- a/node_modules/react-native-screens/src/fabric/ScreenStackHeaderConfigNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ScreenStackHeaderConfigNativeComponent.ts
+@@ -65,6 +65,8 @@ export interface NativeProps extends ViewProps {
+   titleFontSize?: CT.Int32;
+   titleFontWeight?: string;
+   titleColor?: ColorValue;
++  subtitle?: string;
++  subtitleColor?: ColorValue;
+   disableBackButtonMenu?: boolean;
+   backButtonDisplayMode?: CT.WithDefault<BackButtonDisplayMode, 'default'>;
+   hideBackButton?: boolean;
+diff --git a/node_modules/react-native-screens/src/types.tsx b/node_modules/react-native-screens/src/types.tsx
+index a657c0f..7eede2c 100644
+--- a/node_modules/react-native-screens/src/types.tsx
++++ b/node_modules/react-native-screens/src/types.tsx
+@@ -801,6 +801,20 @@ export interface ScreenStackHeaderConfigProps extends ViewProps {
+   /**
+    * Allows for setting text color of the title.
+    */
++  /**
++   * Subtitle displayed underneath the title (iOS 26+).
++   *
++   * Ignored when `titleView` (i.e. a custom React `headerTitle`) is present.
++   *
++   * @platform ios
++   */
++  subtitle?: string;
++  /**
++   * Color of the subtitle. Defaults to the system secondary color.
++   *
++   * @platform ios
++   */
++  subtitleColor?: ColorValue;
+   titleColor?: ColorValue;
+   /**
+    * Customize font family to be used for the title.

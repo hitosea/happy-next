@@ -1,10 +1,8 @@
 import { AgentContentView } from '@/components/AgentContentView';
-import { layout } from '@/components/layout';
 import { AgentInput } from '@/components/AgentInput';
 import { Avatar } from '@/components/Avatar';
 import { MultiTextInputHandle } from '@/components/MultiTextInput';
 import { getSuggestions } from '@/components/autocomplete/suggestions';
-import { ChatHeaderTitle } from '@/components/ChatHeaderTitle';
 import { HeaderBackButton } from '@/components/navigation/Header';
 import { ChatList, type ForkMessageRequest } from '@/components/ChatList';
 import { ConversationMinimap, type ConversationMinimapEdgeTouch, type ConversationMinimapItem } from '@/components/ConversationMinimap';
@@ -35,7 +33,6 @@ import { useDeviceType, useIsLandscape, useIsTablet } from '@/utils/responsive';
 import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { canEditSession, canForkSession } from '@/utils/sessionLifecycle';
 import { sendFailureKey } from '@/utils/sendFailure';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
 import { log } from '@/log';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,7 +41,7 @@ import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/n
 import { Stack, useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View, type GestureResponderEvent } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, View, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -52,9 +49,7 @@ const SILENT_REFRESH_INDICATOR_DELAY_MS = 3000;
 const SILENT_REFRESH_FAILED_TIMEOUT_MS = 12000;
 
 // Gap between the leading header-right action (orchestrator / new-session) and the avatar.
-// Web (custom header) gets a roomier gap; native apps stay at the 4px baseline that
-// `getNativeHeaderTitleWidth` assumes. Any value above 4 is compensated out of the iOS title
-// width below, otherwise the system shifts the centered title to avoid the wider buttons.
+// Web (custom header) gets a roomier gap; native apps stay at the 4px baseline.
 const HEADER_LEADING_ACTION_MARGIN = Platform.OS === 'web' ? 8 : 4;
 
 function shouldHideSessionHeaderForCompactLayout(shouldUseCompactLandscapeSessionLayout: boolean) {
@@ -78,7 +73,6 @@ export const SessionView = React.memo((props: { id: string }) => {
     const shouldUseTransparentNativeHeader = Platform.OS === 'ios' && !isRunningOnMac() && !shouldHideHeader;
     const realtimeStatus = useRealtimeStatus();
     const isTablet = useIsTablet();
-    const { width: screenWidth } = useWindowDimensions();
     const runningTaskCount = useOrchestratorRunningTaskCount(sessionId);
     const hasRuns = useOrchestratorHasRuns(sessionId);
     const handleOpenSessionRuns = React.useCallback(() => {
@@ -103,26 +97,6 @@ export const SessionView = React.memo((props: { id: string }) => {
             router.replace('/');
         }
     }, [navigation, router]);
-
-    const baseHeaderTitleWidth = getNativeHeaderTitleWidth({
-        screenWidth: Math.min(screenWidth, layout.headerMaxWidth),
-        leftActionCount: Platform.OS === 'web' ? 1 : undefined,
-        rightActionCount: 2,
-    });
-    // iOS uses the system header: UIKit shifts the fixed-width title to avoid overlapping the
-    // header-right buttons, which breaks centering when the leading action gap grows past the
-    // 4px baseline assumed by getNativeHeaderTitleWidth. Trim the extra gap symmetrically (×2)
-    // so the title stays geometrically centered.
-    const headerTitleWidth = Platform.OS === 'ios' && baseHeaderTitleWidth !== undefined
-        ? baseHeaderTitleWidth - (HEADER_LEADING_ACTION_MARGIN - 4) * 2
-        : baseHeaderTitleWidth;
-
-    // Narrow phones left-align the header title; tablets, web and Mac stay centered.
-    const isNarrowPhone = Platform.OS !== 'web' && !isRunningOnMac() && !isTablet;
-    // iOS centers the titleView regardless of alignment options, so give it the full available
-    // width and left-align the text inside it. Reserve room on the right so a long title keeps
-    // clear of the two header-right buttons.
-    const leftAlignTitleWidth = Math.max(140, Math.min(screenWidth, layout.headerMaxWidth) - 192);
 
     // Track if we've confirmed the session doesn't exist after data loads
     const [sessionNotFound, setSessionNotFound] = React.useState(false);
@@ -227,20 +201,22 @@ export const SessionView = React.memo((props: { id: string }) => {
                 }} />
             )}
 
-            {/* Native header config — iOS uses system header, Android/Web go through createHeader */}
+            {/* Native header config. With the transparent header the message list scrolls beneath it
+                and the system scroll-edge effect paints the soft fade there (iOS 26+).
+                Title and subtitle have to stay plain strings: UIKit stops drawing the scroll-edge
+                effect as soon as a custom title view (`headerTitle` as a component) is set, and it
+                ignores `headerSubtitle` in that case too. */}
             <Stack.Screen
                 options={{
                     headerShown: !shouldHideHeader,
                     headerTransparent: shouldUseTransparentNativeHeader,
-                    headerTitleAlign: isNarrowPhone ? 'left' : 'center',
-                    headerTitle: () => (
-                        <ChatHeaderTitle
-                            title={headerProps.title}
-                            subtitle={headerProps.subtitle}
-                            align={isNarrowPhone ? 'left' : 'center'}
-                            width={isNarrowPhone ? (Platform.OS === 'ios' ? leftAlignTitleWidth : undefined) : headerTitleWidth}
-                        />
-                    ),
+                    headerStyle: shouldUseTransparentNativeHeader ? { backgroundColor: 'transparent' } : undefined,
+                    headerShadowVisible: !shouldUseTransparentNativeHeader,
+                    scrollEdgeEffects: shouldUseTransparentNativeHeader
+                        ? { top: 'soft', bottom: 'hidden' }
+                        : undefined,
+                    headerTitle: headerProps.title,
+                    headerSubtitle: headerProps.subtitle,
                     headerLeft: Platform.OS === 'web' ? () => (
                         <HeaderBackButton
                             tintColor={theme.colors.header.tint}
@@ -264,8 +240,11 @@ export const SessionView = React.memo((props: { id: string }) => {
                 }}
             />
 
-            {/* Content based on state */}
-            <View style={{ flex: 1, paddingTop: shouldUseTransparentNativeHeader ? headerHeight : 0 }}>
+            {/* Content based on state. The padding is only there for the loading states: once the
+                session is loaded the chat list scrolls under the transparent header and reserves
+                the header's height with its own list header, which is what the scroll-edge effect
+                needs to have content to fade. */}
+            <View style={{ flex: 1, paddingTop: shouldUseTransparentNativeHeader && (!isDataReady || !session) ? headerHeight : 0 }}>
                 {/* Voice status bar below header - not on tablet (shown in sidebar), hidden in landscape phone */}
                 {!(shouldUseCompactLandscapeSessionLayout && Platform.OS !== 'web') && !isTablet && realtimeStatus !== 'disconnected' && (
                     <VoiceAssistantStatusBar
@@ -274,6 +253,9 @@ export const SessionView = React.memo((props: { id: string }) => {
                             position: 'relative',
                             zIndex: 20,
                             elevation: 20,
+                            // The content area no longer reserves the header, so the bar steps
+                            // down by the header's height to stay clear of the native one.
+                            marginTop: shouldUseTransparentNativeHeader && isDataReady && session ? headerHeight : 0,
                         }}
                     />
                 )}
@@ -296,7 +278,12 @@ export const SessionView = React.memo((props: { id: string }) => {
                     </View>
                 ) : session ? (
                     // Normal session view
-                    <SessionViewLoaded key={sessionId} sessionId={sessionId} session={session} />
+                    <SessionViewLoaded
+                        key={sessionId}
+                        sessionId={sessionId}
+                        session={session}
+                        headerTopInset={shouldUseTransparentNativeHeader ? headerHeight : 0}
+                    />
                 ) : null}
             </View>
         </>
@@ -304,7 +291,7 @@ export const SessionView = React.memo((props: { id: string }) => {
 });
 
 
-function SessionViewLoaded({ sessionId, session }: { sessionId: string, session: Session }) {
+function SessionViewLoaded({ sessionId, session, headerTopInset }: { sessionId: string, session: Session, headerTopInset: number }) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const safeArea = useSafeAreaInsets();
@@ -1291,7 +1278,7 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                     onPress={handleDismissCliWarning}
                     style={{
                         position: 'absolute',
-                        top: 8, // Position at top of content area (padding handled by parent)
+                        top: headerTopInset + 8, // Clear the overlay header; the content area no longer pads for it
                         alignSelf: 'center',
                         backgroundColor: '#FFF3CD',
                         borderRadius: 100, // Fully rounded pill
