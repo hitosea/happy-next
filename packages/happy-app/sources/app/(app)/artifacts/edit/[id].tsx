@@ -252,6 +252,7 @@ export default function EditArtifactScreen() {
             <View style={styles.container}>
                 <KeyboardWrapper {...keyboardProps}>
                     <ScrollView 
+                        contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                         style={styles.scrollView}
                         contentContainerStyle={[
                             styles.contentContainer,

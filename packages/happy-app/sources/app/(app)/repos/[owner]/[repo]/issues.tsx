@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Text } from '@/components/StyledText';
@@ -122,6 +122,7 @@ export default function RepoIssuesScreen() {
                 <View style={styles.listWrap}>
                     <FlatList
                         data={filteredIssues}
+                        contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                         keyExtractor={(item) => String(item.number)}
                         renderItem={renderIssueItem}
                         contentContainerStyle={{ paddingBottom: 24 }}

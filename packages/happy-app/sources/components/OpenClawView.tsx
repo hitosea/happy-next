@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -203,7 +203,9 @@ export const OpenClawView = React.memo(() => {
     // List view
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={{
+            <ScrollView
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
+                contentContainerStyle={{
                 maxWidth: layout.maxWidth,
                 alignSelf: 'center',
                 width: '100%',

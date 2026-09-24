@@ -455,6 +455,7 @@ export default function CommitsScreen() {
                 data={commits}
                 renderItem={renderCommit}
                 keyExtractor={item => item.hash}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.3}
                 ListHeaderComponent={!fileFilter ? (

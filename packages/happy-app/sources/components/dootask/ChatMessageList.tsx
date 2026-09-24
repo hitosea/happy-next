@@ -1,11 +1,18 @@
 import * as React from 'react';
-import { View, Text, FlatList, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable } from 'react-native';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { ChatBubble } from './ChatBubble';
 import type { DooTaskDialogMsg, DisplayMessage, PendingMessage } from '@/sync/dootask/types';
+import { distanceFromEnd } from '@/components/chatListRowModel';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
+
+/** Room under the header above the oldest row, and the first-frame size hint for LegendList. */
+const LIST_TOP_GAP = 32;
+const ESTIMATED_ITEM_SIZE = 120;
 
 // Threshold in pixels for showing the scroll-to-bottom button
 const SCROLL_THRESHOLD = 100;
@@ -69,9 +76,11 @@ function resolveAvatarUrl(avatarPath: string | null | undefined, serverUrl: stri
 }
 
 /**
- * Inverted FlatList that renders a scrollable chat message list with date separators.
- * Messages array is expected newest-first (index 0 = newest).
- * The inverted FlatList renders newest at the bottom of the screen.
+ * Scrollable chat message list with date separators, bottom-aligned on the newest message.
+ *
+ * `messages` arrives newest-first (index 0 = newest) and the list runs oldest-first, so the end of
+ * the content is the newest message — what `inverted` used to give us, and what lets the list sit
+ * transparent under the header.
  */
 export const ChatMessageList = React.memo(({
     messages,
@@ -89,7 +98,11 @@ export const ChatMessageList = React.memo(({
     serverUrl,
 }: ChatMessageListProps) => {
     const { theme } = useUnistyles();
-    const flatListRef = React.useRef<FlatList>(null);
+    const listRef = React.useRef<LegendListRef>(null);
+    const softHeaderInset = useSoftHeaderInset();
+
+    // The list's order: oldest first, so its end is the newest message.
+    const listData = React.useMemo(() => messages.slice().reverse(), [messages]);
 
     // Scroll-to-bottom button visibility
     const [showScrollButton, setShowScrollButton] = React.useState(false);
@@ -108,9 +121,10 @@ export const ChatMessageList = React.memo(({
         }
     }
 
+    // The list is not inverted, so the distance from the newest message is arithmetic on the
+    // event rather than `contentOffset.y` itself.
     const handleScroll = React.useCallback((event: any) => {
-        const offsetY = event.nativeEvent.contentOffset.y;
-        const shouldShow = offsetY > SCROLL_THRESHOLD;
+        const shouldShow = distanceFromEnd(event.nativeEvent) > SCROLL_THRESHOLD;
         setShowScrollButton(prev => {
             if (shouldShow && !prev) {
                 lastSeenCreatedAtRef.current = messages[0]?.created_at ?? '';
@@ -120,7 +134,7 @@ export const ChatMessageList = React.memo(({
     }, [messages]);
 
     const handleScrollToBottom = React.useCallback(() => {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        void listRef.current?.scrollToEnd({ animated: true });
     }, []);
 
     // Build a map from message id -> message for resolving reply_id references
@@ -134,41 +148,41 @@ export const ChatMessageList = React.memo(({
         return map;
     }, [messages]);
 
-    const handleEndReached = React.useCallback(() => {
+    // Older messages page in at the start now that the list is not inverted.
+    const handleStartReached = React.useCallback(() => {
         if (hasMore && !loadingMore) {
             onLoadMore();
         }
     }, [hasMore, loadingMore, onLoadMore]);
 
-    const renderItem = React.useCallback(({ item, index }: { item: DisplayMessage; index: number }) => {
+    const renderItem = React.useCallback(({ item, index }: LegendListRenderItemProps<DisplayMessage>) => {
         const pending = isPending(item);
         const bubbleMsg = pending ? buildFakeDooTaskMsg(item) : item;
         // 'sending-quiet' behaves like a real message for layout purposes (no forced avatar/spacing)
         const isQuietPending = pending && item._pending === 'sending-quiet';
         const isVisiblePending = pending && !isQuietPending;
 
-        // Date separator logic:
-        // Since the list is inverted, the NEXT item in the array (index + 1) appears ABOVE in the UI.
-        // We show a date separator above the current bubble when the date differs from the next item.
+        // Date separator logic: the list runs oldest-first, so the message ABOVE this one is
+        // `index - 1`. Show a separator above the bubble when the date differs from that one.
         const currentDate = item.created_at.substring(0, 10); // YYYY-MM-DD
-        const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
-        const nextDate = nextMsg ? nextMsg.created_at.substring(0, 10) : null;
-        const showDateSeparator = !pending && (!nextDate || nextDate !== currentDate);
+        const prevMsg = index > 0 ? listData[index - 1] : null;
+        const prevDate = prevMsg ? prevMsg.created_at.substring(0, 10) : null;
+        const showDateSeparator = !pending && (!prevDate || prevDate !== currentDate);
 
-        // Avatar grouping: show avatar on the FIRST message of a sender group (reading top-to-bottom).
-        // In inverted FlatList, "above" = index + 1. Show avatar when the message above is
-        // from a different user or doesn't exist, OR when a date separator breaks the group.
+        // Avatar grouping: show avatar on the FIRST message of a sender group (reading top-to-bottom),
+        // i.e. when the message above is from a different user or doesn't exist, or when a date
+        // separator breaks the group.
         const isSystemMsg = (type: string) => type === 'notice' || type === 'tag' || type === 'top' || type === 'todo';
-        const showAvatar = isVisiblePending || !nextMsg || nextMsg.userid !== item.userid || isSystemMsg(nextMsg.type) || showDateSeparator;
+        const showAvatar = isVisiblePending || !prevMsg || prevMsg.userid !== item.userid || isSystemMsg(prevMsg.type) || showDateSeparator;
 
         // Spacing rule:
         // - Compact spacing for consecutive messages from the same sender (same date block)
         // - Larger spacing when a new sender group starts
         const isConsecutiveSameSender =
             !isVisiblePending &&
-            !!nextMsg &&
-            nextMsg.userid === item.userid &&
-            !isSystemMsg(nextMsg.type) &&
+            !!prevMsg &&
+            prevMsg.userid === item.userid &&
+            !isSystemMsg(prevMsg.type) &&
             !isSystemMsg(item.type) &&
             !showDateSeparator;
 
@@ -206,42 +220,50 @@ export const ChatMessageList = React.memo(({
                 />
             </View>
         );
-    }, [messages, currentUserId, userNames, userAvatars, userDisabledAt, replyMsgMap, onImagePress, onMessageLongPress, onEmojiPress, onRetry, serverUrl, theme]);
+    }, [listData, currentUserId, userNames, userAvatars, userDisabledAt, replyMsgMap, onImagePress, onMessageLongPress, onEmojiPress, onRetry, serverUrl, theme]);
 
     const keyExtractor = React.useCallback((msg: DisplayMessage) =>
         isPending(msg) ? msg._pendingId : msg.id.toString()
     , []);
 
-    const listFooter = React.useMemo(() => {
-        if (!loadingMore) return null;
-        return (
-            <View style={styles.loadingFooter}>
-                <ActivityIndicator size="small" />
-            </View>
-        );
-    }, [loadingMore]);
+    // The oldest end: the room the overlay header needs above the first row, plus the spinner
+    // while older messages are still paging in.
+    const listHeader = React.useMemo(() => (
+        <View>
+            <View style={{ height: softHeaderInset + LIST_TOP_GAP }} />
+            {loadingMore && (
+                <View style={styles.loadingFooter}>
+                    <ActivityIndicator size="small" />
+                </View>
+            )}
+        </View>
+    ), [softHeaderInset, loadingMore]);
 
-    // Force FlatList to re-render when avatar data loads asynchronously
+    // Force the list to re-render when avatar data loads asynchronously
     const extraData = React.useMemo(() => ({ userAvatars, userNames, userDisabledAt }), [userAvatars, userNames, userDisabledAt]);
 
     return (
         <View style={styles.wrapper}>
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                inverted={true}
+            <LegendList<DisplayMessage>
+                ref={listRef}
+                data={listData}
                 keyExtractor={keyExtractor}
                 renderItem={renderItem}
                 extraData={extraData}
+                estimatedItemSize={ESTIMATED_ITEM_SIZE}
+                estimatedHeaderSize={softHeaderInset + LIST_TOP_GAP}
+                // Bottom-aligned and pinned to the newest message — what replaced `inverted`.
+                alignItemsAtEnd
+                initialScrollAtEnd
+                maintainScrollAtEnd
+                maintainVisibleContentPosition
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
-                onEndReached={handleEndReached}
-                onEndReachedThreshold={0.3}
-                ListFooterComponent={listFooter}
+                onStartReached={handleStartReached}
+                onStartReachedThreshold={0.3}
+                ListHeaderComponent={listHeader}
                 contentContainerStyle={styles.contentContainer}
-                initialNumToRender={50}
-                maxToRenderPerBatch={50}
-                windowSize={11}
+                keyboardShouldPersistTaps="handled"
             />
 
             {/* Scroll to bottom button */}

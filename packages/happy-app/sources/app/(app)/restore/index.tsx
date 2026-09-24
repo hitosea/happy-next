@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/auth/AuthContext';
 import { RoundButton } from '@/components/RoundButton';
@@ -140,7 +140,7 @@ export default function Restore() {
     }, [keypair]);
 
     return (
-        <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1 }}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1 }} contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}>
             <View style={styles.container}>
 
                 <View style={styles.instructionsContainer}>

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ScrollView, View, Text } from 'react-native';
+import { Platform, ScrollView, View, Text } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
@@ -104,6 +104,7 @@ export default function ChangelogScreen() {
     return (
         <View style={styles.container}>
             <ScrollView 
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 style={styles.container}
                 contentContainerStyle={[
                     styles.content, 

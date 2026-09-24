@@ -14,11 +14,9 @@ import React from 'react';
 import {
     View,
     Text,
-    FlatList,
     Pressable,
     ActivityIndicator,
     Platform,
-    useWindowDimensions,
     Animated,
     Easing,
 } from 'react-native';
@@ -32,12 +30,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
-import { ChatHeaderTitle } from '@/components/ChatHeaderTitle';
-import { isRunningOnMac } from '@/utils/platform';
-import { useIsTablet } from '@/utils/responsive';
 import { MarkdownView } from '@/components/markdown/MarkdownView';
 import { MultiTextInput, KeyPressEvent } from '@/components/MultiTextInput';
+import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { useOpenClawConnection } from '@/openclaw/connection';
 import { useOpenClawMachine } from '@/sync/storage';
 import type { OpenClawChatMessage, OpenClawChatEvent, OpenClawContentBlock, OpenClawToolStreamEvent, OpenClawSession } from '@/openclaw/types';
@@ -57,6 +53,12 @@ interface LocalMessage extends OpenClawChatMessage {
     errorMessage?: string;
     activeToolCalls?: Record<string, { name: string; status: 'running' | 'completed' | 'failed' }>;
 }
+
+/** Room under the header above the oldest message, and the first-frame size hint for LegendList. */
+const LIST_TOP_GAP = 32;
+const ESTIMATED_ITEM_SIZE = 120;
+
+const keyExtractor = (item: LocalMessage) => item.localId;
 
 const styles = StyleSheet.create((theme) => ({
     container: {
@@ -687,23 +689,11 @@ const MessageItem = React.memo(({ message, onRetry }: MessageItemProps) => {
 export default function OpenClawChatPage() {
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
-    const { width: screenWidth } = useWindowDimensions();
-    const isTablet = useIsTablet();
     const { machineId, sessionKey, sessionName: sessionNameParam } = useLocalSearchParams<{
         machineId: string;
         sessionKey: string;
         sessionName?: string;
     }>();
-
-    // Left: back button (1), Right: machine button (1)
-    const headerTitleMaxWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 1 });
-
-    // Narrow phones left-align the header title; tablets, web and Mac stay centered (matches SessionView).
-    const isNarrowPhone = Platform.OS !== 'web' && !isRunningOnMac() && !isTablet;
-    // iOS centers the titleView regardless of alignment options, so give it the full available
-    // width and left-align the text inside it. This page has a single right-hand button, so it
-    // reserves ~44pt less than SessionView's two-button header (192 → 148).
-    const leftAlignTitleWidth = Math.max(140, Math.min(screenWidth, layout.headerMaxWidth) - 148);
 
     // Get machine data
     const machine = useOpenClawMachine(machineId ?? '');
@@ -824,10 +814,8 @@ export default function OpenClawChatPage() {
     // Track current run for streaming (not used for rendering, only for event filtering)
     const chatRunIdRef = React.useRef<string | null>(null);
 
-    const flatListRef = React.useRef<FlatList<LocalMessage>>(null);
-    // Scroll state
-    const userNearBottomRef = React.useRef(true);
-    const shouldForceScrollRef = React.useRef(false);
+    const listRef = React.useRef<LegendListRef>(null);
+    const softHeaderInset = useSoftHeaderInset();
 
     // Extract text from message content
     const extractText = (message: unknown): string | null => {
@@ -961,17 +949,9 @@ export default function OpenClawChatPage() {
     React.useEffect(() => {
         if (isConnected && sessionKey) {
             setIsLoading(true);
-            userNearBottomRef.current = true;
             fetchHistory().finally(() => setIsLoading(false));
         }
     }, [isConnected, sessionKey, fetchHistory]);
-
-    // Scroll when messages change (if user is near bottom)
-    React.useEffect(() => {
-        if (messages.length > 0 && userNearBottomRef.current) {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-        }
-    }, [messages]);
 
     // Check if currently streaming
     const isStreaming = messages.some((msg) => msg.isStreaming);
@@ -1020,22 +1000,12 @@ export default function OpenClawChatPage() {
         }
     }, [sessionKey, send]);
 
-    // Handle scroll event - track if user is near bottom
-    const handleScroll = React.useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
-        const { contentOffset } = event.nativeEvent;
-        // In inverted list, near bottom means near offset 0
-        userNearBottomRef.current = contentOffset.y < 200;
-    }, []);
-
     // Handle new message send
     const handleSend = React.useCallback(async () => {
         const text = inputText.trim();
         if (!text || !isConnected || isStreaming) {
             return;
         }
-
-        // Force scroll when sending a message
-        shouldForceScrollRef.current = true;
 
         // Create user message with sending status
         const localId = randomUUID();
@@ -1051,9 +1021,9 @@ export default function OpenClawChatPage() {
         setMessages((prev) => [...prev, userMessage]);
         setInputText('');
 
-        // Scroll to show the new message
+        // Jump to the newest message: the reader may be up in the history when they send.
         setTimeout(() => {
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+            void listRef.current?.scrollToEnd({ animated: true });
         }, 50);
 
         // Send the message
@@ -1101,32 +1071,39 @@ export default function OpenClawChatPage() {
 
     const canSend = inputText.trim().length > 0 && isConnected && !isStreaming;
 
+    // The oldest end of the conversation: the room the overlay header and its soft edge need
+    // above the first message. The list is bottom-aligned, so this is a list header rather than a
+    // content inset.
+    const listHeader = React.useMemo(() => (
+        <View style={{ height: softHeaderInset + LIST_TOP_GAP }} />
+    ), [softHeaderInset]);
+
     // Content: message list (only when we have messages)
     const content = messages.length > 0 ? (
-        <FlatList
-            ref={flatListRef}
+        <LegendList<LocalMessage>
+            ref={listRef}
             style={styles.messageList}
             contentContainerStyle={styles.messageListContent}
-            data={[...messages].reverse()}
-            keyExtractor={(item) => item.localId}
-            renderItem={({ item }) => (
+            data={messages}
+            keyExtractor={keyExtractor}
+            renderItem={({ item }: LegendListRenderItemProps<LocalMessage>) => (
                 <MessageItem
                     message={item}
                     onRetry={handleRetry}
                 />
             )}
-            inverted
-            onScroll={handleScroll}
-            scrollEventThrottle={100}
-            onContentSizeChange={() => {
-                if (shouldForceScrollRef.current || userNearBottomRef.current) {
-                    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-                    shouldForceScrollRef.current = false;
-                }
-            }}
-            maintainVisibleContentPosition={{
-                minIndexForVisible: 0,
-            }}
+            estimatedItemSize={ESTIMATED_ITEM_SIZE}
+            estimatedHeaderSize={softHeaderInset + LIST_TOP_GAP}
+            // Bottom-aligned, opening on the newest message and following the tail while the reader
+            // is at it — what replaced `inverted`. `maintainVisibleContentPosition` keeps the
+            // reader's place when a message arrives while they are up in the history.
+            alignItemsAtEnd
+            initialScrollAtEnd
+            maintainScrollAtEnd
+            maintainVisibleContentPosition
+            ListHeaderComponent={listHeader}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         />
     ) : null;
 
@@ -1189,15 +1166,8 @@ export default function OpenClawChatPage() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    headerTitleAlign: isNarrowPhone ? 'left' : 'center',
-                    headerTitle: () => (
-                        <ChatHeaderTitle
-                            title={sessionName}
-                            subtitle={machineName}
-                            align={isNarrowPhone ? 'left' : 'center'}
-                            width={isNarrowPhone ? (Platform.OS === 'ios' ? leftAlignTitleWidth : undefined) : headerTitleMaxWidth}
-                        />
-                    ),
+                    headerTitle: sessionName,
+                    headerSubtitle: machineName,
                     headerRight: () => (
                         <Pressable
                             onPress={handleOpenInfo}

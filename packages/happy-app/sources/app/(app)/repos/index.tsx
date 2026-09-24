@@ -92,6 +92,7 @@ export default function ReposListScreen() {
 
             <FlatList
                 data={githubRepos}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 keyExtractor={(item) => item.fullName}
                 renderItem={renderItem}
                 refreshControl={

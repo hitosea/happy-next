@@ -243,6 +243,7 @@ export default function ArtifactDetailScreen() {
             />
             <View style={styles.container}>
                 <ScrollView 
+                    contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                     style={styles.scrollView}
                     contentContainerStyle={[
                         styles.contentContainer,

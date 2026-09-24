@@ -17,6 +17,7 @@ import { loadBrowserLastPath, saveBrowserLastPath } from '@/sync/persistence';
 import * as Clipboard from 'expo-clipboard';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
 
 interface DirectoryEntry {
     name: string;
@@ -69,6 +70,7 @@ export default function BrowserScreen() {
     const [globalResults, setGlobalResults] = React.useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = React.useState(false);
     const searchInputRef = React.useRef<TextInput>(null);
+    const softHeaderInset = useSoftHeaderInset();
 
     const loadDirectory = React.useCallback(async (path: string, silent?: boolean): Promise<boolean> => {
         if (!silent) setIsLoading(true);
@@ -241,7 +243,7 @@ export default function BrowserScreen() {
     }, [currentPath]);
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.surface, paddingTop: softHeaderInset }]}>
             <Stack.Screen
                 options={{
                     headerRight: () => (

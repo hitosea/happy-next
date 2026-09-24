@@ -15,7 +15,7 @@ import { sessionBash } from '@/sync/ops';
 import { Modal } from '@/modal';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
-import { softHeaderOptions, useSoftHeaderInset } from '@/components/navigation/softHeader';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { FileIcon } from '@/components/FileIcon';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
@@ -384,7 +384,6 @@ export default function FilesScreen() {
         <View style={[styles.container, { backgroundColor: theme.colors.surface, paddingTop: softHeaderInset }]}>
             <Stack.Screen
                 options={{
-                    ...softHeaderOptions,
                     headerRight: () => (
                         <Pressable
                             onPress={() => router.push(`/session/${sessionId}/commits`)}

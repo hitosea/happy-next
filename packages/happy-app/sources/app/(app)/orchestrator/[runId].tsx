@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ScrollView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Text } from '@/components/StyledText';
@@ -321,7 +321,10 @@ export default function OrchestratorRunDetailScreen() {
                 onClose={() => setMenuVisible(false)}
             />
             <ScrollView
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.textSecondary} />}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.colors.textSecondary} />
+                }
                 contentContainerStyle={[
                     styles.contentContainer,
                     { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' },

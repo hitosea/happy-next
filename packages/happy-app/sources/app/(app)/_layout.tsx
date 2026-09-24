@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { isUsingCustomServer } from '@/sync/serverConfig';
 import { useAuth } from '@/auth/AuthContext';
 import { getDesktopPlatform, isTerminalWindow } from '@/desktop/desktopWindowUtils';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 
 export const unstable_settings = {
     initialRouteName: 'index',
@@ -60,6 +61,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="inbox/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('tabs.inbox'),
                 }}
@@ -67,6 +69,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="dootask/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('tabs.dootask'),
                 }}
@@ -81,6 +84,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="inbox/notice/[id]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('feed.noticeDetail'),
                 }}
@@ -88,6 +92,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="settings/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('settings.title'),
                     headerRight: isCustomServer
@@ -118,6 +123,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/info"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('sessionInfo.title'),
                 }}
@@ -125,6 +131,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/files"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('files.statusTitle'),
                 }}
@@ -139,6 +146,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/browser"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('browser.title'),
                 }}
@@ -146,6 +154,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/commits"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('commits.title'),
                 }}
@@ -153,6 +162,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/commit"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('commits.title'),
                 }}
@@ -160,6 +170,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/status"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('status.title'),
                 }}
@@ -188,6 +199,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/sharing"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('session.sharing.title'),
                 }}
@@ -195,72 +207,100 @@ export default function RootLayout() {
             <Stack.Screen
                 name="settings/account"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settings.account'),
                 }}
             />
             <Stack.Screen
                 name="settings/appearance"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settings.appearance'),
+                }}
+            />
+            <Stack.Screen
+                name="settings/language"
+                options={{
+                    ...softHeaderOptions,
+                    headerShown: true,
+                    headerTitle: t('settingsLanguage.title'),
+                }}
+            />
+            <Stack.Screen
+                name="settings/desktop-diagnostics"
+                options={{
+                    ...softHeaderOptions,
+                    headerShown: true,
+                    headerTitle: t('desktopDiagnostics.title'),
                 }}
             />
             <Stack.Screen
                 name="settings/features"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settings.features'),
                 }}
             />
             <Stack.Screen
                 name="settings/notifications"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settingsNotifications.title'),
                 }}
             />
             <Stack.Screen
                 name="settings/software-update"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('desktopUpdate.title'),
                 }}
             />
             <Stack.Screen
                 name="settings/voice"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settings.voiceAssistant'),
                 }}
             />
             <Stack.Screen
                 name="settings/voice/language"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settingsVoice.preferredLanguage'),
                 }}
             />
             <Stack.Screen
                 name="settings/voice/voice"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settingsVoice.voiceSelectTitle'),
                 }}
             />
             <Stack.Screen
                 name="settings/voice/welcome-message"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('settingsVoice.welcomeMessage'),
                 }}
             />
             <Stack.Screen
                 name="terminal/connect"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('navigation.connectTerminal'),
                 }}
             />
             <Stack.Screen
                 name="terminal/index"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('navigation.connectTerminal'),
                 }}
             />
             <Stack.Screen
                 name="restore/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: !hideUnauthenticatedWindowsHeader,
                     headerTitle: t('navigation.linkNewDevice'),
                 }}
@@ -268,6 +308,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="restore/manual"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: !hideUnauthenticatedWindowsHeader,
                     headerTitle: t('navigation.restoreWithSecretKey'),
                 }}
@@ -275,6 +316,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="changelog"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('navigation.whatsNew'),
                 }}
@@ -282,6 +324,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="artifacts/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('artifacts.title'),
                 }}
@@ -289,12 +332,14 @@ export default function RootLayout() {
             <Stack.Screen
                 name="artifacts/[id]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: false, // We'll set header dynamically
                 }}
             />
             <Stack.Screen
                 name="artifacts/new"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('artifacts.new'),
                 }}
@@ -302,6 +347,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="artifacts/edit/[id]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('artifacts.edit'),
                 }}
@@ -309,6 +355,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('lab.screenTitle'),
                     headerBackTitle: t('common.back'),
@@ -318,6 +365,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/[owner]/[repo]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: '',
                     headerBackTitle: t('common.back'),
@@ -326,6 +374,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/[owner]/[repo]/issues"
                 options={({ navigation }) => ({
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('github.issues'),
                     headerBackTitle: t('common.back'),
@@ -344,6 +393,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/[owner]/[repo]/pulls"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('github.pullRequests'),
                     headerBackTitle: t('common.back'),
@@ -352,6 +402,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/[owner]/[repo]/pulls/[number]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: '',
                     headerBackTitle: t('common.back'),
@@ -360,6 +411,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="repos/[owner]/[repo]/issue/[number]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: '',
                     headerBackTitle: t('common.back'),
@@ -368,6 +420,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="orchestrator/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('settings.orchestratorRuns'),
                 }}
@@ -375,6 +428,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="orchestrator/[runId]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('settings.orchestratorRunDetails'),
                 }}
@@ -382,6 +436,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="orchestrator/[runId]/task/[taskId]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('settings.orchestratorTaskDetails'),
                 }}
@@ -396,6 +451,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="friends/index"
                 options={({ navigation }) => ({
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('navigation.friends'),
                     headerRight: () => (
@@ -413,6 +469,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="friends/search"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('friends.addFriend'),
                 }}
@@ -420,6 +477,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="share/[token]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('session.sharing.sharedSession'),
                 }}
@@ -427,6 +485,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="user/[id]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: '',
                 }}
@@ -495,6 +554,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/recent"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('sessionHistory.title'),
                 }}
@@ -502,6 +562,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/claude"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('claudeHistory.title'),
                 }}
@@ -509,6 +570,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/history"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('agentHistory.title'),
                 }}
@@ -537,6 +599,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="dootask/add-task"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('dootask.createTask'),
                 }}
@@ -544,6 +607,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="dootask/add-project"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('dootask.createProject'),
                 }}
@@ -551,6 +615,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="dootask/[taskId]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('dootask.taskDetail'),
                 }}
@@ -558,6 +623,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="dootask/chat/[dialogId]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('dootask.chatTitle'),
                 }}
@@ -589,6 +655,7 @@ export default function RootLayout() {
 <Stack.Screen
                 name="openclaw/index"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('tabs.openclaw'),
                 }}
@@ -596,12 +663,14 @@ export default function RootLayout() {
             <Stack.Screen
                 name="openclaw/add"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('openclaw.addMachine'),
                 }}
             />
             <Stack.Screen
                 name="machine/[id]/repo/[repoId]"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('repoEdit.title'),
                 }}
@@ -623,6 +692,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="openclaw/chat"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: '',
                 }}

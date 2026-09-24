@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,6 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { Ionicons } from '@expo/vector-icons';
 import { SelectableTextView } from '@/components/SelectableTextView';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { FileViewTabs, type FileViewTab } from '@/components/FilePreview/FileViewTabs';
 import { SandboxDocument } from '@/components/FilePreview/SandboxDocument';
 import { buildMarkdownDocument } from '@/components/FilePreview/staticDocument';
@@ -40,10 +39,7 @@ export default function TextSelectionScreen() {
     const [mode, setMode] = React.useState<DocumentTab>(view.tab);
     const [renderError, setRenderError] = React.useState(false);
     const [attempt, setAttempt] = React.useState(0);
-    const { width: screenWidth } = useWindowDimensions();
     const bottomPadding = insets.bottom + 16;
-
-    const headerTitleMaxWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 1 });
 
     const documentHtml = React.useMemo(
         () => buildMarkdownDocument(fullText, rt.themeName === 'dark'),
@@ -110,17 +106,7 @@ export default function TextSelectionScreen() {
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View style={{ alignItems: 'center', justifyContent: 'center', maxWidth: headerTitleMaxWidth }}>
-                            <Text
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                                style={[Typography.default('semiBold'), { fontSize: 17, lineHeight: 24, color: theme.colors.header.tint }]}
-                            >
-                                {t(view.titleKey)}
-                            </Text>
-                        </View>
-                    ),
+                    headerTitle: t(view.titleKey),
                     headerRight: () => (
                         <Pressable
                             onPress={handleCopyAll}

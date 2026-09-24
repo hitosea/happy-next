@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { memo } from 'react';
-import { ScrollView, View, Pressable } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,7 +58,7 @@ export default memo(function NoticeDetailPage() {
     }, [item.meta]);
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]}>
+        <ScrollView style={styles.container} contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]} contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}>
             <View style={styles.header}>
                 <Ionicons name="notifications" size={28} color={theme.colors.textLink} />
                 <Text style={styles.title}>{item.body.title}</Text>

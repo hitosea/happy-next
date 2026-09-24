@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, Image, Alert, BackHandler, Platform, StyleSheet as RNStyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { DatePickerSheet } from '@/components/dootask/DatePickerSheet';
@@ -488,6 +488,14 @@ export default function DooTaskDetail() {
 
     const menuItems: ActionMenuItem[] = React.useMemo(() => [
         {
+            label: `${t('common.copy')} #${taskId}`,
+            onPress: () => {
+                Clipboard.setStringAsync(taskId!);
+                hapticsLight();
+                showCopiedToast();
+            },
+        },
+        {
             label: t('dootask.startAiSession'),
             onPress: () => handleStartAiSession(),
         },
@@ -514,44 +522,17 @@ export default function DooTaskDetail() {
         });
     }, []);
 
-    // Fade-out → swap text → fade-in for smooth subtitle transition
-    const subtitleOpacity = useSharedValue(1);
-    const targetSubtitle = scrolledPastTitle && task ? task.name : `#${taskId}`;
-    const [displayedSubtitle, setDisplayedSubtitle] = React.useState(targetSubtitle);
-
-    React.useEffect(() => {
-        if (targetSubtitle === displayedSubtitle) return;
-        subtitleOpacity.value = withTiming(0, { duration: 120 });
-        const timer = setTimeout(() => {
-            setDisplayedSubtitle(targetSubtitle);
-            subtitleOpacity.value = withTiming(1, { duration: 160 });
-        }, 120);
-        return () => clearTimeout(timer);
-    }, [targetSubtitle]);
-
-    const subtitleAnimStyle = useAnimatedStyle(() => ({ opacity: subtitleOpacity.value }));
-
-    const headerTitle = React.useCallback(() => (
-        <Pressable onLongPress={() => { Clipboard.setStringAsync(taskId!); hapticsLight(); showCopiedToast(); }} style={{ alignItems: 'center', justifyContent: 'center', maxWidth: 220 }}>
-            <Text numberOfLines={1} style={[styles.headerTitle, { color: theme.colors.header.tint }]}>
-                {t('dootask.taskDetail')}
-            </Text>
-            <Animated.Text
-                numberOfLines={1}
-                style={[styles.headerSubtitle, { color: theme.colors.textSecondary }, subtitleAnimStyle]}
-            >
-                {displayedSubtitle}
-            </Animated.Text>
-        </Pressable>
-    ), [taskId, theme, displayedSubtitle, subtitleAnimStyle]);
+    // The subtitle swaps from the task id to its name once the reader scrolls past the heading.
+    // Plain text, so `headerSubtitle` can carry it and the system draws the second line.
+    const headerSubtitle = scrolledPastTitle && task ? task.name : `#${taskId}`;
 
     if (loading) {
-        return (<><Stack.Screen options={{ headerTitle }} /><ActivityIndicator style={{ flex: 1 }} /></>);
+        return (<><Stack.Screen options={{ headerTitle: t('dootask.taskDetail'), headerSubtitle }} /><ActivityIndicator style={{ flex: 1 }} /></>);
     }
 
     if (error || !task) {
         return (
-            <><Stack.Screen options={{ headerTitle }} />
+            <><Stack.Screen options={{ headerTitle: t('dootask.taskDetail'), headerSubtitle }} />
             <View style={styles.empty}>
                 <Text style={{ color: theme.colors.textDestructive }}>{error || t('dootask.taskNotFound')}</Text>
             </View></>
@@ -571,7 +552,8 @@ export default function DooTaskDetail() {
         <View style={{ flex: 1 }}>
         <Stack.Screen
             options={{
-                headerTitle,
+                headerTitle: t('dootask.taskDetail'),
+                headerSubtitle,
                 headerRight: () => (
                     <Pressable
                         onPress={() => setMenuVisible(true)}
@@ -585,6 +567,7 @@ export default function DooTaskDetail() {
         <View style={{ flex: 1, maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
         <ScrollView
             contentContainerStyle={styles.container}
+            contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
             style={{ backgroundColor: theme.colors.surface }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
             onScroll={handleScroll}
@@ -902,8 +885,6 @@ const styles = StyleSheet.create((_theme) => ({
     container: { padding: 20, gap: 16 },
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     title: { ...Typography.default('semiBold'), fontSize: 20 },
-    headerTitle: { ...Typography.default('semiBold'), fontSize: 17 },
-    headerSubtitle: { ...Typography.default(), fontSize: 12, lineHeight: 16, marginTop: -2 },
     fieldGroup: { gap: 12 },
     field: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     fieldLabel: { ...Typography.default(), fontSize: 14, flexShrink: 0, marginRight: 12 },

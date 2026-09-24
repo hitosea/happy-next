@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { View, FlatList, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
@@ -14,8 +15,6 @@ import { useAuth } from '@/auth/AuthContext';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { Modal } from '@/modal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChatHeaderTitle } from '@/components/ChatHeaderTitle';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
@@ -187,13 +186,8 @@ export default React.memo(function IssueCommentsPage() {
         { label: t('issueComments.chooseFromAlbum'), onPress: () => handlePickImage('gallery') },
     ], [handlePickImage]);
 
-    const { width: screenWidth } = useWindowDimensions();
     const headerTitleText = comments.length > 0 ? `${t('issueComments.title')}（${comments.length}）` : t('issueComments.title');
     const headerSubtitleText = issueTitle ? decodeURIComponent(issueTitle as string) : undefined;
-    const headerTitleWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 0 });
-    const headerTitle = React.useCallback(() => (
-        <ChatHeaderTitle title={headerTitleText} subtitle={headerSubtitleText} width={headerTitleWidth} />
-    ), [headerTitleText, headerSubtitleText, headerTitleWidth]);
 
     const listEmpty = React.useMemo(() => (
         <View style={styles.emptyContainer}>
@@ -207,8 +201,9 @@ export default React.memo(function IssueCommentsPage() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ headerTitle, headerLeft }} />
+            <Stack.Screen options={{ ...softHeaderOptions, headerTitle: headerTitleText, headerSubtitle: headerSubtitleText, headerLeft }} />
             <FlatList
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 data={comments}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={({ item }) => (

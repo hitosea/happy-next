@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, ScrollView } from 'react-native';
+import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuth } from '@/auth/AuthContext';
 import { RoundButton } from '@/components/RoundButton';
@@ -110,7 +110,7 @@ export default function Restore() {
     };
 
     return (
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}>
             <View style={styles.container}>
                 <View style={styles.contentWrapper}>
                     <Text style={styles.instructionText}>

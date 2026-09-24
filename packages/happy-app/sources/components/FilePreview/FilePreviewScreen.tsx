@@ -6,7 +6,6 @@ import {
     Pressable,
     ScrollView,
     Share,
-    useWindowDimensions,
     View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,8 +20,6 @@ import { Text } from '@/components/StyledText';
 import { CodeEditor } from '@/components/CodeEditor';
 import { ImageViewer } from '@/components/ImageViewer';
 import { FileIcon } from '@/components/FileIcon';
-import { ChatHeaderTitle } from '@/components/ChatHeaderTitle';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { layout } from '@/components/layout';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { Modal } from '@/modal';
@@ -68,7 +65,6 @@ export function FilePreviewScreen({ filePath }: { filePath: string }) {
     const { id: sessionId, ref, staged, view } = params;
     const { theme } = useUnistyles();
     const insets = useSafeAreaInsets();
-    const { width: screenWidth } = useWindowDimensions();
     const router = useRouter();
     const session = useSession(sessionId);
     const sessionPath = session?.metadata?.path || '';
@@ -465,20 +461,6 @@ export function FilePreviewScreen({ filePath }: { filePath: string }) {
             .join(' · ') || null;
     // The loaded metadata wins once it lands, so a stale guess is corrected (or dropped).
     const notice = loaded ? loadedNotice : assumedNotice;
-    const headerTitleWidth = getNativeHeaderTitleWidth({
-        screenWidth,
-        rightActionCount: 1,
-    });
-    const headerTitle = React.useCallback(
-        () => (
-            <ChatHeaderTitle
-                title={t('common.fileViewer')}
-                subtitle={notice ?? undefined}
-                width={headerTitleWidth}
-            />
-        ),
-        [notice, headerTitleWidth]
-    );
     const tabs: FileViewTab<'preview' | 'file' | 'diff'>[] = [
         { value: 'preview', label: t('files.preview.title') },
     ];
@@ -499,7 +481,8 @@ export function FilePreviewScreen({ filePath }: { filePath: string }) {
         >
             <Stack.Screen
                 options={{
-                    headerTitle,
+                    headerTitle: t('common.fileViewer'),
+                    headerSubtitle: notice ?? undefined,
                     headerRight: () =>
                         icon('ellipsis-horizontal', t('files.file'), () =>
                             setMenuVisible(true)

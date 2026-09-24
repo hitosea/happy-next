@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ScrollView, ActivityIndicator, Platform, Pressable, Share, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Text } from '@/components/StyledText';
@@ -34,8 +34,6 @@ import { getFilePreviewType } from 'happy-wire';
 import { FilePreviewScreen } from '@/components/FilePreview/FilePreviewScreen';
 import { FileViewTabs, type FileViewTab } from '@/components/FilePreview/FileViewTabs';
 import { fileRouteNotice } from '@/components/FilePreview/fileNotice';
-import { ChatHeaderTitle } from '@/components/ChatHeaderTitle';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { useFileDownload } from '@/components/FilePreview/useFileDownload';
 import { FileDownloadProgress } from '@/components/FilePreview/FileDownloadProgress';
 import { buildFileMenuItems, canMutateFile, canShareFileText } from '@/utils/fileMenu';
@@ -120,7 +118,6 @@ function LegacyFileScreen() {
     const route = useRoute();
     const router = useRouter();
     const { theme } = useUnistyles();
-    const { width: screenWidth } = useWindowDimensions();
     const { id: sessionId } = useLocalSearchParams<{ id: string }>();
     const searchParams = useLocalSearchParams();
     const encodedPath = searchParams.path as string;
@@ -587,20 +584,6 @@ function LegacyFileScreen() {
         ref,
         staged: isStaged,
     });
-    const headerTitleWidth = getNativeHeaderTitleWidth({
-        screenWidth,
-        rightActionCount: 1,
-    });
-    const headerTitle = React.useCallback(
-        () => (
-            <ChatHeaderTitle
-                title={t('common.fileViewer')}
-                subtitle={notice ?? undefined}
-                width={headerTitleWidth}
-            />
-        ),
-        [notice, headerTitleWidth]
-    );
     const useReadOnlyCodeEditor = displayMode === 'file' && !!fileContent?.content;
     const handleReadOnlyEditorChange = React.useCallback(() => {
         // Viewer mode only: ignore edits.
@@ -643,7 +626,8 @@ function LegacyFileScreen() {
 
     const fileActions = <>
         <Stack.Screen options={{
-            headerTitle,
+            headerTitle: t('common.fileViewer'),
+            headerSubtitle: notice ?? undefined,
             headerRight: () => (
                 <Pressable onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel={t('files.file')}
                     style={{ paddingHorizontal: 8, paddingVertical: 4 }}>

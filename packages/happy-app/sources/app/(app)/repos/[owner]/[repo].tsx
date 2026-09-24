@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, ScrollView } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -64,7 +64,7 @@ export default function RepoDashboardScreen() {
         return (
             <View style={styles.container}>
                 <Stack.Screen options={{ headerTitle: repoName }} />
-                <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+                <ScrollView contentContainerStyle={{ paddingBottom: 32 }} contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}>
                     <RepoDetailSkeleton />
                 </ScrollView>
             </View>
@@ -91,7 +91,7 @@ export default function RepoDashboardScreen() {
         <View style={styles.container}>
             <Stack.Screen options={{ headerTitle: repoInfo.name }} />
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 32 }} contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}>
                 {/* Hero */}
                 <View style={[styles.heroWrapper, { alignSelf: 'center', width: '100%', maxWidth: layout.maxWidth }]}>
                     <View style={styles.heroCard}>

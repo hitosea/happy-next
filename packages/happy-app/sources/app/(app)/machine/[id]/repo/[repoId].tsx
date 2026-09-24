@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, Text, Switch } from 'react-native';
+import { Switch } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -8,14 +8,13 @@ import { storage } from '@/sync/storage';
 import { saveRegisteredRepos } from '@/sync/repoStore';
 import { sync } from '@/sync/sync';
 import { Modal } from '@/modal';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import type { RegisteredRepo } from '@/utils/workspaceRepos';
 import { machineBash } from '@/sync/ops';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { Typography } from '@/constants/Typography';
 import * as Clipboard from 'expo-clipboard';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
@@ -79,17 +78,6 @@ export default React.memo(function RepoEditScreen() {
         const name = displayName || initialRepo?.path?.split('/').pop() || '';
         return name;
     }, [displayName, initialRepo?.path]);
-
-    const headerTitle = useCallback(() => (
-        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            <Text numberOfLines={1} style={[repoStyles.headerTitle, { color: theme.colors.header.tint }]}>
-                {t('repoEdit.title')}
-            </Text>
-            <Text numberOfLines={1} style={[repoStyles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-                {repoBasename}
-            </Text>
-        </View>
-    ), [theme, repoBasename]);
 
     // Copy repo path to clipboard
     const handleCopyPath = useCallback(async () => {
@@ -298,7 +286,7 @@ export default React.memo(function RepoEditScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ headerTitle }} />
+            <Stack.Screen options={{ headerTitle: t('repoEdit.title'), headerSubtitle: repoBasename || undefined }} />
             <ItemList>
                 {/* General section */}
                 <ItemGroup title={t('repoEdit.general')}>
@@ -461,8 +449,3 @@ export default React.memo(function RepoEditScreen() {
         </>
     );
 });
-
-const repoStyles = StyleSheet.create((_theme) => ({
-    headerTitle: { ...Typography.default('semiBold'), fontSize: 17 },
-    headerSubtitle: { ...Typography.default(), fontSize: 12, lineHeight: 16, marginTop: -2 },
-}));

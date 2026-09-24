@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
-import { softHeaderOptions, useSoftHeaderInset } from '@/components/navigation/softHeader';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { useAuth } from '@/auth/AuthContext';
 import { getOrchestratorRunCounts, listOrchestratorRuns, type ListOrchestratorRunsQuery, type OrchestratorRunCounts, type OrchestratorRunDetail } from '@/sync/apiOrchestrator';
 import { OrchestratorStatusBadge } from '@/components/orchestrator/OrchestratorStatusBadge';
@@ -173,7 +173,6 @@ export default function OrchestratorRunsScreen() {
 
     React.useEffect(() => {
         navigation.setOptions({
-            ...softHeaderOptions,
             headerTitle: t('settings.orchestratorRuns'),
             headerSubtitle: isConversationScoped ? t('settings.orchestratorSessionRuns') : undefined,
         });

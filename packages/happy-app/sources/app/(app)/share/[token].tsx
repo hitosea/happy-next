@@ -1,5 +1,6 @@
-import { memo, useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, Pressable } from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { View, ActivityIndicator, Pressable } from 'react-native';
+import { LegendList, type LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUnistyles } from 'react-native-unistyles';
@@ -11,6 +12,12 @@ import { MessageView } from '@/components/MessageView';
 import { usePublicShareSession } from '@/hooks/usePublicShareSession';
 import { Message } from '@/sync/typesMessage';
 import { getShareUserDisplayName } from '@/sync/sharingTypes';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
+
+/** Room under the header above the shared-by card, and the hints LegendList needs for the first frame. */
+const LIST_TOP_GAP = 16;
+const OWNER_CARD_HEIGHT = 57;
+const ESTIMATED_MESSAGE_SIZE = 120;
 
 function OwnerCard({ owner, floating }: { owner: { username: string | null; firstName: string | null; lastName: string | null }; floating?: boolean }) {
     const { theme } = useUnistyles();
@@ -36,8 +43,15 @@ export default memo(function PublicShareScreen() {
     const { theme } = useUnistyles();
     const { state, messages, metadata, owner, sessionId, hasMore, isLoadingMore, loadMore, giveConsent } = usePublicShareSession(token);
 
+    const softHeaderInset = useSoftHeaderInset();
+
+    // Newest-first is what the API hands back; the list runs oldest-first so its end is the newest
+    // message, which is what keeps the viewport pinned there and lets the content scroll under the
+    // transparent header.
+    const listData = useMemo(() => messages.slice().reverse(), [messages]);
+
     const keyExtractor = useCallback((item: Message) => item.id, []);
-    const renderItem = useCallback(({ item }: { item: Message }) => (
+    const renderItem = useCallback(({ item }: LegendListRenderItemProps<Message>) => (
         <MessageView
             message={item}
             metadata={metadata}
@@ -46,24 +60,26 @@ export default memo(function PublicShareScreen() {
         />
     ), [metadata, sessionId]);
 
-    // Inverted list: reaching the "end" means scrolling to the top (oldest message).
-    const onEndReached = useCallback(() => {
+    // The list is no longer inverted, so older messages arrive at the start.
+    const onStartReached = useCallback(() => {
         if (hasMore) {
             loadMore();
         }
     }, [hasMore, loadMore]);
 
-    // Rendered at the visual top of the inverted list while older messages are loading.
-    const listFooter = useCallback(() => {
-        if (!isLoadingMore) {
-            return null;
-        }
-        return (
-            <View style={styles.loadingMore}>
-                <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-            </View>
-        );
-    }, [isLoadingMore, theme.colors.textSecondary]);
+    // The oldest end: the header the content scrolls under, the shared-by card, and the spinner
+    // while older messages are still paging in.
+    const listHeader = useCallback(() => (
+        <View>
+            <View style={{ height: softHeaderInset + LIST_TOP_GAP }} />
+            {owner && <OwnerCard owner={owner} />}
+            {isLoadingMore && (
+                <View style={styles.loadingMore}>
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} />
+                </View>
+            )}
+        </View>
+    ), [softHeaderInset, owner, isLoadingMore, theme.colors.textSecondary]);
 
     // Loading
     if (state === 'loading') {
@@ -125,32 +141,31 @@ export default memo(function PublicShareScreen() {
     // Loaded
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-            {owner && <OwnerCard owner={owner} />}
             {messages.length === 0 ? (
-                <View style={styles.center}>
+                <View style={[styles.center, { paddingTop: softHeaderInset }]}>
                     <Ionicons name="chatbubble-outline" size={48} color={theme.colors.textSecondary} />
                     <Text style={[styles.statusText, { color: theme.colors.textSecondary }]}>
                         {t('session.sharing.noMessages')}
                     </Text>
                 </View>
             ) : (
-                <FlatList
-                    data={messages}
+                <LegendList<Message>
+                    data={listData}
                     keyExtractor={keyExtractor}
                     renderItem={renderItem}
-                    inverted
-                    // flex:1 bounds the list as its own scroll container below the OwnerCard
-                    // sibling, matching ChatList.
+                    // Bottom-aligned and pinned to the newest message — what replaced `inverted`.
+                    // flex:1 bounds the list as its own scroll container, matching ChatList.
                     style={styles.list}
                     contentContainerStyle={styles.listContent}
-                    // Keep the viewport anchored when older messages are prepended at the top.
-                    maintainVisibleContentPosition={{
-                        minIndexForVisible: 0,
-                        autoscrollToTopThreshold: 100,
-                    }}
-                    onEndReached={onEndReached}
-                    onEndReachedThreshold={0.5}
-                    ListFooterComponent={listFooter}
+                    alignItemsAtEnd
+                    initialScrollAtEnd
+                    maintainVisibleContentPosition
+                    maintainScrollAtEnd
+                    estimatedItemSize={ESTIMATED_MESSAGE_SIZE}
+                    estimatedHeaderSize={softHeaderInset + LIST_TOP_GAP + (owner ? OWNER_CARD_HEIGHT : 0)}
+                    onStartReached={onStartReached}
+                    onStartReachedThreshold={0.5}
+                    ListHeaderComponent={listHeader}
                 />
             )}
         </View>

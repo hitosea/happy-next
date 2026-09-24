@@ -211,6 +211,7 @@ export default function AddOpenClawMachinePage() {
         >
             <ScrollView
                 style={styles.scrollView}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: safeArea.bottom + 24 }]}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}

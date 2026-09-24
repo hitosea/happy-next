@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack } from 'expo-router';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
@@ -193,6 +194,7 @@ export default function ServerConfigScreen() {
         <>
             <Stack.Screen
                 options={{
+                    ...softHeaderOptions,
                     headerShown: !hideUnauthenticatedWindowsHeader,
                     headerTitle: t('server.serverConfiguration'),
                 }}

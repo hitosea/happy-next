@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 import { Text } from '@/components/StyledText';
 import { useArtifacts } from '@/sync/storage';
 import { DecryptedArtifact } from '@/sync/artifactTypes';
@@ -247,6 +247,7 @@ export default function ArtifactsScreen() {
         <View style={styles.container}>
             <FlatList
                 data={artifacts}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 contentContainerStyle={[

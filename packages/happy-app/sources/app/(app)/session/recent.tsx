@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, TextInput } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Text } from '@/components/StyledText';
 import { useAllSessions, useAllMachines, storage } from '@/sync/storage';
@@ -655,6 +655,7 @@ function SessionHistory() {
     const listContent = groupedItems.length === 0 ? (
         allSessions.length > 0 ? (
             <FlatList
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 data={[]}
                 renderItem={() => null}
                 ListHeaderComponent={searchHeader}
@@ -683,6 +684,7 @@ function SessionHistory() {
         )
     ) : (
         <FlatList
+            contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
             data={groupedItems}
             renderItem={renderItem}
             keyExtractor={keyExtractor}

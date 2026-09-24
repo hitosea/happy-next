@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, SectionList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, RefreshControl, SectionList, View } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -258,6 +258,7 @@ export default function OrchestratorTaskDetailScreen() {
             <Stack.Screen options={{ headerTitle: t('settings.orchestratorTaskSeq', { seq: task.seq }) }} />
             <SectionList
                 sections={executionSections}
+                contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                 keyExtractor={(item) => item}
                 stickySectionHeadersEnabled
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {

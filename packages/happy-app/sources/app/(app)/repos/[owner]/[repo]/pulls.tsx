@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Pressable, FlatList, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -119,6 +119,7 @@ export default function RepoPullsScreen() {
                 <View style={styles.listWrap}>
                     <FlatList
                         data={filteredPulls}
+                        contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                         keyExtractor={(item) => String(item.number)}
                         renderItem={renderPullItem}
                         contentContainerStyle={{ paddingBottom: 24 }}

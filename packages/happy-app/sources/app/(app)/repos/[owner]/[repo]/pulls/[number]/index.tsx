@@ -4,11 +4,6 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withTiming,
-} from 'react-native-reanimated';
 import { layout } from '@/components/layout';
 import { Typography } from '@/constants/Typography';
 import { Avatar } from '@/components/Avatar';
@@ -111,23 +106,12 @@ function PullRequestDetailScreen() {
     const [showAbsoluteTime, setShowAbsoluteTime] = React.useState(false);
     const scrollY = React.useRef(0);
     const [showHeaderSubtitle, setShowHeaderSubtitle] = React.useState(false);
-    const subtitleOpacity = useSharedValue(0);
-    const [displayedSubtitle, setDisplayedSubtitle] = React.useState('');
 
-    const targetSubtitle = showHeaderSubtitle && pr
+    // The subtitle swaps between "owner/repo" and the title once the reader scrolls past the
+    // heading. Plain text, so `headerSubtitle` can carry it and the system draws the second line.
+    const headerSubtitle = showHeaderSubtitle && pr
         ? pr.title
         : `${owner}/${repo}`;
-
-    React.useEffect(() => {
-        subtitleOpacity.value = withTiming(0, { duration: 100 });
-        const timer = setTimeout(() => {
-            setDisplayedSubtitle(targetSubtitle);
-            subtitleOpacity.value = withTiming(1, { duration: 160 });
-        }, 120);
-        return () => clearTimeout(timer);
-    }, [targetSubtitle]);
-
-    const subtitleAnimStyle = useAnimatedStyle(() => ({ opacity: subtitleOpacity.value }));
 
     const handleScroll = React.useCallback((e: any) => {
         const y = e.nativeEvent.contentOffset.y;
@@ -180,20 +164,6 @@ function PullRequestDetailScreen() {
         return items;
     }, [owner, repo, prNumber, pr, credentials, mutatePull]);
 
-    const headerTitle = React.useCallback(() => (
-        <Pressable style={{ alignItems: 'center', justifyContent: 'center', maxWidth: 220 }}>
-            <Text numberOfLines={1} style={[styles.headerTitle, { color: theme.colors.header.tint }]}>
-                #{pr?.number ?? numberStr}
-            </Text>
-            <Animated.Text
-                numberOfLines={1}
-                style={[styles.headerSubtitle, { color: theme.colors.textSecondary }, subtitleAnimStyle]}
-            >
-                {displayedSubtitle}
-            </Animated.Text>
-        </Pressable>
-    ), [pr?.number, numberStr, theme.colors.header.tint, theme.colors.textSecondary, displayedSubtitle, subtitleAnimStyle]);
-
     const headerRight = React.useCallback(() => (
         <Pressable
             onPress={() => setMenuVisible(true)}
@@ -208,14 +178,8 @@ function PullRequestDetailScreen() {
             <View style={styles.container}>
                 <Stack.Screen
                     options={{
-                        headerTitle: () => (
-                            <View style={{ alignItems: 'center', maxWidth: 220 }}>
-                                <Text style={styles.headerTitle}>#{numberStr}</Text>
-                                <Text style={[styles.headerSubtitle, { opacity: 1 }]} numberOfLines={1}>
-                                    {owner}/{repo}
-                                </Text>
-                            </View>
-                        ),
+                        headerTitle: `#${numberStr}`,
+                        headerSubtitle: `${owner}/${repo}`,
                         headerRight: () => (
                             <Pressable
                                 onPress={() => setMenuVisible(true)}
@@ -226,7 +190,7 @@ function PullRequestDetailScreen() {
                         ),
                     }}
                 />
-                <ScrollView contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]} style={{ backgroundColor: theme.colors.surface }}>
+                <ScrollView contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined} contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]} style={{ backgroundColor: theme.colors.surface }}>
                     <ShimmerView>
                         <SkeletonBlock w={'85%'} h={22} radius={4} />
                         <SkeletonBlock w={'60%'} h={22} radius={4} mt={6} />
@@ -278,12 +242,13 @@ function PullRequestDetailScreen() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    headerTitle,
+                    headerTitle: `#${pr?.number ?? numberStr}`,
+                    headerSubtitle,
                     headerRight,
                 }}
             />
 
-            <ScrollView contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]} style={{ backgroundColor: theme.colors.surface }} onScroll={handleScroll} scrollEventThrottle={16}>
+            <ScrollView contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined} contentContainerStyle={[styles.content, { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }]} style={{ backgroundColor: theme.colors.surface }} onScroll={handleScroll} scrollEventThrottle={16}>
                 {/* Title */}
                 <Text style={styles.prTitle}>{pr.title}</Text>
 
@@ -529,17 +494,5 @@ const stylesheet = StyleSheet.create((theme) => ({
     sessionMeta: {
         ...Typography.default(),
         fontSize: 12,
-    },
-    headerTitle: {
-        ...Typography.default('semiBold'),
-        fontSize: 17,
-        color: theme.colors.text,
-    },
-    headerSubtitle: {
-        ...Typography.default(),
-        fontSize: 12,
-        lineHeight: 16,
-        marginTop: -2,
-        color: theme.colors.textSecondary,
     },
 }));

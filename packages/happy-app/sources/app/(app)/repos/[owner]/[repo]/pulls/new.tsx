@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -215,7 +216,7 @@ export default function NewPullRequestScreen() {
 
     return (
         <View style={styles.container}>
-            <Stack.Screen options={{ headerTitle: t('lab.newPullRequest') }} />
+            <Stack.Screen options={{ ...softHeaderOptions, headerTitle: t('lab.newPullRequest') }} />
 
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
@@ -223,6 +224,7 @@ export default function NewPullRequestScreen() {
                 keyboardVerticalOffset={88}
             >
                 <ScrollView
+                    contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
                     contentContainerStyle={[
                         styles.content,
                         { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' },
