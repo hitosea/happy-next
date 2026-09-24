@@ -133,6 +133,7 @@ export default function MachinePickerScreen() {
             <View style={styles.container}>
                 <ScrollView
                     style={styles.scrollContainer}
+                    contentInsetAdjustmentBehavior="automatic"
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >

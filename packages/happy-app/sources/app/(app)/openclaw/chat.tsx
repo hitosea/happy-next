@@ -19,7 +19,9 @@ import {
     Platform,
     Animated,
     Easing,
+    type ScrollViewProps,
 } from 'react-native';
+import { KeyboardChatScrollView } from 'react-native-keyboard-controller';
 import { AgentContentView } from '@/components/AgentContentView';
 import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
@@ -57,6 +59,28 @@ interface LocalMessage extends OpenClawChatMessage {
 /** Room under the header above the oldest message, and the first-frame size hint for LegendList. */
 const LIST_TOP_GAP = 32;
 const ESTIMATED_ITEM_SIZE = 120;
+
+/**
+ * iOS scroll view for the chat list: while the keyboard is up it keeps its own frame and lifts the
+ * content (keyboard-controller's chat-style native inset), so the top edge stays beneath the header and
+ * keeps drawing the scroll-edge effect. The composer is a sibling below the list inside AgentContentView's
+ * KeyboardStickyView, so only the home-indicator inset still sits over the keyboard — subtract it.
+ */
+const ChatScrollView = React.forwardRef<
+    React.ElementRef<typeof KeyboardChatScrollView>,
+    ScrollViewProps & { bottomInset: number }
+>(({ bottomInset, ...props }, ref) => (
+    <KeyboardChatScrollView
+        ref={ref}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="interactive"
+        keyboardLiftBehavior="always"
+        offset={bottomInset}
+        {...props}
+    />
+));
+ChatScrollView.displayName = 'ChatScrollView';
 
 const keyExtractor = (item: LocalMessage) => item.localId;
 
@@ -817,6 +841,13 @@ export default function OpenClawChatPage() {
     const listRef = React.useRef<LegendListRef>(null);
     const softHeaderInset = useSoftHeaderInset();
 
+    // iOS lifts the list content under the keyboard itself (see ChatScrollView); other platforms keep
+    // LegendList's default scroll component.
+    const renderScrollComponent = React.useCallback(
+        (props: ScrollViewProps) => <ChatScrollView {...props} bottomInset={safeArea.bottom} />,
+        [safeArea.bottom]
+    );
+
     // Extract text from message content
     const extractText = (message: unknown): string | null => {
         if (!message || typeof message !== 'object') return null;
@@ -1104,6 +1135,7 @@ export default function OpenClawChatPage() {
             ListHeaderComponent={listHeader}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+            renderScrollComponent={Platform.OS === 'ios' ? renderScrollComponent : undefined}
         />
     ) : null;
 

@@ -1,6 +1,8 @@
 import * as React from 'react';
-import { View, Text, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable, Platform, type ScrollViewProps } from 'react-native';
 import { LegendList, type LegendListRef, type LegendListRenderItemProps } from '@legendapp/list/react-native';
+import { KeyboardChatScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/text';
@@ -18,6 +20,29 @@ const ESTIMATED_ITEM_SIZE = 120;
 const SCROLL_THRESHOLD = 100;
 
 const AI_ASSISTANT_USERID = -1;
+
+/**
+ * iOS scroll view for the list. While the keyboard is up it keeps its own frame and lifts the
+ * *content* instead (keyboard-controller's chat-style native inset), so the top edge stays beneath the
+ * navigation bar and keeps drawing the iOS 26 scroll-edge effect. Translating the whole list — which
+ * is what a KeyboardAvoidingView/KeyboardStickyView wrapper would do — drags that edge off screen.
+ * `offset` subtracts the home-indicator inset the composer (a sibling below the list) already covers.
+ */
+const ChatScrollView = React.forwardRef<
+    React.ElementRef<typeof KeyboardChatScrollView>,
+    ScrollViewProps & { bottomInset: number }
+>(({ bottomInset, ...props }, ref) => (
+    <KeyboardChatScrollView
+        ref={ref}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode="interactive"
+        keyboardLiftBehavior="always"
+        offset={bottomInset}
+        {...props}
+    />
+));
+ChatScrollView.displayName = 'ChatScrollView';
 
 function isPending(msg: DisplayMessage): msg is PendingMessage {
     return '_pendingId' in msg;
@@ -100,6 +125,14 @@ export const ChatMessageList = React.memo(({
     const { theme } = useUnistyles();
     const listRef = React.useRef<LegendListRef>(null);
     const softHeaderInset = useSoftHeaderInset();
+    const safeArea = useSafeAreaInsets();
+
+    // iOS lifts the list content under the keyboard itself (see ChatScrollView); other platforms keep
+    // LegendList's default scroll component.
+    const renderScrollComponent = React.useCallback(
+        (props: ScrollViewProps) => <ChatScrollView {...props} bottomInset={safeArea.bottom} />,
+        [safeArea.bottom]
+    );
 
     // The list's order: oldest first, so its end is the newest message.
     const listData = React.useMemo(() => messages.slice().reverse(), [messages]);
@@ -264,6 +297,7 @@ export const ChatMessageList = React.memo(({
                 ListHeaderComponent={listHeader}
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
+                renderScrollComponent={Platform.OS === 'ios' ? renderScrollComponent : undefined}
             />
 
             {/* Scroll to bottom button */}

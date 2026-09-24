@@ -192,6 +192,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="session/[id]/tool-diff"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('common.fileViewer'),
                 }}
@@ -592,6 +593,7 @@ export default function RootLayout() {
             <Stack.Screen
                 name="settings/connect/dootask"
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
                     headerTitle: t('settings.connectDootask'),
                 }}
@@ -631,24 +633,28 @@ export default function RootLayout() {
             <Stack.Screen
                 name="new/pick/machine"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: '',
                 }}
             />
             <Stack.Screen
                 name="new/pick/path"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: '',
                 }}
             />
             <Stack.Screen
                 name="new/pick/profile-edit"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: '',
                 }}
             />
             <Stack.Screen
                 name="new/index"
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: t('newSession.title'),
                 }}
             />

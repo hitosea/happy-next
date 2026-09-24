@@ -103,21 +103,6 @@ const styles = StyleSheet.create((theme) => ({
         top: 0,
         zIndex: 1,
     },
-    titleContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    repoTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    titleText: {
-        fontSize: 17,
-        lineHeight: 24,
-        color: theme.colors.header.tint,
-        fontWeight: '600',
-        ...Typography.default('semiBold'),
-    },
     headerButton: {
         width: 32,
         height: 32,
@@ -184,28 +169,8 @@ const useConnectionStatusSubtitle = () => {
     }, [socketStatus, theme]);
 };
 
-// Header title of the github tab — the repository picker. This one has to stay a custom title view
-// (it is a pressable with a chevron), and UIKit ignores the native `headerSubtitle` while a custom
-// title view is set, so this tab shows no connection status.
-const GitHubHeaderTitle = React.memo(({ githubRepo, onGithubRepoPress }: { githubRepo?: string | null; onGithubRepoPress?: () => void }) => {
-    const { theme } = useUnistyles();
-    const repoName = githubRepo ? githubRepo.split('/').pop() || githubRepo : '';
-    const title = repoName || t('github.allRepos');
-
-    return (
-        <Pressable style={styles.titleContainer} onPress={onGithubRepoPress}>
-            <View style={styles.repoTitleRow}>
-                <Text style={[styles.titleText, { maxWidth: 200 }]} numberOfLines={1} ellipsizeMode="tail">
-                    {title}
-                </Text>
-                <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
-            </View>
-        </Pressable>
-    );
-});
-
 // Header right button - varies by tab
-const HeaderRight = React.memo(({ activeTab, onDootaskCreate }: { activeTab: ActiveTabType; onDootaskCreate?: () => void }) => {
+const HeaderRight = React.memo(({ activeTab, onDootaskCreate, onGithubRepoPress }: { activeTab: ActiveTabType; onDootaskCreate?: () => void; onGithubRepoPress?: () => void }) => {
     const router = useRouter();
     const { theme } = useUnistyles();
     const isCustomServer = isUsingCustomServer();
@@ -246,7 +211,16 @@ const HeaderRight = React.memo(({ activeTab, onDootaskCreate }: { activeTab: Act
     }
 
     if (activeTab === 'github') {
-        return null;
+        return (
+            <Pressable
+                onPress={onGithubRepoPress}
+                hitSlop={15}
+                accessibilityRole="button"
+                style={styles.headerButton}
+            >
+                <Ionicons name="swap-horizontal" size={24} color={theme.colors.header.tint} />
+            </Pressable>
+        );
     }
 
     if (activeTab === 'settings') {
@@ -480,13 +454,13 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
                 headerShown: true,
                 ...softHeaderOptions,
                 headerTitle: activeTab === 'github'
-                    ? () => <GitHubHeaderTitle githubRepo={githubRepo} onGithubRepoPress={handleOpenRepoPicker} />
+                    ? (githubRepo ? githubRepo.split('/').pop() || githubRepo : t('github.allRepos'))
                     : t(TAB_TITLES[activeTab as ActiveTabType]),
                 headerSubtitle: connectionStatus.text || undefined,
                 headerSubtitleColor: connectionStatus.color,
                 headerLeft: () => <HeaderLogo />,
                 headerRight: shouldProvideMainHeaderRight(activeTab) && !(activeTab === 'settings' && !isCustomServer)
-                    ? () => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} />
+                    ? () => <HeaderRight activeTab={activeTab as ActiveTabType} onDootaskCreate={handleCreatePress} onGithubRepoPress={handleOpenRepoPicker} />
                     : undefined,
             }}
         />

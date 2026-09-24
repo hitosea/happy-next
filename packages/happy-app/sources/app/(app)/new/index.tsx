@@ -1771,6 +1771,7 @@ function NewSessionWizard() {
                 <ScrollView
                     ref={scrollViewRef}
                     style={styles.scrollContainer}
+                    contentInsetAdjustmentBehavior="automatic"
                     contentContainerStyle={styles.contentContainer}
                     keyboardShouldPersistTaps="handled"
                 >

@@ -12,6 +12,7 @@ import { layout } from '@/components/layout';
 import { useSettingMutable } from '@/sync/storage';
 import { DEFAULT_PROFILES } from '@/sync/profileUtils';
 import { randomUUID } from 'expo-crypto';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 
 export default function SettingsProfileEditScreen() {
     const { theme } = useUnistyles();
@@ -110,6 +111,7 @@ export default function SettingsProfileEditScreen() {
         >
             <Stack.Screen
                 options={{
+                    ...softHeaderOptions,
                     headerTitle: profile.name ? t('profiles.editProfile') : t('profiles.addProfile'),
                 }}
             />

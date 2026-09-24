@@ -113,6 +113,7 @@ export function ProfileEditForm({
     return (
         <ScrollView
             style={[profileEditFormStyles.scrollView, containerStyle]}
+            contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
             contentContainerStyle={profileEditFormStyles.scrollContent}
             keyboardShouldPersistTaps="handled"
         >

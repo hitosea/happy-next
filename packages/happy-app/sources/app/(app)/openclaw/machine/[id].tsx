@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
 import { useOpenClawMachine, useMachine, storage } from '@/sync/storage';
@@ -156,10 +156,6 @@ export default function OpenClawMachineDetailPage() {
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
     const { id: machineId } = useLocalSearchParams<{ id: string }>();
-    const { width: screenWidth } = useWindowDimensions();
-
-    // Left: back button (1), Right: add + menu buttons (2) - use larger side * 2 for symmetry
-    const headerTitleMaxWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 2 });
 
     // Get machine data
     const machine = useOpenClawMachine(machineId ?? '');
@@ -504,7 +500,7 @@ export default function OpenClawMachineDetailPage() {
     if (!machine) {
         return (
             <View style={styles.container}>
-                <Stack.Screen options={{ headerTitle: t('common.notFound') }} />
+                <Stack.Screen options={{ ...softHeaderOptions, headerTitle: t('common.notFound') }} />
                 <View style={styles.emptyContainer}>
                     <Ionicons name="alert-circle" size={48} color={theme.colors.textSecondary} />
                     <Text style={[styles.emptyTitle, { marginTop: 16 }]}>{t('openclaw.machineNotFound')}</Text>
@@ -517,32 +513,9 @@ export default function OpenClawMachineDetailPage() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View style={{ alignItems: 'center', justifyContent: 'center', maxWidth: headerTitleMaxWidth }}>
-                            <Text
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                                style={[Typography.default('semiBold'), { fontSize: 17, lineHeight: 24, color: theme.colors.header.tint, flexShrink: 1 }]}
-                            >
-                                {machineName}
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: -2 }}>
-                                <View style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: 3,
-                                    backgroundColor: statusConfig.color,
-                                    marginRight: 4
-                                }} />
-                                <Text
-                                    numberOfLines={1}
-                                    style={[Typography.default(), { fontSize: 12, color: statusConfig.color }]}
-                                >
-                                    {statusConfig.text}
-                                </Text>
-                            </View>
-                        </View>
-                    ),
+                    ...softHeaderOptions,
+                    headerTitle: machineName,
+                    headerSubtitle: statusConfig.text,
                     headerRight: () => (
                         <Pressable
                             onPress={handleMenuPress}
@@ -559,6 +532,7 @@ export default function OpenClawMachineDetailPage() {
                 }}
             />
             <ScrollView
+                contentInsetAdjustmentBehavior="automatic"
                 contentContainerStyle={[
                     styles.scrollContent,
                     { paddingBottom: safeArea.bottom + 24 }

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, ActivityIndicator, RefreshControl, Platform, Pressable, TextInput, useWindowDimensions } from 'react-native';
+import { View, Text, ActivityIndicator, RefreshControl, Platform, Pressable, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -36,7 +36,7 @@ import type { ActionMenuItem } from '@/components/ActionMenu';
 import { useShallow } from 'zustand/react/shallow';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { MODEL_MODE_DEFAULT } from 'happy-wire';
 
 type AgentType = 'claude' | 'codex' | 'gemini';
@@ -119,7 +119,6 @@ export default function MachineDetailScreen() {
     const addDirBranchResolveRef = useRef<((value: string | undefined) => void) | null>(null);
     const folderPickerRef = useRef<BottomSheetModal>(null);
     const folderSelectHandlerRef = useRef<(path: string) => void>(() => {});
-    const { width: screenWidth } = useWindowDimensions();
     const registeredRepos = storage(useShallow((state) => state.registeredRepos[machineId!] || [])) as RegisteredRepo[];
     const cliAvailability = useCLIDetection(machineId ?? null);
     const [agentMenu, setAgentMenu] = useState<{ visible: boolean; items: ActionMenuItem[] }>({ visible: false, items: [] });
@@ -136,8 +135,6 @@ export default function MachineDetailScreen() {
         }).catch(() => { /* ignore load errors */ });
     }, [machineId]);
 
-    // Left: back button (1), Right: edit button (1) - use larger side * 2 for symmetry
-    const headerTitleMaxWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 1 });
     // Variant D only
 
     const machineSessions = useMemo(() => {
@@ -596,6 +593,7 @@ export default function MachineDetailScreen() {
             <>
                 <Stack.Screen
                     options={{
+                        ...softHeaderOptions,
                         headerShown: true,
                         headerTitle: '',
                     }}
@@ -619,41 +617,10 @@ export default function MachineDetailScreen() {
         <>
             <Stack.Screen
                 options={{
+                    ...softHeaderOptions,
                     headerShown: true,
-                    headerTitle: () => (
-                        <View style={{ alignItems: 'center', justifyContent: 'center', maxWidth: headerTitleMaxWidth }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: '100%' }}>
-                                <Ionicons
-                                    name="desktop-outline"
-                                    size={18}
-                                    color={theme.colors.header.tint}
-                                    style={{ marginRight: 6, flexShrink: 0 }}
-                                />
-                                <Text
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
-                                    style={[Typography.default('semiBold'), { fontSize: 17, lineHeight: 24, color: theme.colors.header.tint, flexShrink: 1 }]}
-                                >
-                                    {machineName}
-                                </Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: -2 }}>
-                                <View style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: 3,
-                                    backgroundColor: isMachineOnline(machine) ? '#34C759' : '#999',
-                                    marginRight: 4
-                                }} />
-                                <Text
-                                    numberOfLines={1}
-                                    style={[Typography.default(), { fontSize: 12, color: isMachineOnline(machine) ? '#34C759' : '#999' }]}
-                                >
-                                    {isMachineOnline(machine) ? t('status.online') : t('status.offline')}
-                                </Text>
-                            </View>
-                        </View>
-                    ),
+                    headerTitle: machineName,
+                    headerSubtitle: isMachineOnline(machine) ? t('status.online') : t('status.offline'),
                     headerRight: () => (
                         <Pressable
                             onPress={handleRenameMachine}

@@ -11,7 +11,6 @@ import {
     Text,
     ScrollView,
     Pressable,
-    useWindowDimensions,
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -20,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/text';
 import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
-import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
+import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
 import { useOpenClawConnection } from '@/openclaw/connection';
@@ -87,10 +86,6 @@ export default function OpenClawNewSessionPage() {
     const { theme } = useUnistyles();
     const safeArea = useSafeAreaInsets();
     const { machineId } = useLocalSearchParams<{ machineId: string }>();
-    const { width: screenWidth } = useWindowDimensions();
-
-    // Left: back button (1), Right: placeholder (1) - use larger side * 2 for symmetry
-    const headerTitleMaxWidth = getNativeHeaderTitleWidth({ screenWidth, rightActionCount: 1 });
 
     // Connection hook
     const {
@@ -152,35 +147,13 @@ export default function OpenClawNewSessionPage() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    headerTitle: () => (
-                        <View style={{ alignItems: 'center', justifyContent: 'center', maxWidth: headerTitleMaxWidth }}>
-                            <Text
-                                numberOfLines={1}
-                                ellipsizeMode="tail"
-                                style={[Typography.default('semiBold'), { fontSize: 17, lineHeight: 24, color: theme.colors.header.tint, flexShrink: 1 }]}
-                            >
-                                {t('openclaw.newSession')}
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: -2 }}>
-                                <View style={{
-                                    width: 6,
-                                    height: 6,
-                                    borderRadius: 3,
-                                    backgroundColor: statusConfig.color,
-                                    marginRight: 4
-                                }} />
-                                <Text
-                                    numberOfLines={1}
-                                    style={[Typography.default(), { fontSize: 12, color: statusConfig.color }]}
-                                >
-                                    {statusConfig.text}
-                                </Text>
-                            </View>
-                        </View>
-                    ),
+                    ...softHeaderOptions,
+                    headerTitle: t('openclaw.newSession'),
+                    headerSubtitle: statusConfig.text,
                 }}
             />
             <ScrollView
+                contentInsetAdjustmentBehavior="automatic"
                 contentContainerStyle={[
                     styles.scrollContent,
                     { paddingBottom: safeArea.bottom + 24 },

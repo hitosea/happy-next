@@ -260,6 +260,7 @@ export default React.memo(function DooTaskConnectPage() {
         >
             <ScrollView
                 style={styles.scrollView}
+                contentInsetAdjustmentBehavior="automatic"
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: safeArea.bottom + 24 }]}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}

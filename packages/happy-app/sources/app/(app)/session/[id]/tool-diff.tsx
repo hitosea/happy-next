@@ -8,6 +8,7 @@ import { ToolDiffView } from '@/components/tools/ToolDiffView';
 import { useSetting } from '@/sync/storage';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
+import { useSoftHeaderInset } from '@/components/navigation/softHeader';
 import { FileIcon } from '@/components/FileIcon';
 import { trimIdent } from '@/utils/trimIdent';
 import { LongPressCopy, useCopySelectable } from '@/components/LongPressCopy';
@@ -87,6 +88,7 @@ function getDiffCopyText(params: {
 
 function ToolDiffScreen() {
     const { theme } = useUnistyles();
+    const softHeaderInset = useSoftHeaderInset();
     const { id: sessionId } = useLocalSearchParams<{ id: string }>();
     const params = useLocalSearchParams();
     const callId = params.callId as string;
@@ -209,7 +211,7 @@ function ToolDiffScreen() {
     }, [sessionId, callId, filePath, mode, editCount]);
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.surface, paddingTop: softHeaderInset }]}>
             <Stack.Screen options={{ headerTitle: fileName }} />
 
             {/* File path header */}
