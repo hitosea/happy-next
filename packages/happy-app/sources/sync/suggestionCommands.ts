@@ -5,6 +5,7 @@
 
 import Fuse from 'fuse.js';
 import { getSession, storage } from './storage';
+import { hasForkableNativeId } from '@/utils/sessionLifecycle';
 
 export type CommandScope = 'REPO' | 'USER' | 'PLUGIN' | 'SYSTEM';
 export type CommandKind = 'command' | 'skill';
@@ -89,7 +90,7 @@ const CODEX_SUBCOMMANDS: Record<string, CommandItem[]> = {
     ],
 };
 
-// Commands available for sessions with forkable history (Claude, Gemini, Codex)
+// Commands available for sessions with forkable history (Claude, Gemini, Codex, Qoder)
 const FORKABLE_COMMANDS: CommandItem[] = [
     { command: 'duplicate', description: 'Duplicate conversation from a specific point', scope: 'SYSTEM', kind: 'command' },
 ];
@@ -151,8 +152,8 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
         commands.push(...CODEX_COMMANDS);
     }
 
-    // Add forkable commands for sessions with session history (Claude, Gemini, Codex)
-    if (session.metadata.claudeSessionId || session.metadata.flavor === 'gemini' || session.metadata.codexSessionId) {
+    // Add forkable commands for sessions with session history (Claude, Gemini, Codex, Qoder)
+    if (hasForkableNativeId(session)) {
         commands.push(...FORKABLE_COMMANDS);
     }
 

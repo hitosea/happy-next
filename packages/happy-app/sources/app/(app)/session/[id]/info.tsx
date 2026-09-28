@@ -9,8 +9,8 @@ import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Avatar } from '@/components/Avatar';
 import { useSession, useIsDataReady, useMachine, useOrchestratorHasRuns, storage } from '@/sync/storage';
-import { generateCopyTitle, getSessionName, useSessionStatus, formatOSPlatform, formatPathRelativeToHome, getSessionAvatarId, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
-import { canArchiveSession } from '@/utils/sessionLifecycle';
+import { generateCopyTitle, getSessionName, useSessionStatus, formatOSPlatform, formatPathRelativeToHome, getSessionAvatarId, copySessionMetadata, copySessionModeSettings, forkQoderSessionForCopy } from '@/utils/sessionUtils';
+import { canArchiveSession, hasForkableNativeId } from '@/utils/sessionLifecycle';
 import { promptRenameSession } from '@/utils/sessionRename';
 import * as Clipboard from 'expo-clipboard';
 import { Modal } from '@/modal';
@@ -33,7 +33,7 @@ import { CodeView } from '@/components/CodeView';
 import { Session } from '@/sync/storageTypes';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
-import { formatModelDisplay, resolveLocalModelDisplay, isModelFast, FAST_MODE_ICON_COLOR } from 'happy-wire';
+import { agentDisplayName, formatModelDisplay, resolveLocalModelDisplay, isModelFast, FAST_MODE_ICON_COLOR } from 'happy-wire';
 
 // Animated status dot component
 function StatusDot({ color, isPulsing, size = 8 }: { color: string; isPulsing?: boolean; size?: number }) {
@@ -105,6 +105,7 @@ function SessionInfoContent({ session }: { session: Session }) {
         return <>{text} <MaterialCommunityIcons name="lightning-bolt" size={14} color={FAST_MODE_ICON_COLOR} /></>;
     }, [localModelDisplay.model, localModelDisplay.reasoningEffort, session.metadata?.model, session.metadata?.reasoningEffort, session.fastMode]);
     const geminiSessionId = session.metadata?.flavor === 'gemini' ? session.id : undefined;
+    const qoderSessionId = session.metadata?.flavor === 'qoder' ? session.metadata?.qoderSessionId : undefined;
     
     // Check if CLI version is outdated
     const latestCliVersion = useLatestCliVersion();
@@ -190,6 +191,16 @@ function SessionInfoContent({ session }: { session: Session }) {
             Modal.alert(t('common.error'), t('sessionInfo.failedToCopyGeminiSessionId'));
         }
     }, [geminiSessionId]);
+
+    const handleCopyQoderSessionId = useCallback(async () => {
+        if (!qoderSessionId) return;
+        try {
+            await Clipboard.setStringAsync(qoderSessionId);
+            hapticsLight(); showCopiedToast();
+        } catch (error) {
+            Modal.alert(t('common.error'), t('sessionInfo.failedToCopyQoderSessionId'));
+        }
+    }, [qoderSessionId]);
 
     // Worktree state: unified multi-repo + legacy single-repo support
     const workspaceRepos = getWorkspaceRepos(session.metadata);
@@ -351,11 +362,10 @@ function SessionInfoContent({ session }: { session: Session }) {
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
-        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId;
-        if (!hasForkableId || !directory || !machineId) return;
+        if (!hasForkableNativeId(session) || !directory || !machineId) return;
 
         const isOnline = session.active;
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = agentDisplayName(flavor);
         const confirmTitle = isOnline ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
         const confirmMessage = isOnline ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
         const confirmed = await Modal.confirm(confirmTitle, confirmMessage, {
@@ -373,7 +383,7 @@ function SessionInfoContent({ session }: { session: Session }) {
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -399,6 +409,14 @@ function SessionInfoContent({ session }: { session: Session }) {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'claude';
+            } else if (flavor === 'qoder') {
+                const qoderFork = await forkQoderSessionForCopy(machineId, session.metadata?.qoderSessionId, session.metadata?.path);
+                if ('error' in qoderFork) {
+                    Modal.alert(t('common.error'), qoderFork.error ?? t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = qoderFork.newSessionId;
+                agent = 'qoder';
             } else {
                 return;
             }
@@ -490,7 +508,7 @@ function SessionInfoContent({ session }: { session: Session }) {
             // Fork and resume — mirrors the "resume session" flow exactly
             const flavor = session.metadata?.flavor;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'codex' | 'gemini' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -516,6 +534,14 @@ function SessionInfoContent({ session }: { session: Session }) {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'claude';
+            } else if (flavor === 'qoder') {
+                const qoderFork = await forkQoderSessionForCopy(machineId, session.metadata?.qoderSessionId, session.metadata?.path);
+                if ('error' in qoderFork) {
+                    Modal.alert(t('common.error'), qoderFork.error ?? t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = qoderFork.newSessionId;
+                agent = 'qoder';
             } else {
                 Modal.alert(t('common.error'), t('claudeHistory.resumeFailed'));
                 return;
@@ -739,7 +765,7 @@ function SessionInfoContent({ session }: { session: Session }) {
     const [reviewMenuVisible, setReviewMenuVisible] = React.useState(false);
     const [requestingReview, setRequestingReview] = React.useState(false);
 
-    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini') => {
+    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder') => {
         if (!worktreeMachineId || !worktreeBranch || !worktreePath) return;
         const prUrl = selectedRepo?.prUrl;
         if (!prUrl) return;
@@ -923,6 +949,14 @@ function SessionInfoContent({ session }: { session: Session }) {
                             onPress={handleCopyGeminiSessionId}
                         />
                     )}
+                    {qoderSessionId && (
+                        <Item
+                            title={t('sessionInfo.qoderSessionId')}
+                            subtitle={`${qoderSessionId.substring(0, 8)}...${qoderSessionId.substring(qoderSessionId.length - 8)}`}
+                            icon={<Ionicons name="code-outline" size={29} color="#9C27B0" />}
+                            onPress={handleCopyQoderSessionId}
+                        />
+                    )}
                     <Item
                         title={t('sessionInfo.connectionStatus')}
                         detail={sessionStatus.isConnected ? t('status.online') : t('status.offline')}
@@ -1005,7 +1039,7 @@ function SessionInfoContent({ session }: { session: Session }) {
                                 onPress={() => router.push(`/machine/${session.metadata?.machineId}`)}
                             />
                         )}
-                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId) && session.metadata?.machineId && session.metadata?.path && (
+                        {isOwner && hasForkableNativeId(session) && session.metadata?.machineId && session.metadata?.path && (
                             <Item
                                 title={session.active ? t('sessionInfo.copySession') : t('sessionInfo.resumeSession')}
                                 subtitle={session.active ? t('sessionInfo.copySessionSubtitle') : t('sessionInfo.resumeSessionSubtitle')}
@@ -1163,6 +1197,7 @@ function SessionInfoContent({ session }: { session: Session }) {
                                 if (flavor === 'codex') return 'Codex';
                                 if (flavor === 'gpt' || flavor === 'openai') return 'Codex';
                                 if (flavor === 'gemini') return 'Gemini';
+                                if (flavor === 'qoder') return 'Qoder';
                                 return flavor;
                             })()}
                             icon={<Ionicons name="sparkles-outline" size={29} color="#5856D6" />}
@@ -1354,6 +1389,10 @@ function SessionInfoContent({ session }: { session: Session }) {
                     {
                         label: 'Gemini',
                         onPress: () => { setReviewMenuVisible(false); doRequestReview('gemini'); },
+                    },
+                    {
+                        label: 'Qoder',
+                        onPress: () => { setReviewMenuVisible(false); doRequestReview('qoder'); },
                     },
                 ]}
                 onClose={() => setReviewMenuVisible(false)}

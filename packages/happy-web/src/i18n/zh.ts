@@ -71,11 +71,12 @@ export default {
     ],
   },
   multiAgent: {
-    title: '三大 Agent，一个应用',
-    subtitle: 'Happy Next 将 Claude Code、Codex 和 Gemini 视为同等的一等公民。',
+    title: '四大 Agent，一个应用',
+    subtitle: 'Happy Next 将 Claude Code、Codex、Gemini 和 Qoder 视为同等的一等公民。',
     claude: { name: 'Claude Code', description: 'Anthropic 深度推理编程助手。' },
     codex: { name: 'Codex', description: 'OpenAI 命令行代码生成助手。' },
     gemini: { name: 'Gemini CLI', description: 'Google AI 终端助手。' },
+    qoder: { name: 'Qoder CLI', description: 'Qoder 终端编程助手。' },
   },
   download: {
     title: '获取应用',

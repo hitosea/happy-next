@@ -78,6 +78,15 @@ happy doctor clean
 2. 确保已授予麦克风权限
 3. 对于 Happy Voice：语音网关会从你的服务器自动发现——请检查服务器配置是否提供了语音 base URL，以及应用能否访问到它
 
+### Qoder 会话无法启动
+
+**症状：** `happy qoder` 立即失败，或 `qoder --acp` 报错 `sdk_invalid_args: Agent SDK entrypoint env is set but required flags are missing`。
+
+**尝试：**
+1. 先完成安装和登录——这两步 Happy 无法代劳：`qoder --version`，然后 `qodercli login`
+2. 如果你是从 Qoder 桌面应用或 Qoder Agent SDK 的 shell 中启动 Happy 的，该环境里会设置 `QODER_AGENT_SDK_ENTRYPOINT`。Happy 拉起 Qoder 时会清除它，但在同一个 shell 中自行运行 `qoder` 仍会报错——请改用普通终端，或取消设置该变量
+3. 如果 `qoder` 不在 `PATH` 中，请指定可执行文件路径：`HAPPY_QODER_PATH=/path/to/qoder happy qoder`
+
 ## 获取帮助
 
 - **GitHub Issues：** [github.com/hitosea/happy-next/issues](https://github.com/hitosea/happy-next/issues)

@@ -2,6 +2,7 @@
 import IconClaude from '@/icons/IconClaude.astro';
 import IconCodex from '@/icons/IconCodex.astro';
 import IconGemini from '@/icons/IconGemini.astro';
+import IconQoder from '@/icons/IconQoder.astro';
 import { type Lang, useTranslations } from '@/i18n/index.ts';
 
 interface Props {
@@ -15,6 +16,7 @@ const agents = [
   { icon: IconClaude, ...t.multiAgent.claude },
   { icon: IconCodex, ...t.multiAgent.codex },
   { icon: IconGemini, ...t.multiAgent.gemini },
+  { icon: IconQoder, ...t.multiAgent.qoder },
 ];
 ---
 
@@ -23,7 +25,7 @@ const agents = [
     <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">{t.multiAgent.title}</h2>
     <p class="mt-4 text-lg text-text-secondary">{t.multiAgent.subtitle}</p>
 
-    <div class="mt-16 grid gap-8 sm:grid-cols-3">
+    <div class="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
       {agents.map(({ icon: Icon, name, description }) => (
         <div class="rounded-xl border border-border bg-bg-card p-8 text-center hover:bg-bg-card-hover transition-colors">
           <Icon class="mx-auto h-12 w-12 text-text" />

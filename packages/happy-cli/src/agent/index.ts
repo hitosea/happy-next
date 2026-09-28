@@ -42,5 +42,7 @@ export function initializeAgents(): void {
   registerGeminiAgent();
   const { registerCodexAgent } = require('./factories/codex');
   registerCodexAgent();
+  const { registerQoderAgent } = require('./factories/qoder');
+  registerQoderAgent();
 }
 

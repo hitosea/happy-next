@@ -1,8 +1,9 @@
 import * as React from 'react';
+import { AGENT_FLAVORS, type AgentFlavor } from 'happy-wire';
 import { storage } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sessionLastViewedAt, sync } from '@/sync/sync';
-import { sessionUpdateMetadataFields } from '@/sync/ops';
+import { machineForkQoderSession, sessionUpdateMetadataFields } from '@/sync/ops';
 import { t } from '@/text';
 import { resolveDuplicatedModelMode } from '@/utils/duplicateModelMode';
 import { hasUnreadCompletionSince } from '@/utils/sessionAttention';
@@ -346,7 +347,7 @@ export function copySessionModeSettings(
     newSessionId: string,
 ): void {
     const flavor = originalSession.metadata?.flavor;
-    const agentType: 'claude' | 'codex' | 'gemini' = (flavor === 'codex' || flavor === 'gemini') ? flavor : 'claude';
+    const agentType: AgentFlavor = AGENT_FLAVORS.find(candidate => candidate === flavor) ?? 'claude';
     sync.queueSessionModeConfigUpdate({
         sessionId: newSessionId,
         agentType,
@@ -358,4 +359,25 @@ export function copySessionModeSettings(
         includeSessionEntry: true,
         includeLastUsed: false,
     });
+}
+
+/**
+ * Fork a Qoder session so that a copy owns its own native conversation: resuming the same
+ * id would leave both Happy sessions appending to one history.
+ *
+ * Returns the native session id to resume from, or an `error` for the caller to report in
+ * its own words (`undefined` when the ids needed for a fork are missing).
+ */
+export async function forkQoderSessionForCopy(
+    machineId: string,
+    qoderSessionId: string | undefined,
+    directory: string | undefined,
+): Promise<{ newSessionId: string } | { error: string | undefined }> {
+    if (!qoderSessionId || !directory) {
+        return { error: undefined };
+    }
+    const forked = await machineForkQoderSession(machineId, qoderSessionId, directory);
+    return forked.success && forked.newSessionId
+        ? { newSessionId: forked.newSessionId }
+        : { error: forked.error };
 }

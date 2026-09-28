@@ -73,7 +73,7 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
 }
 
 function resolveSessionModeAgentType(flavor: string | null | undefined): SessionModeAgentType {
-    if (flavor === 'codex' || flavor === 'gemini') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') {
         return flavor;
     }
     return 'claude';
@@ -221,7 +221,7 @@ interface StorageState {
     setSessionMessagesFetching: (sessionId: string, fetching: boolean) => void;
     setSessionUpgrading: (sessionId: string, upgrading: boolean) => void;
     setSessionFastMode: (sessionId: string, fastMode: boolean) => void;
-    updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => void;
+    updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk' | 'accept_edits' | 'bypass_permissions' | 'dont_ask') => void;
     updateSessionModelMode: (sessionId: string, mode: string) => void;
     // Artifact methods
     applyArtifacts: (artifacts: DecryptedArtifact[]) => void;
@@ -1535,13 +1535,13 @@ export const storage = create<StorageState>()((set, get) => {
                 applyLocalPatch: false,
             });
         },
-        updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => {
+        updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk' | 'accept_edits' | 'bypass_permissions' | 'dont_ask') => {
             const s = get();
             const session = s.sessions[sessionId] ?? s.sharedSessions[sessionId];
             if (!session) return;
             const flavor = session.metadata?.flavor;
             const agentType = resolveSessionModeAgentType(flavor);
-            if (flavor === 'claude' || flavor === 'gemini') {
+            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder') {
                 void sync.changePermissionMode(sessionId, mode);
             }
             set((state) => {

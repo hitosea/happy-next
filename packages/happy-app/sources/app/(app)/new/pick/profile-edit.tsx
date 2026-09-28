@@ -36,7 +36,7 @@ export default function ProfileEditScreen() {
             name: '',
             anthropicConfig: {},
             environmentVariables: [],
-            compatibility: { claude: true, codex: true, gemini: true },
+            compatibility: { claude: true, codex: true, gemini: true, qoder: true },
             isBuiltIn: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),

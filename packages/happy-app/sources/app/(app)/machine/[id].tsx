@@ -41,12 +41,13 @@ import { isRunningOnMac } from '@/utils/platform';
 import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { MODEL_MODE_DEFAULT } from 'happy-wire';
 
-type AgentType = 'claude' | 'codex' | 'gemini';
+type AgentType = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 const AGENT_LABELS: Record<AgentType, string> = {
     claude: 'Claude',
     codex: 'Codex',
     gemini: 'Gemini',
+    qoder: 'Qoder',
 };
 
 function resolveSessionModeForAgent(agent: AgentType) {
@@ -186,8 +187,9 @@ export default function MachineDetailScreen() {
         if (cliAvailability.claude === true) agents.push('claude');
         if (cliAvailability.codex === true) agents.push('codex');
         if (cliAvailability.gemini === true) agents.push('gemini');
+        if (cliAvailability.qoder === true) agents.push('qoder');
         return agents.length > 0 ? agents : ['claude'];
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini]);
+    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder]);
 
     const pathsToShow = useMemo<string[]>(() => {
         if (isShowingCompletions) return directoryCompletions;

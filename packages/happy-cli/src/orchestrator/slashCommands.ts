@@ -42,7 +42,7 @@ export type ExpandedOrchestratorSlashCommand = {
 };
 
 export function expandOrchestratorSlashCommand(message: string): ExpandedOrchestratorSlashCommand | null {
-  const match = message.trim().match(/^\/orchestrator:(claude|codex|gemini)(?:\s+([\s\S]*))?$/);
+  const match = message.trim().match(/^\/orchestrator:(claude|codex|gemini|qoder)(?:\s+([\s\S]*))?$/);
   if (!match) return null;
 
   const provider = match[1] as OrchestratorProvider;

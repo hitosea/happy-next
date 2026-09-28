@@ -19,7 +19,7 @@ POST /v1/orchestrator/submit
 | `tasks` | array | 任务定义数组（1–32 个） |
 | `tasks[].taskKey` | string | 稳定的键，供其他任务的 `dependsOn` 引用本任务 |
 | `tasks[].title` | string | 任务标题 |
-| `tasks[].provider` | string | `claude`、`codex` 或 `gemini` |
+| `tasks[].provider` | string | `claude`、`codex`、`gemini` 或 `qoder` |
 | `tasks[].model` | string | 模型标识符 |
 | `tasks[].prompt` | string | 任务提示/指令（必填） |
 | `tasks[].workingDirectory` | string | 工作目录路径 |

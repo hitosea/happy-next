@@ -1,0 +1,97 @@
+---
+title: "Qoder 模式"
+description: "将 Happy Next 与 Qoder CLI 配合使用，进行 AI 驱动的编程。"
+---
+
+使用以下命令启动 Qoder 会话：
+
+```bash
+happy qoder
+```
+
+## 前置条件
+
+Qoder CLI 是**同一个程序的两个发行版**，Happy 会自动选择与你机器匹配的那个，你只需安装自己所在区域的版本。
+
+| | 命令 | npm 包 | 安装脚本 | 配置目录 |
+| --- | --- | --- | --- | --- |
+| 国际版 | `qoder` | `@qoder-ai/qodercli` | `curl -fsSL https://qoder.com/install \| bash` | `~/.qoder` |
+| 国内版（CN） | `qodercn` | `@qodercn-ai/qoderclicn` | `curl -fsSL https://static.qoder.com.cn/qoder-cli-cn/install.sh \| bash` | `~/.qoder-cn` |
+
+安装国际版（需要 Node.js 20 或更高版本）：
+
+```bash
+npm install -g @qoder-ai/qodercli
+```
+
+或使用安装脚本：
+
+```bash
+curl -fsSL https://qoder.com/install | bash
+```
+
+检查安装结果：
+
+```bash
+qoder --version
+```
+
+Happy 按以下顺序确定可执行文件：如果设置了 `HAPPY_QODER_PATH` 则优先使用；否则选择与宿主环境匹配的发行版（Qoder CN 桌面版会上报 `qoder-cn`）；再否则选另一个。需要指定版本时：
+
+```bash
+HAPPY_QODER_PATH=/usr/local/bin/qodercn happy qoder
+```
+
+<Note>
+  登录态是**按发行版独立的**。Qoder 国内版账户不会让国际版 CLI 变成已登录，所以即使桌面应用明显已登录，驱动错的那个可执行文件仍会表现为「未登录」。
+</Note>
+
+Qoder 使用你的 **Qoder 账户**登录，而不是推理 API 密钥，因此没有 `happy connect qoder` 这一步——Happy 无法持有或刷新账户登录态。请先自行登录一次：交互式运行 `qoder`，或执行：
+
+```bash
+qodercli login
+```
+
+国内版请直接运行一次 `qodercn`，完成它启动的首次登录。
+
+凭据保存在 Qoder 自己的配置目录中（国际版 `~/.qoder`，国内版 `~/.qoder-cn`，可通过 `--config-dir` 覆盖），Happy 不会读取或存储它们。
+
+## 模型配置
+
+Qoder 的模型列表**随账户和区域而定**，因此 Happy 会在会话启动时从 CLI 读取并展示你账户真实可用的选项。在个人国内版账户上实测到的档位为：`Auto (default)`、`Qwen3.8-Max`、`Qwen3.8-Flash`、`Qwen3.7-Max`、`Qwen3.7-Plus`、`Qwen3.7-Flash`、`DeepSeek-V4-Pro`、`DeepSeek-Flash`、`GLM-5.3`、`GLM-5.3-Flash`、`GLM-5.2`、`Kimi-K3`、`Kimi-K2.8-Preview`、`MiniMax-M2.7`，每个都带 credit 倍率，所以这里不给出固定清单。
+
+在应用中创建或配置会话时选择模型，或用 `HAPPY_QODER_MODEL` 为新的终端会话指定。填入的值是 Qoder 自身的模型 id，而非显示名：`auto`、`qmodel_38max`、`qfmodel`、`qmodel_latest`、`qmodel`、`q37fmodel`、`dmodel`、`dfmodel`、`gmodel`、`gfmodel`、`gm51model`、`kmodel_latest`、`kmodel`、`mmodel`。`qodercn --list-models` 会打印当前登录账户的显示名。
+
+底层由 Happy 以 `qoder-` 前缀存储（如 `qoder-auto`），启动时去掉前缀，CLI 实际收到的是 `qoder --model auto`。这里没有固定档位阶梯：你账户能列出什么，就能传什么。
+
+## 权限模式
+
+Qoder 有**两套审批模式词表，拼写并不相同**，因此要区分清楚你操作的是哪一套：
+
+| ACP 模式 id（Happy 与应用使用） | CLI `--permission-mode` 取值 | 含义 |
+| --- | --- | --- |
+| `default` | `default` | 逐项请求批准 |
+| `acceptEdits` | `accept_edits` | 自动批准编辑类工具 |
+| `auto` | `auto` | 由安全分类器决定是否自动批准 |
+| `dontAsk` | `dont_ask` | 直接**拒绝**，而不是询问 |
+| `yolo` | `bypass_permissions`（亦即 `--yolo`） | 自动批准所有工具 |
+
+Happy 通过 ACP 驱动 Qoder，所以应用展示和发送的是左列；只有在启动进程时才映射成右列的 flag。ACP 侧没有 `plan` 档，尽管命令行 flag 接受它。`dontAsk` 字面看像“别再问我”，实际含义相反——它是直接拒绝那一档。
+
+## 恢复会话
+
+Qoder 自己保存会话历史，Happy 只记住原生的会话 id 并在会话重启时回传——因此由 Qoder 重新加载对话，而不是重放复制的转录记录。这也意味着你直接用 `qoder` 启动的会话同样可以恢复。相关的原生命令行参数：`--continue` / `-c`、`--resume` / `-r`、`--session-id`、`--list-sessions`、`--fork-session`。
+
+Happy 还能读取某个目录下 Qoder 自己的会话列表，并原生分叉会话——"复制会话"走的就是这条路：副本会得到属于自己的对话，而不是接着写进原会话。
+
+<Note>
+  Qoder 只报告会返回它运行时所在目录的会话，因此与 Claude/Gemini/Codex 不同，Qoder 没有跨目录的"我全部历史会话"列表：从历史中挑选只能按项目目录提供。
+</Note>
+
+## 工作原理
+
+Happy 以 `qoder --acp` 启动 Qoder，并通过 Agent Client Protocol (ACP) 进行通信，与 Gemini 属于同一种传输方式。所有 Happy 功能（移动端控制、语音、编排）均适用于 Qoder 会话，包括由[编排器](/zh/cli/orchestrator)向 Qoder 分发一次性任务。
+
+<Warning>
+**从 Qoder 宿主环境的终端启动。** 如果 Happy 是从继承了 Qoder Agent SDK 或桌面应用环境的 shell 中启动的，`QODER_AGENT_SDK_ENTRYPOINT` 已被设置，此时直接运行 `qoder --acp` 会报错 `sdk_invalid_args: Agent SDK entrypoint env is set but required flags are missing`。Happy 在拉起 Qoder 时会清除该变量，因此 `happy qoder` 仍可正常工作；但在同一 shell 中自行运行 `qoder` 会遇到该错误。请改用普通终端，或取消设置该变量。
+</Warning>

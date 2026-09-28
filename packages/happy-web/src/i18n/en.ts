@@ -71,11 +71,12 @@ export default {
     ],
   },
   multiAgent: {
-    title: 'Three Agents. One App.',
-    subtitle: 'Happy Next treats Claude Code, Codex, and Gemini as equal first-class agents.',
+    title: 'Four Agents. One App.',
+    subtitle: 'Happy Next treats Claude Code, Codex, Gemini, and Qoder as equal first-class agents.',
     claude: { name: 'Claude Code', description: 'Anthropic\'s coding agent with deep reasoning.' },
     codex: { name: 'Codex', description: 'OpenAI\'s CLI agent for code generation.' },
     gemini: { name: 'Gemini CLI', description: 'Google\'s AI agent for the terminal.' },
+    qoder: { name: 'Qoder CLI', description: 'Qoder\'s coding agent for the terminal.' },
   },
   download: {
     title: 'Get the App',

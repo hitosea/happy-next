@@ -88,6 +88,7 @@ const ProfileCompatibilitySchema = z.object({
     claude: z.boolean().default(true),
     codex: z.boolean().default(true),
     gemini: z.boolean().default(true),
+    qoder: z.boolean().default(true),
 });
 
 export const AIBackendProfileSchema = z.object({
@@ -116,13 +117,13 @@ export const AIBackendProfileSchema = z.object({
     defaultSessionType: z.enum(['simple', 'worktree']).optional(),
 
     // Default permission mode for this profile
-    defaultPermissionMode: z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo']).optional(),
+    defaultPermissionMode: z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo', 'dontAsk', 'accept_edits', 'bypass_permissions', 'dont_ask']).optional(),
 
     // Default model mode for this profile
     defaultModelMode: z.string().optional(),
 
     // Compatibility metadata
-    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true }),
+    compatibility: ProfileCompatibilitySchema.default({ claude: true, codex: true, gemini: true, qoder: true }),
 
     // Built-in profile indicator
     isBuiltIn: z.boolean().default(false),
@@ -136,7 +137,7 @@ export const AIBackendProfileSchema = z.object({
 export type AIBackendProfile = z.infer<typeof AIBackendProfileSchema>;
 
 // Helper functions for profile validation and compatibility
-export function validateProfileForAgent(profile: AIBackendProfile, agent: 'claude' | 'codex' | 'gemini'): boolean {
+export function validateProfileForAgent(profile: AIBackendProfile, agent: 'claude' | 'codex' | 'gemini' | 'qoder'): boolean {
     return profile.compatibility[agent];
 }
 
@@ -302,11 +303,13 @@ export const SettingsSchema = z.object({
             claude: z.boolean().optional(),
             codex: z.boolean().optional(),
             gemini: z.boolean().optional(),
+            qoder: z.boolean().optional(),
         })).default({}),
         global: z.object({
             claude: z.boolean().optional(),
             codex: z.boolean().optional(),
             gemini: z.boolean().optional(),
+            qoder: z.boolean().optional(),
         }).default({}),
     }).default({ perMachine: {}, global: {} }).describe('Tracks which CLI installation warnings user has dismissed (per-machine or globally)'),
 });

@@ -164,7 +164,7 @@ const rawToolResultContentSchema = z.object({
     permissions: z.object({
         date: z.number(),
         result: z.enum(['approved', 'denied']),
-        mode: z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo']).optional(),
+        mode: z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo', 'dontAsk', 'accept_edits', 'bypass_permissions', 'dont_ask']).optional(),
         allowedTools: z.array(z.string()).optional(),
         decision: z.enum(['approved', 'approved_for_session', 'denied', 'abort']).optional(),
     }).optional(),
@@ -341,7 +341,7 @@ const rawAgentRecordSchema = z.discriminatedUnion('type', [z.object({
 }), z.object({
     // ACP (Agent Communication Protocol) - unified format for all agent providers
     type: z.literal('acp'),
-    provider: z.enum(['gemini', 'codex', 'claude', 'opencode']),
+    provider: z.enum(['gemini', 'codex', 'claude', 'opencode', 'qoder']),
     data: z.discriminatedUnion('type', [
         // Core message types
         z.object({ type: z.literal('reasoning'), message: z.string() }),

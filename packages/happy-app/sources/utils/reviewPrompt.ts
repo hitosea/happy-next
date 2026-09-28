@@ -3,8 +3,10 @@
  * The agent runs in the worktree and has full filesystem + tool access.
  */
 
-export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini'): string {
-    const agentLabel = agent === 'claude' ? 'Claude' : agent === 'codex' ? 'Codex' : 'Gemini';
+import { agentDisplayName } from 'happy-wire';
+
+export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini' | 'qoder'): string {
+    const agentLabel = agentDisplayName(agent);
     return `You are performing a code review on a pull request.
 
 PR URL: ${prUrl}

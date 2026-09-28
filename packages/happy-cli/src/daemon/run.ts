@@ -33,7 +33,72 @@ import {
   type OrchestratorDispatchPayload,
   type OrchestratorFinishStatus,
 } from '@/orchestrator/common';
-import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeGeminiOutputText } from './orchestratorOutput';
+import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine,
+  extractQoderSessionId, extractQoderSessionIdFromJsonLine, normalizeQoderOutputText,
+  normalizeGeminiOutputText } from './orchestratorOutput';
+import { AGENT_FLAVORS, type AgentFlavor } from 'happy-wire';
+
+/**
+ * Happy CLI subcommand that runs each agent. The subcommand is spelled like its flavor, so
+ * one lookup serves both the tmux and the direct-spawn path instead of a ternary chain in
+ * one and a switch in the other.
+ *
+ * Returns null for a flavor this build does not know: `undefined` (no agent requested)
+ * means Claude, but an unrecognised name must not be silently started as something else.
+ */
+function agentSubcommand(agent: AgentFlavor | undefined): AgentFlavor | null {
+  if (agent === undefined) return 'claude';
+  return AGENT_FLAVORS.find(candidate => candidate === agent) ?? null;
+}
+
+/**
+ * Providers that print their child session id as one JSON line on stdout, and the reader
+ * for each. Codex is absent on purpose: it announces the id in a free-text line and is
+ * read from a rolling probe buffer instead.
+ */
+const CHILD_SESSION_ID_FROM_JSON_LINE: Partial<Record<AgentFlavor, (line: string) => string | null>> = {
+  gemini: extractGeminiSessionIdFromJsonLine,
+  qoder: extractQoderSessionIdFromJsonLine,
+};
+
+/** Providers whose stdout is a JSON envelope; the rest report their output verbatim. */
+const OUTPUT_NORMALIZERS: Partial<Record<AgentFlavor, (stdout: string) => string>> = {
+  gemini: normalizeGeminiOutputText,
+  qoder: normalizeQoderOutputText,
+};
+
+/** Same, for the whole captured stdout rather than a single line. */
+const CHILD_SESSION_ID_FROM_STDOUT: Partial<Record<AgentFlavor, (stdout: string) => string | null>> = {
+  gemini: extractGeminiSessionId,
+  qoder: extractQoderSessionId,
+};
+
+/**
+ * Environment that tells a resumed agent where its previous conversation lives.
+ *
+ * Qoder is the odd one out: it reopens its history itself through ACP `session/load`, so
+ * unlike the others it needs no backfill flag to replay a transcript Happy copied.
+ */
+const RESUME_ENV_BY_AGENT: Record<AgentFlavor, (resumeSessionId: string, skipForkSession: boolean | undefined) => Record<string, string>> = {
+  claude: (resumeSessionId, skipForkSession) => ({
+    HAPPY_CLAUDE_BACKFILL: '1',
+    HAPPY_CLAUDE_BACKFILL_MAX_MESSAGES: '200',
+    HAPPY_CLAUDE_BACKFILL_MAX_USER_MESSAGES: '20',
+    HAPPY_CLAUDE_RESUME_SESSION_ID: resumeSessionId,
+    ...(skipForkSession ? { HAPPY_CLAUDE_SKIP_FORK_SESSION: '1' } : {}),
+  }),
+  gemini: resumeSessionId => ({
+    HAPPY_GEMINI_RESUME_SESSION_ID: resumeSessionId,
+    HAPPY_GEMINI_BACKFILL: '1',
+  }),
+  qoder: resumeSessionId => ({
+    HAPPY_QODER_RESUME_SESSION_ID: resumeSessionId,
+  }),
+  codex: resumeSessionId => ({
+    HAPPY_CODEX_RESUME_FILE: resumeSessionId,
+    HAPPY_CODEX_BACKFILL: '1',
+  }),
+};
 
 const ORCHESTRATOR_WATCHDOG_GRACE_MS = 5_000;
 const ORCHESTRATOR_OUTPUT_CAPTURE_LIMIT = 64_000;
@@ -52,7 +117,7 @@ export const initialMachineMetadata: MachineMetadata = {
 // Get environment variables for a profile, filtered for agent compatibility
 async function getProfileEnvironmentVariablesForAgent(
   profileId: string,
-  agentType: 'claude' | 'codex' | 'gemini'
+  agentType: 'claude' | 'codex' | 'gemini' | 'qoder'
 ): Promise<Record<string, string>> {
   try {
     const settings = await readSettings();
@@ -258,8 +323,9 @@ export async function startDaemon(): Promise<void> {
         return;
       }
       execution.finishReportPromise = (async () => {
-        const normalizedStdout = execution.payload.provider === 'gemini'
-          ? normalizeGeminiOutputText(execution.stdout)
+        const normalizeOutput = OUTPUT_NORMALIZERS[execution.payload.provider];
+        const normalizedStdout = normalizeOutput
+          ? normalizeOutput(execution.stdout)
           : execution.stdout.trim();
         const outputText = [normalizedStdout, execution.stderr.trim()].filter(Boolean).join('\n');
         const outputSummary = buildOutputSummary(normalizedStdout, execution.stderr);
@@ -295,8 +361,9 @@ export async function startDaemon(): Promise<void> {
         return;
       }
 
-      if (!execution.detectedChildSessionId && execution.payload.provider === 'gemini' && execution.payload.executionType === 'initial') {
-        const parsed = extractGeminiSessionId(execution.stdout);
+      if (!execution.detectedChildSessionId && execution.payload.executionType === 'initial') {
+        const readSessionId = CHILD_SESSION_ID_FROM_STDOUT[execution.payload.provider];
+        const parsed = readSessionId?.(execution.stdout);
         if (parsed) {
           execution.detectedChildSessionId = parsed;
         }
@@ -375,25 +442,26 @@ export async function startDaemon(): Promise<void> {
         const text = chunk.toString();
         execution.stdout = appendOutputChunk(execution.stdout, text, ORCHESTRATOR_OUTPUT_CAPTURE_LIMIT);
 
-        if (!execution.detectedChildSessionId) {
-          if (payload.provider === 'codex' && payload.executionType === 'initial') {
+        if (!execution.detectedChildSessionId && payload.executionType === 'initial') {
+          const readSessionId = CHILD_SESSION_ID_FROM_JSON_LINE[payload.provider];
+          if (readSessionId) {
+            execution.stdoutLineBuffer += text;
+            const lines = execution.stdoutLineBuffer.split(/\r?\n/);
+            execution.stdoutLineBuffer = lines.pop() ?? '';
+            for (const line of lines) {
+              const parsed = readSessionId(line);
+              if (parsed) {
+                execution.detectedChildSessionId = parsed;
+                break;
+              }
+            }
+          } else if (payload.provider === 'codex') {
             const probe = `${execution.stdoutLineBuffer}${text}`;
             const parsed = extractCodexSessionId(probe);
             if (parsed) {
               execution.detectedChildSessionId = parsed;
             }
             execution.stdoutLineBuffer = probe.slice(-256);
-          } else if (payload.provider === 'gemini' && payload.executionType === 'initial') {
-            execution.stdoutLineBuffer += text;
-            const lines = execution.stdoutLineBuffer.split(/\r?\n/);
-            execution.stdoutLineBuffer = lines.pop() ?? '';
-            for (const line of lines) {
-              const parsed = extractGeminiSessionIdFromJsonLine(line);
-              if (parsed) {
-                execution.detectedChildSessionId = parsed;
-                break;
-              }
-            }
           }
         }
       });
@@ -620,22 +688,9 @@ export async function startDaemon(): Promise<void> {
 
         // Final merge: Profile vars first, then auth (auth takes precedence to protect authentication)
         let extraEnv = { ...profileEnv, ...authEnv };
-        if (resumeSessionId && isClaudeAgent) {
-          extraEnv.HAPPY_CLAUDE_BACKFILL = '1';
-          extraEnv.HAPPY_CLAUDE_BACKFILL_MAX_MESSAGES = '200';
-          extraEnv.HAPPY_CLAUDE_BACKFILL_MAX_USER_MESSAGES = '20';
-          extraEnv.HAPPY_CLAUDE_RESUME_SESSION_ID = resumeSessionId;
-          if (skipForkSession) {
-            extraEnv.HAPPY_CLAUDE_SKIP_FORK_SESSION = '1';
-          }
-        }
-        if (resumeSessionId && options.agent === 'gemini') {
-          extraEnv.HAPPY_GEMINI_RESUME_SESSION_ID = resumeSessionId;
-          extraEnv.HAPPY_GEMINI_BACKFILL = '1';
-        }
-        if (resumeSessionId && options.agent === 'codex') {
-          extraEnv.HAPPY_CODEX_RESUME_FILE = resumeSessionId;
-          extraEnv.HAPPY_CODEX_BACKFILL = '1';
+        const resumeAgent = agentSubcommand(options.agent);
+        if (resumeSessionId && resumeAgent) {
+          Object.assign(extraEnv, RESUME_ENV_BY_AGENT[resumeAgent](resumeSessionId, skipForkSession));
         }
         // Session title - passed to all agents (Claude, Codex, Gemini)
         if (sessionTitle) {
@@ -754,8 +809,7 @@ export async function startDaemon(): Promise<void> {
 
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
-          // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : 'claude');
+          const agent = agentSubcommand(options.agent) ?? 'claude';
           const forkFlag = skipForkSession ? '' : ' --fork-session';
           const resumeArgs = resumeSessionId && isClaudeAgent ? ` --resume ${resumeSessionId}${forkFlag}` : '';
           const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agent} --happy-starting-mode remote --started-by daemon${resumeArgs}`;
@@ -841,24 +895,13 @@ export async function startDaemon(): Promise<void> {
         if (!useTmux) {
           logger.debug(`[DAEMON RUN] Using regular process spawning`);
 
-          // Construct arguments for the CLI - support claude, codex, and gemini
-          let agentCommand: string;
-          switch (options.agent) {
-            case 'claude':
-            case undefined:
-              agentCommand = 'claude';
-              break;
-            case 'codex':
-              agentCommand = 'codex';
-              break;
-            case 'gemini':
-              agentCommand = 'gemini';
-              break;
-            default:
-              return {
-                type: 'error',
-                errorMessage: `Unsupported agent type: '${options.agent}'. Please update your CLI to the latest version.`
-              };
+          // Construct arguments for the CLI
+          const agentCommand = agentSubcommand(options.agent);
+          if (!agentCommand) {
+            return {
+              type: 'error',
+              errorMessage: `Unsupported agent type: '${options.agent}'. Please update your CLI to the latest version.`
+            };
           }
           const args = [
             agentCommand,

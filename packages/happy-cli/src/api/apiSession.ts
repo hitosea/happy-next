@@ -18,6 +18,7 @@ import { registerCommonHandlers } from '../modules/common/registerCommonHandlers
 import { registerToolImageForCall } from '../modules/common/toolImageStore';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
+import type { OrchestratorProvider } from '@/orchestrator/common';
 
 
 function stripCapabilitiesFromMetadata(metadata: Metadata): Metadata {
@@ -56,9 +57,7 @@ export type ACPMessageData =
     // Usage/metrics
     | { type: 'token_count';[key: string]: unknown };
 
-export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode';
-
-type OrchestratorProvider = 'claude' | 'codex' | 'gemini';
+export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'qoder' | 'opencode';
 
 type OrchestratorSubmitTask = {
     taskKey?: string;
@@ -878,7 +877,7 @@ export class ApiSessionClient extends EventEmitter {
      * @param provider - The agent provider sending the message (e.g., 'gemini', 'codex', 'claude')
      * @param body - The message payload (type: 'message' | 'reasoning' | 'tool-call' | 'tool-result')
      */
-    sendAgentMessage(provider: 'gemini' | 'codex' | 'claude' | 'opencode', body: ACPMessageData) {
+    sendAgentMessage(provider: ACPProvider, body: ACPMessageData) {
         if (body.type === 'tool-call') {
             registerToolImageForCall(this.sessionId, this.metadata?.path, body.name, body.callId, body.input);
         }

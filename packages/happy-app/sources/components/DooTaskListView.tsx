@@ -15,6 +15,8 @@ import { parseFlowItem, FLOW_STATUS_COLORS } from '@/sync/dootask/types';
 import type { DooTaskItem, DooTaskProject } from '@/sync/dootask/types';
 import { useShallow } from 'zustand/react/shallow';
 import { useMainTabBottomPadding } from '@/hooks/useMainTabBottomPadding';
+import { flavorIcons } from '@/components/Avatar';
+import type { AgentFlavor } from 'happy-wire';
 
 /**
  * Format end_at date as countdown or short date (matches DooTask dashboard logic).
@@ -47,12 +49,6 @@ function formatEndAt(endAt: string): string {
 }
 
 // --- Flavor icons for AI providers ---
-const flavorIconSources: Record<string, any> = {
-    claude: require('@/assets/images/icon-claude.png'),
-    codex: require('@/assets/images/icon-gpt.png'),
-    gemini: require('@/assets/images/icon-gemini.png'),
-};
-
 /** Build a map of taskId → unique flavor strings from all sessions linked to dootask tasks. */
 function useTaskFlavorsMap(serverUrl: string | undefined): Record<string, string[]> {
     const sessions = storage(useShallow((s) => s.sessions));
@@ -65,7 +61,7 @@ function useTaskFlavorsMap(serverUrl: string | undefined): Record<string, string
             if (!ctx || ctx.source !== 'dootask' || ctx.resourceType !== 'task') continue;
             if (ctx.sourceUrl && ctx.sourceUrl.replace(/\/+$/, '').toLowerCase() !== normalizedUrl) continue;
             const flavor = s.metadata?.flavor;
-            if (!flavor || !flavorIconSources[flavor]) continue;
+            if (!flavor || !flavorIcons[flavor as AgentFlavor]) continue;
             (map[ctx.resourceId] ??= new Set()).add(flavor);
         }
         const result: Record<string, string[]> = {};
@@ -109,7 +105,7 @@ const FlavorBadges = React.memo(({ flavors }: { flavors: string[] }) => {
                         }}
                     >
                         <Image
-                            source={flavorIconSources[flavor]}
+                            source={flavorIcons[flavor as AgentFlavor]}
                             style={{ width: iconSize, height: iconSize }}
                             contentFit="contain"
                             tintColor={flavor === 'codex' ? theme.colors.text : undefined}

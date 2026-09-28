@@ -20,6 +20,7 @@ describe('orchestrator slash commands', () => {
       'orchestrator:claude',
       'orchestrator:codex',
       'orchestrator:gemini',
+      'orchestrator:qoder',
     ]);
   });
 

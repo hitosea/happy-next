@@ -10,7 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
-import { t } from '@/text';
+import { t, type TranslationKey } from '@/text';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useHeaderHeight } from '@/utils/responsive';
@@ -34,6 +34,7 @@ import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
+import { CliNotDetectedBanner } from '@/components/CliNotDetectedBanner';
 import { useEnvironmentVariables, resolveEnvVarSubstitution, extractEnvVarReferences } from '@/hooks/useEnvironmentVariables';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { resolveAbsolutePath } from '@/utils/pathUtils';
@@ -46,12 +47,13 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
+import { AGENT_FLAVORS, MODEL_MODE_DEFAULT, agentDisplayName, isModelModeForAgent, getPermissionModesForAgent, type AgentFlavor } from 'happy-wire';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
 import { getDooTaskProjectId, getRecentDooTaskProjectConfig } from '@/utils/dootaskSessionDefaults';
 import { openExternalUrl } from '@/utils/tauri';
+import { permissionModeOptionsForAgent } from '@/utils/permissionModeOptions';
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -66,6 +68,47 @@ export const callbacks = {
     }
 }
 
+/**
+ * How to install and where to read about each agent CLI, for the "not detected" banners.
+ * One row per agent: the banner itself is rendered by `CliNotDetectedBanner`.
+ */
+const CLI_SETUP: {
+    cli: AgentFlavor;
+    name: string;
+    installKey: TranslationKey;
+    docsLabelKey: TranslationKey;
+    docsUrl: string;
+}[] = [
+    {
+        cli: 'claude',
+        name: 'Claude',
+        installKey: 'wizard.installClaude',
+        docsLabelKey: 'wizard.viewInstallGuide',
+        docsUrl: 'https://docs.anthropic.com/en/docs/claude-code/installation',
+    },
+    {
+        cli: 'codex',
+        name: 'Codex',
+        installKey: 'wizard.installCodex',
+        docsLabelKey: 'wizard.viewInstallGuide',
+        docsUrl: 'https://github.com/openai/openai-codex',
+    },
+    {
+        cli: 'gemini',
+        name: 'Gemini',
+        installKey: 'wizard.installGemini',
+        docsLabelKey: 'wizard.viewGeminiDocs',
+        docsUrl: 'https://ai.google.dev/gemini-api/docs/get-started',
+    },
+    {
+        cli: 'qoder',
+        name: 'Qoder',
+        installKey: 'wizard.installQoder',
+        docsLabelKey: 'wizard.viewQoderDocs',
+        docsUrl: 'https://www.npmjs.com/package/@qoder-ai/qodercli',
+    },
+];
+
 // Optimized profile lookup utility
 const useProfileMap = (profiles: AIBackendProfile[]) => {
     return React.useMemo(() =>
@@ -76,7 +119,7 @@ const useProfileMap = (profiles: AIBackendProfile[]) => {
 
 // Environment variable transformation helper
 // Returns ALL profile environment variables - daemon will use them as-is
-const transformProfileToEnvironmentVars = (profile: AIBackendProfile, agentType: 'claude' | 'codex' | 'gemini' = 'claude') => {
+const transformProfileToEnvironmentVars = (profile: AIBackendProfile, agentType: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude') => {
     // getProfileEnvironmentVariables already returns ALL env vars from profile
     // including custom environmentVariables array and provider-specific configs
     return getProfileEnvironmentVariables(profile);
@@ -341,27 +384,28 @@ function NewSessionWizard() {
         }
         return 'anthropic'; // Default to Anthropic
     });
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
+    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'qoder'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
             return tempSessionData.agentType;
         }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
+        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini' || lastUsedAgent === 'qoder') {
             return lastUsedAgent;
         }
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
-    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
+    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', PermissionMode>>>({});
+    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', ModelMode>>>({});
 
-    // Agent cycling handler (for cycling through claude -> codex -> gemini)
+    // Agent cycling handler (for cycling through claude -> codex -> gemini -> qoder)
     // Note: Does NOT persist immediately - persistence is handled by useEffect below
     const handleAgentClick = React.useCallback(() => {
         setAgentType(prev => {
-            // Cycle: claude -> codex -> gemini -> claude
+            // Cycle: claude -> codex -> gemini -> qoder -> claude
             if (prev === 'claude') return 'codex';
             if (prev === 'codex') return 'gemini';
+            if (prev === 'gemini') return 'qoder';
             return 'claude';
         });
     }, []);
@@ -379,11 +423,7 @@ function NewSessionWizard() {
     const folderPickerRef = React.useRef<BottomSheetModal>(null);
     const [permissionMode, setPermissionMode] = React.useState<PermissionMode>(() => {
         const mode = lastUsedSessionMode?.permissionMode;
-
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
-        const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
-        const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : validClaudeModes;
+        const validModes = getPermissionModesForAgent(agentType);
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -580,7 +620,7 @@ function NewSessionWizard() {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [imagePickerSheetVisible, setImagePickerSheetVisible] = React.useState(false);
 
-    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex';
+    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder';
     const isFocused = useIsFocused();
 
     const handleImageButtonPress = React.useCallback(() => {
@@ -700,16 +740,17 @@ function NewSessionWizard() {
 
         if (agentAvailable === false) {
             // Current agent not available - find first available
-            const availableAgent: 'claude' | 'codex' | 'gemini' =
+            const availableAgent: 'claude' | 'codex' | 'gemini' | 'qoder' =
                 cliAvailability.claude === true ? 'claude' :
                 cliAvailability.codex === true ? 'codex' :
                 cliAvailability.gemini === true ? 'gemini' :
+                cliAvailability.qoder === true ? 'qoder' :
                 'claude'; // Fallback to claude (will fail at spawn with clear error)
 
             console.warn(`[AgentSelection] ${agentType} not available, switching to ${availableAgent}`);
             setAgentType(availableAgent);
         }
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, agentType]);
+    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder, agentType]);
 
     // Extract all ${VAR} references from profiles to query daemon environment
     const envVarRefs = React.useMemo(() => {
@@ -725,10 +766,10 @@ function NewSessionWizard() {
     const { variables: daemonEnv } = useEnvironmentVariables(selectedMachineId, envVarRefs);
 
     // Temporary banner dismissal (X button) - resets when component unmounts or machine changes
-    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean }>({ claude: false, codex: false, gemini: false });
+    const [hiddenBanners, setHiddenBanners] = React.useState<{ claude: boolean; codex: boolean; gemini: boolean; qoder: boolean }>({ claude: false, codex: false, gemini: false, qoder: false });
 
     // Helper to check if CLI warning has been dismissed (checks both global and per-machine)
-    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini'): boolean => {
+    const isWarningDismissed = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'qoder'): boolean => {
         // Check global dismissal first
         if (dismissedCLIWarnings.global?.[cli] === true) return true;
         // Check per-machine dismissal
@@ -737,7 +778,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, dismissedCLIWarnings]);
 
     // Unified dismiss handler for all three button types (easy to use correctly, hard to use incorrectly)
-    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini', type: 'temporary' | 'machine' | 'global') => {
+    const handleCLIBannerDismiss = React.useCallback((cli: 'claude' | 'codex' | 'gemini' | 'qoder', type: 'temporary' | 'machine' | 'global') => {
         if (type === 'temporary') {
             // X button: Hide for current session only (not persisted)
             setHiddenBanners(prev => ({ ...prev, [cli]: true }));
@@ -774,7 +815,7 @@ function NewSessionWizard() {
         const supportedCLIs = (Object.entries(profile.compatibility) as [string, boolean][])
             .filter(([, supported]) => supported)
             .map(([agent]) => agent);
-        const requiredCLI = supportedCLIs.length === 1 ? supportedCLIs[0] as 'claude' | 'codex' | 'gemini' : null;
+        const requiredCLI = supportedCLIs.length === 1 ? supportedCLIs[0] as 'claude' | 'codex' | 'gemini' | 'qoder' : null;
 
         // Only disable if required CLI is not detected on machine
         if (requiredCLI && cliAvailability[requiredCLI] === false) {
@@ -1018,7 +1059,7 @@ function NewSessionWizard() {
                 .map(([agent]) => agent);
 
             if (supportedCLIs.length === 1) {
-                const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini';
+                const requiredAgent = supportedCLIs[0] as 'claude' | 'codex' | 'gemini' | 'qoder';
                 // Check if this agent is available
                 const isAvailable = cliAvailability[requiredAgent] !== false;
 
@@ -1038,14 +1079,11 @@ function NewSessionWizard() {
                 applyManualPermissionMode(profile.defaultPermissionMode as PermissionMode);
             }
         }
-    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, applyManualPermissionMode]);
+    }, [profileMap, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder, applyManualPermissionMode]);
 
     // Restore saved permission mode when agent type changes
     React.useEffect(() => {
-        const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
-        const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
-        const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : validClaudeModes;
+        const validModes = getPermissionModesForAgent(agentType);
         const manualMode = manualPermissionModeByAgentRef.current[agentType];
 
         if (manualMode && validModes.includes(manualMode)) {
@@ -1130,7 +1168,7 @@ function NewSessionWizard() {
             name: '',
             anthropicConfig: {},
             environmentVariables: [],
-            compatibility: { claude: true, codex: true, gemini: true },
+            compatibility: { claude: true, codex: true, gemini: true, qoder: true },
             isBuiltIn: false,
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -1170,18 +1208,14 @@ function NewSessionWizard() {
         }
 
         // Add CLI type second (before warnings/availability)
-        const supportedCliLabels = ([
-            ['claude', 'Claude'],
-            ['codex', 'Codex'],
-            ['gemini', 'Gemini'],
-        ] as const)
-            .filter(([agent]) => profile.compatibility[agent])
-            .map(([, label]) => label);
+        const supportedCliLabels = AGENT_FLAVORS
+            .filter((agent) => profile.compatibility[agent])
+            .map((agent) => agentDisplayName(agent));
 
-        if (supportedCliLabels.length === 3) {
-            parts.push('Claude, Codex & Gemini CLI');
-        } else if (supportedCliLabels.length === 2) {
-            parts.push(`${supportedCliLabels[0]} & ${supportedCliLabels[1]} CLI`);
+        if (supportedCliLabels.length >= 2) {
+            // "A, B & C" — same wording the 3-CLI case used before Qoder was added.
+            const lastLabel = supportedCliLabels[supportedCliLabels.length - 1];
+            parts.push(`${supportedCliLabels.slice(0, -1).join(', ')} & ${lastLabel} CLI`);
         } else if (supportedCliLabels.length === 1) {
             parts.push(`${supportedCliLabels[0]} CLI`);
         }
@@ -1189,7 +1223,7 @@ function NewSessionWizard() {
         // Add warning only if CLI not detected
         if (!availability.available && availability.reason?.startsWith('cli-not-detected:')) {
             const cli = availability.reason.split(':')[1];
-            const cliName = cli === 'claude' ? 'Claude' : cli === 'codex' ? 'Codex' : 'Gemini';
+            const cliName = agentDisplayName(cli);
             parts.push(`⚠️ ${cliName} CLI not detected`);
         }
 
@@ -1826,209 +1860,21 @@ function NewSessionWizard() {
                             </Text>
 
                             {/* Missing CLI Installation Banners */}
-                            {selectedMachineId && cliAvailability.claude === false && !isWarningDismissed('claude') && !hiddenBanners.claude && (
-                                <View style={{
-                                    backgroundColor: theme.colors.box.warning.background,
-                                    borderRadius: 10,
-                                    padding: 12,
-                                    marginBottom: 12,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.box.warning.border,
-                                }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 16 }}>
-                                            <Ionicons name="warning" size={16} color={theme.colors.warning} />
-                                            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text, ...Typography.default('semiBold') }}>
-                                                {t('wizard.cliNotDetected', { name: 'Claude' })}
-                                            </Text>
-                                            <View style={{ flex: 1, minWidth: 20 }} />
-                                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                {t('wizard.dontShowFor')}
-                                            </Text>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('claude', 'machine')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.thisMachine')}
-                                                </Text>
-                                            </Pressable>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('claude', 'global')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.anyMachine')}
-                                                </Text>
-                                            </Pressable>
-                                        </View>
-                                        <Pressable
-                                            onPress={() => handleCLIBannerDismiss('claude', 'temporary')}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        >
-                                            <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {t('wizard.installClaude')} •
-                                        </Text>
-                                        <Pressable onPress={() => openExternalUrl('https://docs.anthropic.com/en/docs/claude-code/installation')}>
-                                            <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
-                                                {t('wizard.viewInstallGuide')}
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            )}
-
-                            {selectedMachineId && cliAvailability.codex === false && !isWarningDismissed('codex') && !hiddenBanners.codex && (
-                                <View style={{
-                                    backgroundColor: theme.colors.box.warning.background,
-                                    borderRadius: 10,
-                                    padding: 12,
-                                    marginBottom: 12,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.box.warning.border,
-                                }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 16 }}>
-                                            <Ionicons name="warning" size={16} color={theme.colors.warning} />
-                                            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text, ...Typography.default('semiBold') }}>
-                                                {t('wizard.cliNotDetected', { name: 'Codex' })}
-                                            </Text>
-                                            <View style={{ flex: 1, minWidth: 20 }} />
-                                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                {t('wizard.dontShowFor')}
-                                            </Text>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('codex', 'machine')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.thisMachine')}
-                                                </Text>
-                                            </Pressable>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('codex', 'global')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.anyMachine')}
-                                                </Text>
-                                            </Pressable>
-                                        </View>
-                                        <Pressable
-                                            onPress={() => handleCLIBannerDismiss('codex', 'temporary')}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        >
-                                            <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {t('wizard.installCodex')} •
-                                        </Text>
-                                        <Pressable onPress={() => openExternalUrl('https://github.com/openai/openai-codex')}>
-                                            <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
-                                                {t('wizard.viewInstallGuide')}
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            )}
-
-                            {selectedMachineId && cliAvailability.gemini === false && !isWarningDismissed('gemini') && !hiddenBanners.gemini && (
-                                <View style={{
-                                    backgroundColor: theme.colors.box.warning.background,
-                                    borderRadius: 10,
-                                    padding: 12,
-                                    marginBottom: 12,
-                                    borderWidth: 1,
-                                    borderColor: theme.colors.box.warning.border,
-                                }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 16 }}>
-                                            <Ionicons name="warning" size={16} color={theme.colors.warning} />
-                                            <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text, ...Typography.default('semiBold') }}>
-                                                {t('wizard.cliNotDetected', { name: 'Gemini' })}
-                                            </Text>
-                                            <View style={{ flex: 1, minWidth: 20 }} />
-                                            <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                {t('wizard.dontShowFor')}
-                                            </Text>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('gemini', 'machine')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.thisMachine')}
-                                                </Text>
-                                            </Pressable>
-                                            <Pressable
-                                                onPress={() => handleCLIBannerDismiss('gemini', 'global')}
-                                                style={{
-                                                    borderRadius: 4,
-                                                    borderWidth: 1,
-                                                    borderColor: theme.colors.textSecondary,
-                                                    paddingHorizontal: 8,
-                                                    paddingVertical: 3,
-                                                }}
-                                            >
-                                                <Text style={{ fontSize: 10, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                                    {t('wizard.anyMachine')}
-                                                </Text>
-                                            </Pressable>
-                                        </View>
-                                        <Pressable
-                                            onPress={() => handleCLIBannerDismiss('gemini', 'temporary')}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                        >
-                                            <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
-                                        </Pressable>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-                                        <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                            {t('wizard.installGemini')} •
-                                        </Text>
-                                        <Pressable onPress={() => openExternalUrl('https://ai.google.dev/gemini-api/docs/get-started')}>
-                                            <Text style={{ fontSize: 11, color: theme.colors.textLink, ...Typography.default() }}>
-                                                {t('wizard.viewGeminiDocs')}
-                                            </Text>
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            )}
+                            {selectedMachineId && CLI_SETUP.map(({ cli, ...banner }) => {
+                                if (cliAvailability[cli] !== false || isWarningDismissed(cli) || hiddenBanners[cli]) {
+                                    return null;
+                                }
+                                return (
+                                    <CliNotDetectedBanner
+                                        key={cli}
+                                        name={banner.name}
+                                        installHint={t(banner.installKey)}
+                                        docsLabel={t(banner.docsLabelKey)}
+                                        docsUrl={banner.docsUrl}
+                                        onDismiss={target => handleCLIBannerDismiss(cli, target)}
+                                    />
+                                );
+                            })}
 
                             {/* Custom profiles - show first */}
                             {profiles.map((profile) => {
@@ -2384,28 +2230,7 @@ function NewSessionWizard() {
                                 <Text style={styles.sectionHeader}>5. {t('wizard.step5Title')}</Text>
                             </View>
                             <ItemGroup title="">
-                                {(agentType === 'codex'
-                                    ? [
-                                        { value: 'default' as PermissionMode, label: t('agentInput.codexPermissionMode.default'), description: t('wizard.permCodexDefaultDesc'), icon: 'shield-outline' },
-                                        { value: 'read-only' as PermissionMode, label: t('agentInput.codexPermissionMode.readOnly'), description: t('wizard.permReadOnlyDesc'), icon: 'eye-outline' },
-                                        { value: 'on-failure' as PermissionMode, label: t('agentInput.codexPermissionMode.onFailure'), description: t('wizard.permOnFailureDesc'), icon: 'shield-checkmark-outline' },
-                                        { value: 'full-auto' as PermissionMode, label: t('agentInput.codexPermissionMode.fullAuto'), description: t('wizard.permFullAutoDesc'), icon: 'flash-outline' },
-                                    ]
-                                    : agentType === 'gemini'
-                                        ? [
-                                            { value: 'default' as PermissionMode, label: t('agentInput.geminiPermissionMode.default'), description: t('wizard.permGeminiDefaultDesc'), icon: 'shield-outline' },
-                                            { value: 'auto_edit' as PermissionMode, label: t('wizard.permAutoEdit'), description: t('wizard.permAutoEditDesc'), icon: 'create-outline' },
-                                            { value: 'plan' as PermissionMode, label: t('agentInput.geminiPermissionMode.plan'), description: t('wizard.permGeminiPlanDesc'), icon: 'list-outline' },
-                                            { value: 'yolo' as PermissionMode, label: t('wizard.permYolo'), description: t('wizard.permYoloDesc'), icon: 'warning-outline' },
-                                        ]
-                                        : [
-                                            { value: 'default' as PermissionMode, label: t('wizard.permDefault'), description: t('wizard.permDefaultDesc'), icon: 'shield-outline' },
-                                            { value: 'acceptEdits' as PermissionMode, label: t('wizard.permAcceptEdits'), description: t('wizard.permAcceptEditsDesc'), icon: 'checkmark-outline' },
-                                            { value: 'plan' as PermissionMode, label: t('wizard.permPlan'), description: t('wizard.permPlanDesc'), icon: 'list-outline' },
-                                            { value: 'auto' as PermissionMode, label: t('wizard.permAuto'), description: t('wizard.permAutoDesc'), icon: 'sparkles-outline' },
-                                            { value: 'bypassPermissions' as PermissionMode, label: t('wizard.permBypass'), description: t('wizard.permBypassDesc'), icon: 'flash-outline' },
-                                        ]
-                                ).map((option, index, array) => (
+                                {permissionModeOptionsForAgent(agentType).map((option, index, array) => (
                                     <Item
                                         key={option.value}
                                         title={option.label}
