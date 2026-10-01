@@ -208,7 +208,7 @@
             "label": "GPT-5.6-Sol",
             "shortLabel": "5.6-Sol",
             "displayName": "GPT-5.6-Sol",
-            "description": "Older coding model for complex work.",
+            "description": "Older generation workhorse model.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 272000
         },
