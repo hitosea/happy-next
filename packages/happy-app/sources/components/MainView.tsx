@@ -8,7 +8,6 @@ import { useIsTablet } from '@/utils/responsive';
 import { useRouter, Stack } from 'expo-router';
 import { EmptySessionsTablet } from './EmptySessionsTablet';
 import { SessionsList } from './SessionsList';
-import { FABWide } from './FABWide';
 import { TabBar, TabType } from './TabBar';
 import { InboxView } from './InboxView';
 import { SettingsViewWrapper } from './SettingsViewWrapper';
@@ -32,6 +31,8 @@ import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { ActionMenuModal } from './ActionMenuModal';
 import { MachineSwitcherSheet } from './MachineSwitcherSheet';
 import { useSessionListScope, type SessionListScope } from '@/hooks/useSessionListScope';
+import { getSwitcherDot, type SessionScopeDot as Dot } from './sessionListScope';
+import { SessionScopeDot } from './SessionScopeDot';
 import { useAddMachine } from '@/hooks/useAddMachine';
 import { useSessionsCreateItems } from '@/hooks/useSessionsCreateItems';
 
@@ -115,6 +116,14 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '600',
         ...Typography.default('semiBold'),
     },
+    chevronContainer: {
+        marginLeft: 4,
+    },
+    chevronDot: {
+        position: 'absolute',
+        top: -4,
+        right: -8,
+    },
     headerButton: {
         width: 32,
         height: 32,
@@ -184,8 +193,10 @@ const useConnectionStatusSubtitle = () => {
 // Header title that opens a picker: the title with a chevron. It has to be a custom title view (a
 // pressable with a chevron); the connection status under it stays the native `headerSubtitle`, as
 // with a subtitle drawn in the title view the scroll edge effect under the header comes out thinner.
-const HeaderPickerTitle = React.memo(({ title, onPress }: {
+// An optional status dot sits on the chevron as a badge: something in the picker wants a look.
+const HeaderPickerTitle = React.memo(({ title, dot = 'none', onPress }: {
     title: string;
+    dot?: Dot;
     onPress?: () => void;
 }) => {
     const { theme } = useUnistyles();
@@ -196,7 +207,10 @@ const HeaderPickerTitle = React.memo(({ title, onPress }: {
                 <Text style={[styles.titleText, { maxWidth: 200 }]} numberOfLines={1} ellipsizeMode="tail">
                     {title}
                 </Text>
-                <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} style={{ marginLeft: 4 }} />
+                <View style={styles.chevronContainer}>
+                    <Ionicons name="chevron-down" size={13} color={theme.colors.textSecondary} />
+                    <SessionScopeDot dot={dot} size={7} style={styles.chevronDot} />
+                </View>
             </View>
         </Pressable>
     );
@@ -210,9 +224,14 @@ const GitHubHeaderTitle = React.memo(({ githubRepo, onGithubRepoPress }: { githu
 
 // Header title of the sessions tab — the machine switcher.
 // With one machine or none it reads "Sessions" but still opens the switcher, which is also where
-// machines get added.
+// machines get added. The chevron carries the strongest dot in the switcher, so a permission
+// request or finished task on another machine is not missed.
 const SessionsHeaderTitle = React.memo(({ scope, onPress }: { scope: SessionListScope; onPress: () => void }) => {
-    const { selection, switchable } = scope;
+    const { selection, switchable, groups, sharedDot, sharedByMeDot } = scope;
+    const dot = React.useMemo(
+        () => getSwitcherDot({ groups, sharedDot, sharedByMeDot }),
+        [groups, sharedDot, sharedByMeDot],
+    );
     let title = t('tabs.sessions');
     if (switchable) {
         if (selection === 'all') title = t('sessionScope.allMachines');
@@ -224,6 +243,7 @@ const SessionsHeaderTitle = React.memo(({ scope, onPress }: { scope: SessionList
     return (
         <HeaderPickerTitle
             title={title}
+            dot={dot}
             onPress={onPress}
         />
     );

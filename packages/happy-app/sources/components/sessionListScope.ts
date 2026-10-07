@@ -30,6 +30,21 @@ export function getSessionScopeDot(sessions: Session[]): SessionScopeDot {
     return 'none';
 }
 
+const DOT_RANK: Record<SessionScopeDot, number> = { none: 0, completed: 1, thinking: 2, attention: 3 };
+
+/**
+ * The strongest dot the machine switcher shows — over its machines and sharing views, whatever is
+ * selected — so the phone title carries it and nothing in the switcher goes unnoticed.
+ */
+export function getSwitcherDot({ groups, sharedDot, sharedByMeDot }: {
+    groups: SessionMachineGroup[];
+    sharedDot: SessionScopeDot;
+    sharedByMeDot: SessionScopeDot;
+}): SessionScopeDot {
+    const dots = [...groups.filter(group => !group.unknown).map(group => group.dot), sharedDot, sharedByMeDot];
+    return dots.reduce<SessionScopeDot>((best, dot) => (DOT_RANK[dot] > DOT_RANK[best] ? dot : best), 'none');
+}
+
 export function getMachineDisplayName(machine: Machine | undefined, machineId: string, nameCache: Record<string, string>): string {
     return machine?.metadata?.displayName || machine?.metadata?.host || nameCache[machineId] || machineId;
 }

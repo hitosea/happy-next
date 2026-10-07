@@ -8,6 +8,7 @@ import {
     buildSessionMachineGroups,
     filterMachineGroups,
     getMachineInitials,
+    getSwitcherDot,
     getSessionScopeDot,
     resolveSessionListScope,
     UNKNOWN_MACHINE_GROUP_ID,
@@ -47,6 +48,26 @@ describe('getSessionScopeDot', () => {
         expect(getSessionScopeDot([session('b', 'm', { thinking: true }), session('c', 'm', { agentState: { requests: { r: {} } } })])).toBe('attention');
         expect(getSessionScopeDot([session('a', 'm', { unread: true })])).toBe('completed');
         expect(getSessionScopeDot([session('a', 'm', { presence: 123, thinking: true })])).toBe('none');
+    });
+});
+
+describe('getSwitcherDot', () => {
+    const groups = buildSessionMachineGroups(
+        [session('a1', 'a', { unread: true }), session('b1', 'b', { thinking: true }), session('x1', undefined, { agentState: { requests: { r: {} } } })],
+        { a: machine('a', true, 'a'), b: machine('b', true, 'b') },
+        {},
+    );
+
+    it('takes the strongest dot of the machines and sharing views', () => {
+        expect(getSwitcherDot({ groups, sharedDot: 'none', sharedByMeDot: 'none' })).toBe('thinking');
+        expect(getSwitcherDot({ groups, sharedDot: 'none', sharedByMeDot: 'attention' })).toBe('attention');
+        expect(getSwitcherDot({ groups: [], sharedDot: 'completed', sharedByMeDot: 'none' })).toBe('completed');
+        expect(getSwitcherDot({ groups: [], sharedDot: 'none', sharedByMeDot: 'none' })).toBe('none');
+    });
+
+    it('ignores sessions without a machine, which the switcher does not list', () => {
+        const unknownOnly = buildSessionMachineGroups([session('x1', undefined, { thinking: true })], { a: machine('a', true, 'a') }, {});
+        expect(getSwitcherDot({ groups: unknownOnly, sharedDot: 'none', sharedByMeDot: 'none' })).toBe('none');
     });
 });
 
