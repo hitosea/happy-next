@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { execSync, execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import packageJson from '../../package.json';
 import { isDaemonRunningCurrentlyInstalledHappyVersion, startDaemonDetachedAndAwaitReady } from '@/daemon/controlClient';
 import { readCredentials } from '@/persistence';
@@ -42,6 +43,48 @@ function getLatestVersion(): string | null {
         return execFileSync('npm', ['view', PACKAGE_NAME, 'version'], { encoding: 'utf-8' }).trim();
     } catch {
         return null;
+    }
+}
+
+/**
+ * When run as `sudo happy update`, HOME points at /root, so credentials and
+ * daemon state would be looked up in root's happy dir. Returns the invoking
+ * user so the daemon step can be handled for them instead.
+ */
+function getSudoInvokingUser(): string | null {
+    const sudoUser = process.env.SUDO_USER;
+    if (process.getuid?.() !== 0 || !sudoUser || sudoUser === 'root') {
+        return null;
+    }
+    return sudoUser;
+}
+
+function readSudoUserDaemonVersion(user: string): string | null {
+    try {
+        // -H resolves the user's home dir from the passwd database
+        const home = execFileSync('sudo', ['-u', user, '-H', 'sh', '-c', 'printf %s "$HOME"'], { encoding: 'utf-8' });
+        const state = JSON.parse(readFileSync(join(home, '.happy-next', 'daemon.state.json'), 'utf-8'));
+        process.kill(state.pid, 0);
+        return typeof state.startedWithCliVersion === 'string' ? state.startedWithCliVersion : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Never start the daemon from sudo: it would inherit sudo's reset environment
+ * (secure_path PATH, no user env vars) and lose CLIs like ~/.local/bin/claude.
+ * A running daemon restarts itself on version change and keeps its own env.
+ */
+function reportDaemonForSudoUser(user: string, version: string): void {
+    const daemonVersion = readSudoUserDaemonVersion(user);
+    if (daemonVersion === version) {
+        return;
+    }
+    if (daemonVersion) {
+        console.log(chalk.gray(`ℹ The daemon of user "${user}" will restart itself on v${version} within about a minute.`));
+    } else {
+        console.log(chalk.gray(`ℹ No daemon running for user "${user}". Run "happy daemon start" as "${user}" (without sudo) to start it.`));
     }
 }
 
@@ -88,7 +131,10 @@ export async function handleUpdateCommand(): Promise<void> {
 
         // No upgrade happened, but still make sure the daemon is up and
         // running this version. Silent when it already is.
-        if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
+        const sudoUser = getSudoInvokingUser();
+        if (sudoUser) {
+            reportDaemonForSudoUser(sudoUser, latestVersion);
+        } else if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
             await startDaemonWithFeedback(latestVersion);
         }
         process.exit(0);
@@ -111,7 +157,12 @@ export async function handleUpdateCommand(): Promise<void> {
 
     // Start the daemon on the new version. start-sync is idempotent and
     // takes over an old-version daemon by itself, so no pre-checks needed.
-    await startDaemonWithFeedback(latestVersion);
+    const sudoUser = getSudoInvokingUser();
+    if (sudoUser) {
+        reportDaemonForSudoUser(sudoUser, latestVersion);
+    } else {
+        await startDaemonWithFeedback(latestVersion);
+    }
 
     process.exit(0);
 }
