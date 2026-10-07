@@ -958,20 +958,21 @@ export default function MachineDetailScreen() {
                                         subtitleStyle={{ fontFamily: 'Menlo', fontSize: 13 }}
                                     />
                                 )}
-                                {machine.daemonState.startTime && (
+                                {machine.daemonState.startedAt && (
                                     <Item
                                         title={t('machine.startedAt')}
-                                        subtitle={new Date(machine.daemonState.startTime).toLocaleString()}
-                                    />
-                                )}
-                                {machine.daemonState.startedWithCliVersion && (
-                                    <Item
-                                        title={t('machine.cliVersion')}
-                                        subtitle={machine.daemonState.startedWithCliVersion}
-                                        subtitleStyle={{ fontFamily: 'Menlo', fontSize: 13 }}
+                                        subtitle={new Date(machine.daemonState.startedAt).toLocaleString()}
                                     />
                                 )}
                             </>
+                        )}
+                        {/* The daemon refreshes happyCliVersion in machine metadata on every start */}
+                        {machine.metadata?.happyCliVersion && (
+                            <Item
+                                title={t('machine.cliVersion')}
+                                subtitle={machine.metadata.happyCliVersion}
+                                subtitleStyle={{ fontFamily: 'Menlo', fontSize: 13 }}
+                            />
                         )}
                         <Item
                             title={t('machine.daemonStateVersion')}

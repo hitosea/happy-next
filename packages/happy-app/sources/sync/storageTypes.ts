@@ -286,6 +286,19 @@ export const MachineMetadataSchema = z.object({
 
 export type MachineMetadata = z.infer<typeof MachineMetadataSchema>;
 
+// Mirrors DaemonStateSchema in happy-cli/src/api/types.ts (what the daemon reports).
+// Not the CLI's locally persisted daemon.state.json, which uses different fields.
+export const DaemonStateSchema = z.object({
+    status: z.string(),
+    pid: z.number().optional(),
+    httpPort: z.number().optional(),
+    startedAt: z.number().optional(),
+    shutdownRequestedAt: z.number().optional(),
+    shutdownSource: z.string().optional()
+});
+
+export type DaemonState = z.infer<typeof DaemonStateSchema>;
+
 export interface Machine {
     id: string;
     seq: number;
@@ -295,7 +308,7 @@ export interface Machine {
     activeAt: number;  // Changed from lastActiveAt to activeAt for consistency
     metadata: MachineMetadata | null;
     metadataVersion: number;
-    daemonState: any | null;  // Dynamic daemon state (runtime info)
+    daemonState: DaemonState | null;  // Dynamic daemon state (runtime info)
     daemonStateVersion: number;
 }
 
