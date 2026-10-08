@@ -48,7 +48,7 @@ ARK_API_KEY=
 docker-compose up -d
 ```
 
-首次启动会自动执行数据库迁移，并自动创建 MinIO bucket。
+`happy-server` 每次启动都会自动执行数据库迁移（`prisma migrate deploy`，无新迁移时直接跳过），首次启动还会自动创建 MinIO bucket。升级时只需拉取新镜像并重启，无需手动迁移；如需手动管理迁移，可设置 `SKIP_DB_MIGRATIONS=true`。
 
 4. 打开：
 
@@ -170,7 +170,7 @@ docker-compose logs -f happy-server
 docker-compose logs -f happy-voice
 ```
 
-手动执行数据库迁移：
+手动执行数据库迁移（启动时已自动执行，仅用于排查）：
 
 ```bash
 docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy

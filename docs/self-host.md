@@ -48,7 +48,7 @@ ARK_API_KEY=
 docker-compose up -d
 ```
 
-The first start automatically runs database migrations and creates the MinIO bucket.
+`happy-server` runs database migrations (`prisma migrate deploy`, a no-op when up to date) on every start, and the first start also creates the MinIO bucket. Upgrades only need a new image and a restart; set `SKIP_DB_MIGRATIONS=true` to manage migrations manually.
 
 4. Open:
 
@@ -177,7 +177,7 @@ docker-compose logs -f happy-server
 docker-compose logs -f happy-voice
 ```
 
-Run migrations manually:
+Run migrations manually (already applied on start; useful for troubleshooting):
 
 ```bash
 docker-compose exec happy-server yarn --cwd packages/happy-server prisma migrate deploy

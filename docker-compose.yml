@@ -18,9 +18,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.server
-    command: >
-      sh -c "yarn --cwd packages/happy-server prisma migrate deploy &&
-             yarn --cwd packages/happy-server start"
     ports:
       - "3031:3031"
     restart: unless-stopped

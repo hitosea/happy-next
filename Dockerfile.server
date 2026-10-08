@@ -53,5 +53,5 @@ COPY --from=builder /repo/packages/happy-wire /repo/packages/happy-wire
 # Expose the port the app will run on
 EXPOSE 3000
 
-# Command to run the application
-CMD ["yarn", "--cwd", "packages/happy-server", "start"]
+# Apply database migrations, then start the application
+CMD ["sh", "packages/happy-server/docker-entrypoint.sh"]
