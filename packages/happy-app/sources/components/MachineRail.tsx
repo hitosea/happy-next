@@ -1,15 +1,16 @@
 import * as React from 'react';
-import { View, Pressable, ScrollView, Platform } from 'react-native';
+import { View, Pressable, ScrollView, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
+import { isTauriDesktop } from '@/utils/tauri';
 import { SessionScopeDot } from './SessionScopeDot';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
-const BUTTON_SIZE = 32;
+const BUTTON_SIZE = 34;
 export const MACHINE_RAIL_WIDTH = 56;
 
 type RailButtonProps = {
@@ -21,6 +22,7 @@ type RailButtonProps = {
     // An action rather than a scope: no tile behind it until hovered or shown, and only the plain tile
     // when shown, so it never reads as a second scope picked beside the machine.
     plain?: boolean;
+    slotStyle?: StyleProp<ViewStyle>;
     children: React.ReactNode;
 };
 
@@ -31,10 +33,10 @@ function setTooltip(label: string) {
     };
 }
 
-const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, children }: RailButtonProps) => {
+const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, children }: RailButtonProps) => {
     const styles = stylesheet;
     return (
-        <View style={styles.buttonSlot}>
+        <View style={[styles.buttonSlot, slotStyle]}>
             {active && !plain && <View style={styles.activeIndicator} />}
             <Pressable
                 ref={setTooltip(label)}
@@ -99,6 +101,9 @@ export const MachineRail = React.memo(({
                 label={`${t('sessionScope.allMachines')} · ${t('sessionScope.sessionCount', { count: sessionCount })}`}
                 active={selection === 'all'}
                 onPress={() => onSelect('all')}
+                // Browser only: this lines the button up with the search field beside it. The desktop app
+                // (also web) keeps the default position.
+                slotStyle={Platform.OS === 'web' && !isTauriDesktop() ? { marginTop: -2 } : undefined}
             >
                 <Ionicons name="grid-outline" size={16} color={iconColor(selection === 'all')} />
             </RailButton>

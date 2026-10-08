@@ -56,7 +56,7 @@ export const SidebarSearchRow = React.memo(() => {
     );
 });
 
-const FIELD_HEIGHT = 32;
+const FIELD_HEIGHT = 34;
 
 const stylesheet = StyleSheet.create((theme) => ({
     row: {
