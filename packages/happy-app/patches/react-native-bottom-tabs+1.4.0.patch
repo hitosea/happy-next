@@ -51,7 +51,7 @@ index fed3dd2..447643e 100644
  #if os(macOS)
    @MainActor
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabView/LegacyTabView.swift b/node_modules/react-native-bottom-tabs/ios/TabView/LegacyTabView.swift
-index 5bfc58f..04d15e2 100644
+index 188ddfd..a33bfee 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabView/LegacyTabView.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabView/LegacyTabView.swift
 @@ -3,6 +3,9 @@ import SwiftUI
@@ -83,7 +83,7 @@ index 5bfc58f..04d15e2 100644
          let child = props.children[safe: index]?.view ?? PlatformView()
          let context = TabAppearContext(
            index: index,
-@@ -61,7 +75,7 @@ struct LegacyTabView: AnyTabView {
+@@ -62,7 +76,7 @@ struct LegacyTabView: AnyTabView {
              .accessibilityIdentifier(tabData.testID ?? "")
            }
            .tag(tabData.key)
@@ -93,7 +93,7 @@ index 5bfc58f..04d15e2 100644
        }
      }
 diff --git a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
-index 22c52cd..8a3170d 100644
+index 2f18f21..a5336f8 100644
 --- a/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
 +++ b/node_modules/react-native-bottom-tabs/ios/TabView/NewTabView.swift
 @@ -5,6 +5,9 @@ import SwiftUI
@@ -125,7 +125,7 @@ index 22c52cd..8a3170d 100644
  
              let context = TabAppearContext(
                index: index,
-@@ -52,7 +66,7 @@ struct NewTabView: AnyTabView {
+@@ -53,7 +67,7 @@ struct NewTabView: AnyTabView {
                )
              }
              #if !os(tvOS)
@@ -134,3 +134,18 @@ index 22c52cd..8a3170d 100644
              #endif
              .accessibilityIdentifier(tabData.testID ?? "")
            }
+diff --git a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
+index 68053e1..1a4207a 100644
+--- a/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
++++ b/node_modules/react-native-bottom-tabs/ios/TabViewImpl.swift
+@@ -225,6 +225,10 @@ struct TabViewImpl: View {
+         let itemIndex = props.items.firstIndex(where: { $0.key == tabData.key })
+       else { continue }
+ 
++      // Dot badges are baked into the SwiftUI label image. Preserve that image
++      // instead of replacing it with the unbadged asset from props.icons.
++      if tabData.badge == " " { continue }
++
+       let tabActiveColor = tabData.activeTintColor ?? props.activeTintColor
+       let assetIcon = props.icons[itemIndex]
+       let icon = assetIcon ?? makeSFSymbolImage(named: tabData.sfSymbol)

@@ -12071,10 +12071,10 @@ react-native-audio-api@^0.12.1:
   dependencies:
     semver "^7.7.3"
 
-react-native-bottom-tabs@1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/react-native-bottom-tabs/-/react-native-bottom-tabs-1.2.0.tgz#c937cec4da07840ff8693e6064e7e88fa993c097"
-  integrity sha512-ScVPko86ts+m6JMNtI24MCSYJCOZc1aZkn9qwS9ly3o0ubajRWDpCzgRJfRFysi08bKrcqAXKVCHZNHvNb2PTA==
+react-native-bottom-tabs@1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/react-native-bottom-tabs/-/react-native-bottom-tabs-1.4.0.tgz#43a073df0a97751ba178b10848cf0b450084075c"
+  integrity sha512-XGuKHGU2FH1j/Ii7HzFE0+6ejiLs4mrcBRQRJff2g94hRjDZnx+trB+cOFG6z1BHGPLv6CD833S0m+nQuZB9nA==
   dependencies:
     react-freeze "^1.0.0"
     sf-symbols-typescript "^2.0.0"
