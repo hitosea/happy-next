@@ -173,7 +173,7 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
     "react-native-audio-api": "^0.12.1",
-    "react-native-bottom-tabs": "1.2.0",
+    "react-native-bottom-tabs": "1.4.0",
     "react-native-device-info": "^14.1.1",
     "react-native-diff-view": "^1.1.2",
     "react-native-enriched": "^0.1.2",
