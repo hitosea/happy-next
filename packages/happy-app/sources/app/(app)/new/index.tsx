@@ -130,7 +130,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     wizardContainer: {
         backgroundColor: theme.colors.surface,
         borderRadius: 16,
-        marginHorizontal: 16,
+        marginHorizontal: 8,
         padding: 16,
         marginBottom: 16,
     },
@@ -1645,16 +1645,16 @@ function NewSessionWizard() {
                     <Animated.View style={animatedInputStyle}>
                     {/* External context banner */}
                     {externalContextBanner && (
-                        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                        <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, marginBottom: 8 }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: 8, alignSelf: 'center' }}>
                                 {externalContextBanner}
                             </View>
                         </View>
                     )}
 
                     {/* Session type selector */}
-                    <View style={{ paddingHorizontal: 16, marginBottom: iosCardStack && !showRepoPicker ? 8 : 16 }}>
-                        <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                    <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, marginBottom: iosCardStack && !showRepoPicker ? 8 : 16 }}>
+                        <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: 8, alignSelf: 'center' }}>
                             <SessionTypeSelector
                                 value={sessionType}
                                 onChange={setSessionType}
@@ -1664,8 +1664,8 @@ function NewSessionWizard() {
 
                     {/* Repo picker for worktree mode */}
                     {showRepoPicker && (
-                        <View style={{ paddingHorizontal: 16, marginBottom: iosCardStack ? 8 : 12 }}>
-                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: screenWidth > 700 ? 16 : 0, alignSelf: 'center' }}>
+                        <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, marginBottom: iosCardStack ? 8 : 12 }}>
+                            <View style={{ maxWidth: layout.maxWidth, width: '100%', paddingHorizontal: 8, alignSelf: 'center' }}>
                                 <RepoPickerBar
                                     machineId={selectedMachineId}
                                     selectedRepos={selectedRepos}
@@ -1677,45 +1677,44 @@ function NewSessionWizard() {
                     )}
 
                     {/* AgentInput with inline chips - sticky at bottom */}
-                    <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom + (Platform.OS === 'web' ? 8 : 0) }}>
-                        <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                            <AgentInput
-                                value={sessionPrompt}
-                                onChangeText={setSessionPrompt}
-                                onSend={handleCreateSession}
-                                isSendDisabled={!canCreate}
-                                allowEmptySend={true}
-                                isSending={isCreating}
-                                placeholder={t('session.initialMessage')}
-                                autocompletePrefixes={[]}
-                                autocompleteSuggestions={async () => []}
-                                agentType={agentType}
-                                onAgentClick={handleAgentClick}
-                                permissionMode={permissionMode}
-                                onPermissionModeChange={handlePermissionModeChange}
-                                modelMode={modelMode}
-                                onModelModeChange={handleModelModeChange}
-                                fastMode={fastMode}
-                                onFastModeChange={handleFastModeChange}
-                                connectionStatus={connectionStatus}
-                                machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
-                                onMachineClick={handleMachineClick}
-                                currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
-                                onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
-                                images={images}
-                                onImagesChange={(newImages) => {
-                                    const currentUris = new Set(newImages.map(img => img.uri));
-                                    images.forEach((img, index) => {
-                                        if (!currentUris.has(img.uri)) {
-                                            removeImage(index);
-                                        }
-                                    });
-                                }}
-                                onImageButtonPress={handleImageButtonPress}
-                                imageMenuItems={imagePickerMenuItems}
-                                supportsImages={supportsImages}
-                            />
-                        </View>
+                    <View style={{ paddingBottom: safeArea.bottom + (Platform.OS === 'web' ? 8 : 0) }}>
+                        <AgentInput
+                            panelSideMargin
+                            value={sessionPrompt}
+                            onChangeText={setSessionPrompt}
+                            onSend={handleCreateSession}
+                            isSendDisabled={!canCreate}
+                            allowEmptySend={true}
+                            isSending={isCreating}
+                            placeholder={t('session.initialMessage')}
+                            autocompletePrefixes={[]}
+                            autocompleteSuggestions={async () => []}
+                            agentType={agentType}
+                            onAgentClick={handleAgentClick}
+                            permissionMode={permissionMode}
+                            onPermissionModeChange={handlePermissionModeChange}
+                            modelMode={modelMode}
+                            onModelModeChange={handleModelModeChange}
+                            fastMode={fastMode}
+                            onFastModeChange={handleFastModeChange}
+                            connectionStatus={connectionStatus}
+                            machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                            onMachineClick={handleMachineClick}
+                            currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? t('machine.worktreeAutoPath') : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
+                            onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handlePathClick}
+                            images={images}
+                            onImagesChange={(newImages) => {
+                                const currentUris = new Set(newImages.map(img => img.uri));
+                                images.forEach((img, index) => {
+                                    if (!currentUris.has(img.uri)) {
+                                        removeImage(index);
+                                    }
+                                });
+                            }}
+                            onImageButtonPress={handleImageButtonPress}
+                            imageMenuItems={imagePickerMenuItems}
+                            supportsImages={supportsImages}
+                        />
                     </View>
                     </Animated.View>
                 </View>
@@ -2443,47 +2442,46 @@ function NewSessionWizard() {
                 </ScrollView>
 
                 {/* Section 5: AgentInput - Sticky at bottom */}
-                <View style={{ paddingHorizontal: screenWidth > 700 ? 16 : 8, paddingBottom: safeArea.bottom + (Platform.OS === 'web' ? 8 : 0) }}>
-                    <View style={{ maxWidth: layout.maxWidth, width: '100%', alignSelf: 'center' }}>
-                        <AgentInput
-                            value={sessionPrompt}
-                            onChangeText={setSessionPrompt}
-                            onSend={handleCreateSession}
-                            isSendDisabled={!canCreate}
-                            allowEmptySend={true}
-                            isSending={isCreating}
-                            placeholder={t('session.initialMessage')}
-                            autocompletePrefixes={[]}
-                            autocompleteSuggestions={async () => []}
-                            agentType={agentType}
-                            onAgentClick={handleAgentInputAgentClick}
-                            permissionMode={permissionMode}
-                            onPermissionModeChange={handleAgentInputPermissionChange}
-                            modelMode={modelMode}
-                            onModelModeChange={handleModelModeChange}
-                            fastMode={fastMode}
-                            onFastModeChange={handleFastModeChange}
-                            connectionStatus={connectionStatus}
-                            machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
-                            onMachineClick={handleAgentInputMachineClick}
-                            currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
-                            onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
-                            profileId={selectedProfileId}
-                            onProfileClick={handleAgentInputProfileClick}
-                            images={images}
-                            onImagesChange={(newImages) => {
-                                const currentUris = new Set(newImages.map(img => img.uri));
-                                images.forEach((img, index) => {
-                                    if (!currentUris.has(img.uri)) {
-                                        removeImage(index);
-                                    }
-                                });
-                            }}
-                            onImageButtonPress={handleImageButtonPress}
-                            imageMenuItems={imagePickerMenuItems}
-                            supportsImages={supportsImages}
-                        />
-                    </View>
+                <View style={{ paddingBottom: safeArea.bottom + (Platform.OS === 'web' ? 8 : 0) }}>
+                    <AgentInput
+                        panelSideMargin
+                        value={sessionPrompt}
+                        onChangeText={setSessionPrompt}
+                        onSend={handleCreateSession}
+                        isSendDisabled={!canCreate}
+                        allowEmptySend={true}
+                        isSending={isCreating}
+                        placeholder={t('session.initialMessage')}
+                        autocompletePrefixes={[]}
+                        autocompleteSuggestions={async () => []}
+                        agentType={agentType}
+                        onAgentClick={handleAgentInputAgentClick}
+                        permissionMode={permissionMode}
+                        onPermissionModeChange={handleAgentInputPermissionChange}
+                        modelMode={modelMode}
+                        onModelModeChange={handleModelModeChange}
+                        fastMode={fastMode}
+                        onFastModeChange={handleFastModeChange}
+                        connectionStatus={connectionStatus}
+                        machineName={selectedMachine?.metadata?.displayName || selectedMachine?.metadata?.host}
+                        onMachineClick={handleAgentInputMachineClick}
+                        currentPath={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : formatPathRelativeToHome(selectedPath, selectedMachine?.metadata?.homeDir)}
+                        onPathClick={sessionType === 'worktree' && selectedRepos.length > 0 ? undefined : handleAgentInputPathClick}
+                        profileId={selectedProfileId}
+                        onProfileClick={handleAgentInputProfileClick}
+                        images={images}
+                        onImagesChange={(newImages) => {
+                            const currentUris = new Set(newImages.map(img => img.uri));
+                            images.forEach((img, index) => {
+                                if (!currentUris.has(img.uri)) {
+                                    removeImage(index);
+                                }
+                            });
+                        }}
+                        onImageButtonPress={handleImageButtonPress}
+                        imageMenuItems={imagePickerMenuItems}
+                        supportsImages={supportsImages}
+                    />
                 </View>
 
                 {/* Hidden file input for web image upload */}

@@ -1655,6 +1655,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         backgroundColor: theme.colors.surfacePressed,
                         borderRadius: 12,
                         padding: 8,
+                        marginHorizontal: panelHorizontalInset,
                         // On iOS the status row lives inside the card, so nothing else separates the two.
                         marginBottom: statusInPanel ? 16 : 8,
                         gap: 4,
