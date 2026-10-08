@@ -127,7 +127,7 @@ describe('stop-based archive with Codex native synchronization', () => {
         expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'native-archive-failed' });
     });
 
-    it.each(['daemon offline', 'RPC timeout'])('keeps both retry entries usable after %s, without restoring the session', async error => {
+    it.each(['daemon offline', 'RPC timeout'])('keeps the details retry usable after %s while hiding archive in the list', async error => {
         const current = mocks.getState().sessions.s1 as Session;
         current.active = true;
         mocks.machineRPC.mockRejectedValueOnce(new Error(error));
@@ -136,7 +136,7 @@ describe('stop-based archive with Codex native synchronization', () => {
         current.active = false;
         current.metadata!.lifecycleState = 'archived';
         expect(canArchiveSession(current, false)).toBe(true);
-        expect(getSessionQuickActionKinds({ session: current, isConnected: false, isLocalMachine: false })).toContain('archiveSession');
+        expect(getSessionQuickActionKinds({ session: current, isConnected: false, isLocalMachine: false })).not.toContain('archiveSession');
 
         mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
         expect(await sessionArchive('s1')).toEqual({ success: true });

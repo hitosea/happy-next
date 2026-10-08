@@ -7,7 +7,7 @@ import { eventRouter, buildSessionSharedUpdate, buildSessionShareUpdatedUpdate, 
 import { allocateUserSeq } from "@/storage/seq";
 import { randomKeyNaked } from "@/utils/randomKeyNaked";
 import { decodeBase64 } from "privacy-kit";
-import { touchSession } from "@/app/session/sessionTouch";
+import { touchSession, emitSessionSharingUpdate } from "@/app/session/sessionTouch";
 
 function parseEncryptedDataKeyV0(encryptedDataKeyB64: string): Uint8Array<ArrayBuffer> {
     let bytes: Uint8Array<ArrayBuffer>;
@@ -197,6 +197,7 @@ export function shareRoutes(app: Fastify) {
             userId: userId,
             payload: updatePayload
         });
+        await emitSessionSharingUpdate(sessionId);
 
         return reply.send({
             share: {
@@ -261,6 +262,7 @@ export function shareRoutes(app: Fastify) {
             userId: share.sharedWithUserId,
             payload: updatePayload
         });
+        await emitSessionSharingUpdate(sessionId);
 
         return reply.send({
             share: {
@@ -328,6 +330,7 @@ export function shareRoutes(app: Fastify) {
             userId: result.share.sharedWithUserId,
             payload: updatePayload
         });
+        await emitSessionSharingUpdate(sessionId);
 
         return reply.send({ success: true });
     });
@@ -390,6 +393,7 @@ export function shareRoutes(app: Fastify) {
             userId,
             payload: updatePayload
         });
+        await emitSessionSharingUpdate(sessionId);
 
         return reply.send({ success: true });
     });

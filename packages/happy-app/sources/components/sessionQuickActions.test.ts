@@ -102,15 +102,30 @@ describe('getSessionQuickActionKinds', () => {
         })).toEqual(['details', 'toggleRead', 'leaveSharedSession']);
     });
 
-    it('retains native archive after stopping Codex and rebuilding the menu', () => {
+    it('offers native archive for stopped Codex sessions until explicitly archived', () => {
         const current = session();
         current.metadata = { ...current.metadata!, flavor: 'codex', codexSessionId: 'native-1' };
         expect(getSessionQuickActionKinds({ session: current, isConnected: true, isLocalMachine: false })).toContain('archiveSession');
         current.active = false;
+        expect(getSessionQuickActionKinds({ session: current, isConnected: false, isLocalMachine: false })).toContain('archiveSession');
         current.metadata.lifecycleState = 'archived';
         const actions = getSessionQuickActionKinds({ session: current, isConnected: false, isLocalMachine: false });
-        expect(actions).toContain('archiveSession');
+        expect(actions).not.toContain('archiveSession');
         expect(actions).toContain('deleteSession');
+    });
+
+    it.each(['claude', 'codex', 'gemini'])('hides archive for archived %s sessions shared by me even with stale activity', flavor => {
+        const current = session({ isShared: true });
+        current.metadata = { ...current.metadata!, flavor, lifecycleState: 'archived' };
+        for (const active of [true, false]) {
+            for (const isConnected of [true, false]) {
+                expect(getSessionQuickActionKinds({
+                    session: { ...current, active },
+                    isConnected,
+                    isLocalMachine: false,
+                })).not.toContain('archiveSession');
+            }
+        }
     });
 
     it.each(['view', 'edit', 'admin'] as const)('does not offer native retry to shared %s users', accessLevel => {

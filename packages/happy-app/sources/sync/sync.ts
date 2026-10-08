@@ -4394,6 +4394,11 @@ class Sync {
             log.log(`🗑️ Session ${sessionId} deleted from local storage`);
         } else if (updateData.body.t === 'update-session') {
             const sessionId = updateData.body.id;
+            // A state update without encrypted fields invalidates related data such as sharing.
+            if (!updateData.body.metadata && !updateData.body.agentState && !updateData.body.capabilities) {
+                this.sessionsSync.invalidate();
+                return;
+            }
             const isShared = !!storage.getState().sharedSessions[sessionId];
             const session = storage.getState().sessions[sessionId]
                 ?? storage.getState().sharedSessions[sessionId];
@@ -4433,6 +4438,8 @@ class Sync {
 
                 const updatedSession = {
                     ...session,
+                    // Sharing may have changed while decrypting this metadata update.
+                    isShared: storage.getState().sessions[sessionId]?.isShared ?? session.isShared,
                     agentState,
                     agentStateVersion: updateData.body.agentState
                         ? updateData.body.agentState.version
