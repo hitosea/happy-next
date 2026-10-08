@@ -185,6 +185,8 @@ export interface SpawnSessionOptions {
     // - API_TIMEOUT_MS, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
     // - Custom variables (DEEPSEEK_*, Z_AI_*, etc.)
     environmentVariables?: Record<string, string>;
+    // Load the compatible local CLI profile before merging additional variables.
+    inheritMachineConfig?: boolean;
     // Worktree metadata - passed to CLI so it's included in initial metadata (avoids race condition)
     worktreeBasePath?: string;
     worktreeBranchName?: string;
@@ -271,19 +273,24 @@ export type SessionPreviewMessage = ClaudeSessionPreviewMessage;
  */
 export async function machineSpawnNewSession(options: SpawnSessionOptions): Promise<SpawnSessionResult> {
 
-    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
+    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, inheritMachineConfig, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
 
     try {
-        const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult>(
+        const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult | { error: string }>(
             machineId,
-            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
+            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, inheritMachineConfig, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
         );
+        if ('error' in result) {
+            return { type: 'error', errorMessage: result.error };
+        }
         return result;
     } catch (error) {
         // Handle RPC errors
         return {
             type: 'error',
-            errorMessage: error instanceof Error ? error.message : 'Failed to spawn session'
+            errorMessage: error instanceof Error
+                ? error.name === 'AbortError' ? 'Session startup timed out.' : error.message
+                : 'Failed to spawn session'
         };
     }
 }

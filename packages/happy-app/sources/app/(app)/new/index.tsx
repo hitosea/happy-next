@@ -27,8 +27,9 @@ import type { RegisteredRepo } from '@/utils/workspaceRepos';
 import { saveRegisteredRepos, loadRegisteredRepos } from '@/sync/repoStore';
 import { getTempData, type NewSessionData } from '@/utils/tempDataStore';
 import { PermissionMode, ModelMode, PermissionModeSelector } from '@/components/PermissionModeSelector';
-import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
+import { AIBackendProfile, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile, DEFAULT_PROFILES } from '@/sync/profileUtils';
+import { getSessionProfileEnvironment, shouldInheritMachineConfig } from '@/utils/sessionProfile';
 import { AgentInput } from '@/components/AgentInput';
 import { isRunningOnMac } from '@/utils/platform';
 import { StyleSheet } from 'react-native-unistyles';
@@ -75,15 +76,6 @@ const useProfileMap = (profiles: AIBackendProfile[]) => {
         [profiles]
     );
 };
-
-// Environment variable transformation helper
-// Returns ALL profile environment variables - daemon will use them as-is
-const transformProfileToEnvironmentVars = (profile: AIBackendProfile, agentType: 'claude' | 'codex' | 'gemini' = 'claude') => {
-    // getProfileEnvironmentVariables already returns ALL env vars from profile
-    // including custom environmentVariables array and provider-specific configs
-    return getProfileEnvironmentVariables(profile);
-};
-
 
 const isConcreteSessionMachineTab = (tab: string | null): tab is string => {
     return !!tab && tab !== 'all' && tab !== 'shared' && tab !== 'sharedByMe';
@@ -1433,7 +1425,7 @@ function NewSessionWizard() {
             if (selectedProfileId) {
                 const selectedProfile = profileMap.get(selectedProfileId) || getBuiltInProfile(selectedProfileId);
                 if (selectedProfile) {
-                    environmentVariables = transformProfileToEnvironmentVars(selectedProfile, agentType);
+                    environmentVariables = getSessionProfileEnvironment(selectedProfile, agentType);
                 }
             }
 
@@ -1442,6 +1434,8 @@ function NewSessionWizard() {
                 directory: actualPath,
                 approvedNewDirectoryCreation: true,
                 agent: agentType,
+                // Decide inheritance before merging external variables such as a GitHub token.
+                inheritMachineConfig: shouldInheritMachineConfig(environmentVariables),
                 environmentVariables: {
                     ...environmentVariables,
                     ...tempSessionData?.environmentVariables,
@@ -1458,7 +1452,10 @@ function NewSessionWizard() {
                 ...(tempSessionData?.sessionTitle ? { sessionTitle: tempSessionData.sessionTitle } : {}),
             });
 
-            if ('sessionId' in result && result.sessionId) {
+            if (result.type === 'error') {
+                throw new Error(result.errorMessage);
+            }
+            if (result.type === 'success' && result.sessionId) {
                 // Clear draft state on successful session creation
                 clearNewSessionDraft();
 
@@ -1522,11 +1519,7 @@ function NewSessionWizard() {
             console.error('Failed to start session', error);
             let errorMessage = 'Failed to start session. Make sure the daemon is running on the target machine.';
             if (error instanceof Error) {
-                if (error.message.includes('timeout')) {
-                    errorMessage = 'Session startup timed out. The machine may be slow or the daemon may not be responding.';
-                } else if (error.message.includes('Socket not connected')) {
-                    errorMessage = 'Not connected to server. Check your internet connection.';
-                }
+                errorMessage = error.message || errorMessage;
             }
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);

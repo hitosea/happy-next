@@ -129,6 +129,8 @@ export interface SpawnSessionOptions {
     approvedNewDirectoryCreation?: boolean;
     agent?: 'claude' | 'codex' | 'gemini';
     token?: string;
+    // Load the compatible local CLI profile before merging additional variables.
+    inheritMachineConfig?: boolean;
     environmentVariables?: {
         // Anthropic Claude API configuration
         ANTHROPIC_BASE_URL?: string;        // Custom API endpoint (overrides default)

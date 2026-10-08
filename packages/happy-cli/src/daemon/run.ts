@@ -5,6 +5,8 @@ import * as tmp from 'tmp';
 import { ApiClient } from '@/api/api';
 import { startModelCatalogSync } from '@/api/modelCatalog';
 import { TrackedSession } from './types';
+import { getUnexpandedSessionAuthVariables } from './sessionAuth';
+import { resolveSessionProfileEnvironment } from './sessionProfiles';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -15,7 +17,7 @@ import packageJson from '../../package.json';
 import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 import { isDebug } from '@/utils/env';
-import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readSettings, getActiveProfile, getEnvironmentVariables, validateProfileForAgent, getProfileEnvironmentVariables } from '@/persistence';
+import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, getActiveProfile, getEnvironmentVariables } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
 import { startDaemonControlServer } from './controlServer';
@@ -50,37 +52,6 @@ export const initialMachineMetadata: MachineMetadata = {
   happyHomeDir: configuration.happyHomeDir,
   happyLibDir: projectPath()
 };
-
-// Get environment variables for a profile, filtered for agent compatibility
-async function getProfileEnvironmentVariablesForAgent(
-  profileId: string,
-  agentType: 'claude' | 'codex' | 'gemini'
-): Promise<Record<string, string>> {
-  try {
-    const settings = await readSettings();
-    const profile = settings.profiles.find(p => p.id === profileId);
-
-    if (!profile) {
-      logger.debug(`[DAEMON RUN] Profile ${profileId} not found`);
-      return {};
-    }
-
-    // Check if profile is compatible with the agent
-    if (!validateProfileForAgent(profile, agentType)) {
-      logger.debug(`[DAEMON RUN] Profile ${profileId} not compatible with agent ${agentType}`);
-      return {};
-    }
-
-    // Get environment variables from profile (new schema)
-    const envVars = getProfileEnvironmentVariables(profile);
-
-    logger.debug(`[DAEMON RUN] Loaded ${Object.keys(envVars).length} environment variables from profile ${profileId} for agent ${agentType}`);
-    return envVars;
-  } catch (error) {
-    logger.debug('[DAEMON RUN] Failed to get profile environment variables:', error);
-    return {};
-  }
-}
 
 export async function startDaemon(): Promise<void> {
   // We don't have cleanup function at the time of server construction
@@ -602,38 +573,8 @@ export async function startDaemon(): Promise<void> {
           }
         }
 
-        // Layer 2: Profile environment variables
-        // Priority: GUI-provided profile > CLI local active profile > none
-        let profileEnv: Record<string, string> = {};
-
-        if (options.environmentVariables && Object.keys(options.environmentVariables).length > 0) {
-          // GUI provided profile environment variables - highest priority for profile settings
-          profileEnv = options.environmentVariables;
-          logger.info(`[DAEMON RUN] Using GUI-provided profile environment variables (${Object.keys(profileEnv).length} vars)`);
-          logger.debug(`[DAEMON RUN] GUI profile env var keys: ${Object.keys(profileEnv).join(', ')}`);
-        } else {
-          // Fallback to CLI local active profile
-          try {
-            const settings = await readSettings();
-            if (settings.activeProfileId) {
-              logger.debug(`[DAEMON RUN] No GUI profile provided, loading CLI local active profile: ${settings.activeProfileId}`);
-
-              // Get profile environment variables filtered for agent compatibility
-              profileEnv = await getProfileEnvironmentVariablesForAgent(
-                settings.activeProfileId,
-                options.agent || 'claude'
-              );
-
-              logger.debug(`[DAEMON RUN] Loaded ${Object.keys(profileEnv).length} environment variables from CLI local profile for agent ${options.agent || 'claude'}`);
-              logger.debug(`[DAEMON RUN] CLI profile env var keys: ${Object.keys(profileEnv).join(', ')}`);
-            } else {
-              logger.debug('[DAEMON RUN] No CLI local active profile set');
-            }
-          } catch (error) {
-            logger.debug('[DAEMON RUN] Failed to load CLI local profile environment variables:', error);
-            // Continue without profile env vars - this is not a fatal error
-          }
-        }
+        // Layer 2: Load the selected profile, then merge any additional GUI variables.
+        const profileEnv = await resolveSessionProfileEnvironment(options);
 
         // Final merge: Profile vars first, then auth (auth takes precedence to protect authentication)
         let extraEnv = { ...profileEnv, ...authEnv };
@@ -684,14 +625,9 @@ export async function startDaemon(): Promise<void> {
         extraEnv = expandEnvironmentVariables(extraEnv, process.env);
         logger.debug(`[DAEMON RUN] After variable expansion: ${Object.keys(extraEnv).join(', ')}`);
 
-        // Fail-fast validation: Check that any auth variables present are fully expanded
-        // Only validate variables that are actually set (different agents need different auth)
-        const potentialAuthVars = ['ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN', 'OPENAI_API_KEY', 'CODEX_HOME', 'AZURE_OPENAI_API_KEY', 'TOGETHER_API_KEY'];
-        const unexpandedAuthVars = potentialAuthVars.filter(varName => {
-          const value = extraEnv[varName];
-          // Only fail if variable IS SET and contains unexpanded ${VAR} references
-          return value && typeof value === 'string' && value.includes('${');
-        });
+        // Validate only the credentials relevant to this agent, after expansion.
+        // Gemini validates in its backend after resolving cloud/local login tokens.
+        const unexpandedAuthVars = getUnexpandedSessionAuthVariables(extraEnv, options.agent);
 
         if (unexpandedAuthVars.length > 0) {
           // Extract the specific missing variable names from unexpanded references

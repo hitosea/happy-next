@@ -167,6 +167,18 @@ export function createGeminiBackend(options: GeminiBackendOptions): GeminiBacken
     },
   };
 
+  // Validate after cloud/local credentials have replaced lower-priority keys.
+  // AcpBackend merges this environment with process.env when spawning Gemini.
+  const effectiveEnv = { ...process.env, ...backendOptions.env };
+  const authVariable = effectiveEnv[GEMINI_API_KEY_ENV]
+    ? GEMINI_API_KEY_ENV
+    : effectiveEnv[GOOGLE_API_KEY_ENV]
+      ? GOOGLE_API_KEY_ENV
+      : 'GOOGLE_APPLICATION_CREDENTIALS';
+  if (effectiveEnv[authVariable]?.includes('${')) {
+    throw new Error(`Gemini authentication cannot use ${authVariable}: it contains an unresolved environment variable reference.`);
+  }
+
   // Determine model source for logging
   const modelSource = getGeminiModelSource(options.model, localConfig);
 

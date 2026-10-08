@@ -411,7 +411,7 @@ export default function MachineDetailScreen() {
             }
         } catch (error) {
             let errorMessage = 'Failed to start session. Make sure the daemon is running on the target machine.';
-            if (error instanceof Error && !error.message.includes('Failed to spawn session')) {
+            if (error instanceof Error && error.message) {
                 errorMessage = error.message;
             }
             Modal.alert(t('common.error'), errorMessage);
