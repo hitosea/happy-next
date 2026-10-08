@@ -90,5 +90,6 @@ export const ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA = {
   inputSchema: {
     taskId: z.string().describe('Completed/failed task ID to resume; use taskId, not taskKey.'),
     message: z.string().min(1).max(65_536).describe('Message to send to the existing child session'),
+    controllerSessionId: z.string().optional().describe('Optional session to report back to. Defaults to current MCP session when omitted.'),
   },
 } as const;

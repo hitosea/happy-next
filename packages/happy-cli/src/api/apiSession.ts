@@ -108,6 +108,7 @@ type OrchestratorListQuery = {
 type OrchestratorSendMessageBody = {
     taskId: string;
     message: string;
+    controllerSessionId?: string;
 };
 
 export class ApiSessionClient extends EventEmitter {
@@ -460,6 +461,7 @@ export class ApiSessionClient extends EventEmitter {
             `${configuration.serverUrl}/v1/orchestrator/tasks/${encodeURIComponent(body.taskId)}/send-message`,
             {
                 message: body.message,
+                controllerSessionId: body.controllerSessionId,
             },
             {
                 headers: this.orchestratorHeaders(),

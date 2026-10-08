@@ -6,7 +6,6 @@ import { delay } from "@/utils/delay";
 import { warn } from "@/utils/log";
 import {
     eventRouter,
-    buildOrchestratorActivityEphemeral,
     buildOrchestratorRunTerminalEphemeral,
 } from "@/app/events/eventRouter";
 import { listConnectedUserRpcMethods, invokeUserRpc, hasUserRpcMethod } from "@/app/api/socket/rpcRegistry";
@@ -33,6 +32,14 @@ import {
     type RunSummary,
     toPublicSummary,
 } from "@/app/orchestrator/state";
+import {
+    countOrchestratorSessionRuns,
+    emitOrchestratorRunActivity,
+    orchestratorRunCallbackSessionIds,
+    queryOrchestratorActivityBatch,
+    queryOrchestratorSessionActivity,
+    runsOfSessionWhere,
+} from "@/app/orchestrator/sessions";
 
 const PROVIDERS = ['claude', 'codex', 'gemini'] as const;
 const RUN_STATUSES = ['queued', 'running', 'canceling', 'completed', 'failed', 'cancelled'] as const;
@@ -169,49 +176,6 @@ async function detectMachineProviders(
     }
 
     return result;
-}
-
-async function queryOrchestratorSessionActivity(
-    userId: string,
-    controllerSessionId: string,
-): Promise<Record<string, string[]>> {
-    const rows = await db.orchestratorTask.findMany({
-        where: {
-            run: { accountId: userId, controllerSessionId, status: { in: ['queued', 'running', 'canceling'] } },
-            status: { in: ['queued', 'dispatching', 'running'] },
-        },
-        select: {
-            id: true,
-            runId: true,
-        },
-    });
-
-    const activity: Record<string, string[]> = {};
-    for (const row of rows) {
-        if (!activity[row.runId]) {
-            activity[row.runId] = [];
-        }
-        activity[row.runId].push(row.id);
-    }
-    return activity;
-}
-
-/**
- * Emit an ephemeral orchestrator-activity event with current active run/task index
- * for the given controllerSessionId. Called after status-changing transactions commit.
- */
-async function emitOrchestratorActivity(userId: string, controllerSessionId: string | null) {
-    if (!controllerSessionId) return;
-    const [activity, totalRunCount] = await Promise.all([
-        queryOrchestratorSessionActivity(userId, controllerSessionId),
-        db.orchestratorRun.count({
-            where: { accountId: userId, controllerSessionId },
-        }),
-    ]);
-    eventRouter.emitEphemeral({
-        userId,
-        payload: buildOrchestratorActivityEphemeral(controllerSessionId, activity, totalRunCount),
-    });
 }
 
 const submitTaskSchema = z.object({
@@ -1204,12 +1168,26 @@ export function orchestratorRoutes(app: Fastify) {
             }),
             body: z.object({
                 message: z.string().min(1).max(65_536),
+                controllerSessionId: z.string().min(1).max(128).optional(),
             }),
         },
     }, async (request, reply) => {
         const userId = request.userId;
         const { taskId } = request.params;
-        const { message } = request.body;
+        const { message, controllerSessionId } = request.body;
+
+        if (controllerSessionId) {
+            const controllerSession = await db.session.findFirst({
+                where: {
+                    id: controllerSessionId,
+                    accountId: userId,
+                },
+                select: { id: true },
+            });
+            if (!controllerSession) {
+                return sendError(reply, 400, 'INVALID_ARGUMENT', 'controllerSessionId does not belong to current account');
+            }
+        }
 
         const result = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             const task = await tx.orchestratorTask.findFirst({
@@ -1229,7 +1207,7 @@ export function orchestratorRoutes(app: Fastify) {
                     run: {
                         select: {
                             id: true,
-                            controllerSessionId: true,
+                            status: true,
                         },
                     },
                 },
@@ -1299,6 +1277,7 @@ export function orchestratorRoutes(app: Fastify) {
                     childSessionId: sourceExecution.childSessionId,
                     executionType: 'resume',
                     resumeMessage: message,
+                    controllerSessionId: controllerSessionId ?? null,
                     status: 'queued',
                     attempt,
                     dispatchToken: randomUUID(),
@@ -1306,14 +1285,18 @@ export function orchestratorRoutes(app: Fastify) {
                 },
                 select: {
                     id: true,
+                    createdAt: true,
                 },
             });
 
+            // A follow-up into a finished run starts a new round of it: the sessions told when it
+            // finishes again are the ones whose work is in that round.
             await tx.orchestratorRun.updateMany({
                 where: { id: task.runId },
                 data: {
                     status: 'running',
                     completedAt: null,
+                    ...(isRunTerminal(task.run.status) ? { reopenedAt: execution.createdAt } : {}),
                 },
             });
 
@@ -1322,7 +1305,6 @@ export function orchestratorRoutes(app: Fastify) {
                 runId: task.runId,
                 taskId: task.id,
                 executionId: execution.id,
-                controllerSessionId: task.run.controllerSessionId,
             };
         });
 
@@ -1339,7 +1321,7 @@ export function orchestratorRoutes(app: Fastify) {
             return sendError(reply, 409, 'CONFLICT', `Task ${taskId} is no longer resumable`);
         }
 
-        void emitOrchestratorActivity(userId, result.controllerSessionId ?? null).catch(warn);
+        void emitOrchestratorRunActivity(userId, result.runId).catch(warn);
 
         return reply.send({
             ok: true,
@@ -1382,19 +1364,27 @@ export function orchestratorRoutes(app: Fastify) {
         const where: any = {
             accountId: userId,
             ...(resolvedStatuses ? { status: { in: resolvedStatuses } } : {}),
-            ...(controllerSessionId ? { controllerSessionId } : {}),
         };
+        const conditions: any[] = [];
+        if (controllerSessionId) {
+            conditions.push(runsOfSessionWhere(controllerSessionId));
+        }
 
         if (cursorParts) {
-            where.OR = [
-                { createdAt: { lt: cursorParts.createdAt } },
-                {
-                    AND: [
-                        { createdAt: cursorParts.createdAt },
-                        { id: { lt: cursorParts.id } },
-                    ],
-                },
-            ];
+            conditions.push({
+                OR: [
+                    { createdAt: { lt: cursorParts.createdAt } },
+                    {
+                        AND: [
+                            { createdAt: cursorParts.createdAt },
+                            { id: { lt: cursorParts.id } },
+                        ],
+                    },
+                ],
+            });
+        }
+        if (conditions.length > 0) {
+            where.AND = conditions;
         }
 
         const runs = await db.orchestratorRun.findMany({
@@ -1485,7 +1475,7 @@ export function orchestratorRoutes(app: Fastify) {
             by: ['status'],
             where: {
                 accountId: userId,
-                ...(controllerSessionId ? { controllerSessionId } : {}),
+                ...(controllerSessionId ? runsOfSessionWhere(controllerSessionId) : {}),
             },
             _count: { _all: true },
         });
@@ -1586,14 +1576,14 @@ export function orchestratorRoutes(app: Fastify) {
         const result = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             const run = await tx.orchestratorRun.findFirst({
                 where: { id: runId, accountId: userId },
-                select: { id: true, status: true, controllerSessionId: true },
+                select: { id: true, status: true },
             });
             if (!run) {
                 return { kind: 'not_found' as const };
             }
 
             if (isRunTerminal(run.status)) {
-                return { kind: 'ok' as const, status: run.status, controllerSessionId: run.controllerSessionId };
+                return { kind: 'ok' as const, status: run.status };
             }
 
             if (run.status !== 'canceling') {
@@ -1641,14 +1631,14 @@ export function orchestratorRoutes(app: Fastify) {
                 });
             }
 
-            return { kind: 'ok' as const, status: nextStatus, controllerSessionId: run.controllerSessionId };
+            return { kind: 'ok' as const, status: nextStatus };
         });
 
         if (result.kind === 'not_found') {
             return sendError(reply, 404, 'NOT_FOUND', 'Run not found');
         }
 
-        void emitOrchestratorActivity(userId, result.controllerSessionId ?? null).catch(warn);
+        void emitOrchestratorRunActivity(userId, runId).catch(warn);
 
         return reply.send({
             ok: true,
@@ -1694,7 +1684,6 @@ export function orchestratorRoutes(app: Fastify) {
                     run: {
                         select: {
                             status: true,
-                            controllerSessionId: true,
                         },
                     },
                 },
@@ -1753,7 +1742,7 @@ export function orchestratorRoutes(app: Fastify) {
                 },
             });
 
-            return { kind: 'ok' as const, controllerSessionId: execution.run.controllerSessionId };
+            return { kind: 'ok' as const, runId: execution.runId };
         });
 
         if (result.kind === 'not_found') {
@@ -1769,7 +1758,7 @@ export function orchestratorRoutes(app: Fastify) {
             return reply.send({ ok: true, data: { ignored: true } });
         }
 
-        void emitOrchestratorActivity(userId, result.controllerSessionId ?? null).catch(warn);
+        void emitOrchestratorRunActivity(userId, result.runId).catch(warn);
 
         return reply.send({
             ok: true,
@@ -1875,6 +1864,7 @@ export function orchestratorRoutes(app: Fastify) {
                             status: true,
                             title: true,
                             controllerSessionId: true,
+                            reopenedAt: true,
                         },
                     },
                     task: {
@@ -1972,12 +1962,20 @@ export function orchestratorRoutes(app: Fastify) {
                 },
             });
 
+            const callbackSessionIds = isRunTerminal(nextRunStatus)
+                ? await orchestratorRunCallbackSessionIds(tx, {
+                    id: execution.runId,
+                    controllerSessionId: execution.run.controllerSessionId,
+                    reopenedAt: execution.run.reopenedAt,
+                })
+                : [];
+
             return {
                 kind: 'ok' as const,
                 runId: execution.runId,
                 runTitle: execution.run.title ?? null,
                 runStatus: nextRunStatus,
-                controllerSessionId: execution.run.controllerSessionId,
+                callbackSessionIds,
                 summary: toPublicSummary(internal),
             };
         });
@@ -1992,21 +1990,25 @@ export function orchestratorRoutes(app: Fastify) {
             return reply.send({ ok: true, data: { duplicate: true } });
         }
 
-        void emitOrchestratorActivity(userId, result.controllerSessionId ?? null).catch(warn);
-        if (isRunTerminal(result.runStatus) && result.controllerSessionId) {
-            const delivery = eventRouter.emitEphemeral({
-                userId,
-                payload: buildOrchestratorRunTerminalEphemeral(
-                    result.runId,
-                    result.runStatus,
-                    result.runTitle ?? 'Untitled run',
-                ),
-                recipientFilter: {
-                    type: 'all-interested-in-session',
-                    sessionId: result.controllerSessionId,
-                },
-            });
-            if (delivery.sessionScoped === 0) {
+        void emitOrchestratorRunActivity(userId, result.runId).catch(warn);
+        if (result.callbackSessionIds.length > 0) {
+            let delivered = 0;
+            for (const sessionId of result.callbackSessionIds) {
+                const delivery = eventRouter.emitEphemeral({
+                    userId,
+                    payload: buildOrchestratorRunTerminalEphemeral(
+                        result.runId,
+                        result.runStatus,
+                        result.runTitle ?? 'Untitled run',
+                    ),
+                    recipientFilter: {
+                        type: 'all-interested-in-session',
+                        sessionId,
+                    },
+                });
+                delivered += delivery.sessionScoped;
+            }
+            if (delivered === 0) {
                 const title = result.runTitle ?? 'Untitled run';
                 const s = result.summary;
                 const parts: string[] = [
@@ -2048,9 +2050,7 @@ export function orchestratorRoutes(app: Fastify) {
 
         const [activity, totalRunCount] = await Promise.all([
             queryOrchestratorSessionActivity(userId, controllerSessionId),
-            db.orchestratorRun.count({
-                where: { accountId: userId, controllerSessionId },
-            }),
+            countOrchestratorSessionRuns(userId, controllerSessionId),
         ]);
         return reply.send({ ok: true, data: { activity, totalRunCount } });
     });
@@ -2059,59 +2059,7 @@ export function orchestratorRoutes(app: Fastify) {
         preHandler: app.authenticate,
     }, async (request, reply) => {
         const userId = request.userId;
-
-        const [rows, totalRows] = await Promise.all([
-            db.orchestratorTask.findMany({
-                where: {
-                    run: {
-                        accountId: userId,
-                        controllerSessionId: { not: null },
-                        status: { in: ['queued', 'running', 'canceling'] },
-                    },
-                    status: { in: ['queued', 'dispatching', 'running'] },
-                },
-                select: {
-                    id: true,
-                    runId: true,
-                    run: {
-                        select: {
-                            controllerSessionId: true,
-                        },
-                    },
-                },
-            }),
-            db.orchestratorRun.groupBy({
-                by: ['controllerSessionId'],
-                where: {
-                    accountId: userId,
-                    controllerSessionId: { not: null },
-                },
-                _count: { _all: true },
-            }),
-        ]);
-
-        const totalRunCounts: Record<string, number> = {};
-        for (const row of totalRows) {
-            if (row.controllerSessionId) {
-                totalRunCounts[row.controllerSessionId] = row._count._all;
-            }
-        }
-
-        const activity: Record<string, Record<string, string[]>> = {};
-        for (const row of rows) {
-            const controllerSessionId = row.run.controllerSessionId;
-            if (!controllerSessionId) {
-                continue;
-            }
-            if (!activity[controllerSessionId]) {
-                activity[controllerSessionId] = {};
-            }
-            if (!activity[controllerSessionId][row.runId]) {
-                activity[controllerSessionId][row.runId] = [];
-            }
-            activity[controllerSessionId][row.runId].push(row.id);
-        }
-
+        const { activity, totalRunCounts } = await queryOrchestratorActivityBatch(userId);
         return reply.send({ ok: true, data: { activity, totalRunCounts } });
     });
 }

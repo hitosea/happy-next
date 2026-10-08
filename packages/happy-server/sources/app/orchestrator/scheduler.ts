@@ -5,6 +5,7 @@ import { delay } from "@/utils/delay";
 import { forever } from "@/utils/forever";
 import { shutdownSignal } from "@/utils/shutdown";
 import { randomUUID } from "node:crypto";
+import { emitOrchestratorRunActivity } from "./sessions";
 import {
     addTaskCount,
     createEmptySummaryInternal,
@@ -624,6 +625,7 @@ async function buildRunActions(run: {
                                 },
                                 select: {
                                     attempt: true,
+                                    controllerSessionId: true,
                                 },
                             });
                             const attempt = (latestExecution?.attempt ?? 0) + 1;
@@ -638,6 +640,8 @@ async function buildRunActions(run: {
                                     childSessionId: initialChildSessionId,
                                     executionType: 'initial',
                                     resumeMessage: null,
+                                    // A retry works for the same session as the attempt it retries.
+                                    controllerSessionId: latestExecution?.controllerSessionId ?? null,
                                     status: 'dispatching',
                                     attempt,
                                     dispatchToken,
@@ -711,7 +715,6 @@ export async function orchestratorSchedulerTick(now: Date = new Date()): Promise
             accountId: true,
             status: true,
             maxConcurrency: true,
-            controllerSessionId: true,
         },
     });
 
@@ -719,35 +722,7 @@ export async function orchestratorSchedulerTick(now: Date = new Date()): Promise
         const actions = await buildRunActions(run, now);
         if (actions.length > 0) {
             await executeSchedulerActions(actions);
-            if (run.controllerSessionId) {
-                const [rows, totalRunCount] = await Promise.all([
-                    db.orchestratorTask.findMany({
-                        where: {
-                            run: { accountId: run.accountId, controllerSessionId: run.controllerSessionId, status: { in: ACTIVE_RUN_STATUSES } },
-                            status: { in: ACTIVE_EXECUTION_STATUSES },
-                        },
-                        select: {
-                            id: true,
-                            runId: true,
-                        },
-                    }),
-                    db.orchestratorRun.count({
-                        where: { accountId: run.accountId, controllerSessionId: run.controllerSessionId },
-                    }),
-                ]);
-                const activity: Record<string, string[]> = {};
-                for (const row of rows) {
-                    if (!activity[row.runId]) {
-                        activity[row.runId] = [];
-                    }
-                    activity[row.runId].push(row.id);
-                }
-                const { eventRouter, buildOrchestratorActivityEphemeral } = await import("@/app/events/eventRouter");
-                eventRouter.emitEphemeral({
-                    userId: run.accountId,
-                    payload: buildOrchestratorActivityEphemeral(run.controllerSessionId, activity, totalRunCount),
-                });
-            }
+            await emitOrchestratorRunActivity(run.accountId, run.id);
         }
     }
 }

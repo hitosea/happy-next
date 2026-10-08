@@ -21,6 +21,7 @@ type RunRecord = {
     updatedAt: Date;
     completedAt: Date | null;
     cancelRequestedAt: Date | null;
+    reopenedAt: Date | null;
 };
 
 type TaskRecord = {
@@ -58,6 +59,7 @@ type ExecutionRecord = {
     childSessionId: string | null;
     executionType: 'initial' | 'resume';
     resumeMessage: string | null;
+    controllerSessionId: string | null;
     status: ExecutionStatus;
     attempt: number;
     dispatchToken: string;
@@ -154,7 +156,10 @@ const {
         if (!where) {
             return true;
         }
-        if (where.id && run.id !== where.id) {
+        if (typeof where.id === 'string' && run.id !== where.id) {
+            return false;
+        }
+        if (where.id?.lt && !(run.id < where.id.lt)) {
             return false;
         }
         if (where.accountId && run.accountId !== where.accountId) {
@@ -166,33 +171,31 @@ const {
         if (where.controllerSessionId === null && run.controllerSessionId !== null) {
             return false;
         }
+        if (where.controllerSessionId?.not === null && run.controllerSessionId === null) {
+            return false;
+        }
         if (where.idempotencyKey && run.idempotencyKey !== where.idempotencyKey) {
             return false;
         }
         if (where.status && !matchesStatus(run.status, where.status)) {
             return false;
         }
-        if (Array.isArray(where.OR)) {
-            const orMatched = where.OR.some((item: any) => {
-                if (item.createdAt?.lt) {
-                    return run.createdAt < item.createdAt.lt;
-                }
-                if (Array.isArray(item.AND)) {
-                    return item.AND.every((andItem: any) => {
-                        if (andItem.createdAt) {
-                            return run.createdAt.getTime() === andItem.createdAt.getTime();
-                        }
-                        if (andItem.id?.lt) {
-                            return run.id < andItem.id.lt;
-                        }
-                        return true;
-                    });
-                }
-                return false;
-            });
-            if (!orMatched) {
-                return false;
-            }
+        if (where.createdAt instanceof Date && run.createdAt.getTime() !== where.createdAt.getTime()) {
+            return false;
+        }
+        if (where.createdAt?.lt && !(run.createdAt < where.createdAt.lt)) {
+            return false;
+        }
+        if (where.executions?.some && !state.executions.some((execution) => (
+            execution.runId === run.id && matchesExecution(execution, where.executions.some)
+        ))) {
+            return false;
+        }
+        if (Array.isArray(where.AND) && !where.AND.every((item: any) => matchesRun(run, item))) {
+            return false;
+        }
+        if (Array.isArray(where.OR) && !where.OR.some((item: any) => matchesRun(run, item))) {
+            return false;
         }
         return true;
     };
@@ -212,6 +215,15 @@ const {
         }
         if (where.status && !matchesStatus(task.status, where.status)) {
             return false;
+        }
+        if (Array.isArray(where.runId?.in) && !where.runId.in.includes(task.runId)) {
+            return false;
+        }
+        if (where.run) {
+            const run = state.runs.find((item) => item.id === task.runId);
+            if (!run || !matchesRun(run, where.run)) {
+                return false;
+            }
         }
         if (Array.isArray(where.OR)) {
             const orMatched = where.OR.some((item: any) => {
@@ -260,6 +272,15 @@ const {
         if (where.createdAt?.lt && !(execution.createdAt < where.createdAt.lt)) {
             return false;
         }
+        if (where.createdAt?.gte && !(execution.createdAt >= where.createdAt.gte)) {
+            return false;
+        }
+        if (typeof where.controllerSessionId === 'string' && execution.controllerSessionId !== where.controllerSessionId) {
+            return false;
+        }
+        if (where.controllerSessionId?.not === null && execution.controllerSessionId === null) {
+            return false;
+        }
         if (where.run?.accountId) {
             const run = state.runs.find((item) => item.id === execution.runId);
             if (!run || run.accountId !== where.run.accountId) {
@@ -302,6 +323,7 @@ const {
                             status: run.status,
                             updatedAt: run.updatedAt,
                             accountId: run.accountId,
+                            controllerSessionId: run.controllerSessionId,
                         };
                     })(),
                 }
@@ -310,7 +332,12 @@ const {
                 ? {
                     executions: state.executions
                         .filter((item) => item.taskId === task.id)
-                        .sort((a, b) => a.attempt - b.attempt)
+                        .sort((a, b) => (
+                            select.executions?.orderBy?.attempt === 'desc'
+                                ? b.attempt - a.attempt
+                                : a.attempt - b.attempt
+                        ))
+                        .slice(0, select.executions?.take ?? undefined)
                         .map((item) => ({ ...item })),
                 }
                 : {}),
@@ -347,6 +374,7 @@ const {
                 updatedAt: now,
                 completedAt: null,
                 cancelRequestedAt: null,
+                reopenedAt: null,
             };
             state.runs.push(run);
             return selectRun(run, args.select);
@@ -418,6 +446,23 @@ const {
             return { count: rows.length };
         }),
         count: vi.fn(async (args: any) => state.runs.filter((item) => matchesRun(item, args?.where)).length),
+        groupBy: vi.fn(async (args: any) => {
+            const by: string[] = args?.by ?? [];
+            const grouped = new Map<string, { fields: Record<string, unknown>; count: number }>();
+            for (const run of state.runs.filter((item) => matchesRun(item, args?.where))) {
+                const key = by.map((field) => String((run as any)[field])).join('|');
+                const existing = grouped.get(key);
+                if (existing) {
+                    existing.count += 1;
+                    continue;
+                }
+                grouped.set(key, {
+                    fields: Object.fromEntries(by.map((field) => [field, (run as any)[field]])),
+                    count: 1,
+                });
+            }
+            return [...grouped.values()].map((item) => ({ ...item.fields, _count: { _all: item.count } }));
+        }),
     };
 
     const taskApi = {
@@ -535,6 +580,7 @@ const {
                 childSessionId: args.data.childSessionId ?? null,
                 executionType: args.data.executionType ?? 'initial',
                 resumeMessage: args.data.resumeMessage ?? null,
+                controllerSessionId: args.data.controllerSessionId ?? null,
                 status: args.data.status,
                 attempt: args.data.attempt ?? 1,
                 dispatchToken: args.data.dispatchToken,
@@ -574,6 +620,9 @@ const {
                 run: {
                     status: run.status,
                     accountId: run.accountId,
+                    title: run.title,
+                    controllerSessionId: run.controllerSessionId,
+                    reopenedAt: run.reopenedAt,
                 },
                 task: {
                     retryMaxAttempts: task.retryMaxAttempts,
@@ -597,7 +646,21 @@ const {
                         : b.attempt - a.attempt
                 ));
             }
-            return rows.map((item) => ({ ...item }));
+            if (Array.isArray(args?.distinct)) {
+                const seen = new Set<string>();
+                rows = rows.filter((item) => {
+                    const key = args.distinct.map((field: string) => String((item as any)[field])).join('|');
+                    if (seen.has(key)) {
+                        return false;
+                    }
+                    seen.add(key);
+                    return true;
+                });
+            }
+            return rows.map((item) => ({
+                ...item,
+                run: { controllerSessionId: state.runs.find((run) => run.id === item.runId)?.controllerSessionId ?? null },
+            }));
         }),
         update: vi.fn(async (args: any) => {
             const execution = state.executions.find((item) => item.id === args?.where?.id);
@@ -733,7 +796,7 @@ const {
         return Array.from(state.dispatchReadyMachineIds).map((machineId) => `${machineId}:orchestrator-dispatch`);
     });
     const eventRouterMock = {
-        emitEphemeral: vi.fn(),
+        emitEphemeral: vi.fn((_event: any) => ({ sessionScoped: 1 })),
         getConnections: vi.fn((_userId: string) => {
             const connections = new Set<any>();
             for (const machineId of state.onlineMachineIds) {
@@ -774,7 +837,18 @@ vi.mock('@/app/api/socket/rpcRegistry', () => ({
 
 vi.mock('@/app/events/eventRouter', () => ({
     eventRouter: eventRouterMock,
-    buildOrchestratorActivityEphemeral: vi.fn((_sessionId: string, _activity: Record<string, string[]>) => ({ type: 'orchestrator-activity' })),
+    buildOrchestratorActivityEphemeral: vi.fn((sessionId: string, activity: Record<string, string[]>, totalRunCount?: number) => ({
+        type: 'orchestrator-activity',
+        sessionId,
+        activity,
+        totalRunCount,
+    })),
+    buildOrchestratorRunTerminalEphemeral: vi.fn((runId: string, status: string, title: string) => ({
+        type: 'orchestrator-run-terminal',
+        runId,
+        status,
+        title,
+    })),
 }));
 
 import { orchestratorRoutes } from '@/app/api/routes/orchestratorRoutes';
@@ -816,6 +890,7 @@ describe('orchestrator integration paths', () => {
         });
         listConnectedUserRpcMethodsMock.mockClear();
         eventRouterMock.getConnections.mockClear();
+        eventRouterMock.emitEphemeral.mockClear();
     });
 
     it('submit -> scheduler dispatch -> daemon start/finish -> run completed', async () => {
@@ -1337,6 +1412,124 @@ describe('orchestrator integration paths', () => {
             }),
             expect.any(Number),
         );
+        await app.close();
+    });
+
+    it('works for the session that sent a follow-up, not the one that submitted the run', async () => {
+        const app = await createApp();
+        state.sessions.push({ id: 'controller-session-2', accountId: 'user-1' });
+        const terminalCallbackSessions = () => eventRouterMock.emitEphemeral.mock.calls
+            .map(([event]) => event)
+            .filter((event: any) => event.payload.type === 'orchestrator-run-terminal')
+            .map((event: any) => event.recipientFilter.sessionId);
+        const activityOf = async (sessionId: string) => (await app.inject({
+            method: 'GET',
+            url: `/v1/orchestrator/activity?controllerSessionId=${sessionId}`,
+            headers: { 'x-user-id': 'user-1' },
+        })).json().data;
+        const runTitlesOf = async (sessionId: string) => (await app.inject({
+            method: 'GET',
+            url: `/v1/orchestrator/runs?controllerSessionId=${sessionId}`,
+            headers: { 'x-user-id': 'user-1' },
+        })).json().data.items.map((item: any) => item.title);
+
+        const submit = await app.inject({
+            method: 'POST',
+            url: '/v1/orchestrator/submit',
+            headers: { 'x-user-id': 'user-1' },
+            payload: {
+                title: 'submitted-by-session-1',
+                controllerSessionId: 'controller-session-1',
+                tasks: [{ provider: 'codex', prompt: 'initial prompt', retry: { maxAttempts: 3 } }],
+            },
+        });
+        expect(submit.statusCode).toBe(200);
+        const runId = submit.json().data.runId as string;
+
+        await orchestratorSchedulerTick(new Date('2026-03-16T00:00:00.000Z'));
+        const initialExecution = state.executions[0];
+        await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/executions/${initialExecution.id}/finish`,
+            headers: { 'x-user-id': 'user-1' },
+            payload: {
+                dispatchToken: initialExecution.dispatchToken,
+                status: 'completed',
+                childSessionId: 'child-session-1',
+            },
+        });
+        expect(terminalCallbackSessions()).toEqual(['controller-session-1']);
+        eventRouterMock.emitEphemeral.mockClear();
+
+        const sendMessage = await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/tasks/${state.tasks[0].id}/send-message`,
+            headers: { 'x-user-id': 'user-1' },
+            payload: {
+                message: 'follow up from session 2',
+                controllerSessionId: 'controller-session-2',
+            },
+        });
+        expect(sendMessage.statusCode).toBe(200);
+        expect(state.executions[1].controllerSessionId).toBe('controller-session-2');
+        expect(state.runs[0].reopenedAt).toEqual(state.executions[1].createdAt);
+
+        expect(await activityOf('controller-session-2')).toEqual({
+            activity: { [runId]: [state.tasks[0].id] },
+            totalRunCount: 1,
+        });
+        expect(await activityOf('controller-session-1')).toEqual({ activity: {}, totalRunCount: 1 });
+        expect(await runTitlesOf('controller-session-1')).toEqual(['submitted-by-session-1']);
+        expect(await runTitlesOf('controller-session-2')).toEqual(['submitted-by-session-1']);
+
+        // A failed attempt is retried for the same session.
+        await orchestratorSchedulerTick(new Date('2026-03-16T00:00:01.000Z'));
+        await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/executions/${state.executions[1].id}/finish`,
+            headers: { 'x-user-id': 'user-1' },
+            payload: {
+                dispatchToken: state.executions[1].dispatchToken,
+                status: 'failed',
+                finishedAt: '2026-03-16T00:00:02.000Z',
+            },
+        });
+        expect(state.tasks[0].status).toBe('queued');
+        await orchestratorSchedulerTick(new Date('2026-03-16T00:01:00.000Z'));
+        expect(state.executions).toHaveLength(3);
+        expect(state.executions[2].controllerSessionId).toBe('controller-session-2');
+
+        await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/executions/${state.executions[2].id}/finish`,
+            headers: { 'x-user-id': 'user-1' },
+            payload: { dispatchToken: state.executions[2].dispatchToken, status: 'completed' },
+        });
+        expect(state.runs[0].status).toBe('completed');
+        expect(terminalCallbackSessions()).toEqual(['controller-session-2']);
+
+        const batch = await app.inject({
+            method: 'GET',
+            url: '/v1/orchestrator/activity/batch',
+            headers: { 'x-user-id': 'user-1' },
+        });
+        expect(batch.json().data.totalRunCounts).toEqual({
+            'controller-session-1': 1,
+            'controller-session-2': 1,
+        });
+        await app.close();
+    });
+
+    it('rejects a follow-up sent for a session of another account', async () => {
+        const app = await createApp();
+        state.sessions.push({ id: 'foreign-session', accountId: 'user-2' });
+        const response = await app.inject({
+            method: 'POST',
+            url: '/v1/orchestrator/tasks/task-1/send-message',
+            headers: { 'x-user-id': 'user-1' },
+            payload: { message: 'hello', controllerSessionId: 'foreign-session' },
+        });
+        expect(response.statusCode).toBe(400);
         await app.close();
     });
 

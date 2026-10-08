@@ -48,5 +48,6 @@ describe('orchestrator mcp tool schemas', () => {
     expect(taskSchema.shape.dependsOn.description).toContain('no output/context');
     expect(targetSchema.shape.type.description).toContain('alias "machine"');
     expect(submitSchema.controllerSessionId.description).toContain('Defaults to current MCP session');
+    expect(ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA.inputSchema.controllerSessionId.description).toContain('Defaults to current MCP session');
   });
 });

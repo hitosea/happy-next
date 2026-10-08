@@ -288,6 +288,8 @@ orchestrator_cancel({ runId: "run_abc123" })
 
 `orchestrator_submit` is always asynchronous: it returns immediately with a `runId`. Wait for the `<orchestrator-callback>`, then fetch results with `orchestrator_pend`.
 
+`orchestrator_send_message` works for the session that calls it, which need not be the one that submitted the run. The resumed task counts as that session's activity, the run appears in that session's run list, and when the run finishes again the `<orchestrator-callback>` goes to the sessions whose follow-ups were sent since it last finished, not to the submitting session.
+
 ## Status Lifecycle
 
 ### Run Status

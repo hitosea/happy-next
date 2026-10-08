@@ -310,6 +310,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                 const response = await client.orchestratorSendMessage({
                     taskId: args.taskId,
                     message: args.message,
+                    controllerSessionId: args.controllerSessionId ?? client.sessionId,
                 });
                 return toToolSuccess(response);
             } catch (error) {

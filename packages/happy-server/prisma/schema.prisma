@@ -127,6 +127,7 @@ model Session {
   publicShare       PublicSessionShare?
   capabilities      SessionCapabilities?
   controllerRuns    OrchestratorRun[]       @relation("ControllerRuns")
+  resumedExecutions OrchestratorExecution[] @relation("ControllerExecutions")
   workerExecutions  OrchestratorExecution[] @relation("WorkerExecutions")
 
   @@unique([accountId, tag])
@@ -162,6 +163,9 @@ model OrchestratorRun {
   metadata            Json?
   cancelRequestedAt   DateTime?
   completedAt         DateTime?
+  /// When a follow-up last reopened the run after it had finished. The executions created since
+  /// then are the current round, and their sessions are the ones told when it finishes again.
+  reopenedAt          DateTime?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   tasks               OrchestratorTask[]
@@ -207,39 +211,44 @@ model OrchestratorTask {
 }
 
 model OrchestratorExecution {
-  id              String           @id @default(cuid())
-  runId           String
-  run             OrchestratorRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
-  taskId          String
-  task            OrchestratorTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  workerSessionId String?
-  workerSession   Session?         @relation("WorkerExecutions", fields: [workerSessionId], references: [id], onDelete: SetNull)
-  machineId       String
-  provider        String
-  model           String?
-  childSessionId  String?
-  executionType   String           @default("initial")
-  resumeMessage   String?
-  status          String
-  attempt         Int              @default(1)
-  dispatchToken   String           @unique
-  timeoutMs       Int?
-  pid             Int?
-  startedAt       DateTime?
-  finishedAt      DateTime?
-  exitCode        Int?
-  signal          String?
-  outputSummary   String?
-  outputText      String?
-  errorCode       String?
-  errorMessage    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id                  String           @id @default(cuid())
+  runId               String
+  run                 OrchestratorRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  taskId              String
+  task                OrchestratorTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workerSessionId     String?
+  workerSession       Session?         @relation("WorkerExecutions", fields: [workerSessionId], references: [id], onDelete: SetNull)
+  /// The session that sent the follow-up this execution resumes, or the session the retried
+  /// execution came from. Null means the run's own controller session.
+  controllerSessionId String?
+  controllerSession   Session?         @relation("ControllerExecutions", fields: [controllerSessionId], references: [id], onDelete: SetNull)
+  machineId           String
+  provider            String
+  model               String?
+  childSessionId      String?
+  executionType       String           @default("initial")
+  resumeMessage       String?
+  status              String
+  attempt             Int              @default(1)
+  dispatchToken       String           @unique
+  timeoutMs           Int?
+  pid                 Int?
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  exitCode            Int?
+  signal              String?
+  outputSummary       String?
+  outputText          String?
+  errorCode           String?
+  errorMessage        String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   @@index([runId, status, createdAt])
   @@index([taskId, status, createdAt])
   @@index([machineId, status, createdAt])
   @@index([workerSessionId])
+  @@index([controllerSessionId])
 }
 
 model SessionCapabilities {
