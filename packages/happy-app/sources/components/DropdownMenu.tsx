@@ -11,6 +11,8 @@ export type DropdownMenuProps = {
     style?: StyleProp<ViewStyle>;
     /** Applied over `style` while the pointer is over the trigger (web). */
     hoveredStyle?: StyleProp<ViewStyle>;
+    /** Open on mouse hover and animate the popover (web). */
+    openOnHover?: boolean;
     children: React.ReactNode;
 };
 
