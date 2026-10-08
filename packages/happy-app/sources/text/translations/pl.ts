@@ -37,6 +37,7 @@ export const pl: TranslationStructure = {
         close: 'Zamknij',
         searchMachines: 'Szukaj maszyn…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Maszyny: ${total} · online: ${online}`,
+        machineCount: ({ count }: { count: number }) => `Maszyny: ${count}`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} z ${total} maszyn`,
         machinesSection: 'Maszyny',
         sharingSection: 'Udostępnianie',
@@ -1148,6 +1149,8 @@ export const pl: TranslationStructure = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'Model z konfiguracji CLI',
+            useCliDefaults: 'Domyślne ustawienia profilu/CLI',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1240,6 +1243,10 @@ export const pl: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `Edycja ${index} z ${total}`,
             replaceAll: 'Zamień wszystkie',
         },
+        trimmedDiff: {
+            availableInSessionView: 'Diff dostępny w widoku sesji',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, one: 'edycja', few: 'edycje', many: 'edycji' })} — dostępne w widoku sesji`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} ${plural({ count: characters, one: 'znak', few: 'znaki', many: 'znaków' })} · ${lines} ${plural({ count: lines, one: 'wiersz', few: 'wiersze', many: 'wierszy' })}`,
         },
@@ -1252,6 +1259,8 @@ export const pl: TranslationStructure = {
             collapseSource: 'Ukryj kod',
         },
         names: {
+            enterPlanMode: 'Wejdź w tryb planowania',
+            changeTitle: 'Zmień tytuł',
             viewImage: "Wyświetl obraz",
             task: 'Zadanie',
             terminal: 'Terminal',
@@ -2088,6 +2097,7 @@ export const pl: TranslationStructure = {
         codeCopied: 'Kod skopiowany',
         copyFailed: 'Błąd kopiowania',
         mermaidRenderFailed: 'Nie udało się wyświetlić diagramu mermaid',
+        mermaidSyntaxError: 'Błąd składni diagramu mermaid',
     },
 
     artifacts: {
@@ -2282,8 +2292,8 @@ export const pl: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        add: 'Add',
-        duplicate: 'Duplicate',
+        add: 'Dodaj',
+        duplicate: 'Duplikuj',
         delete: 'Delete',
         filterMachines: 'Type to filter machines...',
         recentMachines: 'Recent Machines',
@@ -2329,6 +2339,78 @@ export const pl: TranslationStructure = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: 'Profil wbudowany',
+        useAsIs: 'Użyj bez zmian',
+        editProfile: 'Edytuj',
+        builtInProfiles: 'Profile wbudowane',
+        customProfiles: 'Profile własne',
+        manualConfiguration: 'Konfiguracja ręczna',
+        manualConfigurationDesc: 'Użyj zmiennych środowiskowych CLI lub skonfiguruj ręcznie',
+        useCliVars: 'Zmienne CLI',
+        configure: 'Skonfiguruj',
+
+        // Profile dialogs
+        createProfileTitle: 'Nowy profil',
+        createProfileMessage: 'Podaj nazwę nowego profilu:',
+        duplicateProfileTitle: 'Duplikuj profil',
+        duplicateProfileMessage: ({ name }: { name: string }) => `Podaj nazwę dla kopii „${name}”:`,
+        deleteProfileTitle: 'Usuń profil',
+        deleteProfileMessage: ({ name }: { name: string }) => `Czy na pewno chcesz usunąć „${name}”? Tej operacji nie można cofnąć.`,
+
+        // Step descriptions
+        profileStepDesc: 'Wybierz gotowy profil AI lub skonfiguruj ręcznie',
+        createProfileDesc: 'Skonfiguruj własny backend AI',
+        profileConfigDesc: 'Wprowadź klucze API i szczegóły konfiguracji',
+        sessionTypeDesc: 'Wybierz dostawcę AI i sposób pracy z kodem',
+        agentDesc: 'Wybierz, którego asystenta AI chcesz użyć',
+        optionsDesc: 'Skonfiguruj zachowanie agenta AI',
+        machineDesc: 'Wybierz komputer, na którym uruchomić sesję',
+        pathDesc: 'Wybierz katalog roboczy',
+        promptDesc: 'Napisz pierwszą wiadomość do agenta AI',
+        agentClaudeDesc: 'Asystent AI od Anthropic, świetny do kodowania i analizy',
+        agentCodexDesc: 'Wyspecjalizowany asystent kodowania od OpenAI',
+        notCompatible: 'Niekompatybilny z wybranym profilem',
+        envVarsAutomatic: 'Zmienne środowiskowe zostaną zastosowane automatycznie',
+
+        // Sections
+        requiredConfiguration: 'Wymagana konfiguracja',
+        aiBackend: 'Backend AI',
+        modelMode: 'Tryb modelu',
+        availableMachines: 'Dostępne komputery',
+        recentlyUsed: 'Ostatnio używane',
+        commonDirectories: 'Popularne katalogi',
+        customDirectory: 'Inny katalog',
+        enterCustomPath: 'Wpisz własną ścieżkę',
+        directoryPathPlaceholder: 'Wpisz ścieżkę katalogu (np. /home/user/my-project)',
+
+        // API key fields
+        apiKeyDeepSeek: 'Klucz API DeepSeek',
+        apiKeyOpenAI: 'Klucz API OpenAI',
+        apiKeyAzureOpenAI: 'Klucz API Azure OpenAI',
+        apiKeyAzure: 'Klucz API Azure',
+        apiKeyZai: 'Klucz API Z.ai',
+        azureEndpoint: 'Punkt końcowy Azure',
+        azureDeploymentName: 'Nazwa wdrożenia',
+        azureOpenAIKeyPlaceholder: 'Wpisz swój klucz API Azure OpenAI',
+        azureKeyPlaceholder: 'Wpisz swój klucz API Azure',
+
+        // Common directories
+        homeDirectory: 'Katalog domowy',
+        projectsFolder: 'Katalog projektów',
+        documentsFolder: 'Katalog dokumentów',
+        desktopFolder: 'Pulpit',
+
+        // Step titles & header
+        agentBackendStepTitle: 'Wybierz backend AI i typ sesji',
+        agentStepTitle: 'Wybierz agenta AI',
+        agentOptionsStepTitle: 'Opcje agenta',
+        workingDirectoryStepTitle: 'Katalog roboczy',
+        initialMessageStepTitle: 'Pierwsza wiadomość',
+        title: 'Nowa sesja',
+        configureProfileTitle: ({ name }: { name: string }) => `Konfiguracja: ${name}`,
+        profileFallback: 'Profil',
     },
 } as const;
 

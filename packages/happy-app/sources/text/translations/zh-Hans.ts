@@ -28,6 +28,7 @@ export const zhHans: TranslationStructure = {
         close: '关闭',
         searchMachines: '搜索机器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台机器 · ${online} 在线`,
+        machineCount: ({ count }: { count: number }) => `${count} 台机器`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} / ${total} 台机器`,
         machinesSection: '机器',
         sharingSection: '分享',
@@ -1139,6 +1140,8 @@ export const zhHans: TranslationStructure = {
             fastMode: '快速模式',
             context1m: '1M 上下文',
             context1mAlways: '始终开启',
+            useCliConfigured: '使用 CLI 配置的模型',
+            useCliDefaults: '使用档案/CLI 的默认设置',
         },
         codexPermissionMode: {
             title: 'CODEX 权限模式',
@@ -1231,6 +1234,10 @@ export const zhHans: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `编辑 ${index}/${total}`,
             replaceAll: '全部替换',
         },
+        trimmedDiff: {
+            availableInSessionView: '差异可在会话界面查看',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: '处编辑', plural: '处编辑' })} — 可在会话界面查看`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} 个字符 · ${lines} 行`,
         },
@@ -1243,6 +1250,8 @@ export const zhHans: TranslationStructure = {
             collapseSource: '收起源码',
         },
         names: {
+            enterPlanMode: '进入计划模式',
+            changeTitle: '更改标题',
             viewImage: "查看图片",
             task: '任务',
             terminal: '终端',
@@ -2079,6 +2088,7 @@ export const zhHans: TranslationStructure = {
         codeCopied: '代码已复制',
         copyFailed: '复制失败',
         mermaidRenderFailed: '渲染 mermaid 图表失败',
+        mermaidSyntaxError: 'Mermaid 图表语法错误',
     },
 
     artifacts: {
@@ -2305,5 +2315,77 @@ export const zhHans: TranslationStructure = {
         permFullAutoDesc: '跳过审批并关闭沙箱限制',
         permGeminiPlanDesc: '用于研究和设计的只读模式',
         permFullAccess: '完全访问，跳过权限',
+
+        // Profile picker
+        builtInProfile: '内置档案',
+        useAsIs: '直接使用',
+        editProfile: '编辑',
+        builtInProfiles: '内置档案',
+        customProfiles: '自定义档案',
+        manualConfiguration: '手动配置',
+        manualConfigurationDesc: '使用 CLI 的环境变量，或手动配置',
+        useCliVars: '使用 CLI 变量',
+        configure: '配置',
+
+        // Profile dialogs
+        createProfileTitle: '新建档案',
+        createProfileMessage: '请输入新档案的名称：',
+        duplicateProfileTitle: '复制档案',
+        duplicateProfileMessage: ({ name }: { name: string }) => `请输入「${name}」副本的名称：`,
+        deleteProfileTitle: '删除档案',
+        deleteProfileMessage: ({ name }: { name: string }) => `确定要删除「${name}」吗？此操作无法撤销。`,
+
+        // Step descriptions
+        profileStepDesc: '选择预设的 AI 档案，或手动配置',
+        createProfileDesc: '配置自定义的 AI 后端',
+        profileConfigDesc: '填写 API 密钥和配置信息',
+        sessionTypeDesc: '选择 AI 服务商以及代码的使用方式',
+        agentDesc: '选择要使用的 AI 助手',
+        optionsDesc: '设置 AI 助手的行为方式',
+        machineDesc: '选择运行会话的机器',
+        pathDesc: '选择工作目录',
+        promptDesc: '给 AI 助手写第一条消息',
+        agentClaudeDesc: 'Anthropic 的 AI 助手，适合编码与分析',
+        agentCodexDesc: 'OpenAI 的编码专用助手',
+        notCompatible: '与所选档案不兼容',
+        envVarsAutomatic: '环境变量会自动应用',
+
+        // Sections
+        requiredConfiguration: '必填配置',
+        aiBackend: 'AI 后端',
+        modelMode: '模型模式',
+        availableMachines: '可用机器',
+        recentlyUsed: '最近使用',
+        commonDirectories: '常用目录',
+        customDirectory: '自定义目录',
+        enterCustomPath: '输入自定义路径',
+        directoryPathPlaceholder: '输入目录路径（例如 /home/user/my-project）',
+
+        // API key fields
+        apiKeyDeepSeek: 'DeepSeek API 密钥',
+        apiKeyOpenAI: 'OpenAI API 密钥',
+        apiKeyAzureOpenAI: 'Azure OpenAI API 密钥',
+        apiKeyAzure: 'Azure API 密钥',
+        apiKeyZai: 'Z.ai API 密钥',
+        azureEndpoint: 'Azure 终结点',
+        azureDeploymentName: '部署名称',
+        azureOpenAIKeyPlaceholder: '输入你的 Azure OpenAI API 密钥',
+        azureKeyPlaceholder: '输入你的 Azure API 密钥',
+
+        // Common directories
+        homeDirectory: '主目录',
+        projectsFolder: '项目文件夹',
+        documentsFolder: '文档文件夹',
+        desktopFolder: '桌面文件夹',
+
+        // Step titles & header
+        agentBackendStepTitle: '选择 AI 后端和会话类型',
+        agentStepTitle: '选择 AI 助手',
+        agentOptionsStepTitle: '助手选项',
+        workingDirectoryStepTitle: '工作目录',
+        initialMessageStepTitle: '初始消息',
+        title: '新建会话',
+        configureProfileTitle: ({ name }: { name: string }) => `配置 ${name}`,
+        profileFallback: '档案',
     },
 } as const;

@@ -26,6 +26,7 @@ export const ca: TranslationStructure = {
         close: 'Tanca',
         searchMachines: 'Cerca màquines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'màquina' : 'màquines'} · ${online} en línia`,
+        machineCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'màquina' : 'màquines'}`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} de ${total} màquines`,
         machinesSection: 'Màquines',
         sharingSection: 'Compartit',
@@ -1137,6 +1138,8 @@ export const ca: TranslationStructure = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'Model configurat al CLI',
+            useCliDefaults: 'Valors per defecte del perfil o del CLI',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1229,6 +1232,10 @@ export const ca: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `Edició ${index} de ${total}`,
             replaceAll: 'Reemplaça tot',
         },
+        trimmedDiff: {
+            availableInSessionView: 'Diff disponible a la vista de sessió',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'edició', plural: 'edicions' })} — disponible a la vista de sessió`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} ${plural({ count: characters, singular: 'caràcter', plural: 'caràcters' })} · ${lines} ${plural({ count: lines, singular: 'línia', plural: 'línies' })}`,
         },
@@ -1241,6 +1248,8 @@ export const ca: TranslationStructure = {
             collapseSource: 'Amaga el codi',
         },
         names: {
+            enterPlanMode: 'Entra en mode pla',
+            changeTitle: 'Canvia el títol',
             viewImage: "Mostra la imatge",
             task: 'Tasca',
             terminal: 'Terminal',
@@ -2077,6 +2086,7 @@ export const ca: TranslationStructure = {
         codeCopied: 'Codi copiat',
         copyFailed: 'Error al copiar',
         mermaidRenderFailed: 'Error al renderitzar el diagrama mermaid',
+        mermaidSyntaxError: 'Error de sintaxi del diagrama mermaid',
     },
 
     artifacts: {
@@ -2256,8 +2266,8 @@ export const ca: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        add: 'Add',
-        duplicate: 'Duplicate',
+        add: 'Afegeix',
+        duplicate: 'Duplica',
         delete: 'Delete',
         filterMachines: 'Type to filter machines...',
         recentMachines: 'Recent Machines',
@@ -2303,6 +2313,78 @@ export const ca: TranslationStructure = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: 'Perfil integrat',
+        useAsIs: 'Usa tal qual',
+        editProfile: 'Edita',
+        builtInProfiles: 'Perfils integrats',
+        customProfiles: 'Perfils personalitzats',
+        manualConfiguration: 'Configuració manual',
+        manualConfigurationDesc: 'Usa les variables d\'entorn del CLI o configura manualment',
+        useCliVars: 'Variables del CLI',
+        configure: 'Configura',
+
+        // Profile dialogs
+        createProfileTitle: 'Perfil nou',
+        createProfileMessage: 'Introdueix un nom per al teu perfil nou:',
+        duplicateProfileTitle: 'Duplica el perfil',
+        duplicateProfileMessage: ({ name }: { name: string }) => `Introdueix un nom per a la còpia de "${name}":`,
+        deleteProfileTitle: 'Suprimeix el perfil',
+        deleteProfileMessage: ({ name }: { name: string }) => `Segur que vols eliminar "${name}"? Aquesta acció no es pot desfer.`,
+
+        // Step descriptions
+        profileStepDesc: 'Tria un perfil d\'IA preconfigurat o configura\'l manualment',
+        createProfileDesc: 'Configura un backend d\'IA propi',
+        profileConfigDesc: 'Introdueix les claus d\'API i les dades de configuració',
+        sessionTypeDesc: 'Tria el proveïdor d\'IA i com vols treballar amb el codi',
+        agentDesc: 'Tria quin assistent d\'IA vols fer servir',
+        optionsDesc: 'Configura com s\'ha de comportar l\'agent d\'IA',
+        machineDesc: 'Tria en quina màquina executar la sessió',
+        pathDesc: 'Tria el directori de treball',
+        promptDesc: 'Escriu el teu primer missatge a l\'agent d\'IA',
+        agentClaudeDesc: 'L\'assistent d\'IA d\'Anthropic, ideal per programar i analitzar',
+        agentCodexDesc: 'L\'assistent especialitzat en codi d\'OpenAI',
+        notCompatible: 'No compatible amb el perfil seleccionat',
+        envVarsAutomatic: 'Les variables d\'entorn s\'aplicaran automàticament',
+
+        // Sections
+        requiredConfiguration: 'Configuració necessària',
+        aiBackend: 'Backend d\'IA',
+        modelMode: 'Mode de model',
+        availableMachines: 'Màquines disponibles',
+        recentlyUsed: 'Usades recentment',
+        commonDirectories: 'Directoris habituals',
+        customDirectory: 'Directori personalitzat',
+        enterCustomPath: 'Introdueix una ruta personalitzada',
+        directoryPathPlaceholder: 'Introdueix la ruta del directori (p. ex. /home/user/my-project)',
+
+        // API key fields
+        apiKeyDeepSeek: 'Clau d\'API de DeepSeek',
+        apiKeyOpenAI: 'Clau d\'API d\'OpenAI',
+        apiKeyAzureOpenAI: 'Clau d\'API d\'Azure OpenAI',
+        apiKeyAzure: 'Clau d\'API d\'Azure',
+        apiKeyZai: 'Clau d\'API de Z.ai',
+        azureEndpoint: 'Punt de connexió d\'Azure',
+        azureDeploymentName: 'Nom del desplegament',
+        azureOpenAIKeyPlaceholder: 'Introdueix la teva clau d\'API d\'Azure OpenAI',
+        azureKeyPlaceholder: 'Introdueix la teva clau d\'API d\'Azure',
+
+        // Common directories
+        homeDirectory: 'Directori personal',
+        projectsFolder: 'Carpeta de projectes',
+        documentsFolder: 'Carpeta de documents',
+        desktopFolder: 'Escriptori',
+
+        // Step titles & header
+        agentBackendStepTitle: 'Tria el backend d\'IA i el tipus de sessió',
+        agentStepTitle: 'Tria l\'agent d\'IA',
+        agentOptionsStepTitle: 'Opcions de l\'agent',
+        workingDirectoryStepTitle: 'Directori de treball',
+        initialMessageStepTitle: 'Missatge inicial',
+        title: 'Sessió nova',
+        configureProfileTitle: ({ name }: { name: string }) => `Configura ${name}`,
+        profileFallback: 'Perfil',
     },
 } as const;
 

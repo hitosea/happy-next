@@ -37,6 +37,7 @@ export const ru: TranslationStructure = {
         close: 'Закрыть',
         searchMachines: 'Поиск машин…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Машин: ${total} · в сети: ${online}`,
+        machineCount: ({ count }: { count: number }) => `Машин: ${count}`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} из ${total} машин`,
         machinesSection: 'Машины',
         sharingSection: 'Общий доступ',
@@ -1148,6 +1149,8 @@ export const ru: TranslationStructure = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'Модель из настроек CLI',
+            useCliDefaults: 'Настройки профиля или CLI по умолчанию',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1240,6 +1243,10 @@ export const ru: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `Правка ${index} из ${total}`,
             replaceAll: 'Заменить все',
         },
+        trimmedDiff: {
+            availableInSessionView: 'Дифф доступен в окне сессии',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, one: 'правка', few: 'правки', many: 'правок' })} — доступно в окне сессии`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} ${plural({ count: characters, one: 'символ', few: 'символа', many: 'символов' })} · ${lines} ${plural({ count: lines, one: 'строка', few: 'строки', many: 'строк' })}`,
         },
@@ -1252,6 +1259,8 @@ export const ru: TranslationStructure = {
             collapseSource: 'Скрыть код',
         },
         names: {
+            enterPlanMode: 'Войти в режим планирования',
+            changeTitle: 'Сменить заголовок',
             viewImage: "Просмотр изображения",
             task: 'Задача',
             terminal: 'Терминал',
@@ -2088,6 +2097,7 @@ export const ru: TranslationStructure = {
         codeCopied: 'Код скопирован',
         copyFailed: 'Ошибка копирования',
         mermaidRenderFailed: 'Не удалось отобразить диаграмму mermaid',
+        mermaidSyntaxError: 'Синтаксическая ошибка диаграммы mermaid',
     },
 
     artifacts: {
@@ -2281,8 +2291,8 @@ export const ru: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        add: 'Add',
-        duplicate: 'Duplicate',
+        add: 'Добавить',
+        duplicate: 'Дублировать',
         delete: 'Delete',
         filterMachines: 'Type to filter machines...',
         recentMachines: 'Recent Machines',
@@ -2328,6 +2338,78 @@ export const ru: TranslationStructure = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: 'Встроенный профиль',
+        useAsIs: 'Использовать как есть',
+        editProfile: 'Изменить',
+        builtInProfiles: 'Встроенные профили',
+        customProfiles: 'Свои профили',
+        manualConfiguration: 'Ручная настройка',
+        manualConfigurationDesc: 'Использовать переменные окружения CLI или настроить вручную',
+        useCliVars: 'Переменные CLI',
+        configure: 'Настроить',
+
+        // Profile dialogs
+        createProfileTitle: 'Новый профиль',
+        createProfileMessage: 'Введите имя нового профиля:',
+        duplicateProfileTitle: 'Дублировать профиль',
+        duplicateProfileMessage: ({ name }: { name: string }) => `Введите имя для копии «${name}»:`,
+        deleteProfileTitle: 'Удалить профиль',
+        deleteProfileMessage: ({ name }: { name: string }) => `Удалить «${name}»? Это действие необратимо.`,
+
+        // Step descriptions
+        profileStepDesc: 'Выберите готовый профиль ИИ или настройте вручную',
+        createProfileDesc: 'Настройте собственный бэкенд ИИ',
+        profileConfigDesc: 'Введите ключи API и параметры подключения',
+        sessionTypeDesc: 'Выберите поставщика ИИ и способ работы с кодом',
+        agentDesc: 'Выберите, какого ИИ-помощника использовать',
+        optionsDesc: 'Настройте поведение ИИ-агента',
+        machineDesc: 'Выберите машину для запуска сессии',
+        pathDesc: 'Выберите рабочий каталог',
+        promptDesc: 'Напишите первое сообщение ИИ-агенту',
+        agentClaudeDesc: 'ИИ-помощник от Anthropic для написания кода и анализа',
+        agentCodexDesc: 'Специализированный помощник по коду от OpenAI',
+        notCompatible: 'Несовместимо с выбранным профилем',
+        envVarsAutomatic: 'Переменные окружения подставятся автоматически',
+
+        // Sections
+        requiredConfiguration: 'Обязательная настройка',
+        aiBackend: 'Бэкенд ИИ',
+        modelMode: 'Режим модели',
+        availableMachines: 'Доступные машины',
+        recentlyUsed: 'Недавно использованные',
+        commonDirectories: 'Частые каталоги',
+        customDirectory: 'Другой каталог',
+        enterCustomPath: 'Введите свой путь',
+        directoryPathPlaceholder: 'Введите путь к каталогу (например, /home/user/my-project)',
+
+        // API key fields
+        apiKeyDeepSeek: 'Ключ API DeepSeek',
+        apiKeyOpenAI: 'Ключ API OpenAI',
+        apiKeyAzureOpenAI: 'Ключ API Azure OpenAI',
+        apiKeyAzure: 'Ключ API Azure',
+        apiKeyZai: 'Ключ API Z.ai',
+        azureEndpoint: 'Конечная точка Azure',
+        azureDeploymentName: 'Имя развёртывания',
+        azureOpenAIKeyPlaceholder: 'Введите ключ API Azure OpenAI',
+        azureKeyPlaceholder: 'Введите ключ API Azure',
+
+        // Common directories
+        homeDirectory: 'Домашний каталог',
+        projectsFolder: 'Каталог проектов',
+        documentsFolder: 'Каталог документов',
+        desktopFolder: 'Рабочий стол',
+
+        // Step titles & header
+        agentBackendStepTitle: 'Выбор бэкенда ИИ и типа сессии',
+        agentStepTitle: 'Выбор ИИ-агента',
+        agentOptionsStepTitle: 'Параметры агента',
+        workingDirectoryStepTitle: 'Рабочий каталог',
+        initialMessageStepTitle: 'Первое сообщение',
+        title: 'Новая сессия',
+        configureProfileTitle: ({ name }: { name: string }) => `Настройка ${name}`,
+        profileFallback: 'Профиль',
     },
 } as const;
 

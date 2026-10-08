@@ -610,7 +610,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [claudeSelection.family, claudeIs1M, props.onModelModeChange]);
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string }>>(() => {
         if (isGemini) return [...getModelFamilyOptions('gemini')];
-        return [{ value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' }];
+        return [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') }];
     }, [isGemini, modelCatalog]);
 
     const currentModelLabel = React.useMemo(() => {

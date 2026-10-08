@@ -26,6 +26,7 @@ export const en = {
         close: 'Close',
         searchMachines: 'Search machines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'machine' : 'machines'} · ${online} online`,
+        machineCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'machine' : 'machines'}`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} of ${total} machines`,
         machinesSection: 'Machines',
         sharingSection: 'Sharing',
@@ -1149,6 +1150,8 @@ export const en = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'Use CLI configured model',
+            useCliDefaults: 'Use profile/CLI defaults',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1241,6 +1244,10 @@ export const en = {
             editNumber: ({ index, total }: { index: number; total: number }) => `Edit ${index} of ${total}`,
             replaceAll: 'Replace All',
         },
+        trimmedDiff: {
+            availableInSessionView: 'Diff available in session view',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'edit', plural: 'edits' })} — available in session view`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} ${plural({ count: characters, singular: 'character', plural: 'characters' })} · ${lines} ${plural({ count: lines, singular: 'line', plural: 'lines' })}`,
         },
@@ -1253,6 +1260,8 @@ export const en = {
             collapseSource: 'Hide source',
         },
         names: {
+            enterPlanMode: 'Enter Plan Mode',
+            changeTitle: 'Change Title',
             viewImage: "View Image",
             task: 'Task',
             terminal: 'Terminal',
@@ -2091,6 +2100,7 @@ export const en = {
         codeCopied: 'Code copied',
         copyFailed: 'Copy failed',
         mermaidRenderFailed: 'Failed to render mermaid diagram',
+        mermaidSyntaxError: 'Mermaid diagram syntax error',
     },
 
     artifacts: {
@@ -2334,6 +2344,78 @@ export const en = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: 'Built-in profile',
+        useAsIs: 'Use As-Is',
+        editProfile: 'Edit',
+        builtInProfiles: 'Built-in Profiles',
+        customProfiles: 'Custom Profiles',
+        manualConfiguration: 'Manual Configuration',
+        manualConfigurationDesc: 'Use CLI environment variables or configure manually',
+        useCliVars: 'Use CLI Vars',
+        configure: 'Configure',
+
+        // Profile dialogs
+        createProfileTitle: 'Create New Profile',
+        createProfileMessage: 'Enter a name for your new profile:',
+        duplicateProfileTitle: 'Duplicate Profile',
+        duplicateProfileMessage: ({ name }: { name: string }) => `Enter a name for the duplicate of "${name}":`,
+        deleteProfileTitle: 'Delete Profile',
+        deleteProfileMessage: ({ name }: { name: string }) => `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+
+        // Step descriptions
+        profileStepDesc: 'Select a pre-configured AI profile or set up manually',
+        createProfileDesc: 'Set up a custom AI backend configuration',
+        profileConfigDesc: 'Enter your API keys and configuration details',
+        sessionTypeDesc: 'Select your AI provider and how you want to work with your code',
+        agentDesc: 'Select which AI assistant you want to use',
+        optionsDesc: 'Configure how the AI agent should behave',
+        machineDesc: 'Choose which machine to run your session on',
+        pathDesc: 'Choose the directory to work in',
+        promptDesc: 'Write your first message to the AI agent',
+        agentClaudeDesc: 'Anthropic\'s AI assistant, great for coding and analysis',
+        agentCodexDesc: 'OpenAI\'s specialized coding assistant',
+        notCompatible: 'Not compatible with selected profile',
+        envVarsAutomatic: 'Environment variables will be applied automatically',
+
+        // Sections
+        requiredConfiguration: 'Required Configuration',
+        aiBackend: 'AI Backend',
+        modelMode: 'Model Mode',
+        availableMachines: 'Available Machines',
+        recentlyUsed: 'Recently used',
+        commonDirectories: 'Common Directories',
+        customDirectory: 'Custom Directory',
+        enterCustomPath: 'Enter custom path',
+        directoryPathPlaceholder: 'Enter directory path (e.g. /home/user/my-project)',
+
+        // API key fields
+        apiKeyDeepSeek: 'DeepSeek API Key',
+        apiKeyOpenAI: 'OpenAI API Key',
+        apiKeyAzureOpenAI: 'Azure OpenAI API Key',
+        apiKeyAzure: 'Azure API Key',
+        apiKeyZai: 'Z.ai API Key',
+        azureEndpoint: 'Azure Endpoint',
+        azureDeploymentName: 'Deployment Name',
+        azureOpenAIKeyPlaceholder: 'Enter your Azure OpenAI API key',
+        azureKeyPlaceholder: 'Enter your Azure API key',
+
+        // Common directories
+        homeDirectory: 'Home directory',
+        projectsFolder: 'Projects folder',
+        documentsFolder: 'Documents folder',
+        desktopFolder: 'Desktop folder',
+
+        // Step titles & header
+        agentBackendStepTitle: 'Choose AI Backend & Session Type',
+        agentStepTitle: 'Choose AI Agent',
+        agentOptionsStepTitle: 'Agent Options',
+        workingDirectoryStepTitle: 'Working Directory',
+        initialMessageStepTitle: 'Initial Message',
+        title: 'New Session',
+        configureProfileTitle: ({ name }: { name: string }) => `Configure ${name}`,
+        profileFallback: 'Profile',
     },
 } as const;
 

@@ -171,12 +171,12 @@ export const knownTools = {
         }
     },
     'EnterPlanMode': {
-        title: 'Enter Plan Mode',
+        title: t('tools.names.enterPlanMode'),
         icon: ICON_SKILL,
         minimal: true
     },
     'enter_plan_mode': {
-        title: 'Enter Plan Mode',
+        title: t('tools.names.enterPlanMode'),
         icon: ICON_SKILL,
         minimal: true
     },
@@ -658,7 +658,7 @@ export const knownTools = {
         }
     },
     'change_title': {
-        title: 'Change Title',
+        title: t('tools.names.changeTitle'),
         icon: ICON_EDIT,
         minimal: true,
         noStatus: true,

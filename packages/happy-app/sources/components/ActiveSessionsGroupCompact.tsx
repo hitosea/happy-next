@@ -396,7 +396,7 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, regist
                                     ) : null}
                                     {!singleMachineEntry && (
                                         <Text style={styles.sectionHeaderMachine} numberOfLines={1}>
-                                            {`${projectGroup.machines.size} machines`}
+                                            {t('sessionScope.machineCount', { count: projectGroup.machines.size })}
                                         </Text>
                                     )}
                                 </>

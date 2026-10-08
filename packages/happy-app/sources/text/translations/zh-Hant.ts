@@ -28,6 +28,7 @@ export const zhHant: TranslationStructure = {
         close: '關閉',
         searchMachines: '搜尋機器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台機器 · ${online} 在線`,
+        machineCount: ({ count }: { count: number }) => `${count} 台機器`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} / ${total} 台機器`,
         machinesSection: '機器',
         sharingSection: '分享',
@@ -1139,6 +1140,8 @@ export const zhHant: TranslationStructure = {
             fastMode: '快速模式',
             context1m: '1M 上下文',
             context1mAlways: '始終開啟',
+            useCliConfigured: '使用 CLI 設定的模型',
+            useCliDefaults: '使用設定檔/CLI 的預設設定',
         },
         codexPermissionMode: {
             title: 'CODEX 權限模式',
@@ -1231,6 +1234,10 @@ export const zhHant: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `編輯 ${index}/${total}`,
             replaceAll: '全部替換',
         },
+        trimmedDiff: {
+            availableInSessionView: '差異可在會話介面查看',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: '處編輯', plural: '處編輯' })} — 可在會話介面查看`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} 個字元 · ${lines} 行`,
         },
@@ -1243,6 +1250,8 @@ export const zhHant: TranslationStructure = {
             collapseSource: '收起原始碼',
         },
         names: {
+            enterPlanMode: '進入計畫模式',
+            changeTitle: '變更標題',
             viewImage: "檢視圖片",
             task: '任務',
             terminal: '終端機',
@@ -2079,6 +2088,7 @@ export const zhHant: TranslationStructure = {
         codeCopied: '程式碼已複製',
         copyFailed: '複製失敗',
         mermaidRenderFailed: '渲染 mermaid 圖表失敗',
+        mermaidSyntaxError: 'Mermaid 圖表語法錯誤',
     },
 
     artifacts: {
@@ -2306,5 +2316,77 @@ export const zhHant: TranslationStructure = {
         permFullAutoDesc: '跳過核准並關閉沙箱限制',
         permGeminiPlanDesc: '用於研究和設計的唯讀模式',
         permFullAccess: '完全存取，跳過權限',
+
+        // Profile picker
+        builtInProfile: '內建設定檔',
+        useAsIs: '直接使用',
+        editProfile: '編輯',
+        builtInProfiles: '內建設定檔',
+        customProfiles: '自訂設定檔',
+        manualConfiguration: '手動設定',
+        manualConfigurationDesc: '使用 CLI 的環境變數，或手動設定',
+        useCliVars: '使用 CLI 變數',
+        configure: '設定',
+
+        // Profile dialogs
+        createProfileTitle: '新增設定檔',
+        createProfileMessage: '請輸入新設定檔的名稱：',
+        duplicateProfileTitle: '複製設定檔',
+        duplicateProfileMessage: ({ name }: { name: string }) => `請輸入「${name}」副本的名稱：`,
+        deleteProfileTitle: '刪除設定檔',
+        deleteProfileMessage: ({ name }: { name: string }) => `確定要刪除「${name}」嗎？此操作無法復原。`,
+
+        // Step descriptions
+        profileStepDesc: '選擇預設的 AI 設定檔，或手動設定',
+        createProfileDesc: '設定自訂的 AI 後端',
+        profileConfigDesc: '填寫 API 金鑰與設定資訊',
+        sessionTypeDesc: '選擇 AI 服務供應商以及程式碼的使用方式',
+        agentDesc: '選擇要使用的 AI 助理',
+        optionsDesc: '設定 AI 助理的行為方式',
+        machineDesc: '選擇執行工作階段的機器',
+        pathDesc: '選擇工作目錄',
+        promptDesc: '給 AI 助理寫第一則訊息',
+        agentClaudeDesc: 'Anthropic 的 AI 助理，適合撰寫程式與分析',
+        agentCodexDesc: 'OpenAI 的程式碼專用助理',
+        notCompatible: '與所選設定檔不相容',
+        envVarsAutomatic: '環境變數會自動套用',
+
+        // Sections
+        requiredConfiguration: '必填設定',
+        aiBackend: 'AI 後端',
+        modelMode: '模型模式',
+        availableMachines: '可用機器',
+        recentlyUsed: '最近使用',
+        commonDirectories: '常用目錄',
+        customDirectory: '自訂目錄',
+        enterCustomPath: '輸入自訂路徑',
+        directoryPathPlaceholder: '輸入目錄路徑（例如 /home/user/my-project）',
+
+        // API key fields
+        apiKeyDeepSeek: 'DeepSeek API 金鑰',
+        apiKeyOpenAI: 'OpenAI API 金鑰',
+        apiKeyAzureOpenAI: 'Azure OpenAI API 金鑰',
+        apiKeyAzure: 'Azure API 金鑰',
+        apiKeyZai: 'Z.ai API 金鑰',
+        azureEndpoint: 'Azure 端點',
+        azureDeploymentName: '部署名稱',
+        azureOpenAIKeyPlaceholder: '輸入你的 Azure OpenAI API 金鑰',
+        azureKeyPlaceholder: '輸入你的 Azure API 金鑰',
+
+        // Common directories
+        homeDirectory: '主目錄',
+        projectsFolder: '專案資料夾',
+        documentsFolder: '文件資料夾',
+        desktopFolder: '桌面資料夾',
+
+        // Step titles & header
+        agentBackendStepTitle: '選擇 AI 後端與工作階段類型',
+        agentStepTitle: '選擇 AI 助理',
+        agentOptionsStepTitle: '助理選項',
+        workingDirectoryStepTitle: '工作目錄',
+        initialMessageStepTitle: '初始訊息',
+        title: '新增工作階段',
+        configureProfileTitle: ({ name }: { name: string }) => `設定 ${name}`,
+        profileFallback: '設定檔',
     },
 } as const;

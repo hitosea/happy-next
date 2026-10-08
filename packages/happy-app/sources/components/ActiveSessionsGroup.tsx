@@ -386,7 +386,7 @@ export function ActiveSessionsGroup({ sessions, selectedSessionId, registerSessi
                 const firstMachine = machineEntries[0]?.[1];
                 const machineName = projectGroup.machines.size === 1
                     ? firstMachine?.machineName
-                    : `${projectGroup.machines.size} machines`;
+                    : t('sessionScope.machineCount', { count: projectGroup.machines.size });
                 const singleMachineEntry = machineEntries.length === 1 ? machineEntries[0] : null;
                 const singleMachineId = singleMachineEntry?.[0];
                 const singleMachineSession = singleMachineEntry?.[1]?.sessions[0];

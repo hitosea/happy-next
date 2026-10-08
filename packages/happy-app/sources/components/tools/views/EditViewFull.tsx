@@ -53,7 +53,7 @@ export const EditViewFull = React.memo<EditViewFullProps>(({ tool, metadata }) =
                     <LongPressCopy text={filePath}>
                         <Text selectable={selectable} style={trimmedStyles.fileName}>{filePath}</Text>
                     </LongPressCopy>
-                    <Text style={trimmedStyles.hint}>Diff available in session view</Text>
+                    <Text style={trimmedStyles.hint}>{t('tools.trimmedDiff.availableInSessionView')}</Text>
                 </View>
             </View>
         );

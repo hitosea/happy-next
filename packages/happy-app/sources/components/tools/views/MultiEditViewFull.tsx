@@ -30,10 +30,10 @@ export const MultiEditViewFull = React.memo<MultiEditViewFullProps>(({ tool, met
                     <CopyableText style={trimmedStyles.fileName}>{filePath}</CopyableText>
                     {editCount > 0 && (
                         <Text style={trimmedStyles.hint}>
-                            {editCount} {editCount === 1 ? 'edit' : 'edits'} — available in session view
+                            {t('tools.trimmedDiff.editsInSessionView', { count: editCount })}
                         </Text>
                     )}
-                    {!editCount && <Text style={trimmedStyles.hint}>Diff available in session view</Text>}
+                    {!editCount && <Text style={trimmedStyles.hint}>{t('tools.trimmedDiff.availableInSessionView')}</Text>}
                 </View>
             </View>
         );

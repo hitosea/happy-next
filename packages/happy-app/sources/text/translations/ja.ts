@@ -29,6 +29,7 @@ export const ja: TranslationStructure = {
         close: '閉じる',
         searchMachines: 'マシンを検索…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台のマシン · ${online} 台オンライン`,
+        machineCount: ({ count }: { count: number }) => `${count} 台のマシン`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${total} 台中 ${count} 台`,
         machinesSection: 'マシン',
         sharingSection: '共有',
@@ -1169,6 +1170,8 @@ export const ja: TranslationStructure = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'CLI 設定のモデルを使用',
+            useCliDefaults: 'プロファイル/CLI の既定値を使用',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1275,6 +1278,10 @@ export const ja: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `編集 ${index}/${total}`,
             replaceAll: 'すべて置換',
         },
+        trimmedDiff: {
+            availableInSessionView: '差分はセッション画面で確認できます',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: '編集', plural: '編集' })} — セッション画面で確認できます`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} 文字 · ${lines} 行`,
         },
@@ -1287,6 +1294,8 @@ export const ja: TranslationStructure = {
             collapseSource: 'ソースを隠す',
         },
         names: {
+            enterPlanMode: 'プランモードに入る',
+            changeTitle: 'タイトルを変更',
             viewImage: "画像を表示",
             task: 'タスク',
             terminal: 'ターミナル',
@@ -2109,6 +2118,7 @@ export const ja: TranslationStructure = {
         codeCopied: 'コードをコピーしました',
         copyFailed: 'コピーに失敗しました',
         mermaidRenderFailed: 'Mermaidダイアグラムのレンダリングに失敗しました',
+        mermaidSyntaxError: 'Mermaidダイアグラムの構文エラー',
     },
 
     artifacts: {
@@ -2306,5 +2316,77 @@ export const ja: TranslationStructure = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: '組み込みプロファイル',
+        useAsIs: 'そのまま使う',
+        editProfile: '編集',
+        builtInProfiles: '組み込みプロファイル',
+        customProfiles: 'カスタムプロファイル',
+        manualConfiguration: '手動設定',
+        manualConfigurationDesc: 'CLI の環境変数を使うか、手動で設定します',
+        useCliVars: 'CLI の変数を使う',
+        configure: '設定',
+
+        // Profile dialogs
+        createProfileTitle: '新しいプロファイル',
+        createProfileMessage: '新しいプロファイルの名前を入力してください:',
+        duplicateProfileTitle: 'プロファイルを複製',
+        duplicateProfileMessage: ({ name }: { name: string }) => `「${name}」の複製の名前を入力してください:`,
+        deleteProfileTitle: 'プロファイルを削除',
+        deleteProfileMessage: ({ name }: { name: string }) => `「${name}」を削除しますか？この操作は取り消せません。`,
+
+        // Step descriptions
+        profileStepDesc: '用意された AI プロファイルを選ぶか、手動で設定します',
+        createProfileDesc: '独自の AI バックエンドを設定します',
+        profileConfigDesc: 'API キーと設定の詳細を入力してください',
+        sessionTypeDesc: 'AI プロバイダーとコードの扱い方を選択します',
+        agentDesc: '使用する AI アシスタントを選択します',
+        optionsDesc: 'AI エージェントの動作を設定します',
+        machineDesc: 'セッションを実行するマシンを選択します',
+        pathDesc: '作業するディレクトリを選択します',
+        promptDesc: 'AI エージェントへの最初のメッセージを入力します',
+        agentClaudeDesc: 'Anthropic の AI アシスタント。コーディングと分析に適しています',
+        agentCodexDesc: 'OpenAI のコーディング専用アシスタント',
+        notCompatible: '選択中のプロファイルでは使用できません',
+        envVarsAutomatic: '環境変数は自動的に適用されます',
+
+        // Sections
+        requiredConfiguration: '必須の設定',
+        aiBackend: 'AI バックエンド',
+        modelMode: 'モデルモード',
+        availableMachines: '利用可能なマシン',
+        recentlyUsed: '最近使用した項目',
+        commonDirectories: 'よく使うディレクトリ',
+        customDirectory: 'カスタムディレクトリ',
+        enterCustomPath: 'カスタムパスを入力',
+        directoryPathPlaceholder: 'ディレクトリのパスを入力（例: /home/user/my-project）',
+
+        // API key fields
+        apiKeyDeepSeek: 'DeepSeek API キー',
+        apiKeyOpenAI: 'OpenAI API キー',
+        apiKeyAzureOpenAI: 'Azure OpenAI API キー',
+        apiKeyAzure: 'Azure API キー',
+        apiKeyZai: 'Z.ai API キー',
+        azureEndpoint: 'Azure エンドポイント',
+        azureDeploymentName: 'デプロイ名',
+        azureOpenAIKeyPlaceholder: 'Azure OpenAI API キーを入力してください',
+        azureKeyPlaceholder: 'Azure API キーを入力してください',
+
+        // Common directories
+        homeDirectory: 'ホームディレクトリ',
+        projectsFolder: 'プロジェクトフォルダ',
+        documentsFolder: 'ドキュメントフォルダ',
+        desktopFolder: 'デスクトップフォルダ',
+
+        // Step titles & header
+        agentBackendStepTitle: 'AI バックエンドとセッション種別を選択',
+        agentStepTitle: 'AI エージェントを選択',
+        agentOptionsStepTitle: 'エージェントのオプション',
+        workingDirectoryStepTitle: '作業ディレクトリ',
+        initialMessageStepTitle: '最初のメッセージ',
+        title: '新しいセッション',
+        configureProfileTitle: ({ name }: { name: string }) => `${name} を設定`,
+        profileFallback: 'プロファイル',
     },
 } as const;

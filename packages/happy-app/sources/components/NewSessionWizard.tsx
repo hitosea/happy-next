@@ -236,7 +236,7 @@ function ProfileSelectionItem({ profile, isSelected, onSelect, onUseAsIs, onEdit
                                 color: theme.colors.textSecondary,
                                 marginTop: 2,
                             }}>
-                                Built-in profile
+                                {t('wizard.builtInProfile')}
                             </Text>
                         )}
                     </View>
@@ -284,7 +284,7 @@ function ProfileSelectionItem({ profile, isSelected, onSelect, onUseAsIs, onEdit
                                 marginLeft: 6,
                                 ...Typography.default('semiBold'),
                             }}>
-                                Use As-Is
+                                {t('wizard.useAsIs')}
                             </Text>
                         </Pressable>
 
@@ -311,7 +311,7 @@ function ProfileSelectionItem({ profile, isSelected, onSelect, onUseAsIs, onEdit
                                 marginLeft: 6,
                                 ...Typography.default('semiBold'),
                             }}>
-                                Edit
+                                {t('wizard.editProfile')}
                             </Text>
                         </Pressable>
                     </View>
@@ -345,7 +345,7 @@ function ProfileSelectionItem({ profile, isSelected, onSelect, onUseAsIs, onEdit
                                     marginLeft: 4,
                                     ...Typography.default('semiBold'),
                                 }}>
-                                    Duplicate
+                                    {t('wizard.duplicate')}
                                 </Text>
                             </Pressable>
 
@@ -372,7 +372,7 @@ function ProfileSelectionItem({ profile, isSelected, onSelect, onUseAsIs, onEdit
                                     marginLeft: 4,
                                     ...Typography.default('semiBold'),
                                 }}>
-                                    Delete
+                                    {t('wizard.delete')}
                                 </Text>
                             </Pressable>
                         </View>
@@ -430,14 +430,14 @@ function ManualConfigurationItem({ isSelected, onSelect, onUseCliVars, onConfigu
                             marginBottom: 4,
                             ...Typography.default('semiBold'),
                         }}>
-                            Manual Configuration
+                            {t('wizard.manualConfiguration')}
                         </Text>
                         <Text style={{
                             fontSize: 14,
                             color: theme.colors.textSecondary,
                             ...Typography.default(),
                         }}>
-                            Use CLI environment variables or configure manually
+                            {t('wizard.manualConfigurationDesc')}
                         </Text>
                     </View>
                     {isSelected && (
@@ -479,7 +479,7 @@ function ManualConfigurationItem({ isSelected, onSelect, onUseCliVars, onConfigu
                             marginLeft: 6,
                             ...Typography.default('semiBold'),
                         }}>
-                            Use CLI Vars
+                            {t('wizard.useCliVars')}
                         </Text>
                     </Pressable>
 
@@ -506,7 +506,7 @@ function ManualConfigurationItem({ isSelected, onSelect, onUseCliVars, onConfigu
                             marginLeft: 6,
                             ...Typography.default('semiBold'),
                         }}>
-                            Configure
+                            {t('wizard.configure')}
                         </Text>
                     </Pressable>
                 </View>
@@ -825,33 +825,33 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
         switch (profile.id) {
             case 'deepseek':
                 return [
-                    { key: 'ANTHROPIC_AUTH_TOKEN', label: 'DeepSeek API Key', placeholder: 'DEEPSEEK_API_KEY', isPassword: true }
+                    { key: 'ANTHROPIC_AUTH_TOKEN', label: t('wizard.apiKeyDeepSeek'), placeholder: 'DEEPSEEK_API_KEY', isPassword: true }
                 ];
             case 'openai':
                 return [
-                    { key: 'OPENAI_API_KEY', label: 'OpenAI API Key', placeholder: 'sk-...', isPassword: true }
+                    { key: 'OPENAI_API_KEY', label: t('wizard.apiKeyOpenAI'), placeholder: 'sk-...', isPassword: true }
                 ];
             case 'azure-openai':
                 return [
-                    { key: 'AZURE_OPENAI_API_KEY', label: 'Azure OpenAI API Key', placeholder: 'Enter your Azure OpenAI API key', isPassword: true },
-                    { key: 'AZURE_OPENAI_ENDPOINT', label: 'Azure Endpoint', placeholder: 'https://your-resource.openai.azure.com/' },
-                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: 'Deployment Name', placeholder: 'gpt-4-turbo' }
+                    { key: 'AZURE_OPENAI_API_KEY', label: t('wizard.apiKeyAzureOpenAI'), placeholder: t('wizard.azureOpenAIKeyPlaceholder'), isPassword: true },
+                    { key: 'AZURE_OPENAI_ENDPOINT', label: t('wizard.azureEndpoint'), placeholder: 'https://your-resource.openai.azure.com/' },
+                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: t('wizard.azureDeploymentName'), placeholder: 'gpt-4-turbo' }
                 ];
             case 'zai':
                 return [
-                    { key: 'ANTHROPIC_AUTH_TOKEN', label: 'Z.ai API Key', placeholder: 'Z_AI_API_KEY', isPassword: true }
+                    { key: 'ANTHROPIC_AUTH_TOKEN', label: t('wizard.apiKeyZai'), placeholder: 'Z_AI_API_KEY', isPassword: true }
                 ];
             case 'microsoft':
                 return [
-                    { key: 'AZURE_OPENAI_API_KEY', label: 'Azure API Key', placeholder: 'Enter your Azure API key', isPassword: true },
-                    { key: 'AZURE_OPENAI_ENDPOINT', label: 'Azure Endpoint', placeholder: 'https://your-resource.openai.azure.com/' },
-                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: 'Deployment Name', placeholder: 'gpt-4-turbo' }
+                    { key: 'AZURE_OPENAI_API_KEY', label: t('wizard.apiKeyAzure'), placeholder: t('wizard.azureKeyPlaceholder'), isPassword: true },
+                    { key: 'AZURE_OPENAI_ENDPOINT', label: t('wizard.azureEndpoint'), placeholder: 'https://your-resource.openai.azure.com/' },
+                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: t('wizard.azureDeploymentName'), placeholder: 'gpt-4-turbo' }
                 ];
             case 'azure-openai-codex':
                 return [
-                    { key: 'AZURE_OPENAI_API_KEY', label: 'Azure OpenAI API Key', placeholder: 'Enter your Azure OpenAI API key', isPassword: true },
-                    { key: 'AZURE_OPENAI_ENDPOINT', label: 'Azure Endpoint', placeholder: 'https://your-resource.openai.azure.com/' },
-                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: 'Deployment Name', placeholder: 'gpt-4-turbo' }
+                    { key: 'AZURE_OPENAI_API_KEY', label: t('wizard.apiKeyAzureOpenAI'), placeholder: t('wizard.azureOpenAIKeyPlaceholder'), isPassword: true },
+                    { key: 'AZURE_OPENAI_ENDPOINT', label: t('wizard.azureEndpoint'), placeholder: 'https://your-resource.openai.azure.com/' },
+                    { key: 'AZURE_OPENAI_DEPLOYMENT_NAME', label: t('wizard.azureDeploymentName'), placeholder: 'gpt-4-turbo' }
                 ];
             default:
                 return [];
@@ -1006,12 +1006,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     // Handler for "Create New Profile"
     const handleCreateProfile = () => {
         Modal.prompt(
-            'Create New Profile',
-            'Enter a name for your new profile:',
+            t('wizard.createProfileTitle'),
+            t('wizard.createProfileMessage'),
             {
                 defaultValue: 'My Custom Profile',
-                confirmText: 'Create',
-                cancelText: 'Cancel'
+                confirmText: t('common.create'),
+                cancelText: t('common.cancel')
             }
         ).then((profileName) => {
             if (profileName && profileName.trim()) {
@@ -1049,12 +1049,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     // Handler for "Duplicate Profile"
     const handleDuplicateProfile = (profile: AIBackendProfile) => {
         Modal.prompt(
-            'Duplicate Profile',
-            `Enter a name for the duplicate of "${profile.name}":`,
+            t('wizard.duplicateProfileTitle'),
+            t('wizard.duplicateProfileMessage', { name: profile.name }),
             {
                 defaultValue: `${profile.name} (Copy)`,
-                confirmText: 'Duplicate',
-                cancelText: 'Cancel'
+                confirmText: t('wizard.duplicate'),
+                cancelText: t('common.cancel')
             }
         ).then((newName) => {
             if (newName && newName.trim()) {
@@ -1086,10 +1086,10 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     // Handler for "Delete Profile"
     const handleDeleteProfile = (profile: AIBackendProfile) => {
         Modal.confirm(
-            'Delete Profile',
-            `Are you sure you want to delete "${profile.name}"? This action cannot be undone.`,
+            t('wizard.deleteProfileTitle'),
+            t('wizard.deleteProfileMessage', { name: profile.name }),
             {
-                confirmText: 'Delete',
+                confirmText: t('common.delete'),
                 destructive: true
             }
         ).then((confirmed) => {
@@ -1257,12 +1257,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'profile':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Choose AI Profile</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.step1Title')}</Text>
                         <Text style={styles.stepDescription}>
-                            Select a pre-configured AI profile or set up manually
+                            {t('wizard.profileStepDesc')}
                         </Text>
 
-                        <ItemGroup title="Built-in Profiles">
+                        <ItemGroup title={t('wizard.builtInProfiles')}>
                             {builtInProfiles.map((profile) => (
                                 <ProfileSelectionItem
                                     key={profile.id}
@@ -1276,7 +1276,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                         </ItemGroup>
 
                         {profiles.length > 0 && (
-                            <ItemGroup title="Custom Profiles">
+                            <ItemGroup title={t('wizard.customProfiles')}>
                                 {profiles.map((profile) => (
                                     <ProfileSelectionItem
                                         key={profile.id}
@@ -1326,20 +1326,20 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                                         marginBottom: 4,
                                         ...Typography.default('semiBold'),
                                     }}>
-                                        Create New Profile
+                                        {t('wizard.createProfileTitle')}
                                     </Text>
                                     <Text style={{
                                         fontSize: 14,
                                         color: theme.colors.textSecondary,
                                         ...Typography.default(),
                                     }}>
-                                        Set up a custom AI backend configuration
+                                        {t('wizard.createProfileDesc')}
                                     </Text>
                                 </View>
                             </View>
                         </Pressable>
 
-                        <ItemGroup title="Manual Configuration">
+                        <ItemGroup title={t('wizard.manualConfiguration')}>
                             <ManualConfigurationItem
                                 isSelected={selectedProfileId === null}
                                 onSelect={() => setSelectedProfileId(null)}
@@ -1397,12 +1397,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
 
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Configure {allProfiles.find(p => p.id === selectedProfileId)?.name || 'Profile'}</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.configureProfileTitle', { name: allProfiles.find(p => p.id === selectedProfileId)?.name || t('wizard.profileFallback') })}</Text>
                         <Text style={styles.stepDescription}>
-                            Enter your API keys and configuration details
+                            {t('wizard.profileConfigDesc')}
                         </Text>
 
-                        <ItemGroup title="Required Configuration">
+                        <ItemGroup title={t('wizard.requiredConfiguration')}>
                             {getProfileRequiredFields(selectedProfileId).map((field) => (
                                 <View key={field.key} style={{ marginBottom: 16 }}>
                                     <Text style={{
@@ -1481,12 +1481,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'sessionType':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Choose AI Backend & Session Type</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.agentBackendStepTitle')}</Text>
                         <Text style={styles.stepDescription}>
-                            Select your AI provider and how you want to work with your code
+                            {t('wizard.sessionTypeDesc')}
                         </Text>
 
-                        <ItemGroup title="AI Backend">
+                        <ItemGroup title={t('wizard.aiBackend')}>
                             {[
                                 {
                                     id: 'anthropic',
@@ -1560,9 +1560,9 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'agent':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Choose AI Agent</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.agentStepTitle')}</Text>
                         <Text style={styles.stepDescription}>
-                            Select which AI assistant you want to use
+                            {t('wizard.agentDesc')}
                         </Text>
 
                         {selectedProfileId && (
@@ -1612,11 +1612,11 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                             <View style={styles.agentInfo}>
                                 <Text style={styles.agentName}>Claude</Text>
                                 <Text style={styles.agentDescription}>
-                                    Anthropic's AI assistant, great for coding and analysis
+                                    {t('wizard.agentClaudeDesc')}
                                 </Text>
                                 {selectedProfileId && !allProfiles.find(p => p.id === selectedProfileId)?.compatibility.claude && (
                                     <Text style={{ fontSize: 12, color: theme.colors.textDestructive, marginTop: 4 }}>
-                                        Not compatible with selected profile
+                                        {t('wizard.notCompatible')}
                                     </Text>
                                 )}
                             </View>
@@ -1647,11 +1647,11 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                             <View style={styles.agentInfo}>
                                 <Text style={styles.agentName}>Codex</Text>
                                 <Text style={styles.agentDescription}>
-                                    OpenAI's specialized coding assistant
+                                    {t('wizard.agentCodexDesc')}
                                 </Text>
                                 {selectedProfileId && !allProfiles.find(p => p.id === selectedProfileId)?.compatibility.codex && (
                                     <Text style={{ fontSize: 12, color: theme.colors.textDestructive, marginTop: 4 }}>
-                                        Not compatible with selected profile
+                                        {t('wizard.notCompatible')}
                                     </Text>
                                 )}
                             </View>
@@ -1665,9 +1665,9 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'options':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Agent Options</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.agentOptionsStepTitle')}</Text>
                         <Text style={styles.stepDescription}>
-                            Configure how the AI agent should behave
+                            {t('wizard.optionsDesc')}
                         </Text>
 
                         {selectedProfileId && (
@@ -1690,7 +1690,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                                     fontSize: 12,
                                     color: theme.colors.textSecondary
                                 }}>
-                                    Environment variables will be applied automatically
+                                    {t('wizard.envVarsAutomatic')}
                                 </Text>
                             </View>
                         )}
@@ -1738,7 +1738,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                             ))}
                         </ItemGroup>
 
-                        <ItemGroup title="Model Mode">
+                        <ItemGroup title={t('wizard.modelMode')}>
                             {modelModeOptions.map((option, index, array) => (
                                 <Item
                                     key={option.value}
@@ -1771,12 +1771,12 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'machine':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Select Machine</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.step2Title')}</Text>
                         <Text style={styles.stepDescription}>
-                            Choose which machine to run your session on
+                            {t('wizard.machineDesc')}
                         </Text>
 
-                        <ItemGroup title="Available Machines">
+                        <ItemGroup title={t('wizard.availableMachines')}>
                             {machines.map((machine, index) => (
                                 <Item
                                     key={machine.id}
@@ -1814,19 +1814,19 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'path':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Working Directory</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.workingDirectoryStepTitle')}</Text>
                         <Text style={styles.stepDescription}>
-                            Choose the directory to work in
+                            {t('wizard.pathDesc')}
                         </Text>
 
                         {/* Recent Paths */}
                         {recentPaths.length > 0 && (
-                            <ItemGroup title="Recent Paths">
+                            <ItemGroup title={t('wizard.recentPaths')}>
                                 {recentPaths.map((path, index) => (
                                     <Item
                                         key={path}
                                         title={path}
-                                        subtitle="Recently used"
+                                        subtitle={t('wizard.recentlyUsed')}
                                         leftElement={
                                             <Ionicons
                                                 name="time-outline"
@@ -1854,15 +1854,15 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                         )}
 
                         {/* Common Directories */}
-                        <ItemGroup title="Common Directories">
+                        <ItemGroup title={t('wizard.commonDirectories')}>
                             {(() => {
                                 const machine = machines.find(m => m.id === selectedMachineId);
                                 const homeDir = machine?.metadata?.homeDir || '/home';
                                 const pathOptions = [
-                                    { value: homeDir, label: homeDir, description: 'Home directory' },
-                                    { value: `${homeDir}/projects`, label: `${homeDir}/projects`, description: 'Projects folder' },
-                                    { value: `${homeDir}/Documents`, label: `${homeDir}/Documents`, description: 'Documents folder' },
-                                    { value: `${homeDir}/Desktop`, label: `${homeDir}/Desktop`, description: 'Desktop folder' },
+                                    { value: homeDir, label: homeDir, description: t('wizard.homeDirectory') },
+                                    { value: `${homeDir}/projects`, label: `${homeDir}/projects`, description: t('wizard.projectsFolder') },
+                                    { value: `${homeDir}/Documents`, label: `${homeDir}/Documents`, description: t('wizard.documentsFolder') },
+                                    { value: `${homeDir}/Desktop`, label: `${homeDir}/Desktop`, description: t('wizard.desktopFolder') },
                                 ];
                                 return pathOptions.map((option, index) => (
                                     <Item
@@ -1896,9 +1896,9 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                         </ItemGroup>
 
                         {/* Custom Path Option */}
-                        <ItemGroup title="Custom Directory">
+                        <ItemGroup title={t('wizard.customDirectory')}>
                             <Item
-                                title="Enter custom path"
+                                title={t('wizard.enterCustomPath')}
                                 subtitle={showCustomPathInput && customPath ? customPath : "Specify a custom directory path"}
                                 leftElement={
                                     <Ionicons
@@ -1923,7 +1923,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                                 <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
                                     <TextInput
                                         style={styles.textInput}
-                                        placeholder="Enter directory path (e.g. /home/user/my-project)"
+                                        placeholder={t('wizard.directoryPathPlaceholder')}
                                         placeholderTextColor={theme.colors.textSecondary}
                                         value={customPath}
                                         onChangeText={setCustomPath}
@@ -1940,9 +1940,9 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
             case 'prompt':
                 return (
                     <View>
-                        <Text style={styles.stepTitle}>Initial Message</Text>
+                        <Text style={styles.stepTitle}>{t('wizard.initialMessageStepTitle')}</Text>
                         <Text style={styles.stepDescription}>
-                            Write your first message to the AI agent
+                            {t('wizard.promptDesc')}
                         </Text>
 
                         <TextInput
@@ -1967,7 +1967,7 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>New Session</Text>
+                <Text style={styles.headerTitle}>{t('wizard.title')}</Text>
                 <Pressable onPress={onCancel}>
                     <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
                 </Pressable>

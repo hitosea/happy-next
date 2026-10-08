@@ -26,6 +26,7 @@ export const it: TranslationStructure = {
         close: 'Chiudi',
         searchMachines: 'Cerca macchine…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'macchina' : 'macchine'} · ${online} online`,
+        machineCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'macchina' : 'macchine'}`,
         searchSummary: ({ count, total }: { count: number, total: number }) => `${count} di ${total} macchine`,
         machinesSection: 'Macchine',
         sharingSection: 'Condivisione',
@@ -1167,6 +1168,8 @@ export const it: TranslationStructure = {
             fastMode: 'Fast Mode',
             context1m: '1M Context',
             context1mAlways: 'Always on',
+            useCliConfigured: 'Modello configurato nella CLI',
+            useCliDefaults: 'Impostazioni predefinite di profilo/CLI',
         },
         codexPermissionMode: {
             title: 'CODEX PERMISSION MODE',
@@ -1273,6 +1276,10 @@ export const it: TranslationStructure = {
             editNumber: ({ index, total }: { index: number; total: number }) => `Modifica ${index} di ${total}`,
             replaceAll: 'Sostituisci tutto',
         },
+        trimmedDiff: {
+            availableInSessionView: 'Diff disponibile nella vista della sessione',
+            editsInSessionView: ({ count }: { count: number }) => `${count} ${plural({ count, singular: 'modifica', plural: 'modifiche' })} — disponibile nella vista della sessione`,
+        },
         inputText: {
             stats: ({ characters, lines }: { characters: number; lines: number }) => `${characters} ${plural({ count: characters, singular: 'carattere', plural: 'caratteri' })} · ${lines} ${plural({ count: lines, singular: 'riga', plural: 'righe' })}`,
         },
@@ -1285,6 +1292,8 @@ export const it: TranslationStructure = {
             collapseSource: 'Nascondi codice',
         },
         names: {
+            enterPlanMode: 'Entra in modalità pianificazione',
+            changeTitle: 'Cambia titolo',
             viewImage: "Visualizza immagine",
             task: 'Attività',
             terminal: 'Terminale',
@@ -2107,6 +2116,7 @@ export const it: TranslationStructure = {
         codeCopied: 'Codice copiato',
         copyFailed: 'Copia non riuscita',
         mermaidRenderFailed: 'Impossibile renderizzare il diagramma mermaid',
+        mermaidSyntaxError: 'Errore di sintassi del diagramma mermaid',
     },
 
     artifacts: {
@@ -2257,8 +2267,8 @@ export const it: TranslationStructure = {
         installGemini: 'Install gemini CLI if available',
         viewInstallGuide: 'View Installation Guide →',
         viewGeminiDocs: 'View Gemini Docs →',
-        add: 'Add',
-        duplicate: 'Duplicate',
+        add: 'Aggiungi',
+        duplicate: 'Duplica',
         delete: 'Delete',
         filterMachines: 'Type to filter machines...',
         recentMachines: 'Recent Machines',
@@ -2304,6 +2314,78 @@ export const it: TranslationStructure = {
         permFullAutoDesc: 'Skip approvals and sandbox restrictions',
         permGeminiPlanDesc: 'Read-only mode for research and design',
         permFullAccess: 'Full access, skip permissions',
+
+        // Profile picker
+        builtInProfile: 'Profilo integrato',
+        useAsIs: 'Usa così com\'è',
+        editProfile: 'Modifica',
+        builtInProfiles: 'Profili integrati',
+        customProfiles: 'Profili personalizzati',
+        manualConfiguration: 'Configurazione manuale',
+        manualConfigurationDesc: 'Usa le variabili d\'ambiente della CLI o configura manualmente',
+        useCliVars: 'Variabili CLI',
+        configure: 'Configura',
+
+        // Profile dialogs
+        createProfileTitle: 'Nuovo profilo',
+        createProfileMessage: 'Inserisci un nome per il nuovo profilo:',
+        duplicateProfileTitle: 'Duplica profilo',
+        duplicateProfileMessage: ({ name }: { name: string }) => `Inserisci un nome per la copia di "${name}":`,
+        deleteProfileTitle: 'Elimina profilo',
+        deleteProfileMessage: ({ name }: { name: string }) => `Eliminare "${name}"? Questa azione non può essere annullata.`,
+
+        // Step descriptions
+        profileStepDesc: 'Scegli un profilo IA preconfigurato o configura manualmente',
+        createProfileDesc: 'Configura un backend IA personalizzato',
+        profileConfigDesc: 'Inserisci le chiavi API e i dettagli di configurazione',
+        sessionTypeDesc: 'Scegli il provider IA e come vuoi lavorare con il codice',
+        agentDesc: 'Scegli quale assistente IA usare',
+        optionsDesc: 'Configura come deve comportarsi l\'agente IA',
+        machineDesc: 'Scegli su quale macchina avviare la sessione',
+        pathDesc: 'Scegli la cartella di lavoro',
+        promptDesc: 'Scrivi il tuo primo messaggio all\'agente IA',
+        agentClaudeDesc: 'L\'assistente IA di Anthropic, ideale per programmare e analizzare',
+        agentCodexDesc: 'L\'assistente specializzato nel codice di OpenAI',
+        notCompatible: 'Non compatibile con il profilo selezionato',
+        envVarsAutomatic: 'Le variabili d\'ambiente verranno applicate automaticamente',
+
+        // Sections
+        requiredConfiguration: 'Configurazione richiesta',
+        aiBackend: 'Backend IA',
+        modelMode: 'Modalità modello',
+        availableMachines: 'Macchine disponibili',
+        recentlyUsed: 'Usati di recente',
+        commonDirectories: 'Cartelle comuni',
+        customDirectory: 'Cartella personalizzata',
+        enterCustomPath: 'Inserisci un percorso personalizzato',
+        directoryPathPlaceholder: 'Inserisci il percorso della cartella (es. /home/user/my-project)',
+
+        // API key fields
+        apiKeyDeepSeek: 'Chiave API DeepSeek',
+        apiKeyOpenAI: 'Chiave API OpenAI',
+        apiKeyAzureOpenAI: 'Chiave API Azure OpenAI',
+        apiKeyAzure: 'Chiave API Azure',
+        apiKeyZai: 'Chiave API Z.ai',
+        azureEndpoint: 'Endpoint Azure',
+        azureDeploymentName: 'Nome distribuzione',
+        azureOpenAIKeyPlaceholder: 'Inserisci la tua chiave API Azure OpenAI',
+        azureKeyPlaceholder: 'Inserisci la tua chiave API Azure',
+
+        // Common directories
+        homeDirectory: 'Cartella home',
+        projectsFolder: 'Cartella progetti',
+        documentsFolder: 'Cartella documenti',
+        desktopFolder: 'Scrivania',
+
+        // Step titles & header
+        agentBackendStepTitle: 'Scegli backend IA e tipo di sessione',
+        agentStepTitle: 'Scegli l\'agente IA',
+        agentOptionsStepTitle: 'Opzioni agente',
+        workingDirectoryStepTitle: 'Cartella di lavoro',
+        initialMessageStepTitle: 'Messaggio iniziale',
+        title: 'Nuova sessione',
+        configureProfileTitle: ({ name }: { name: string }) => `Configura ${name}`,
+        profileFallback: 'Profilo',
     },
 } as const;
 
