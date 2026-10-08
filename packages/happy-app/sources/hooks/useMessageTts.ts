@@ -9,7 +9,8 @@ export type MessageTtsState = 'idle' | 'loading' | 'playing' | 'queued';
  * Toggle: idle → play now, or enqueue when something else is playing;
  * queued → remove from queue; loading/playing → stop this one, queue continues.
  */
-export function useMessageTts(messageId: string, sessionId: string, text: string | null | undefined) {
+/** `text` may be a function, read when the button is pressed rather than on every render. */
+export function useMessageTts(messageId: string, sessionId: string, text: string | (() => string | null | undefined) | null | undefined) {
     const snap = React.useSyncExternalStore(subscribeTtsQueue, getTtsQueueSnapshot, getTtsQueueSnapshot);
 
     let state: MessageTtsState = 'idle';
@@ -20,8 +21,9 @@ export function useMessageTts(messageId: string, sessionId: string, text: string
     }
 
     const toggle = React.useCallback(() => {
-        if (!text) return;
-        toggleMessageTts({ messageId, sessionId, text });
+        const resolved = typeof text === 'function' ? text() : text;
+        if (!resolved) return;
+        toggleMessageTts({ messageId, sessionId, text: resolved });
     }, [messageId, sessionId, text]);
 
     return { state, toggle };

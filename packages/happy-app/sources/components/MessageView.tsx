@@ -19,7 +19,7 @@ import { Option } from './markdown/MarkdownView';
 import { OptionItem as OptionItemData } from './markdown/parseMarkdown';
 import { Modal } from "@/modal";
 import { sync } from "@/sync/sync";
-import { useSetting } from "@/sync/storage";
+import { storage, useSetting } from "@/sync/storage";
 import { showCopiedToast, showToast } from '@/components/Toast';
 import { formatMessageTime, formatFullMessageTime } from '@/utils/messageTime';
 import { hapticsLight } from './haptics';
@@ -27,6 +27,7 @@ import { TurnHeader } from './TurnHeader';
 import { SegmentFoldLine } from './SegmentFoldLine';
 import { useMessageTts } from '@/hooks/useMessageTts';
 import { userTextPresentation, type CollapsedTextReason } from './messageCollapse';
+import { textGroupAround } from './messageTextGroup';
 
 export const MessageView = (props: {
   message: Message;
@@ -619,10 +620,17 @@ function AgentTextBlock(props: {
   const hasOptions = props.message.text.includes('<options>');
   const { hovered, handlers: hoverHandlers } = useMessageHover();
   const messageText = props.message.text;
+  // Copy, read aloud and long-press take the whole run of texts this row sits in, looked up when
+  // the reader acts (see textGroupAround).
+  const resolveText = React.useCallback(() => {
+    const state = storage.getState();
+    const messages = state.sessionMessages[props.sessionId]?.messages;
+    return (messages && textGroupAround(messages, props.message.id, state.settings.showThinkingMessages)) || messageText;
+  }, [props.sessionId, props.message.id, messageText]);
   const handleCopy = React.useCallback(() => {
-    copyMessageText(messageText);
-  }, [messageText]);
-  const { state: ttsState, toggle: handleSpeak } = useMessageTts(props.message.id, props.sessionId, messageText);
+    copyMessageText(resolveText());
+  }, [resolveText]);
+  const { state: ttsState, toggle: handleSpeak } = useMessageTts(props.message.id, props.sessionId, resolveText);
 
   // Hide thinking messages if setting is disabled. Must run AFTER all hooks so
   // the hook count stays constant across renders (Rules of Hooks).
@@ -651,6 +659,7 @@ function AgentTextBlock(props: {
         onOptionLongPress={props.readOnly ? undefined : handleOptionLongPress}
         optionsLoadingState={props.readOnly ? undefined : optionsLoadingState}
         hideOptions={props.readOnly}
+        getSelectionMarkdown={resolveText}
       />
       {props.showActionBar !== false && !props.message.isThinking && (
         <MessageActionBar

@@ -36,6 +36,8 @@ export type OptionsLoadingState = {
 
 export const MarkdownView = React.memo((props: {
     markdown: string;
+    /** What long-press opens for selection, read at the moment of the press; defaults to `markdown`. */
+    getSelectionMarkdown?: () => string;
     onOptionPress?: (option: Option, allOptions: OptionItemData[]) => void;
     onOptionLongPress?: (option: Option, allOptions: OptionItemData[]) => void;
     optionsLoadingState?: OptionsLoadingState;
@@ -81,13 +83,13 @@ export const MarkdownView = React.memo((props: {
 
     const handleLongPress = React.useCallback(() => {
         try {
-            const textId = storeTempText(props.markdown);
+            const textId = storeTempText(props.getSelectionMarkdown?.() ?? props.markdown);
             router.push({ pathname: '/text-selection', params: { textId, format: 'markdown' } });
         } catch (error) {
             console.error('Error storing text for selection:', error);
             Modal.alert('Error', 'Failed to open text selection. Please try again.');
         }
-    }, [props.markdown, router]);
+    }, [props.getSelectionMarkdown, props.markdown, router]);
 
     // Separate blocks into groups: options blocks need to be outside the parent GestureDetector
     // to prevent long press conflicts
