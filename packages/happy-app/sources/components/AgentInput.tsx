@@ -129,7 +129,9 @@ interface AgentInputProps {
     images?: LocalImage[];
     onImagesChange?: (images: LocalImage[]) => void;
     onImageButtonPress?: () => void;
-    // The add (+) button's menu (images, scheduling, ...): opened natively from the button on iOS,
+    // Image-only entry points use the landscape icon; menus with more actions default to add (+).
+    imageButtonIcon?: 'add' | 'image-outline';
+    // The attachment button's menu (images, scheduling, ...): opened natively from the button on iOS,
     // while `onImageButtonPress` opens the page's own sheet elsewhere. Items that don't apply
     // (e.g. images on an AI without image support) are passed as `disabled` rather than hidden.
     imageMenuItems?: ActionMenuItem[];
@@ -786,6 +788,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Attached images alone are enough to send (e.g. an image-only chat message),
     // even when the text input is empty.
     const hasImages = (props.images?.length ?? 0) > 0;
+    const imageButtonIcon = props.imageButtonIcon ?? 'add';
+    const imageButtonIconSize = imageButtonIcon === 'image-outline' ? 24 : 25;
     // While the agent works and there is nothing to send, the round button stops the turn
     // instead of starting a voice session. Text/images keep the send button so messages can
     // still be queued.
@@ -1930,7 +1934,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 <GitStatusButton sessionId={props.sessionId} onPress={props.onFileViewerPress} onBlank={() => inputRef.current?.focus()} />
                                 </View>
 
-                                {/* Add (+) button */}
+                                {/* Attachment button */}
                                 {props.onImageButtonPress && (props.imageMenuItems ? (
                                     <NativeMenu
                                         items={props.imageMenuItems}
@@ -1938,7 +1942,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         style={styles.iconButton}
                                         onFallbackOpen={props.onImageButtonPress}
                                     >
-                                        <Ionicons name="add" size={25} color={theme.colors.text} />
+                                        <Ionicons name={imageButtonIcon} size={imageButtonIconSize} color={theme.colors.text} />
                                     </NativeMenu>
                                 ) : (
                                     <Pressable
@@ -1952,8 +1956,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         disabled={props.isUploadingImages}
                                     >
                                         <Ionicons
-                                            name="add"
-                                            size={25}
+                                            name={imageButtonIcon}
+                                            size={imageButtonIconSize}
                                             color={props.supportsImages !== false ? theme.colors.text : theme.colors.textSecondary}
                                         />
                                     </Pressable>

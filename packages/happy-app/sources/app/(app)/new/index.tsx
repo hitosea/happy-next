@@ -1712,6 +1712,7 @@ function NewSessionWizard() {
                                 });
                             }}
                             onImageButtonPress={handleImageButtonPress}
+                            imageButtonIcon="image-outline"
                             imageMenuItems={imagePickerMenuItems}
                             supportsImages={supportsImages}
                         />
@@ -2479,6 +2480,7 @@ function NewSessionWizard() {
                             });
                         }}
                         onImageButtonPress={handleImageButtonPress}
+                        imageButtonIcon="image-outline"
                         imageMenuItems={imagePickerMenuItems}
                         supportsImages={supportsImages}
                     />
