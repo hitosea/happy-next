@@ -278,6 +278,7 @@ export function createMessageAdapter(
  */
 export const adapters = {
   gemini: new MessageAdapter({ agentType: 'gemini' }),
+  qoder: new MessageAdapter({ agentType: 'qoder' }),
   codex: new MessageAdapter({ agentType: 'codex' }),
   claude: new MessageAdapter({ agentType: 'claude' }),
   opencode: new MessageAdapter({ agentType: 'opencode' }),

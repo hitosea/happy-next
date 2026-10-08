@@ -6,6 +6,7 @@ import { AvatarGradient } from "./AvatarGradient";
 import { AvatarBrutalist } from "./AvatarBrutalist";
 import { useSetting } from '@/sync/storage';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import type { AgentFlavor } from 'happy-wire';
 
 interface AvatarProps {
     id: string;
@@ -21,10 +22,15 @@ interface AvatarProps {
     hideFlavorBadge?: boolean;  // when true, skip the flavor overlay but keep the session icon
 }
 
-const flavorIcons = {
+/**
+ * Vendor mark per agent flavor — the one place a flavor is mapped to artwork, shared by
+ * every surface that draws one (avatars, filter triggers, history rows, task chips).
+ */
+export const flavorIcons: Record<AgentFlavor, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 const sessionIconPresets: Record<string, any> = {
@@ -78,7 +84,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
 
     // Determine flavor icon
     const effectiveFlavor = flavor || 'claude';
-    const flavorIcon = flavorIcons[effectiveFlavor as keyof typeof flavorIcons] || flavorIcons.claude;
+    const flavorIcon = flavorIcons[effectiveFlavor as AgentFlavor] || flavorIcons.claude;
     // Make icons smaller while keeping same circle size
     // Claude slightly bigger than codex
     const circleSize = Math.round(size * 0.35);
@@ -157,7 +163,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
                                 source={flavorIcon}
                                 style={{ width: iconSize, height: iconSize }}
                                 contentFit="contain"
-                                tintColor={effectiveFlavor === 'codex' ? theme.colors.text : undefined}
+                                tintColor={effectiveFlavor === 'codex' || effectiveFlavor === 'qoder' ? theme.colors.text : undefined}
                             />
                         </View>
                     )}
@@ -201,7 +207,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
                             source={flavorIcon}
                             style={{ width: iconSize, height: iconSize }}
                             contentFit="contain"
-                            tintColor={effectiveFlavor === 'codex' ? theme.colors.text : undefined}
+                            tintColor={effectiveFlavor === 'codex' || effectiveFlavor === 'qoder' ? theme.colors.text : undefined}
                         />
                     </View>
                 )}

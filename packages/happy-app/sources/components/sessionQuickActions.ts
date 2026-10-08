@@ -1,5 +1,5 @@
 import { Session } from '@/sync/storageTypes';
-import { canArchiveSession } from '@/utils/sessionLifecycle';
+import { canArchiveSession, hasForkableNativeId } from '@/utils/sessionLifecycle';
 
 export type SessionQuickActionKind =
     | 'details'
@@ -50,11 +50,9 @@ export function getSessionQuickActionKinds({
     isLocalMachine: boolean;
 }): SessionQuickActionKind[] {
     const isOwner = !session.accessLevel;
-    const isForkable = !!(
-        session.metadata?.machineId
-        && session.metadata?.path
-        && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId)
-    );
+    const isForkable = !!session.metadata?.machineId
+        && !!session.metadata?.path
+        && hasForkableNativeId(session);
 
     const actions: SessionQuickActionKind[] = ['details'];
     // Only the owner can write session metadata; shared users get a read-only title.

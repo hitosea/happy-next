@@ -18,10 +18,12 @@ export type {
 // Default implementation
 export { DefaultTransport, defaultTransport } from './DefaultTransport';
 
-// Agent-specific handlers
-export { GeminiTransport, geminiTransport } from './handlers';
+// Agent-specific handlers. './handlers' would cycle back through this barrel, so
+// import the concrete modules.
+export { GeminiTransport, geminiTransport } from './handlers/GeminiTransport';
+export { CodexTransport, codexTransport } from './handlers/CodexTransport';
+export { QoderTransport, qoderTransport } from './handlers/QoderTransport';
 
-// Future handlers will be exported from ./handlers:
-// export { CodexTransport, codexTransport } from './handlers';
-// export { ClaudeTransport, claudeTransport } from './handlers';
-// export { OpenCodeTransport, openCodeTransport } from './handlers';
+// Future handlers will be exported from their own modules:
+// export { ClaudeTransport, claudeTransport } from './handlers/ClaudeTransport';
+// export { OpenCodeTransport, openCodeTransport } from './handlers/OpenCodeTransport';

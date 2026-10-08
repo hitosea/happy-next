@@ -78,6 +78,15 @@ happy doctor clean
 2. Ensure microphone permissions are granted
 3. For Happy Voice: the voice gateway is auto-discovered from your server — check that your server config exposes a voice base URL and that the app can reach it
 
+### Qoder sessions won't start
+
+**Symptom:** `happy qoder` fails right away, or `qoder --acp` prints `sdk_invalid_args: Agent SDK entrypoint env is set but required flags are missing`.
+
+**Try:**
+1. Install and sign in first — Happy can't do either for you: `qoder --version`, then `qodercli login`
+2. If you launched Happy from the Qoder desktop app or a Qoder Agent SDK shell, that environment sets `QODER_AGENT_SDK_ENTRYPOINT`. Happy clears it when spawning Qoder, but running `qoder` yourself in that shell still hits the error — use a normal terminal or unset the variable
+3. Point Happy at the right binary if it isn't on `PATH`: `HAPPY_QODER_PATH=/path/to/qoder happy qoder`
+
 ## Getting help
 
 - **GitHub Issues:** [github.com/hitosea/happy-next/issues](https://github.com/hitosea/happy-next/issues)

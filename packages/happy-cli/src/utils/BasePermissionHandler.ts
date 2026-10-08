@@ -37,7 +37,30 @@ export interface PendingRequest {
  */
 export interface PermissionResult {
     decision: 'approved' | 'approved_for_session' | 'denied' | 'abort';
-    answers?: Record<string, string>;
+}
+
+/**
+ * Happy-owned tools, and tools that only display thinking: none of them describe an
+ * action on the user's machine, so none is worth a prompt.
+ */
+const ALWAYS_AUTO_APPROVE_NAMES = [
+    'change_title',
+    'happy__change_title',
+    'preview_html',
+    'happy__preview_html',
+    'think',
+    'save_memory',
+];
+const ALWAYS_AUTO_APPROVE_CALL_IDS = ['change_title', 'preview_html', 'save_memory'];
+/** `<Vendor>Reasoning` streams chain-of-thought; every agent spells the vendor its own way. */
+const REASONING_TOOL_SUFFIX = 'reasoning';
+
+/** True when a tool may run without asking, whatever the agent's approval mode is. */
+export function isAlwaysAutoApproved(toolName: string, toolCallId: string): boolean {
+    const lowerName = toolName.toLowerCase();
+    if (lowerName.endsWith(REASONING_TOOL_SUFFIX)) return true;
+    if (ALWAYS_AUTO_APPROVE_NAMES.some(name => lowerName.includes(name))) return true;
+    return ALWAYS_AUTO_APPROVE_CALL_IDS.some(id => toolCallId.toLowerCase().includes(id));
 }
 
 /**
@@ -45,6 +68,8 @@ export interface PermissionResult {
  *
  * Subclasses must implement:
  * - `getLogPrefix()` - returns the log prefix (e.g., '[Codex]')
+ * - `getAgentName()` - the agent's display name, used in push notification text
+ * - `decideAutoApproval()` - the agent's own auto-approval policy
  */
 export abstract class BasePermissionHandler {
     protected pendingRequests = new Map<string, PendingRequest>();
@@ -61,6 +86,49 @@ export abstract class BasePermissionHandler {
      * Returns the agent name used in push notification text (e.g. "Codex", "Gemini").
      */
     protected abstract getAgentName(): string;
+
+    /**
+     * The result to return without asking the user, or null to raise a permission request.
+     * Everything agent-specific about approval - the mode policy, which tools are exempt,
+     * and whether an auto-approval lasts the session or one call - belongs in here.
+     */
+    protected abstract decideAutoApproval(toolCallId: string, toolName: string): PermissionResult | null;
+
+    /**
+     * Called after an auto-approval, for agents that mirror it into AgentState.
+     *
+     * Agents that keep auto-approved tools out of `completedRequests` (so the app shows no
+     * permission footer on the tool card) leave this as the no-op default.
+     */
+    protected recordAutoApproval(
+        _toolCallId: string,
+        _toolName: string,
+        _decision: PermissionResult['decision'],
+    ): void {
+        // No-op by default.
+    }
+
+    /**
+     * Handle a tool permission request: auto-approve, or queue it and wait for the user.
+     */
+    async handleToolCall(
+        toolCallId: string,
+        toolName: string,
+        input: unknown,
+    ): Promise<PermissionResult> {
+        const autoApproval = this.decideAutoApproval(toolCallId, toolName);
+        if (autoApproval) {
+            logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId})`);
+            this.recordAutoApproval(toolCallId, toolName, autoApproval.decision);
+            return autoApproval;
+        }
+
+        return new Promise<PermissionResult>((resolve, reject) => {
+            this.pendingRequests.set(toolCallId, { resolve, reject, toolName, input });
+            this.addPendingRequestToState(toolCallId, toolName, input);
+            logger.debug(`${this.getLogPrefix()} Permission request sent for tool: ${toolName} (${toolCallId})`);
+        });
+    }
 
     constructor(session: ApiSessionClient, pushClient: PushNotificationClient) {
         this.session = session;

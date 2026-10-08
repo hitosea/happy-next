@@ -1526,6 +1526,7 @@ describe('orchestrator integration paths', () => {
             claude: getValidModelModesForAgent('claude'),
             codex: getValidModelModesForAgent('codex'),
             gemini: getValidModelModesForAgent('gemini'),
+            qoder: getValidModelModesForAgent('qoder'),
         });
         expect(body.data.defaults).toEqual(expect.objectContaining({
             retryMaxAttempts: 1,
@@ -1541,6 +1542,7 @@ describe('orchestrator integration paths', () => {
                     claude: getValidModelModesForAgent('claude'),
                     codex: getValidModelModesForAgent('codex'),
                     gemini: getValidModelModesForAgent('gemini'),
+            qoder: getValidModelModesForAgent('qoder'),
                 },
             }),
             expect.objectContaining({
@@ -1591,6 +1593,7 @@ describe('orchestrator integration paths', () => {
             claude: getValidModelModesForAgent('claude'),
             codex: getValidModelModesForAgent('codex'),
             gemini: getValidModelModesForAgent('gemini'),
+            qoder: getValidModelModesForAgent('qoder'),
         });
 
         expect(m2.providers).toEqual(['claude']);

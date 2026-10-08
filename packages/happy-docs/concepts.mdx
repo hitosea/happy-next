@@ -10,7 +10,7 @@ Happy has three core concepts: **sessions**, **machines**, and **agents**.
 A session is a conversation between you and an AI coding agent. When you run `happy` in your terminal, you create a session. Sessions contain:
 
 - A sequence of messages between you and the agent
-- The agent type (Claude, Codex, or Gemini) and model
+- The agent type (Claude, Codex, Gemini, or Qoder) and model
 - The working directory on your machine
 - Permission settings
 
@@ -24,13 +24,14 @@ One machine can run multiple sessions at the same time. The Happy **daemon** (ba
 
 ## Agents
 
-An agent is the AI coding tool that powers a session. Happy supports three agents:
+An agent is the AI coding tool that powers a session. Happy supports four agents:
 
 | Agent | Command | Description |
 |-------|---------|-------------|
 | **Claude Code** | `happy` | Anthropic's coding agent (default) |
 | **Codex** | `happy codex` | OpenAI's coding agent |
 | **Gemini** | `happy gemini` | Google's coding agent |
+| **Qoder** | `happy qoder` | Qoder's coding agent |
 
 Each agent has its own set of models and configuration options. You choose the agent when creating a session, and you can run different agents in parallel across multiple sessions.
 
@@ -41,10 +42,11 @@ Machine (your laptop)
 ├── Daemon (background service)
 ├── Session 1 — Claude Code (sonnet-4-6)
 ├── Session 2 — Gemini (gemini-3.5-pro-preview)
-└── Session 3 — Codex (gpt-5.5)
+├── Session 3 — Codex (gpt-5.5)
+└── Session 4 — Qoder (Auto)
 
 Your Phone (Happy App)
-└── Can view and control all 3 sessions
+└── Can view and control all 4 sessions
 ```
 
 Everything is **end-to-end encrypted**. The Happy server syncs encrypted data between your devices, but it cannot read your messages or code. See [Encryption](/advanced/encryption) for details.

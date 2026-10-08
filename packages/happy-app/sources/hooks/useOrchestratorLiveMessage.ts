@@ -6,7 +6,7 @@ const LIVE_MESSAGE_POLL_INTERVAL_MS = 3000;
 // Only the tail of the conversation is needed to find the latest assistant message.
 const LIVE_MESSAGE_PREVIEW_LIMIT = 10;
 
-type Provider = 'claude' | 'codex' | 'gemini';
+type Provider = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 async function fetchPreviewMessages(machineId: string, provider: Provider, childSessionId: string): Promise<SessionPreviewMessage[]> {
     const options = { limit: LIVE_MESSAGE_PREVIEW_LIMIT };
@@ -16,6 +16,9 @@ async function fetchPreviewMessages(machineId: string, provider: Provider, child
             return (await machineGetClaudeSessionPreview(machineId, undefined, childSessionId, options)).messages;
         case 'codex':
             return (await machineGetCodexSessionPreview(machineId, childSessionId, options)).messages;
+        case 'qoder':
+            // Qoder does not expose a session-preview RPC yet.
+            return [];
         case 'gemini':
             return (await machineGetGeminiSessionPreview(machineId, childSessionId, options)).messages;
     }

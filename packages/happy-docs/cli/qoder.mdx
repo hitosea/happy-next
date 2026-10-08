@@ -1,0 +1,103 @@
+---
+title: "Qoder Mode"
+description: "Use Happy Next with Qoder CLI for AI-powered coding."
+---
+
+Start a Qoder session with:
+
+```bash
+happy qoder
+```
+
+## Prerequisites
+
+Qoder CLI ships as **two distributions of the same program**, and Happy drives whichever
+one matches your machine — you only need to install the one for your region.
+
+| | Command | npm package | Install script | Config dir |
+| --- | --- | --- | --- | --- |
+| International | `qoder` | `@qoder-ai/qodercli` | `curl -fsSL https://qoder.com/install \| bash` | `~/.qoder` |
+| China (CN) | `qodercn` | `@qodercn-ai/qoderclicn` | `curl -fsSL https://static.qoder.com.cn/qoder-cli-cn/install.sh \| bash` | `~/.qoder-cn` |
+
+International install (Node.js 20 or later):
+
+```bash
+npm install -g @qoder-ai/qodercli
+```
+
+Or use the install script:
+
+```bash
+curl -fsSL https://qoder.com/install | bash
+```
+
+Check the installation:
+
+```bash
+qoder --version
+```
+
+Happy resolves the executable in this order: `HAPPY_QODER_PATH` if you set it, else the
+distribution matching your host (a Qoder CN desktop install reports `qoder-cn`), else the
+other one. Force a specific build with:
+
+```bash
+HAPPY_QODER_PATH=/usr/local/bin/qodercn happy qoder
+```
+
+<Note>
+  Sign-in is **per distribution**. A Qoder CN account does not authenticate the
+  international CLI, so driving the wrong binary looks exactly like "not logged in" even
+  when you are visibly signed in to the desktop app.
+</Note>
+
+Qoder signs in with your **Qoder account** rather than an inference API key, so there is no `happy connect qoder` step — Happy can neither hold nor refresh an account session. Sign in once yourself, by running `qoder` interactively or with:
+
+```bash
+qodercli login
+```
+
+On the CN build, run `qodercn` once and complete the first-run sign-in it starts.
+
+Credentials stay in Qoder's own config directory (`~/.qoder`, or `~/.qoder-cn` for the CN
+build; overridable with `--config-dir`); Happy never reads or stores them.
+
+## Model configuration
+
+Qoder's model list is **account- and region-specific**, so Happy reads it from the CLI at session start and shows whatever your account really has. Measured on a personal CN account the choices were `Auto (default)`, `Qwen3.8-Max`, `Qwen3.8-Flash`, `Qwen3.7-Max`, `Qwen3.7-Plus`, `Qwen3.7-Flash`, `DeepSeek-V4-Pro`, `DeepSeek-Flash`, `GLM-5.3`, `GLM-5.3-Flash`, `GLM-5.2`, `Kimi-K3`, `Kimi-K2.8-Preview` and `MiniMax-M2.7` — each with a credit multiplier, which is why no fixed list is published here.
+
+Pick a model in the app when you create or configure a session, or seed a new terminal session with `HAPPY_QODER_MODEL`. The value is Qoder's own opaque model id, not the display name: `auto`, `qmodel_38max`, `qfmodel`, `qmodel_latest`, `qmodel`, `q37fmodel`, `dmodel`, `dfmodel`, `gmodel`, `gfmodel`, `gm51model`, `kmodel_latest`, `kmodel`, `mmodel`. `qoder --list-models` prints display names for the signed-in account.
+
+Under the hood Happy stores the id with a `qoder-` prefix (`qoder-auto`) and strips it at spawn time, so the CLI sees `qoder --model auto`. There is no fixed tier ladder: whatever your account lists is what you can pass.
+
+## Permission modes
+
+Qoder has **two approval-mode vocabularies and they do not share spellings**, so it is worth being precise about which one you are touching:
+
+| ACP mode id (what Happy and the app use) | CLI `--permission-mode` value | Meaning |
+| --- | --- | --- |
+| `default` | `default` | Prompts for approval |
+| `acceptEdits` | `accept_edits` | Auto-approves edit tools |
+| `auto` | `auto` | Auto-approves via a safety classifier |
+| `dontAsk` | `dont_ask` | **Refuses** instead of prompting |
+| `yolo` | `bypass_permissions` (also `--yolo`) | Auto-approves all tools |
+
+Happy drives Qoder over ACP, so the app shows and sends the left-hand column; the flag on the right is only used at spawn time after mapping. There is no `plan` mode over ACP even though the flag accepts one. `dontAsk` reads like “stop asking me” and means the opposite — it is the refusing tier.
+
+## Resuming sessions
+
+Qoder keeps its own conversation history, and Happy only remembers the native session id and hands it back when the session restarts — so Qoder reloads the conversation itself instead of replaying a copied transcript. That also means sessions you started directly with `qoder` are resumable. Relevant native flags: `--continue` / `-c`, `--resume` / `-r`, `--session-id`, `--list-sessions`, `--fork-session`.
+
+Happy can also read Qoder's own session list for a directory and fork a session natively, which is what **Duplicate** uses — the copy gets its own conversation rather than continuing the original.
+
+<Note>
+  Qoder only reports sessions for the directory it is run in, so unlike Claude/Gemini/Codex there is no machine-wide "all my past sessions" list for Qoder: picking from history is offered per project folder.
+</Note>
+
+## How it works
+
+Happy spawns `qoder --acp` (or `qodercn --acp`) and communicates through the Agent Client Protocol (ACP), the same transport family as Gemini. All Happy features (mobile control, voice, orchestration) work with Qoder sessions, including dispatching one-shot tasks to Qoder from the [Orchestrator](/cli/orchestrator).
+
+<Warning>
+**Launching from a Qoder-hosted shell.** If Happy is started from a shell that inherited a Qoder Agent SDK or desktop-app environment, `QODER_AGENT_SDK_ENTRYPOINT` is set and a plain `qoder --acp` fails with `sdk_invalid_args: Agent SDK entrypoint env is set but required flags are missing`. Happy clears this variable when it spawns Qoder, so `happy qoder` keeps working — but running `qoder` yourself in that shell hits the error. Use a normal terminal, or unset the variable.
+</Warning>

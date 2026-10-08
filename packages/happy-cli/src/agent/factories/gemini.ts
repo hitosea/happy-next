@@ -10,7 +10,7 @@
 
 import { AcpBackend, type AcpBackendOptions, type AcpPermissionHandler } from '../acp/AcpBackend';
 import type { AgentBackend, McpServerConfig, AgentFactoryOptions } from '../core';
-import { agentRegistry } from '../core';
+import { agentRegistry, hasChangeTitleInstruction } from '../core';
 import { geminiTransport } from '../transport';
 import { logger } from '@/ui/logger';
 import { 
@@ -158,13 +158,7 @@ export function createGeminiBackend(options: GeminiBackendOptions): GeminiBacken
     transportHandler: geminiTransport,
     normalizeToolName: options.normalizeToolName,
     // Check if prompt instructs the agent to change title (for auto-approval of change_title tool)
-    hasChangeTitleInstruction: (prompt: string) => {
-      const lower = prompt.toLowerCase();
-      return lower.includes('change_title') ||
-             lower.includes('change title') ||
-             lower.includes('set title') ||
-             lower.includes('mcp__happy__change_title');
-    },
+    hasChangeTitleInstruction,
   };
 
   // Determine model source for logging

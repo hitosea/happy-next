@@ -4,6 +4,7 @@ export * from './sessionProtocol';
 export * from './modelCatalog';
 export * from './modelCatalogSchema';
 export * from './permissionModes';
+export * from './cliDetection';
 export * from './filePreview';
 export * from './fileDownload';
 export * from './toolImagePreview';

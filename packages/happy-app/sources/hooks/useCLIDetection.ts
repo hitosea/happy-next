@@ -1,42 +1,43 @@
 import { useState, useEffect } from 'react';
+import { AGENT_FLAVORS, buildCliDetectionScript, type AgentFlavor } from 'happy-wire';
 import { machineBash } from '@/sync/ops';
 
-interface CLIAvailability {
-    claude: boolean | null; // null = unknown/loading, true = installed, false = not installed
-    codex: boolean | null;
-    gemini: boolean | null;
+/** null = unknown/loading, true = installed, false = not installed, per agent flavor. */
+type CliStatus = Record<AgentFlavor, boolean | null>;
+
+interface CLIAvailability extends CliStatus {
     isDetecting: boolean; // Explicit loading state
     timestamp: number; // When detection completed
     error?: string; // Detection error message (for debugging)
 }
 
-const CLI_DETECTION_COMMAND =
-    '(command -v claude >/dev/null 2>&1 && echo "claude:true" || echo "claude:false") && ' +
-    '(command -v codex >/dev/null 2>&1 && echo "codex:true" || echo "codex:false") && ' +
-    '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false")';
+/** Every flavor unknown. Deriving this from the wire's flavor list keeps a new agent from
+ *  needing six edits in this file. */
+function unknownCliStatus(): CliStatus {
+    return Object.fromEntries(AGENT_FLAVORS.map(flavor => [flavor, null])) as CliStatus;
+}
+
+const CLI_DETECTION_COMMAND = buildCliDetectionScript();
 
 function parseCLIOutput(stdout: string): CLIAvailability {
-    const lines = stdout.trim().split('\n');
-    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean } = {};
+    const cliStatus = unknownCliStatus();
 
-    lines.forEach(line => {
+    for (const line of stdout.trim().split('\n')) {
         const [cli, status] = line.split(':');
-        if (cli && status) {
-            cliStatus[cli.trim() as 'claude' | 'codex' | 'gemini'] = status.trim() === 'true';
+        if (cli && status && (AGENT_FLAVORS as readonly string[]).includes(cli.trim())) {
+            cliStatus[cli.trim() as AgentFlavor] = status.trim() === 'true';
         }
-    });
+    }
 
     return {
-        claude: cliStatus.claude ?? null,
-        codex: cliStatus.codex ?? null,
-        gemini: cliStatus.gemini ?? null,
+        ...cliStatus,
         isDetecting: false,
         timestamp: Date.now(),
     };
 }
 
 /**
- * Detects which CLI tools (claude, codex, gemini) are installed on a remote machine.
+ * Detects which CLI tools (claude, codex, gemini, qoder) are installed on a remote machine.
  *
  * NON-BLOCKING: Detection runs asynchronously in useEffect. UI shows all profiles
  * while detection is in progress, then updates when results arrive.
@@ -49,7 +50,7 @@ function parseCLIOutput(stdout: string): CLIAvailability {
  * User discovers CLI availability when attempting to spawn.
  *
  * @param machineId - The machine to detect CLIs on (null = no detection)
- * @returns CLI availability status for claude, codex, and gemini
+ * @returns CLI availability status for claude, codex, gemini, and qoder
  *
  * @example
  * const cliAvailability = useCLIDetection(selectedMachineId);
@@ -59,16 +60,14 @@ function parseCLIOutput(stdout: string): CLIAvailability {
  */
 export function useCLIDetection(machineId: string | null): CLIAvailability {
     const [availability, setAvailability] = useState<CLIAvailability>({
-        claude: null,
-        codex: null,
-        gemini: null,
+        ...unknownCliStatus(),
         isDetecting: false,
         timestamp: 0,
     });
 
     useEffect(() => {
         if (!machineId) {
-            setAvailability({ claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 });
+            setAvailability({ ...unknownCliStatus(), isDetecting: false, timestamp: 0 });
             return;
         }
 
@@ -90,7 +89,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 } else {
                     console.log('[useCLIDetection] Detection failed (success=false or exitCode!=0):', result);
                     setAvailability({
-                        claude: null, codex: null, gemini: null,
+                        ...unknownCliStatus(),
                         isDetecting: false, timestamp: 0,
                         error: `Detection failed: ${result.stderr || 'Unknown error'}`,
                     });
@@ -99,7 +98,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 if (cancelled) return;
                 console.log('[useCLIDetection] Network/RPC error:', error);
                 setAvailability({
-                    claude: null, codex: null, gemini: null,
+                    ...unknownCliStatus(),
                     isDetecting: false, timestamp: 0,
                     error: error instanceof Error ? error.message : 'Detection error',
                 });
@@ -142,7 +141,7 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
         // Mark all as detecting synchronously
         const detecting: Record<string, CLIAvailability> = {};
         for (const id of ids) {
-            detecting[id] = { claude: null, codex: null, gemini: null, isDetecting: true, timestamp: 0 };
+            detecting[id] = { ...unknownCliStatus(), isDetecting: true, timestamp: 0 };
         }
         setAvailabilityMap(detecting);
 
@@ -155,14 +154,14 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
                 } else {
                     setAvailabilityMap(prev => ({
                         ...prev,
-                        [machineId]: { claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 },
+                        [machineId]: { ...unknownCliStatus(), isDetecting: false, timestamp: 0 },
                     }));
                 }
             }).catch(() => {
                 if (cancelled) return;
                 setAvailabilityMap(prev => ({
                     ...prev,
-                    [machineId]: { claude: null, codex: null, gemini: null, isDetecting: false, timestamp: 0 },
+                    [machineId]: { ...unknownCliStatus(), isDetecting: false, timestamp: 0 },
                 }));
             });
         }

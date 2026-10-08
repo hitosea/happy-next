@@ -1,6 +1,6 @@
-import type { PermissionMode } from '@/components/PermissionModeSelector';
+import { AGENT_FLAVORS, ALL_PERMISSION_MODES, type AgentFlavor, type PermissionMode } from 'happy-wire';
 
-export type SessionModeAgentType = 'claude' | 'codex' | 'gemini';
+export type SessionModeAgentType = AgentFlavor;
 
 export const SESSION_MODE_CONFIG_KV_KEY = 'session-mode-config:v1';
 export const SESSION_MODE_CONFIG_SCHEMA_VERSION = 1 as const;
@@ -39,18 +39,7 @@ export interface SessionModeConfigPatch {
     includeLastUsed: boolean;
 }
 
-const PERMISSION_MODES = new Set<PermissionMode>([
-    'default',
-    'acceptEdits',
-    'auto',
-    'bypassPermissions',
-    'plan',
-    'read-only',
-    'on-failure',
-    'full-auto',
-    'auto_edit',
-    'yolo',
-]);
+const PERMISSION_MODES = new Set<PermissionMode>(ALL_PERMISSION_MODES);
 
 function isPermissionMode(value: unknown): value is PermissionMode {
     return typeof value === 'string' && PERMISSION_MODES.has(value as PermissionMode);
@@ -147,7 +136,7 @@ export function normalizeSessionModeConfig(input: unknown, now: number = Date.no
     const rawLastUsed = raw.lastUsedByAgent;
     const lastUsedByAgent: SessionModeConfigDocument['lastUsedByAgent'] = {};
     if (rawLastUsed && typeof rawLastUsed === 'object') {
-        (['claude', 'codex', 'gemini'] as const).forEach((agent) => {
+        AGENT_FLAVORS.forEach((agent) => {
             const entry = normalizeLastUsedEntry((rawLastUsed as Record<string, unknown>)[agent]);
             if (entry) {
                 lastUsedByAgent[agent] = entry;

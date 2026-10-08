@@ -4,8 +4,8 @@ import { Image } from 'expo-image';
 import { Text } from '@/components/StyledText';
 import { useAllSessions, useAllMachines, storage } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
-import { Avatar } from '@/components/Avatar';
-import { generateCopyTitle, getSessionName, getSessionSubtitle, getSessionAvatarId, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
+import { Avatar, flavorIcons } from '@/components/Avatar';
+import { generateCopyTitle, getSessionName, getSessionSubtitle, getSessionAvatarId, useSessionStatus, copySessionMetadata, copySessionModeSettings, forkQoderSessionForCopy } from '@/utils/sessionUtils';
 import { SessionProjectLabelsContext, useSessionProjectLabel, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 import { ProjectLabelText } from '@/components/ProjectLabelText';
 import { StatusDot } from '@/components/StatusDot';
@@ -23,26 +23,23 @@ import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSes
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
 import { MMKV } from 'react-native-mmkv';
+import { hasForkableNativeId } from '@/utils/sessionLifecycle';
+import { agentDisplayName, type AgentFlavor } from 'happy-wire';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
 const SELECTED_AGENT_KEY = 'session-history-selected-agent';
 const OLDER_SESSIONS_PAGE_SIZE = 150;
 
-type AgentFilter = 'all' | 'claude' | 'gemini' | 'codex';
+type AgentFilter = 'all' | 'claude' | 'gemini' | 'codex' | 'qoder';
 
 const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'all', label: () => t('sessionHistory.allAgents') },
     { key: 'claude', label: () => t('agentHistory.tabClaude') },
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
+    { key: 'qoder', label: () => t('agentHistory.tabQoder') },
 ];
-
-const agentIcons: Record<string, any> = {
-    claude: require('@/assets/images/icon-claude.png'),
-    gemini: require('@/assets/images/icon-gemini.png'),
-    codex: require('@/assets/images/icon-gpt.png'),
-};
 
 type ForkMode = 'resume' | 'copy';
 
@@ -304,7 +301,7 @@ function SessionHistory() {
     });
     const [selectedAgent, setSelectedAgent] = React.useState<AgentFilter>(() => {
         const saved = mmkv.getString(SELECTED_AGENT_KEY);
-        if (saved === 'claude' || saved === 'gemini' || saved === 'codex') return saved;
+        if (saved === 'claude' || saved === 'gemini' || saved === 'codex' || saved === 'qoder') return saved;
         return 'all';
     });
     const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
@@ -444,11 +441,12 @@ function SessionHistory() {
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
         // Guard: must have a forkable session identifier
-        if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId) return;
+        if (!hasForkableNativeId(session)) return;
         if (!directory) {
             Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
             return;
@@ -458,7 +456,7 @@ function SessionHistory() {
             return;
         }
 
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = agentDisplayName(flavor);
         const confirmTitle = mode === 'copy' ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
         const confirmMessage = mode === 'copy' ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
         const confirmed = await Modal.confirm(
@@ -477,7 +475,7 @@ function SessionHistory() {
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -503,6 +501,14 @@ function SessionHistory() {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'claude';
+            } else if (flavor === 'qoder') {
+                const qoderFork = await forkQoderSessionForCopy(machineId, qoderSessionId, directory);
+                if ('error' in qoderFork) {
+                    Modal.alert(t('common.error'), qoderFork.error ?? t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = qoderFork.newSessionId;
+                agent = 'qoder';
             } else {
                 return;
             }
@@ -657,10 +663,10 @@ function SessionHistory() {
                     <View style={styles.filterTrigger}>
                         {selectedAgent !== 'all' ? (
                             <Image
-                                source={agentIcons[selectedAgent]}
+                                source={flavorIcons[selectedAgent as AgentFlavor]}
                                 style={{ width: 16, height: 16, marginRight: 6 }}
                                 contentFit="contain"
-                                tintColor={selectedAgent === 'codex' ? theme.colors.text : undefined}
+                                tintColor={selectedAgent === 'codex' || selectedAgent === 'qoder' ? theme.colors.text : undefined}
                             />
                         ) : (
                             <Ionicons name="grid-outline" size={16} color={theme.colors.textSecondary} style={{ marginRight: 6 }} />
@@ -770,7 +776,7 @@ const SessionHistoryItemCard = React.memo(({ session, isFirst, isLast, isSingle,
     const sessionName = getSessionName(session);
     const sessionSubtitle = useSessionProjectLabel(session);
     const avatarId = getSessionAvatarId(session);
-    const canFork = Boolean(session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId);
+    const canFork = hasForkableNativeId(session);
     const isOnline = session.active;
 
     return (

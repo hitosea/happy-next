@@ -1,6 +1,8 @@
 import catalogJson from './modelCatalog.json';
 import { ModelCatalogSchema, type AgentFlavor, type ModelCatalog, type ModelCatalogEntry } from './modelCatalogSchema';
 
+export const AGENT_FLAVORS = ['claude', 'codex', 'gemini', 'qoder'] as const satisfies readonly AgentFlavor[];
+
 export const MODEL_MODE_DEFAULT = 'default' as const;
 
 /** Trailing marker that asks for Codex fast mode, on a model id or a model mode (`gpt-5.5-high-fast`). */
@@ -29,6 +31,73 @@ export type ClaudeModelFamily = string;
 export type CodexModelFamily = string;
 
 export type ModelOption = { value: string; label: string; shortLabel: string; description: string };
+
+export const QODER_MODEL_MODES = [
+    MODEL_MODE_DEFAULT,
+    'qoder-auto',
+    'qoder-qmodel_38max',
+    'qoder-qfmodel',
+    'qoder-qmodel_latest',
+    'qoder-qmodel',
+    'qoder-q37fmodel',
+    'qoder-dmodel',
+    'qoder-dfmodel',
+    'qoder-gmodel',
+    'qoder-gfmodel',
+    'qoder-gm51model',
+    'qoder-kmodel_latest',
+    'qoder-kmodel',
+    'qoder-mmodel',
+] as const satisfies readonly ModelMode[];
+
+export const QODER_MODEL_OPTIONS = [
+    { value: MODEL_MODE_DEFAULT, label: 'Use CLI configured model', shortLabel: 'CLI', description: 'Use profile/CLI defaults' },
+    { value: 'qoder-auto', label: 'Auto (default)', shortLabel: 'Auto', description: 'Qoder routes each request; 0.50x credit' },
+    { value: 'qoder-qmodel_38max', label: 'Qwen3.8-Max', shortLabel: 'Qwen3.8-Max', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-qfmodel', label: 'Qwen3.8-Flash', shortLabel: 'Qwen3.8-Flash', description: 'Reasoning, vision; free tier (0.00x credit)' },
+    { value: 'qoder-qmodel_latest', label: 'Qwen3.7-Max', shortLabel: 'Qwen3.7-Max', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-qmodel', label: 'Qwen3.7-Plus', shortLabel: 'Qwen3.7-Plus', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-q37fmodel', label: 'Qwen3.7-Flash', shortLabel: 'Qwen3.7-Flash', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-dmodel', label: 'DeepSeek-V4-Pro', shortLabel: 'DS-V4-Pro', description: 'Reasoning, vision; 0.50x credit' },
+    { value: 'qoder-dfmodel', label: 'DeepSeek-Flash', shortLabel: 'DS-Flash', description: 'Vision; 0.10x credit' },
+    { value: 'qoder-gmodel', label: 'GLM-5.3', shortLabel: 'GLM-5.3', description: 'Reasoning, vision; 0.80x credit' },
+    { value: 'qoder-gfmodel', label: 'GLM-5.3-Flash', shortLabel: 'GLM-5.3-Flash', description: 'Reasoning, vision; 0.10x credit' },
+    { value: 'qoder-gm51model', label: 'GLM-5.2', shortLabel: 'GLM-5.2', description: 'Reasoning, vision; 0.60x credit' },
+    { value: 'qoder-kmodel_latest', label: 'Kimi-K3', shortLabel: 'Kimi-K3', description: 'Vision; 1.40x credit' },
+    { value: 'qoder-kmodel', label: 'Kimi-K2.8-Preview', shortLabel: 'Kimi-K2.8', description: 'Reasoning, vision; 0.80x credit' },
+    { value: 'qoder-mmodel', label: 'MiniMax-M2.7', shortLabel: 'MiniMax-M2.7', description: '0.20x credit' },
+] as const;
+
+/**
+ * Qoder model mode id -> value handed to `qoder --model <value>`, and the reverse.
+ * Kept as an explicit table rather than `mode.slice(6)` so an unprefixed model id
+ * reported by the CLI (`auto`) can still round-trip when it comes back from ACP.
+ */
+// Stripping the `qoder-` prefix reproduces the measured ACP/`--model` value exactly,
+// so the table only documents the invariant rather than listing 14 rows.
+const QODER_MODE_TO_CLI_MODEL: Partial<Record<ModelMode, string>> = Object.fromEntries(
+    QODER_MODEL_MODES
+        .filter(mode => mode !== MODEL_MODE_DEFAULT)
+        .map(mode => [mode, mode.slice('qoder-'.length)]),
+) as Partial<Record<ModelMode, string>>;
+
+const QODER_CLI_MODEL_TO_MODE: Record<string, ModelMode> = Object.fromEntries(
+    Object.entries(QODER_MODE_TO_CLI_MODEL).map(([mode, cli]) => [cli, mode as ModelMode]),
+) as Record<string, ModelMode>;
+
+export function qoderModelModeToCliModel(modelMode: string | null | undefined): string | null {
+    if (!modelMode || modelMode === MODEL_MODE_DEFAULT) return null;
+    const mapped = QODER_MODE_TO_CLI_MODEL[modelMode as ModelMode];
+    if (mapped) return mapped;
+    // Unknown qoder-* id: assume the prefix is all that separates it from the CLI value.
+    return modelMode.startsWith('qoder-') ? modelMode.slice('qoder-'.length) : modelMode;
+}
+
+export function cliModelToQoderModelMode(cliModel: string | null | undefined): ModelMode | null {
+    if (!cliModel) return null;
+    if (isModelMode(cliModel)) return cliModel;
+    return QODER_CLI_MODEL_TO_MODE[cliModel] ?? null;
+}
 
 const EXTENDED_CONTEXT_WINDOW = 1_000_000;
 
@@ -110,6 +179,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         claude: [MODEL_MODE_DEFAULT, ...claudeFamilyModels.keys(), ...claudeModeToSelection.keys()],
         codex: [MODEL_MODE_DEFAULT, ...codexModeToSelection.keys()],
         gemini: [MODEL_MODE_DEFAULT, ...activeModels('gemini').map((model) => model.id)],
+        qoder: QODER_MODEL_MODES,
     };
 
     // Claude options are base families only — the 1M context opt-in is a separate
@@ -118,6 +188,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         claude: [DEFAULT_MODEL_OPTION, ...activeModels('claude').map(toModelOption)],
         codex: [DEFAULT_MODEL_OPTION, ...activeModels('codex').map(toModelOption)],
         gemini: [DEFAULT_MODEL_OPTION, ...activeModels('gemini').map(toModelOption)],
+        qoder: QODER_MODEL_OPTIONS,
     };
 
     const codexModeOptions: readonly { value: ModelMode; label: string; description: string }[] = [
@@ -148,6 +219,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
             claude: new Set(modesByAgent.claude),
             codex: new Set(modesByAgent.codex),
             gemini: new Set(modesByAgent.gemini),
+            qoder: new Set(modesByAgent.qoder),
         } satisfies Record<AgentFlavor, Set<ModelMode>>,
         familyOptions,
         codexModeOptions,
@@ -285,7 +357,9 @@ export function buildCodexModelMode(
 }
 
 function modelDisplayName(model: string): string | undefined {
-    return index.modelsById.get(model)?.displayName;
+    return index.modelsById.get(model)?.displayName
+        ?? QODER_MODEL_OPTIONS.find(option => option.value === model)?.shortLabel
+        ?? (model === 'auto' ? 'Auto' : undefined);
 }
 
 export type ModelSelection = {
@@ -309,7 +383,10 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
         if (parsed.family === MODEL_MODE_DEFAULT) return { model: modelMode, reasoningEffort: null };
         return { model: parsed.family, reasoningEffort: parsed.effort };
     }
-    if (flavor === 'gemini') return { model: modelMode, reasoningEffort: null };
+    if (flavor === 'gemini' || flavor === 'qoder') return { model: modelMode, reasoningEffort: null };
+    // Qoder keeps the prefixed mode id on the wire (same invariant as gemini); the
+    // CLI-facing `--model` value is derived by qoderModelModeToCliModel at spawn time.
+    if (flavor === 'qoder') return { model: modelMode, reasoningEffort: null };
     return { model: null, reasoningEffort: null };
 }
 
@@ -383,6 +460,10 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 272_000,
     gemini: 1_000_000,
+    // Conservative until confirmed: Qoder exposes `--context-window` as an override,
+    // and the CLI reports its real window through ACP config metadata, which takes
+    // precedence over this default in getMaxContextSize.
+    qoder: 200_000,
 };
 
 /**
@@ -453,3 +534,11 @@ function computeMaxContextSize(modelMode: string | null | undefined, agentFlavor
     }
     return DEFAULT_CONTEXT_WINDOW;
 }
+
+/** Current model modes, read from the active catalog whenever accessed. */
+export const MODEL_MODES_BY_PROVIDER: Record<AgentFlavor, readonly ModelMode[]> = {
+    get claude() { return getValidModelModesForAgent('claude'); },
+    get codex() { return getValidModelModesForAgent('codex'); },
+    get gemini() { return getValidModelModesForAgent('gemini'); },
+    get qoder() { return getValidModelModesForAgent('qoder'); },
+};

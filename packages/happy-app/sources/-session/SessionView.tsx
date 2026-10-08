@@ -39,8 +39,8 @@ import { useSharedValue } from 'react-native-reanimated';
 // iOS 26+ with Liquid Glass: the composer floats over the conversation as glass, and the list
 // scrolls on under it behind the soft bottom scroll edge effect.
 import { useDeviceType, useIsLandscape, useIsTablet } from '@/utils/responsive';
-import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
-import { canEditSession, canForkSession } from '@/utils/sessionLifecycle';
+import { formatPathRelativeToHome, generateCopyTitle, getSessionAvatarId, getSessionName, useSessionStatus, copySessionMetadata, copySessionModeSettings, forkQoderSessionForCopy } from '@/utils/sessionUtils';
+import { canEditSession, canForkSession, hasForkableNativeId } from '@/utils/sessionLifecycle';
 import { sendFailureKey } from '@/utils/sendFailure';
 import { getNativeHeaderTitleWidth } from '@/utils/nativeHeaderTitleWidth';
 import { isVersionSupported, useLatestCliVersion } from '@/utils/versionUtils';
@@ -558,7 +558,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Check if the current session flavor supports images
     const supportsImages = React.useMemo(() => {
         const flavor = session?.metadata?.flavor;
-        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex';
+        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex' || flavor === 'qoder';
     }, [session?.metadata?.flavor]);
 
     // Handle dismissing CLI version warning
@@ -574,7 +574,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     }, [machineId, cliVersion, acknowledgedCliVersions]);
 
     // Function to update permission mode
-    const updatePermissionMode = React.useCallback((mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => {
+    const updatePermissionMode = React.useCallback((mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk' | 'accept_edits' | 'bypass_permissions' | 'dont_ask') => {
         storage.getState().updateSessionPermissionMode(sessionId, mode);
     }, [sessionId]);
 
@@ -618,12 +618,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
     // Handle opening the duplicate sheet - loads user messages from the session
     const handleOpenDuplicateSheet = React.useCallback(async () => {
-        if (!canForkSession(storage.getState().sessions[session.id])) return;
-        const flavor = session.metadata?.flavor;
-        const claudeSessionId = session.metadata?.claudeSessionId;
-        const codexSessionId = session.metadata?.codexSessionId;
-        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId);
-        if (!machineId || !canDuplicate) {
+        if (!canForkSession(storage.getState().sessions[session.id]) || !hasForkableNativeId(session)) return;
+        if (!machineId) {
             Modal.alert(t('common.error'), t('duplicate.notAvailable'));
             return;
         }
@@ -646,7 +642,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         } finally {
             setDuplicateLoading(false);
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, loadDuplicateMessagesPage, applyDuplicatePage]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, loadDuplicateMessagesPage, applyDuplicatePage]);
 
     const handleLoadMoreDuplicateMessages = React.useCallback(async () => {
         if (duplicateLoadingMore || !duplicateHasMore || duplicateBeforeIndex == null) return;
@@ -679,6 +675,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const sessionPath = session.metadata?.path;
         if (!machineId || !sessionPath) {
             // Reset so the fork loading overlay / sheet spinner can't get stuck.
@@ -691,7 +688,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
         try {
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const duplicateResult = uuid
@@ -726,6 +723,21 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 }
                 resumeSessionId = duplicateResult.newSessionId;
                 agent = 'claude';
+            } else if (flavor === 'qoder' && qoderSessionId) {
+                // Per-message forking (uuid) needs a lookup RPC Qoder has no equivalent of yet.
+                if (uuid) {
+                    setDuplicateConfirming(false);
+                    Modal.alert(t('common.error'), t('duplicate.failed'));
+                    return;
+                }
+                const qoderFork = await forkQoderSessionForCopy(machineId, qoderSessionId, sessionPath);
+                if ('error' in qoderFork) {
+                    setDuplicateConfirming(false);
+                    Modal.alert(t('common.error'), qoderFork.error ?? t('duplicate.failed'));
+                    return;
+                }
+                resumeSessionId = qoderFork.newSessionId;
+                agent = 'qoder';
             } else {
                 setDuplicateConfirming(false);
                 return;
@@ -770,7 +782,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             setDuplicateConfirming(false);
             Modal.alert(t('common.error'), t('duplicate.failed'));
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.path, router]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.path, router]);
 
     // Handle selecting a message in the duplicate sheet. Picker rows are previews,
     // so fetch the full prompt by UUID before creating the new-session draft.
@@ -874,12 +886,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Handle the per-message fork icon: show the confirm dialog immediately,
     // then do the network work in performForkFromMessage once confirmed.
     const handleForkFromMessage = React.useCallback((request: ForkMessageRequest) => {
-        if (!canForkSession(storage.getState().sessions[session.id])) return;
-        const flavor = session.metadata?.flavor;
-        const claudeSessionId = session.metadata?.claudeSessionId;
-        const codexSessionId = session.metadata?.codexSessionId;
-        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId);
-        if (!machineId || !canDuplicate) {
+        if (!canForkSession(storage.getState().sessions[session.id]) || !hasForkableNativeId(session)) return;
+        if (!machineId) {
             Modal.alert(t('common.error'), t('duplicate.notAvailable'));
             return;
         }
@@ -895,7 +903,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 { text: t('duplicate.confirm'), onPress: () => { performForkFromMessage(request); } },
             ]
         );
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, performForkFromMessage]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, performForkFromMessage]);
 
     // Handle closing the duplicate sheet (prevent closing while confirming)
     const handleCloseDuplicateSheet = React.useCallback(() => {

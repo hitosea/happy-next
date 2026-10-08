@@ -11,6 +11,7 @@ import { PushNotificationClient } from "@/api/pushNotifications";
 import type { PermissionMode } from '@/api/types';
 import {
     BasePermissionHandler,
+    isAlwaysAutoApproved,
     PermissionResult,
     PendingRequest
 } from '@/utils/BasePermissionHandler';
@@ -52,28 +53,18 @@ export class GeminiPermissionHandler extends BasePermissionHandler {
         logger.debug(`${this.getLogPrefix()} Permission mode set to: ${mode}`);
     }
 
+    protected decideAutoApproval(toolCallId: string, toolName: string): PermissionResult | null {
+        if (!isAlwaysAutoApproved(toolName, toolCallId) && !this.autoApprovesByMode(toolName)) {
+            return null;
+        }
+        // `yolo` approves for the rest of the session; every other auto-approval is per-call.
+        return { decision: this.currentPermissionMode === 'yolo' ? 'approved_for_session' : 'approved' };
+    }
+
     /**
      * Check if a tool should be auto-approved based on permission mode
      */
-    private shouldAutoApprove(toolName: string, toolCallId: string, input: unknown): boolean {
-        // Always auto-approve these tools regardless of permission mode:
-        // - change_title: Changing chat title is safe and should be automatic
-        // - GeminiReasoning: Reasoning is just display of thinking process, not an action
-        // - think: Thinking/saving memories is safe
-        // - save_memory: Saving memories is safe
-        const alwaysAutoApproveNames = ['change_title', 'preview_html', 'GeminiReasoning', 'CodexReasoning', 'think', 'save_memory'];
-        const alwaysAutoApproveIds = ['change_title', 'preview_html', 'save_memory'];
-        
-        // Check by tool name
-        if (alwaysAutoApproveNames.some(name => toolName.toLowerCase().includes(name.toLowerCase()))) {
-            return true;
-        }
-        
-        // Check by toolCallId (Gemini CLI may send change_title as "other" but toolCallId contains "change_title")
-        if (alwaysAutoApproveIds.some(id => toolCallId.toLowerCase().includes(id.toLowerCase()))) {
-            return true;
-        }
-        
+    private autoApprovesByMode(toolName: string): boolean {
         switch (this.currentPermissionMode) {
             case 'yolo':
                 // Auto-approve everything in yolo mode
@@ -93,48 +84,5 @@ export class GeminiPermissionHandler extends BasePermissionHandler {
                 // Default mode - always ask for permission (except for always-auto-approve tools above)
                 return false;
         }
-    }
-
-    /**
-     * Handle a tool permission request
-     * @param toolCallId - The unique ID of the tool call
-     * @param toolName - The name of the tool being called
-     * @param input - The input parameters for the tool
-     * @returns Promise resolving to permission result
-     */
-    async handleToolCall(
-        toolCallId: string,
-        toolName: string,
-        input: unknown
-    ): Promise<PermissionResult> {
-        // Check if we should auto-approve based on permission mode
-        // Pass toolCallId to check by ID (e.g., change_title-* even if toolName is "other")
-        if (this.shouldAutoApprove(toolName, toolCallId, input)) {
-            logger.debug(`${this.getLogPrefix()} Auto-approving tool ${toolName} (${toolCallId}) in ${this.currentPermissionMode} mode`);
-
-            // Do not write auto-approved tools into AgentState requests/completedRequests.
-            // Tool cards will still be rendered via normal tool-call/tool-result messages,
-            // but without permission metadata (so no permission action footer).
-
-            return {
-                decision: this.currentPermissionMode === 'yolo' ? 'approved_for_session' : 'approved'
-            };
-        }
-
-        // Otherwise, ask for permission
-        return new Promise<PermissionResult>((resolve, reject) => {
-            // Store the pending request
-            this.pendingRequests.set(toolCallId, {
-                resolve,
-                reject,
-                toolName,
-                input
-            });
-
-            // Update agent state with pending request
-            this.addPendingRequestToState(toolCallId, toolName, input);
-
-            logger.debug(`${this.getLogPrefix()} Permission request sent for tool: ${toolName} (${toolCallId}) in ${this.currentPermissionMode} mode`);
-        });
     }
 }

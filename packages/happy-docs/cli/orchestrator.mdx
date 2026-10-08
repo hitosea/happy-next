@@ -3,7 +3,7 @@ title: "Orchestrator"
 description: "Dispatch multi-agent workflows with dependency graphs."
 ---
 
-The Orchestrator lets you define multi-step tasks and dispatch them across multiple AI agents (Claude, Codex, Gemini) with dependency management.
+The Orchestrator lets you define multi-step tasks and dispatch them across multiple AI agents (Claude, Codex, Gemini, Qoder) with dependency management.
 
 ## What is it?
 
@@ -15,7 +15,7 @@ Orchestrator runs are created through the **mobile app** or the **API**. Each ru
 
 - **Tasks** — Individual units of work, each with:
   - A prompt describing what to do
-  - A provider (Claude, Codex, or Gemini)
+  - A provider (Claude, Codex, Gemini, or Qoder)
   - A model selection
   - An optional working directory
   - Dependencies on other tasks
@@ -27,13 +27,14 @@ There are two ways to start orchestrating from a Happy session.
 
 ### Slash commands
 
-Three commands are auto-installed the first time an orchestrating session starts (after upgrading the CLI). Invoke them from a **Claude** or **Codex** session:
+Four commands are auto-installed the first time an orchestrating session starts (after upgrading the CLI). Invoke them from a **Claude** or **Codex** session:
 
 | Command | Delegates primarily to |
 |---------|------------------------|
 | `/orchestrator:claude [task]` | Claude |
 | `/orchestrator:codex [task]` | Codex |
 | `/orchestrator:gemini [task]` | Gemini |
+| `/orchestrator:qoder [task]` | Qoder |
 
 Pass the work to delegate as the argument, e.g. `/orchestrator:claude review auth.ts for security issues`. The named provider is only the default — a single run can still mix providers and add dependencies.
 
@@ -45,7 +46,7 @@ Or just describe what you want and the AI dispatches tasks automatically. Key ph
 |--------|----------|
 | Run tasks in parallel | "simultaneously", "in parallel", "at the same time" |
 | Control order | "first... then...", "after completion" |
-| Use different agents | "dispatch to Claude/Codex/Gemini" |
+| Use different agents | "dispatch to Claude/Codex/Gemini/Qoder" |
 | Run in background | "async mode", "in the background" |
 | Specify model | "using opus", "with gpt-5.5" |
 

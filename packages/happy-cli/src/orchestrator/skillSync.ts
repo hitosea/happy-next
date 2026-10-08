@@ -9,6 +9,7 @@ import {
   ORCHESTRATOR_COMMAND_CLAUDE,
   ORCHESTRATOR_COMMAND_CODEX,
   ORCHESTRATOR_COMMAND_GEMINI,
+  ORCHESTRATOR_COMMAND_QODER,
 } from './skillAssets';
 
 let didSync = false;
@@ -53,6 +54,7 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'claude.md'), ORCHESTRATOR_COMMAND_CLAUDE);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'codex.md'), ORCHESTRATOR_COMMAND_CODEX);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
+    writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
   }
 
   // Codex — $CODEX_HOME/skills, defaulting to ~/.codex/skills.

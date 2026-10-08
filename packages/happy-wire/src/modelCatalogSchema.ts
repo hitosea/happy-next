@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini']);
+export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini', 'qoder']);
 export type AgentFlavor = z.infer<typeof AgentFlavorSchema>;
 
 export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
