@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { Modal } from '@/modal';
@@ -14,6 +14,12 @@ import { useModal } from '@/modal';
 import { buildCommandPaletteCommands } from './commandPaletteCommands';
 import { t } from '@/text';
 import { getDesktopPlatform } from '@/desktop/desktopWindowUtils';
+
+const CommandPaletteContext = createContext<() => void>(() => {});
+
+export function useOpenCommandPalette() {
+    return useContext(CommandPaletteContext);
+}
 
 function sessionIdFromPath(pathname: string): string | null {
     const match = pathname.match(/^\/session\/([^/]+)/);
@@ -81,8 +87,6 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
     }, [commandState.sessions]);
 
     const openCommandPalette = useCallback(() => {
-        if (Platform.OS !== 'web') return;
-
         if (isCommandPaletteOpen) {
             hideModal(currentModal.id);
             return;
@@ -128,5 +132,5 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
 
     useGlobalKeyboard(shortcutHandlers);
 
-    return <>{children}</>;
+    return <CommandPaletteContext.Provider value={openCommandPalette}>{children}</CommandPaletteContext.Provider>;
 }

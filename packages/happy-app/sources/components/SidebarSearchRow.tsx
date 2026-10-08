@@ -9,7 +9,7 @@ import { getDesktopPlatform } from '@/desktop/desktopWindowUtils';
 import { useSessionListScope } from '@/hooks/useSessionListScope';
 import { useAddMachine } from '@/hooks/useAddMachine';
 import { useSessionsCreateItems } from '@/hooks/useSessionsCreateItems';
-import { requestCommandPalette } from './CommandPalette/events';
+import { useOpenCommandPalette } from './CommandPalette/CommandPaletteProvider';
 import { DropdownMenu } from './DropdownMenu';
 
 // The command palette's shortcut, shown in the search field where a keyboard is expected.
@@ -29,22 +29,20 @@ export const SidebarSearchRow = React.memo(() => {
     const addMachine = useAddMachine();
     const createItems = useSessionsCreateItems(scope, addMachine);
     const shortcut = React.useMemo(getSearchShortcutLabel, []);
+    const openCommandPalette = useOpenCommandPalette();
 
     return (
         <View style={styles.row}>
-            {/* The command palette is web-only (desktop included); native tablets keep just the "+". */}
-            {Platform.OS === 'web' ? (
-                <Pressable
-                    accessibilityRole="search"
-                    accessibilityLabel={t('commandPalette.placeholder')}
-                    onPress={requestCommandPalette}
-                    style={({ hovered, pressed }: any) => [styles.field, (hovered || pressed) && styles.fieldHovered]}
-                >
-                    <Ionicons name="search-outline" size={15} color={theme.colors.textSecondary} />
-                    <Text style={styles.placeholder} numberOfLines={1}>{t('sessionScope.search')}</Text>
-                    {shortcut && <Text style={styles.shortcut}>{shortcut}</Text>}
-                </Pressable>
-            ) : <View style={styles.spacer} />}
+            <Pressable
+                accessibilityRole="search"
+                accessibilityLabel={t('commandPalette.placeholder')}
+                onPress={openCommandPalette}
+                style={({ hovered, pressed }: any) => [styles.field, (hovered || pressed) && styles.fieldHovered]}
+            >
+                <Ionicons name="search-outline" size={15} color={theme.colors.textSecondary} />
+                <Text style={styles.placeholder} numberOfLines={1}>{t('sessionScope.search')}</Text>
+                {shortcut && <Text style={styles.shortcut}>{shortcut}</Text>}
+            </Pressable>
             <DropdownMenu
                 openOnHover
                 items={createItems}
@@ -79,9 +77,6 @@ const stylesheet = StyleSheet.create((theme) => ({
         borderRadius: 8,
         // The dark surface is the sidebar's own color, so the field takes the next step up there.
         backgroundColor: theme.dark ? theme.colors.surfaceHighest : theme.colors.surface,
-    },
-    spacer: {
-        flex: 1,
     },
     fieldHovered: {
         opacity: 0.85,

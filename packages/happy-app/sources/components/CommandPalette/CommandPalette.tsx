@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, Platform } from 'react-native';
+import { Text, View, Platform, useWindowDimensions } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 import { CommandPaletteInput } from './CommandPaletteInput';
 import { CommandPaletteResults } from './CommandPaletteResults';
@@ -16,6 +16,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ commands, searchCachedMessages, onClose }: CommandPaletteProps) {
+    const { height } = useWindowDimensions();
     const {
         searchQuery,
         selectedIndex,
@@ -34,13 +35,8 @@ export function CommandPalette({ commands, searchCachedMessages, onClose }: Comm
         [filteredCategories],
     );
 
-    // Only render on web
-    if (Platform.OS !== 'web') {
-        return null;
-    }
-
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, Platform.OS !== 'web' && { maxHeight: height * 0.65 }]}>
             <CommandPaletteInput
                 value={searchQuery}
                 onChangeText={handleSearchChange}
@@ -61,11 +57,11 @@ export function CommandPalette({ commands, searchCachedMessages, onClose }: Comm
                         ? t('commandPalette.searchingMessages')
                         : t('commandPalette.resultCount', { count: resultCount })}
                 </Text>
-                <View style={styles.footerHints}>
+                {Platform.OS === 'web' && <View style={styles.footerHints}>
                     <Text style={[styles.footerText, Typography.default()]}>{t('commandPalette.navigateHint')}</Text>
                     <Text style={[styles.footerText, Typography.default()]}>{t('commandPalette.selectHint')}</Text>
                     <Text style={[styles.footerText, Typography.default()]}>{t('commandPalette.closeHint')}</Text>
-                </View>
+                </View>}
             </View>
         </View>
     );

@@ -107,6 +107,7 @@ export function CommandPaletteResults({
 
 const styles = StyleSheet.create((theme) => ({
     container: {
+        flexShrink: 1,
         // Use viewport-based height for better proportions
         ...(Platform.OS === 'web' ? {
             maxHeight: '50vh', // 40% of viewport height for results

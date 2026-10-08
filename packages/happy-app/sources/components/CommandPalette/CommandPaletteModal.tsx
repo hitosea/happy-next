@@ -139,7 +139,8 @@ const styles = StyleSheet.create((theme) => ({
         ...(Platform.OS === 'web' ? {
             paddingTop: '20vh',
         } as any : {
-            paddingTop: 200, // Fallback for native
+            paddingTop: 24,
+            paddingBottom: 24,
         })
     },
     backdrop: {
