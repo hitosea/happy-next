@@ -33,6 +33,7 @@ import { MachineSwitcherSheet } from './MachineSwitcherSheet';
 import { useSessionListScope, type SessionListScope } from '@/hooks/useSessionListScope';
 import { getSwitcherDot, type SessionScopeDot as Dot } from './sessionListScope';
 import { SessionScopeDot } from './SessionScopeDot';
+import { requestSessionListJump } from './sessionListJump';
 import { useAddMachine } from '@/hooks/useAddMachine';
 import { useSessionsCreateItems } from '@/hooks/useSessionsCreateItems';
 
@@ -140,6 +141,8 @@ const TAB_TITLES = {
     github: 'tabs.github',
     settings: 'tabs.settings',
 } as const;
+
+const SESSIONS_TAB_DOUBLE_TAP_MS = 400;
 
 // Active tabs
 type ActiveTabType = 'sessions' | 'inbox' | 'dootask' | 'github' | 'settings';
@@ -357,9 +360,24 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         router.push('/new');
     }, [router]);
 
-    const handleTabPress = React.useCallback((tab: TabType) => {
-        setActiveTab(tab);
+    // Two taps on the already selected sessions tab in quick succession jump the list to the next
+    // session that wants a look (see sessionListJump).
+    const lastSessionsTabTapRef = React.useRef(0);
+    const handleTabReselect = React.useCallback((tab: TabType) => {
+        if (tab !== 'sessions') return;
+        const now = Date.now();
+        if (now - lastSessionsTabTapRef.current < SESSIONS_TAB_DOUBLE_TAP_MS) {
+            lastSessionsTabTapRef.current = 0;
+            requestSessionListJump();
+        } else {
+            lastSessionsTabTapRef.current = now;
+        }
     }, []);
+
+    const handleTabPress = React.useCallback((tab: TabType) => {
+        if (tab === activeTab) handleTabReselect(tab);
+        setActiveTab(tab);
+    }, [activeTab, handleTabReselect]);
 
     const [createMenuVisible, setCreateMenuVisible] = React.useState(false);
 
@@ -450,8 +468,11 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
     const nativeActiveIndex = Math.max(0, nativeTabRoutes.findIndex(r => r.key === activeTab));
     const handleNativeIndexChange = React.useCallback((idx: number) => {
         const next = nativeTabRoutes[idx];
-        if (next) setActiveTab(next.key);
-    }, [nativeTabRoutes]);
+        if (!next) return;
+        // The native tab bar reports a tap on the selected tab as a change to the same index.
+        if (next.key === activeTab) handleTabReselect(next.key);
+        setActiveTab(next.key);
+    }, [nativeTabRoutes, activeTab, handleTabReselect]);
     const renderNativeScene = React.useCallback(({ route }: { route: NativeTabRoute }) => {
         switch (route.key) {
             case 'sessions': return <SessionsListWrapper />;

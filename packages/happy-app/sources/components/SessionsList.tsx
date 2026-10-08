@@ -3,10 +3,12 @@ import { View, Pressable, FlatList, Platform, RefreshControl, NativeScrollEvent,
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
-import { SessionListViewItem, useOrchestratorRunningTaskCount, useSessionHasDraft, useSocketStatus } from '@/sync/storage';
+import { SessionListViewItem, storage, useOrchestratorRunningTaskCount, useSessionHasDraft, useSocketStatus } from '@/sync/storage';
 import { useCompactSessionView } from '@/hooks/useCompactSessionView';
 import { Ionicons } from '@expo/vector-icons';
-import { getSessionName, useSessionStatus, getSessionAvatarId } from '@/utils/sessionUtils';
+import { getSessionName, useSessionStatus, getSessionAvatarId, hasUnreadCompletion } from '@/utils/sessionUtils';
+import { getSessionProjectCollapseKey } from '@/hooks/useSessionProjectGroups';
+import { getSessionJumpPriority, pickNextJumpSession, subscribeToSessionListJump } from './sessionListJump';
 import { SessionProjectLabelsContext, useSessionProjectLabel, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 import { ProjectLabelText } from './ProjectLabelText';
 import { Avatar } from './Avatar';
@@ -645,17 +647,36 @@ export function SessionsList() {
     const listViewportRef = React.useRef<View | null>(null);
     const sessionRowRefs = React.useRef(new Map<string, View>());
     const scrollOffsetRef = React.useRef(0);
+    // What scrolling has to respect: on iOS the header and tab bar overlap the viewport (the
+    // automatic content inset), so the visible part excludes them and the top sits at -inset.top.
+    const viewportInsetsRef = React.useRef<ViewportInsets | null>(null);
+    viewportInsetsRef.current = viewportInsets;
+    const contentHeightRef = React.useRef(0);
+    const viewportHeightRef = React.useRef(0);
+    const getVisibleInsets = React.useCallback(() => {
+        const insets = Platform.OS === 'ios' ? viewportInsetsRef.current : null;
+        return { top: insets?.top ?? 0, bottom: insets?.bottom ?? 0 };
+    }, []);
+    const clampScrollOffset = React.useCallback((offset: number) => {
+        const { top, bottom } = getVisibleInsets();
+        const max = Math.max(-top, contentHeightRef.current + bottom - viewportHeightRef.current);
+        return Math.min(Math.max(offset, -top), max);
+    }, [getVisibleInsets]);
+    const scrollListToTop = React.useCallback(() => {
+        listRef.current?.scrollToOffset({ offset: -getVisibleInsets().top, animated: true });
+    }, [getVisibleInsets]);
     const revealFrameRef = React.useRef<number | null>(null);
     const registerSessionRowRef = React.useCallback<RegisterSessionRowRef>((sessionId, ref) => {
         if (ref) sessionRowRefs.current.set(sessionId, ref);
         else sessionRowRefs.current.delete(sessionId);
     }, []);
-    const revealSessionRow = React.useCallback((sessionId: string): boolean => {
+    // 'nearest' scrolls just enough to bring the row into view; 'center' puts it mid-view.
+    const revealSessionRow = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest'): boolean => {
         const row = sessionRowRefs.current.get(sessionId);
         if (!row) return false;
 
         if (Platform.OS === 'web' && typeof (row as any).scrollIntoView === 'function') {
-            (row as any).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            (row as any).scrollIntoView({ behavior: 'smooth', block: align });
             return true;
         }
 
@@ -664,27 +685,29 @@ export function SessionsList() {
         row.measureInWindow((_rowX, rowY, _rowWidth, rowHeight) => {
             viewport.measureInWindow((_viewportX, viewportY, _viewportWidth, viewportHeight) => {
                 const margin = 8;
-                const visibleTop = viewportY + margin;
-                const visibleBottom = viewportY + viewportHeight - margin;
+                const insets = getVisibleInsets();
+                const visibleTop = viewportY + insets.top + margin;
+                const visibleBottom = viewportY + viewportHeight - insets.bottom - margin;
                 const rowBottom = rowY + rowHeight;
                 let delta = 0;
-                if (rowY < visibleTop) delta = rowY - visibleTop;
+                if (align === 'center') delta = (rowY + rowBottom) / 2 - (visibleTop + visibleBottom) / 2;
+                else if (rowY < visibleTop) delta = rowY - visibleTop;
                 else if (rowBottom > visibleBottom) delta = rowBottom - visibleBottom;
-                if (delta !== 0) {
+                if (Math.abs(delta) >= 1) {
                     listRef.current?.scrollToOffset({
-                        offset: Math.max(0, scrollOffsetRef.current + delta),
+                        offset: clampScrollOffset(scrollOffsetRef.current + delta),
                         animated: true,
                     });
                 }
             });
         });
         return true;
-    }, []);
-    const scheduleRevealSelectedSession = React.useCallback((sessionId: string) => {
+    }, [getVisibleInsets, clampScrollOffset]);
+    const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest') => {
         if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
         revealFrameRef.current = requestAnimationFrame(() => {
             revealFrameRef.current = null;
-            if (revealSessionRow(sessionId)) return;
+            if (revealSessionRow(sessionId, align)) return;
 
             const topLevelIndex = dataWithSelected?.findIndex(item =>
                 item.type === 'session'
@@ -698,10 +721,44 @@ export function SessionsList() {
             listRef.current?.scrollToIndex({ index: topLevelIndex, animated: false, viewPosition: 0.5 });
             revealFrameRef.current = requestAnimationFrame(() => {
                 revealFrameRef.current = null;
-                revealSessionRow(sessionId);
+                revealSessionRow(sessionId, align);
             });
         });
     }, [dataWithSelected, revealSessionRow]);
+
+    // Double-tapping the sessions tab reveals the next session that wants a look (see
+    // sessionListJump), unfolding its project group first if needed; with none, back to the top.
+    const [collapsedProjectGroups, setCollapsedProjectGroups] = useLocalSettingMutable('collapsedSessionProjectGroups');
+    const lastJumpedSessionIdRef = React.useRef<string | null>(null);
+    React.useEffect(() => subscribeToSessionListJump(() => {
+        const state = storage.getState();
+        const candidates: { id: string; priority: number }[] = [];
+        for (const session of tabSessions) {
+            const priority = getSessionJumpPriority(session, {
+                unread: hasUnreadCompletion(session),
+                delegating: Object.values(state.orchestratorActivity[session.id] ?? {}).some(taskIds => taskIds.length > 0),
+                hasDraft: !!state.drafts[session.id],
+            });
+            if (priority !== null) candidates.push({ id: session.id, priority });
+        }
+        const nextId = pickNextJumpSession(candidates, lastJumpedSessionIdRef.current);
+        lastJumpedSessionIdRef.current = nextId;
+        if (!nextId) {
+            scrollListToTop();
+            return;
+        }
+        // Sessions in the grouped blocks sit in foldable project groups; plain rows do not.
+        const inProjectGroup = (tabData ?? []).some(item =>
+            (item.type === 'active-sessions' || item.type === 'shared-sessions') ? item.sessions.some(session => session.id === nextId)
+                : item.type === 'machine-sessions' && item.section.sessions.some(session => session.id === nextId));
+        const collapseKey = getSessionProjectCollapseKey(tabSessions.find(session => session.id === nextId)?.metadata?.path || '');
+        if (inProjectGroup && collapsedProjectGroups[collapseKey]) {
+            const next = { ...collapsedProjectGroups };
+            delete next[collapseKey];
+            setCollapsedProjectGroups(next);
+        }
+        scheduleRevealSelectedSession(nextId, 'center');
+    }), [tabSessions, tabData, collapsedProjectGroups, setCollapsedProjectGroups, scheduleRevealSelectedSession, scrollListToTop]);
 
     // A manual switch on the rail or the phone switcher, to anywhere but where the pending session
     // lives, takes precedence over revealing it.
@@ -875,7 +932,7 @@ export function SessionsList() {
     return (
         <View style={styles.container}>
             <View ref={listViewportRef} style={styles.contentContainer}>
-                {Platform.OS === 'ios' && isEmpty && <ViewportInsetsProbe onChange={setViewportInsets} />}
+                {Platform.OS === 'ios' && <ViewportInsetsProbe onChange={setViewportInsets} />}
                 <SessionProjectLabelsContext.Provider value={projectLabel}>
                     <FlatList
                         // A different machine or sharing view starts from its top. Remounting rather than
@@ -884,6 +941,10 @@ export function SessionsList() {
                         key={activeTab}
                         ref={listRef}
                         contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
+                        // iOS clamps programmatic scrolls to -contentInset.top, which leaves out the
+                        // automatic inset: the top (-inset.top) would end up under the header. The
+                        // offsets are bounded by clampScrollOffset instead.
+                        scrollToOverflowEnabled
                         data={dataWithSelected}
                         renderItem={renderItem}
                         keyExtractor={keyExtractor}
@@ -893,6 +954,12 @@ export function SessionsList() {
                         ]}
                         ListEmptyComponent={EmptyComponent}
                         removeClippedSubviews={true}
+                        onLayout={event => {
+                            viewportHeightRef.current = event.nativeEvent.layout.height;
+                        }}
+                        onContentSizeChange={(_width, height) => {
+                            contentHeightRef.current = height;
+                        }}
                         onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
                             scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
                         }}
