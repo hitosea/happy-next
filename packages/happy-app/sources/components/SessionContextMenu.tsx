@@ -586,6 +586,20 @@ export function SessionContextMenu({ session, children, highlightShape }: {
             })),
         });
 
+        // The system's menu does not cancel React Native's touch handling, so a finger lifted just
+        // as the menu lifts the row still reaches the row as a tap and opens the session.
+        // Pressability drops the `onPress` of a press it has already reported as a long press, so
+        // the row is given one to report: shorter than the roughly half second the system takes to
+        // lift the row, so a press that lasted until the menu appeared has passed it.
+        const child = React.isValidElement(children)
+            ? React.cloneElement(children as React.ReactElement<any>, {
+                onLongPress: (event: unknown) => {
+                    (children.props as { onLongPress?: (event: unknown) => void }).onLongPress?.(event);
+                },
+                delayLongPress: 350,
+            })
+            : children;
+
         return (
             <>
                 <ContextMenuView
@@ -594,7 +608,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
                     previewShape={highlightShape}
                     style={styles.highlightHost}
                 >
-                    {children}
+                    {child}
                 </ContextMenuView>
                 {archiveMenu}
             </>
