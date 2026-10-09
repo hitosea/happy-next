@@ -23,7 +23,9 @@ import { NativeMenu as FallbackMenu, type NativeMenuProps } from './NativeMenu';
  * and the React Native view it had adopted is gone.
  */
 export const NativeMenu = React.memo((props: NativeMenuProps) => {
-    const { items, activation = 'press', disabled, style, children } = props;
+    const { activation = 'press', opensUpward, disabled, style, children } = props;
+    // iOS orders the rows outward from the trigger; reversed, a menu above it still reads top-down
+    const items = opensUpward ? [...props.items].reverse() : props.items;
     const { theme } = useUnistyles();
 
     if (isRunningOnMac()) {

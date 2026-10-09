@@ -809,10 +809,10 @@ export const zhHans: TranslationStructure = {
         initialMessage: '想做点什么？',
         locatingMessage: '正在定位消息…',
         minimapNavigator: '消息导航条',
-        takePhoto: '拍照',
-        chooseFromLibrary: '从相册选择',
+        takePhoto: '相机',
+        chooseFromLibrary: '照片',
         addMenuTitle: '添加',
-        scheduleMessage: '定时发送消息',
+        scheduleMessage: '定时消息',
         pasteFromClipboard: '从剪贴板粘贴',
         sharing: {
             title: '共享',

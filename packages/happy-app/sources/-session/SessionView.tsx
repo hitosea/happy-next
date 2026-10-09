@@ -975,12 +975,12 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Add (+) menu items. Image rows are disabled (not hidden) when the AI has no image support, so
     // scheduling stays reachable. Web has no camera and opens the file picker for the library.
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
+        ...(Platform.OS === 'web' ? [] : [{ label: t('session.takePhoto'), onPress: pickFromCamera, disabled: !supportsImages }]),
         {
             label: t('session.chooseFromLibrary'),
             onPress: Platform.OS === 'web' ? () => fileInputRef.current?.click() : pickFromGallery,
             disabled: !supportsImages,
         },
-        ...(Platform.OS === 'web' ? [] : [{ label: t('session.takePhoto'), onPress: pickFromCamera, disabled: !supportsImages }]),
         { label: t('session.scheduleMessage'), onPress: handleOpenScheduleSheet },
     ], [pickFromCamera, pickFromGallery, supportsImages, handleOpenScheduleSheet]);
 

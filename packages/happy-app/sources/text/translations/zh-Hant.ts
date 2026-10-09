@@ -809,10 +809,10 @@ export const zhHant: TranslationStructure = {
         initialMessage: '想做些什麼？',
         locatingMessage: '正在定位訊息…',
         minimapNavigator: '訊息導覽列',
-        takePhoto: '拍照',
-        chooseFromLibrary: '從圖庫選擇',
+        takePhoto: '相機',
+        chooseFromLibrary: '照片',
         addMenuTitle: '新增',
-        scheduleMessage: '定時傳送訊息',
+        scheduleMessage: '定時訊息',
         pasteFromClipboard: '從剪貼簿貼上',
         sharing: {
             title: '共享',

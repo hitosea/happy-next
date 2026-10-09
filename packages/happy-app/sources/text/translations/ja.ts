@@ -839,10 +839,10 @@ export const ja: TranslationStructure = {
         initialMessage: '何をしましょう？',
         locatingMessage: 'メッセージを移動中…',
         minimapNavigator: 'メッセージナビゲーター',
-        takePhoto: '写真を撮る',
-        chooseFromLibrary: 'ライブラリから選択',
+        takePhoto: 'カメラ',
+        chooseFromLibrary: '写真',
         addMenuTitle: '追加',
-        scheduleMessage: 'メッセージの送信を予約',
+        scheduleMessage: 'メッセージを予約',
         pasteFromClipboard: 'クリップボードから貼り付け',
         sharing: {
             title: '共有',

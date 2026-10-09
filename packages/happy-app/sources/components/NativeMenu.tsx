@@ -7,6 +7,11 @@ export type NativeMenuProps = {
     items: ActionMenuItem[];
     /** Opens the menu on a tap (`press`) or a long press (`longPress`). */
     activation?: 'press' | 'longPress';
+    /**
+     * The trigger sits at the bottom of the screen, so the menu opens above it. iOS puts the first
+     * row nearest the trigger, which reads bottom-up there; this keeps `items` reading top-down.
+     */
+    opensUpward?: boolean;
     /** Leaves the trigger as it is, without opening anything (a busy or unavailable action). */
     disabled?: boolean;
     /** Outer size and placement of the trigger; `children` fill it. */
