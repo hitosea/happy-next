@@ -23,6 +23,7 @@ import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSes
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
 import { MMKV } from 'react-native-mmkv';
+import { useLocalSearchParams } from 'expo-router';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
@@ -299,9 +300,14 @@ function SessionHistory() {
     const navigateToSession = useNavigateToSession();
     const [resumingSessionId, setResumingSessionId] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState('');
+    // Opened from a machine's page: start filtered to that machine.
+    const { machineId: machineIdParam } = useLocalSearchParams<{ machineId?: string }>();
     const [selectedMachineId, setSelectedMachineId] = React.useState<string | null>(() => {
-        return mmkv.getString(SELECTED_MACHINE_KEY) || null;
+        return machineIdParam || mmkv.getString(SELECTED_MACHINE_KEY) || null;
     });
+    React.useEffect(() => {
+        if (machineIdParam) setSelectedMachineId(machineIdParam);
+    }, [machineIdParam]);
     const [selectedAgent, setSelectedAgent] = React.useState<AgentFilter>(() => {
         const saved = mmkv.getString(SELECTED_AGENT_KEY);
         if (saved === 'claude' || saved === 'gemini' || saved === 'codex') return saved;

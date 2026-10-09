@@ -854,7 +854,13 @@ export default function MachineDetailScreen() {
 
                 {/* Previous Sessions (debug view) */}
                 {previousSessions.length > 0 && (
-                    <ItemGroup title={t('machine.previousSessions', { count: 5 })}>
+                    <ItemGroup
+                        title={t('machine.previousSessions', { count: 5 })}
+                        headerAction={{
+                            label: t('common.more'),
+                            onPress: () => router.push({ pathname: '/session/recent', params: { machineId } }),
+                        }}
+                    >
                         {previousSessions.map(session => (
                             <Item
                                 key={session.id}
