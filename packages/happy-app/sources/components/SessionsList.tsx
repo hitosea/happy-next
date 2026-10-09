@@ -18,6 +18,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { useSessionListScope, collectListSessions } from '@/hooks/useSessionListScope';
 import { isSharingSelection, type SessionListSelection, type SessionMachineGroup } from './sessionListScope';
 import { sortPinnedSessions, splitPinnedListItems, splitPinnedSessions } from './pinnedSessions';
+import { canDeleteSessionFromList } from './sessionQuickActions';
 import { useLocalSettingMutable } from '@/sync/storage';
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
 import { Typography } from '@/constants/Typography';
@@ -1137,7 +1138,8 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
     const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const navigateToSession = useNavigateToSession();
     const swipeableRef = React.useRef<Swipeable | null>(null);
-    const swipeEnabled = Platform.OS !== 'web';
+    // The sharing views list sessions shared with me here too, which only their owner deletes.
+    const swipeEnabled = Platform.OS !== 'web' && canDeleteSessionFromList(session, sessionStatus.isConnected);
     const setRowRef = React.useCallback((ref: View | null) => {
         registerSessionRowRef?.(session.id, ref);
     }, [registerSessionRowRef, session.id]);

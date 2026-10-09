@@ -79,7 +79,7 @@ export function getSessionQuickActionKinds({
     if (isOwner && isForkable) actions.push('forkSession');
     if (!isOwner) actions.push('leaveSharedSession');
     if (canArchiveSessionFromList(session, isConnected)) actions.push('archiveSession');
-    if (isOwner && !isConnected && !session.active) actions.push('deleteSession');
+    if (canDeleteSessionFromList(session, isConnected)) actions.push('deleteSession');
     return actions;
 }
 
@@ -89,6 +89,11 @@ export function getSessionQuickActionKinds({
  */
 export function canArchiveSessionFromList(session: Session, isConnected: boolean): boolean {
     return session.metadata?.lifecycleState !== 'archived' && canArchiveSession(session, isConnected);
+}
+
+/** Whether a session row offers deleting — in its menu or a swipe: only my own, once it has stopped. */
+export function canDeleteSessionFromList(session: Session, isConnected: boolean): boolean {
+    return !session.accessLevel && !isConnected && !session.active;
 }
 
 /** The kinds above, split into the runs of items the menu draws dividers between. */
