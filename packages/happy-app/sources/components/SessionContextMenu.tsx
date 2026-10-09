@@ -209,6 +209,8 @@ function useSessionQuickActions(session: Session) {
         if (!credentials) throw new HappyError(t('common.error'), false);
         await leaveSharedSession(credentials, session.id);
         storage.getState().removeSharedSession(session.id);
+        // Leaving takes my marks on it along, as deleting does.
+        sync.clearSessionAppearance(session.id);
     });
 
     const handleNewSession = React.useCallback(() => {

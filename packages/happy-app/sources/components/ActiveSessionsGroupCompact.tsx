@@ -24,6 +24,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
+import { canArchiveSessionFromList } from './sessionQuickActions';
 import { PressHighlight } from './PressHighlight';
 import { SessionRowFlash } from './SessionRowFlash';
 import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
@@ -503,7 +504,8 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
     const navigateToSession = useNavigateToSession();
     const dismissToHome = useDismissToHome();
     const swipeableRef = React.useRef<Swipeable | null>(null);
-    const swipeEnabled = Platform.OS !== 'web';
+    // The pinned card can hold offline, archived or shared sessions, which the menu does not archive either.
+    const swipeEnabled = Platform.OS !== 'web' && canArchiveSessionFromList(session, sessionStatus.isConnected);
     const setRowRef = React.useCallback((ref: View | null) => {
         registerSessionRowRef?.(session.id, ref);
     }, [registerSessionRowRef, session.id]);

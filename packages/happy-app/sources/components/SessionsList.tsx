@@ -17,7 +17,7 @@ import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionListScope, collectListSessions } from '@/hooks/useSessionListScope';
 import { isSharingSelection, type SessionListSelection, type SessionMachineGroup } from './sessionListScope';
-import { sortPinnedSessions, splitPinnedSessions } from './pinnedSessions';
+import { sortPinnedSessions, splitPinnedListItems, splitPinnedSessions } from './pinnedSessions';
 import { useLocalSettingMutable } from '@/sync/storage';
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
 import { Typography } from '@/constants/Typography';
@@ -558,19 +558,24 @@ export function SessionsList() {
         [machineGroups, activeTab],
     );
 
-    // The machine and "All" views lead with the pinned sessions, taken out of the projects and
-    // machines below them; the sharing views list theirs as they are.
+    // Every view leads with the pinned sessions it lists, taken out of the projects, machines or
+    // dates below them. The sharing views list offline sessions too, so theirs pin as well.
     const tabData = React.useMemo<ListItem[] | null>(() => {
-        if (activeTab === 'shared') return sharedData;
-        if (activeTab === 'sharedByMe') return sharedByMeData;
+        if (isSharingSelection(activeTab)) {
+            const sharingData = activeTab === 'shared' ? sharedData : sharedByMeData;
+            if (!sharingData) return sharingData;
+            const { pinned, rest } = splitPinnedListItems(sharingData, pins);
+            return pinned.length > 0 ? [{ type: 'pinned-sessions', sessions: pinned }, ...rest] : rest;
+        }
         const pinned: Session[] = [];
         const unpinned = (sessions: Session[]) => {
             const split = splitPinnedSessions(sessions, pins);
             pinned.push(...split.pinned);
             return split.rest;
         };
+        // A session I share sits in both its machine's section and the shared-by-me one, yet pins once.
         const withPinned = (items: ListItem[]): ListItem[] => pinned.length > 0
-            ? [{ type: 'pinned-sessions', sessions: sortPinnedSessions(pinned, pins) }, ...items]
+            ? [{ type: 'pinned-sessions', sessions: sortPinnedSessions([...new Map(pinned.map(s => [s.id, s])).values()], pins) }, ...items]
             : items;
         if (activeTab !== 'all') {
             if (!selectedGroup) return data;
@@ -823,8 +828,9 @@ export function SessionsList() {
 
     // A pinned session's hover card can show where it would sit in the list: its project's group,
     // on the same machine, among the sessions left unpinned below. It flashes once found.
+    // The sharing views list by date, with no project to find.
     const findPinnedSessionProject = React.useCallback((sessionId: string) => {
-        if (pins[sessionId] === undefined) return null;
+        if (pins[sessionId] === undefined || isSharingSelection(activeTab)) return null;
         const metadata = tabSessions.find(session => session.id === sessionId)?.metadata;
         if (!metadata?.path) return null;
         const sameProject = (session: Session) => session.metadata?.path === metadata.path
@@ -840,7 +846,7 @@ export function SessionsList() {
                 getSessionProjectCollapseKey(metadata.path),
             ],
         };
-    }, [pins, tabSessions, tabData]);
+    }, [pins, activeTab, tabSessions, tabData]);
     const locatePinnedSessionProject = React.useCallback((sessionId: string) => {
         const target = findPinnedSessionProject(sessionId);
         if (!target) return;

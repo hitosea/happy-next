@@ -78,10 +78,17 @@ export function getSessionQuickActionKinds({
     if (isLocalMachine && session.metadata?.path) actions.push('revealInFileManager');
     if (isOwner && isForkable) actions.push('forkSession');
     if (!isOwner) actions.push('leaveSharedSession');
-    // The list shows archive only until explicitly archived; native retries live in session details.
-    if (session.metadata?.lifecycleState !== 'archived' && canArchiveSession(session, isConnected)) actions.push('archiveSession');
+    if (canArchiveSessionFromList(session, isConnected)) actions.push('archiveSession');
     if (isOwner && !isConnected && !session.active) actions.push('deleteSession');
     return actions;
+}
+
+/**
+ * Whether a session row offers archiving — in its menu, its hover card, or a swipe. The list shows
+ * archive only until explicitly archived; native retries live in session details.
+ */
+export function canArchiveSessionFromList(session: Session, isConnected: boolean): boolean {
+    return session.metadata?.lifecycleState !== 'archived' && canArchiveSession(session, isConnected);
 }
 
 /** The kinds above, split into the runs of items the menu draws dividers between. */
