@@ -18,9 +18,10 @@ import { getDesktopPlatform, handleDesktopTitleBarMouseDown, isTerminalWindow } 
 import { useDesktopWindowFullscreen } from './useDesktopWindowFullscreen';
 
 const MACOS_RIGHT_DRAG_STRIP_LEFT = 360;
-// Kept in step with AUTHENTICATED_TRAFFIC_LIGHT_X/Y in src-tauri/src/lib.rs.
-const MACOS_TITLE_BAR_HEIGHT = 48;
-const MACOS_TRAFFIC_LIGHT_GUTTER = 88;
+// Kept in step with AUTHENTICATED_TRAFFIC_LIGHT_X/Y in src-tauri/src/lib.rs. A compact
+// macOS toolbar, as tall as the terminal window's tab row.
+const MACOS_TITLE_BAR_HEIGHT = 38;
+const MACOS_TRAFFIC_LIGHT_GUTTER = 86;
 const PANEL_INSET = 5;
 const PANEL_RADIUS = 10;
 const WINDOWS_NAVIGATION_BUTTON_SIZE = 30;
@@ -367,15 +368,12 @@ export function DesktopWindowFrame({ children }: { children: React.ReactNode }) 
                         userSelect: 'none',
                     } as any}
                 >
-                    {/* Level with the traffic lights, which sit a little above the bar's middle. */}
-                    <View style={{ transform: [{ translateY: -2 }] }}>{appTitle}</View>
+                    {appTitle}
                     <View
                         {...({ 'data-tauri-drag-region': true } as any)}
                         style={{ flex: 1, height: MACOS_TITLE_BAR_HEIGHT }}
                     />
-                    <View style={{ transform: [{ translateY: -2 }] }}>
-                        <TitleBarNavigation />
-                    </View>
+                    <TitleBarNavigation />
                 </View>
                 {panel}
             </View>

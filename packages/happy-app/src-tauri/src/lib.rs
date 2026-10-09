@@ -56,12 +56,14 @@ const DARK_BACKGROUND_RGB: (u8, u8, u8) = (30, 30, 30);
 const HTML_PREVIEW_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 #[cfg(target_os = "macos")]
 const TRAFFIC_LIGHT_CONSTRAINT_PREFIX: &str = "happy.traffic-lights.";
+/// The signed-in title bar is as tall as the terminal's tab row, so its traffic
+/// lights sit where the terminal window's do.
 #[cfg(target_os = "macos")]
-const AUTHENTICATED_TRAFFIC_LIGHT_Y: f64 = 26.0;
+const AUTHENTICATED_TRAFFIC_LIGHT_Y: f64 = TRAFFIC_LIGHT_INSET_Y;
 #[cfg(target_os = "macos")]
 const UNAUTHENTICATED_TRAFFIC_LIGHT_Y: f64 = 30.0;
 #[cfg(target_os = "macos")]
-const AUTHENTICATED_TRAFFIC_LIGHT_X: f64 = 16.0;
+const AUTHENTICATED_TRAFFIC_LIGHT_X: f64 = TRAFFIC_LIGHT_INSET;
 #[cfg(target_os = "macos")]
 const UNAUTHENTICATED_TRAFFIC_LIGHT_X: f64 = 20.0;
 const DESKTOP_NOTIFICATION_CLICKED_EVENT: &str = "desktop-notification-clicked";
