@@ -1,13 +1,14 @@
 import * as React from 'react';
 import { Platform, Pressable, TextInput, View, type ViewStyle, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { formatModelDisplay, resolveLocalModelDisplay } from 'happy-wire';
 import { Text } from '@/components/StyledText';
 import { Modal } from '@/modal';
 import { sessionUpdateSummary } from '@/sync/ops';
 import { Typography } from '@/constants/Typography';
-import { useLocalSetting, useMachine, useOrchestratorRunningTaskCount, useSession, useSessionHasDraft } from '@/sync/storage';
+import { useLocalSetting, useMachine, useOrchestratorRunningTaskCount, useSession, useSessionHasDraft, useSessionPinned } from '@/sync/storage';
+import { sync } from '@/sync/sync';
 import type { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
 import { formatLastSeen, formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
@@ -17,6 +18,7 @@ import type { ScrollTarget } from './sessionContextMenuScroll';
 import { SessionContextMenuPortal } from './SessionContextMenuPortal';
 import { sessionHoverCard, type HoverAnchorRect } from './sessionHoverCardController';
 import { canLocateSessionProject, locateSessionProject } from './sessionProjectLocate';
+import { getSessionQuickActionKinds } from './sessionQuickActions';
 
 const CARD_WIDTH = 280;
 const GAP = 8;
@@ -34,10 +36,12 @@ const isMouse = (event: PointerLike) => !event.nativeEvent?.pointerType || event
  * Hooks a session row up to the shared hover card (web, mouse only) — see `sessionHoverCard`.
  * `dismiss` is for the row's own menu, which takes the card's place.
  */
-export function useSessionHoverCard(sessionId: string, anchorRef: React.RefObject<ScrollTarget>) {
+export function useSessionHoverCard(sessionId: string, anchorRef: React.RefObject<ScrollTarget>, onArchive: () => void) {
     const owner = React.useRef({}).current;
     const sessionIdRef = React.useRef(sessionId);
     sessionIdRef.current = sessionId;
+    const onArchiveRef = React.useRef(onArchive);
+    onArchiveRef.current = onArchive;
 
     React.useEffect(() => () => {
         sessionHoverCard.rowLeave(owner);
@@ -47,7 +51,12 @@ export function useSessionHoverCard(sessionId: string, anchorRef: React.RefObjec
     const rowProps = React.useMemo(() => Platform.OS === 'web' ? {
         onPointerEnter: (event: PointerLike) => {
             if (!isMouse(event)) return;
-            sessionHoverCard.rowEnter({ owner, sessionId: sessionIdRef.current, getElement: () => anchorRef.current });
+            sessionHoverCard.rowEnter({
+                owner,
+                sessionId: sessionIdRef.current,
+                getElement: () => anchorRef.current,
+                archive: () => onArchiveRef.current(),
+            });
         },
         onPointerMove: (event: PointerLike) => {
             if (isMouse(event)) sessionHoverCard.rowMove(owner);
@@ -159,6 +168,23 @@ function EditableTitle({ session, onEditingChange }: { session: Session; onEditi
     );
 }
 
+/** A link-styled action along the card's foot, underlined while hovered. */
+function CardAction({ icon, label, onPress, destructive }: { icon: React.ReactElement; label: string; onPress: () => void; destructive?: boolean }) {
+    const [hovered, setHovered] = React.useState(false);
+    return (
+        <Pressable
+            style={styles.action}
+            onPress={onPress}
+            onHoverIn={() => setHovered(true)}
+            onHoverOut={() => setHovered(false)}
+            accessibilityRole="button"
+        >
+            <View style={styles.rowIcon}>{icon}</View>
+            <Text style={[styles.actionText, destructive && styles.actionTextDestructive, hovered && styles.actionTextHovered]}>{label}</Text>
+        </Pressable>
+    );
+}
+
 const webInputReset = Platform.OS === 'web'
     ? { outlineStyle: 'none', outline: 'none', outlineWidth: 0, resize: 'none' } as any
     : null;
@@ -185,7 +211,10 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     const machineId = session.metadata?.machineId;
     // A pinned session is out of the list below; this finds where it would sit there.
     const locatable = canLocateSessionProject(session.id);
-    const [locateHovered, setLocateHovered] = React.useState(false);
+    const isPinned = useSessionPinned(session.id);
+    // Offered exactly where the row's own menu offers it.
+    const archivable = getSessionQuickActionKinds({ session, isConnected: status.isConnected, isLocalMachine: false })
+        .includes('archiveSession');
     const machine = useMachine(machineId ?? '');
     const nameCache = useLocalSetting('machineNameCache');
 
@@ -268,22 +297,28 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
                         ))}
                     </View>
                 )}
-                {locatable && (
-                    <Pressable
-                        style={styles.locate}
-                        onPress={() => locateSessionProject(session.id)}
-                        onHoverIn={() => setLocateHovered(true)}
-                        onHoverOut={() => setLocateHovered(false)}
-                        accessibilityRole="button"
-                    >
-                        <View style={styles.rowIcon}>
-                            <Ionicons name="locate-outline" size={14} color={theme.colors.textLink} />
-                        </View>
-                        <Text style={[styles.locateText, locateHovered && styles.locateTextHovered]}>
-                            {t('sessionHoverCard.locateInList')}
-                        </Text>
-                    </Pressable>
-                )}
+                <View style={styles.actions}>
+                    {locatable && (
+                        <CardAction
+                            icon={<Ionicons name="locate-outline" size={14} color={theme.colors.textLink} />}
+                            label={t('sessionHoverCard.locate')}
+                            onPress={() => locateSessionProject(session.id)}
+                        />
+                    )}
+                    <CardAction
+                        icon={<Octicons name={isPinned ? 'pin-slash' : 'pin'} size={13} color={theme.colors.textLink} />}
+                        label={isPinned ? t('sessionInfo.unpinSession') : t('sessionInfo.pinSession')}
+                        onPress={() => sync.queueSessionPinUpdate(session.id, !isPinned)}
+                    />
+                    {archivable && (
+                        <CardAction
+                            icon={<Ionicons name="archive-outline" size={14} color={theme.colors.textDestructive} />}
+                            label={t('sessionHoverCard.archive')}
+                            onPress={sessionHoverCard.archive}
+                            destructive
+                        />
+                    )}
+                </View>
             </View>
         </View>
     );
@@ -375,20 +410,28 @@ const styles = StyleSheet.create((theme) => ({
         color: theme.colors.textSecondary,
         ...Typography.default(),
     },
-    locate: {
+    actions: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
-        alignSelf: 'flex-start',
-        gap: 8,
+        flexWrap: 'wrap',
+        columnGap: 16,
+        rowGap: 6,
         marginTop: 10,
     },
-    locateText: {
+    action: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
+    actionText: {
         fontSize: 12,
         lineHeight: 16,
         color: theme.colors.textLink,
         ...Typography.default(),
     },
-    locateTextHovered: {
+    actionTextDestructive: {
+        color: theme.colors.textDestructive,
+    },
+    actionTextHovered: {
         textDecorationLine: 'underline',
     },
     badges: {

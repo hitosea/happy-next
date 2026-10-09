@@ -24,7 +24,8 @@ export const ja: TranslationStructure = {
         unread: '未読の結果',
         draft: '未送信の下書き',
         runningTasks: ({ count }: { count: number }) => `${count} 件のサブタスク実行中`,
-        locateInList: 'リストで表示',
+        locate: '位置を表示',
+        archive: 'アーカイブ',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher

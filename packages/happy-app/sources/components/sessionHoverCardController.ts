@@ -16,9 +16,11 @@ type HoveredRow = {
     owner: object;
     sessionId: string;
     getElement: () => ScrollTarget | null;
+    // The row's own archive flow: its confirmation outlives the card, which closes on the way.
+    archive: () => void;
 };
 
-let shown: (HoverCardState & { getElement: () => ScrollTarget | null }) | null = null;
+let shown: (HoverCardState & Pick<HoveredRow, 'getElement' | 'archive'>) | null = null;
 let snapshot: HoverCardState | null = null;
 let hoveredRow: HoveredRow | null = null;
 let overCard = false;
@@ -69,6 +71,7 @@ function reveal() {
         owner: hoveredRow.owner,
         sessionId: hoveredRow.sessionId,
         getElement: hoveredRow.getElement,
+        archive: hoveredRow.archive,
         anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
     };
     emit();
@@ -153,6 +156,13 @@ export const sessionHoverCard = {
     setBlocked(value: boolean) {
         blocked = value;
         if (value) close();
+    },
+
+    // Hands off to the row, whose dialog takes the card's place.
+    archive() {
+        const archive = shown?.archive;
+        close();
+        archive?.();
     },
 
     setCardElement(element: HTMLElement | null) {

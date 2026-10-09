@@ -32,7 +32,8 @@ export const pl: TranslationStructure = {
         unread: 'Nieprzeczytany wynik',
         draft: 'Niewysłany szkic',
         runningTasks: ({ count }: { count: number }) => `Uruchomione podzadania: ${count}`,
-        locateInList: 'Pokaż na liście',
+        locate: 'Pokaż',
+        archive: 'Archiwizuj',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher

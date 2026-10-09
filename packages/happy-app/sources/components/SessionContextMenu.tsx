@@ -465,6 +465,7 @@ function useSessionQuickActions(session: Session) {
 
     return {
         actions,
+        archive: handleArchive,
         archiveMenu: (
             <ActionMenuModal
                 visible={archiveMenuVisible}
@@ -499,8 +500,8 @@ export function SessionContextMenu({ session, children, highlightShape }: {
         anchorRef.current = (node as ScrollTarget) ?? null;
     }, []);
     const lastLongPressAtRef = React.useRef(0);
-    const { actions, archiveMenu } = useSessionQuickActions(session);
-    const hoverCard = useSessionHoverCard(session.id, anchorRef);
+    const { actions, archiveMenu, archive } = useSessionQuickActions(session);
+    const hoverCard = useSessionHoverCard(session.id, anchorRef, archive);
     const markerColor = useSessionMarkerColor(session.id);
     const nativeQuickActionsMaxHeight = Math.max(
         240,
