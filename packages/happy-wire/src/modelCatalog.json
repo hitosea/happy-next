@@ -76,7 +76,7 @@
             "efforts": ["max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1000000,
             "context1m": "always",
-            "pricing": { "input": 2, "output": 10, "cacheWrite": 2.5, "cacheRead": 0.2 }
+            "pricing": { "input": 2, "output": 10, "cacheWrite": 2.5, "cacheRead": 0.1 }
         },
         {
             "id": "claude-sonnet-5",
@@ -140,6 +140,18 @@
             "contextWindow": 200000,
             "context1m": "optin",
             "pricing": { "input": 3, "output": 15, "cacheWrite": 3.75, "cacheRead": 0.3 }
+        },
+        {
+            "id": "claude-haiku-5-5",
+            "agent": "claude",
+            "status": "active",
+            "label": "Haiku 5.5",
+            "displayName": "Claude Haiku 5.5",
+            "description": "Fastest",
+            "efforts": ["max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1000000,
+            "context1m": "always",
+            "pricing": { "input": 0.1, "output": 0.5, "cacheWrite": 0.125, "cacheRead": 0.01 }
         },
         {
             "id": "claude-haiku-4-5",
