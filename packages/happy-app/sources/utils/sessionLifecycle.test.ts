@@ -60,13 +60,21 @@ describe('session lifecycle permissions', () => {
         expect(canEditSession({ ...session('claude', 'running'), active, accessLevel: 'view' })).toBe(false);
     });
 
-    it('offers native archive retries for stopped Codex sessions', () => {
-        const current = session('codex', 'archived');
+    it('offers native archive for stopped Codex sessions until explicitly archived', () => {
+        const current = session('codex');
         current.active = false;
         expect(canArchiveSession(current, false)).toBe(true);
         expect(canArchiveSession({ ...current, accessLevel: 'admin' }, false)).toBe(false);
         current.metadata = { ...current.metadata!, machineId: undefined };
         expect(canArchiveSession(current, false)).toBe(false);
+    });
+
+    it.each(['claude', 'codex', 'gemini'])('does not offer archive again for archived %s sessions', flavor => {
+        for (const active of [true, false]) {
+            for (const isConnected of [true, false]) {
+                expect(canArchiveSession({ ...session(flavor, 'archived'), active }, isConnected)).toBe(false);
+            }
+        }
     });
 
     it.each(['claude', 'gemini'])('does not add offline archive actions for %s', flavor => {

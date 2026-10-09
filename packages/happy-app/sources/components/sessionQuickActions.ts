@@ -78,17 +78,9 @@ export function getSessionQuickActionKinds({
     if (isLocalMachine && session.metadata?.path) actions.push('revealInFileManager');
     if (isOwner && isForkable) actions.push('forkSession');
     if (!isOwner) actions.push('leaveSharedSession');
-    if (canArchiveSessionFromList(session, isConnected)) actions.push('archiveSession');
+    if (canArchiveSession(session, isConnected)) actions.push('archiveSession');
     if (canDeleteSessionFromList(session, isConnected)) actions.push('deleteSession');
     return actions;
-}
-
-/**
- * Whether a session row offers archiving — in its menu, its hover card, or a swipe. The list shows
- * archive only until explicitly archived; native retries live in session details.
- */
-export function canArchiveSessionFromList(session: Session, isConnected: boolean): boolean {
-    return session.metadata?.lifecycleState !== 'archived' && canArchiveSession(session, isConnected);
 }
 
 /** Whether a session row offers deleting — in its menu or a swipe: only my own, once it has stopped. */

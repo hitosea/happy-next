@@ -18,7 +18,7 @@ import type { ScrollTarget } from './sessionContextMenuScroll';
 import { SessionContextMenuPortal } from './SessionContextMenuPortal';
 import { sessionHoverCard, type HoverAnchorRect } from './sessionHoverCardController';
 import { canLocateSessionProject, locateSessionProject } from './sessionProjectLocate';
-import { canArchiveSessionFromList } from './sessionQuickActions';
+import { canArchiveSession } from '@/utils/sessionLifecycle';
 
 const CARD_WIDTH = 280;
 const GAP = 8;
@@ -212,7 +212,7 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     // A pinned session is out of the list below; this finds where it would sit there.
     const locatable = canLocateSessionProject(session.id);
     const isPinned = useSessionPinned(session.id);
-    const archivable = canArchiveSessionFromList(session, status.isConnected);
+    const archivable = canArchiveSession(session, status.isConnected);
     const machine = useMachine(machineId ?? '');
     const nameCache = useLocalSetting('machineNameCache');
 

@@ -39,7 +39,7 @@ import { sessionHoverCard } from './sessionHoverCardController';
 import { SESSION_MARKER_COLOR_VALUES, SessionColorPalette, sessionMarkerColorLabels } from './SessionColorMarker';
 import { SESSION_MARKER_COLORS, type SessionMarkerColor } from '@/sync/sessionAppearance';
 import { hasLiveCompletion, hasUnreadCompletionSince } from '@/utils/sessionAttention';
-import { useDismissToHome } from '@/hooks/useDismissToHome';
+import { useDismissToHome, useDismissToHomeIfViewing } from '@/hooks/useDismissToHome';
 import { shouldDismissSessionMenuOnScroll, ScrollTarget } from './sessionContextMenuScroll';
 import { getDesktopPlatform } from '@/desktop/desktopWindowUtils';
 import { getRevealLabelKey, revealItemInFileManager } from '@/desktop/desktopReveal';
@@ -176,12 +176,12 @@ function useSessionQuickActions(session: Session) {
     const [archiveMenuItems, setArchiveMenuItems] = React.useState<ActionMenuItem[]>([]);
 
     const dismissToHome = useDismissToHome();
+    const dismissIfViewing = useDismissToHomeIfViewing(session.id);
 
     const [, performArchive] = useHappyAction(async () => {
         // Home first: the flip to inactive empties the composer on the session's own screen, so
-        // archiving from the list would reflow that screen for the whole archive round trip
-        // before it pops.
-        dismissToHome();
+        // archiving it would reflow that screen for the whole archive round trip before it pops.
+        dismissIfViewing();
         const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
         storage.getState().updateSessionActivity(session.id, false);
         const result = await sessionArchive(session.id);

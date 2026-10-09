@@ -11,6 +11,7 @@ export function canEditSession(session: Session): boolean {
 
 export function canArchiveSession(session: Session, isConnected: boolean): boolean {
     if (session.accessLevel) return false;
+    if (session.metadata?.lifecycleState === 'archived') return false;
     // Native archive can fail after the session process has already stopped.
     return isConnected || (!session.active && session.metadata?.flavor === 'codex' && !!session.metadata.machineId);
 }

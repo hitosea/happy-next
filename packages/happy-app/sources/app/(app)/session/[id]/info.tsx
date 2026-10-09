@@ -76,7 +76,7 @@ function StatusDot({ color, isPulsing, size = 8 }: { color: string; isPulsing?: 
     );
 }
 
-function SessionInfoContent({ session }: { session: Session }) {
+function SessionInfoContent({ session, leavingRef }: { session: Session; leavingRef: React.MutableRefObject<boolean> }) {
     const { theme } = useUnistyles();
     const router = useRouter();
     const devModeEnabled = __DEV__;
@@ -210,9 +210,13 @@ function SessionInfoContent({ session }: { session: Session }) {
     const worktreeBasePath = selectedRepo?.basePath;
     const worktreePath = selectedRepo?.path;
 
-    const navigateAfterArchive = useCallback(() => {
+    const navigateHome = useCallback(() => {
         router.dismissAll();
     }, [router]);
+
+    // Set once archiving succeeds: the archived lifecycle reaches storage only with the next
+    // metadata update, and until then a stopped Codex session still reads as archivable.
+    const [archived, setArchived] = React.useState(false);
 
     // Use HappyAction for archiving - it handles errors automatically
     const [archivingSession, performArchive] = useHappyAction(async () => {
@@ -225,7 +229,7 @@ function SessionInfoContent({ session }: { session: Session }) {
         // Archiving is idempotent: if RPC target is gone, session is effectively already archived.
         if (!result.success && /RPC method not available/i.test(errorMessage)) {
             await sync.clearSessionMessageCache(session.id);
-            navigateAfterArchive();
+            setArchived(true);
             return;
         }
 
@@ -236,9 +240,8 @@ function SessionInfoContent({ session }: { session: Session }) {
 
         await sync.clearSessionMessageCache(session.id);
         if (result.nativeArchiveError) throw new HappyError(t('sessionInfo.codexArchiveFailed') + ': ' + result.nativeArchiveError, false);
-
-        // Success - navigate back
-        navigateAfterArchive();
+        // Success - stay on this page: an archived session offers delete here.
+        setArchived(true);
     });
 
     // Archive menu for worktree sessions
@@ -302,11 +305,15 @@ function SessionInfoContent({ session }: { session: Session }) {
 
     // Use HappyAction for deletion - it handles errors automatically
     const [deletingSession, performDelete] = useHappyAction(async () => {
+        // The session leaves storage before the request returns; keep showing it until we are gone.
+        leavingRef.current = true;
         const result = await sessionDelete(session.id);
         if (!result.success) {
+            leavingRef.current = false;
             throw new HappyError(result.message || t('sessionInfo.failedToDeleteSession'), false);
         }
-        // Success - no alert needed, UI will update to show deleted state
+        // Success - nothing is left to show here, so go back to the list.
+        navigateHome();
     });
 
     const handleDeleteSession = useCallback(() => {
@@ -334,7 +341,7 @@ function SessionInfoContent({ session }: { session: Session }) {
         storage.getState().removeSharedSession(session.id);
         // Leaving takes my marks on it along, as deleting does.
         sync.clearSessionAppearance(session.id);
-        navigateAfterArchive();
+        navigateHome();
     });
 
     const handleLeaveSharedSession = useCallback(() => {
@@ -1049,15 +1056,19 @@ function SessionInfoContent({ session }: { session: Session }) {
                                 showChevron={!forkingSession}
                             />
                         )}
-                        {canArchiveSession(session, sessionStatus.isConnected) && (
+                        {/* The optimistic stop hides archive mid-flight for most sessions, so keep it while it runs. */}
+                        {!archived && (archivingSession || canArchiveSession(session, sessionStatus.isConnected)) && (
                             <Item
                                 title={t('sessionInfo.archiveSession')}
                                 subtitle={t('sessionInfo.archiveSessionSubtitle')}
                                 icon={<Ionicons name="archive-outline" size={29} color="#FF3B30" />}
                                 onPress={handleArchiveSession}
+                                disabled={archivingSession}
+                                loading={archivingSession}
+                                showChevron={!archivingSession}
                             />
                         )}
-                        {isOwner && !sessionStatus.isConnected && !session.active && (
+                        {isOwner && !archivingSession && !sessionStatus.isConnected && !session.active && (
                             <Item
                                 title={t('sessionInfo.deleteSession')}
                                 subtitle={t('sessionInfo.deleteSessionSubtitle')}
@@ -1394,6 +1405,12 @@ export default React.memo(() => {
     const { id } = useLocalSearchParams<{ id: string }>();
     const session = useSession(id);
     const isDataReady = useIsDataReady();
+    // While deleting, the session is gone from storage a moment before we navigate away; show the
+    // last one rather than flashing the deleted state.
+    const leavingRef = React.useRef(false);
+    const lastSessionRef = React.useRef(session);
+    if (session) lastSessionRef.current = session;
+    const shownSession = session ?? (leavingRef.current ? lastSessionRef.current : undefined);
 
     // Handle three states: loading, deleted, and exists
     if (!isDataReady) {
@@ -1406,7 +1423,7 @@ export default React.memo(() => {
         );
     }
 
-    if (!session) {
+    if (!shownSession) {
         // Session has been deleted or doesn't exist
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -1417,5 +1434,5 @@ export default React.memo(() => {
         );
     }
 
-    return <SessionInfoContent session={session} />;
+    return <SessionInfoContent session={shownSession} leavingRef={leavingRef} />;
 });

@@ -15,7 +15,7 @@ import { storage, useOrchestratorRunningTaskCount, useSessionHasDraft } from '@/
 import { Modal } from '@/modal';
 import { t } from '@/text';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
-import { useDismissToHome } from '@/hooks/useDismissToHome';
+import { useDismissToHomeIfViewing } from '@/hooks/useDismissToHome';
 import { ProjectGitStatus } from './ProjectGitStatus';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
@@ -24,7 +24,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
-import { canArchiveSessionFromList } from './sessionQuickActions';
+import { canArchiveSession } from '@/utils/sessionLifecycle';
 import { SessionRowFlash } from './SessionRowFlash';
 import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
 import { ProjectLabelText } from './ProjectLabelText';
@@ -501,19 +501,18 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
     const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const sessionName = getSessionName(session);
     const navigateToSession = useNavigateToSession();
-    const dismissToHome = useDismissToHome();
+    const dismissIfViewing = useDismissToHomeIfViewing(session.id);
     const swipeableRef = React.useRef<Swipeable | null>(null);
     // The pinned card can hold offline, archived or shared sessions, which the menu does not archive either.
-    const swipeEnabled = Platform.OS !== 'web' && canArchiveSessionFromList(session, sessionStatus.isConnected);
+    const swipeEnabled = Platform.OS !== 'web' && canArchiveSession(session, sessionStatus.isConnected);
     const setRowRef = React.useCallback((ref: View | null) => {
         registerSessionRowRef?.(session.id, ref);
     }, [registerSessionRowRef, session.id]);
 
     const [archivingSession, performArchive] = useHappyAction(async () => {
         // Home first: the flip to inactive empties the composer on the session's own screen, so
-        // archiving from the list would reflow that screen for the whole archive round trip
-        // before it pops.
-        dismissToHome();
+        // archiving it would reflow that screen for the whole archive round trip before it pops.
+        dismissIfViewing();
         const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
         storage.getState().updateSessionActivity(session.id, false);
 
