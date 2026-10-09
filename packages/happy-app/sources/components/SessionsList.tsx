@@ -382,26 +382,56 @@ function ViewportInsetsReporter({ height, onChange }: { height: number; onChange
     return null;
 }
 
+const SECTION_HEADER_DOUBLE_TAP_MS = 400;
+
 // Header of one section in the sidebar's "All machines" view: a plain divider that stays pinned while
 // its sessions scroll by. Only the project groups below it fold, so the list has a single fold level.
+// Double-tapping it folds all of the section's project groups, or unfolds them when all are folded.
 const SessionSectionHeader = React.memo(({ section }: { section: SessionSection }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
+    const [collapsedGroups, setCollapsedGroups] = useLocalSettingMutable('collapsedSessionProjectGroups');
+    const lastTapRef = React.useRef(0);
+    const handlePress = React.useCallback(() => {
+        const now = Date.now();
+        if (now - lastTapRef.current >= SECTION_HEADER_DOUBLE_TAP_MS) {
+            lastTapRef.current = now;
+            return;
+        }
+        lastTapRef.current = 0;
+        // The same keys useSessionProjectGroups gives: by path and machine, or by path alone when the
+        // path spans machines (the unknown-machine section) or its machine is unknown.
+        const machineIdsByPath = new Map<string, Set<string | undefined>>();
+        for (const session of section.sessions) {
+            const path = session.metadata?.path || '';
+            if (!machineIdsByPath.has(path)) machineIdsByPath.set(path, new Set());
+            machineIdsByPath.get(path)!.add(session.metadata?.machineId || undefined);
+        }
+        const keys = Array.from(machineIdsByPath, ([path, machineIds]) => getSessionProjectCollapseKey(
+            path,
+            machineIds.size === 1 ? machineIds.values().next().value : undefined,
+        ));
+        const next = { ...collapsedGroups };
+        if (keys.some(key => !next[key])) for (const key of keys) next[key] = true;
+        else for (const key of keys) delete next[key];
+        setCollapsedGroups(next);
+    }, [section.sessions, collapsedGroups, setCollapsedGroups]);
     return (
-        <View style={styles.sectionDividerHeader}>
+        <Pressable style={styles.sectionDividerHeader} onPress={handlePress}>
             {section.online !== undefined && (
                 <View style={[styles.machineOnlineDot, { backgroundColor: section.online ? theme.colors.status.connected : theme.colors.textSecondary }]} />
             )}
             <Text
                 style={styles.sectionDividerName}
                 numberOfLines={1}
+                selectable={false}
                 ref={(el: any) => { if (Platform.OS === 'web' && el) el.title = section.name; }}
             >
                 {section.name}
             </Text>
             <View style={styles.sectionDividerLine} />
-            <Text style={styles.sectionDividerCount}>{section.sessions.length}</Text>
-        </View>
+            <Text style={styles.sectionDividerCount} selectable={false}>{section.sessions.length}</Text>
+        </Pressable>
     );
 });
 
