@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import type { MessageAttachment } from 'happy-wire';
 import { Typography } from '@/constants/Typography';
-import { getFileIconInfo } from '@/utils/repoIcons';
+import { FileIcon } from '@/components/FileIcon';
 import type { ComposerFile } from '@/hooks/useFileAttachments';
 import { t } from '@/text';
 
@@ -14,6 +14,10 @@ export function formatFileSize(bytes: number): string {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// Seti glyphs fill about 5/8 of their box, so this draws them as large as the upload spinner;
+// the transparent margin overflows the 24-wide icon slot.
+const FILE_ICON_SIZE = 28;
 
 function encodeFilePath(path: string): string {
     return btoa(new TextEncoder().encode(path).reduce((s, b) => s + String.fromCharCode(b), ''));
@@ -30,7 +34,6 @@ export const ComposerFiles = React.memo(function ComposerFiles(props: {
     return (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.composerList} contentContainerStyle={styles.composerContent}>
             {props.files.map((file) => {
-                const icon = getFileIconInfo(theme, file.name, false);
                 const failed = file.status === 'failed';
                 const subtitle = failed
                     ? (file.error === 'unsupported' ? t('session.files.cliTooOldShort') : t('session.files.failedTapToRetry'))
@@ -46,7 +49,9 @@ export const ComposerFiles = React.memo(function ComposerFiles(props: {
                             <View style={styles.chipIcon}>
                                 {file.status === 'uploading'
                                     ? <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                                    : <Ionicons name={failed ? 'alert-circle-outline' : icon.name} size={20} color={failed ? theme.colors.deleteAction : icon.color} />}
+                                    : failed
+                                        ? <Ionicons name="alert-circle-outline" size={20} color={theme.colors.deleteAction} />
+                                        : <FileIcon fileName={file.name} size={FILE_ICON_SIZE} attachment />}
                             </View>
                             <View style={styles.chipText}>
                                 <Text style={styles.chipName} numberOfLines={1}>{file.name}</Text>
@@ -71,28 +76,24 @@ export const MessageAttachments = React.memo(function MessageAttachments(props: 
     sessionId: string;
     attachments: MessageAttachment[];
 }) {
-    const { theme } = useUnistyles();
     const router = useRouter();
     return (
         <View style={styles.messageList}>
-            {props.attachments.map((attachment, index) => {
-                const icon = getFileIconInfo(theme, attachment.name, false);
-                return (
-                    <Pressable
-                        key={`${attachment.path}-${index}`}
-                        style={styles.card}
-                        onPress={() => router.push(`/session/${props.sessionId}/file?path=${encodeURIComponent(encodeFilePath(attachment.path))}`)}
-                    >
-                        <View style={styles.cardIcon}>
-                            <Ionicons name={icon.name} size={20} color={icon.color} />
-                        </View>
-                        <View style={styles.chipText}>
-                            <Text style={styles.chipName} numberOfLines={1}>{attachment.name}</Text>
-                            <Text style={styles.chipSubtitle} numberOfLines={1}>{formatFileSize(attachment.size)}</Text>
-                        </View>
-                    </Pressable>
-                );
-            })}
+            {props.attachments.map((attachment, index) => (
+                <Pressable
+                    key={`${attachment.path}-${index}`}
+                    style={styles.card}
+                    onPress={() => router.push(`/session/${props.sessionId}/file?path=${encodeURIComponent(encodeFilePath(attachment.path))}`)}
+                >
+                    <View style={styles.cardIcon}>
+                        <FileIcon fileName={attachment.name} size={FILE_ICON_SIZE} attachment />
+                    </View>
+                    <View style={styles.chipText}>
+                        <Text style={styles.chipName} numberOfLines={1}>{attachment.name}</Text>
+                        <Text style={styles.chipSubtitle} numberOfLines={1}>{formatFileSize(attachment.size)}</Text>
+                    </View>
+                </Pressable>
+            ))}
         </View>
     );
 });

@@ -1,12 +1,16 @@
 import React from 'react';
 import { View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { themeIcons, type SetiTheme } from '@peoplesgrocers/seti-ui-file-icons';
 import { useUnistyles } from 'react-native-unistyles';
+import { getSetiFileName, isPresentation } from '@/utils/fileIconName';
 
 interface FileIconProps {
     fileName: string;
     size?: number;
+    /** An attached file rather than a repo file: `.key` reads as Keynote, not a private key. */
+    attachment?: boolean;
 }
 
 const lightColorTheme: SetiTheme = {
@@ -40,13 +44,24 @@ const darkColorTheme: SetiTheme = {
 export const FileIcon: React.FC<FileIconProps> = ({ 
     fileName, 
     size = 24, 
+    attachment = false,
 }) => {
     const { theme } = useUnistyles();
     
     const colorTheme = theme.dark ? darkColorTheme : lightColorTheme;
+
+    if (isPresentation(fileName, attachment)) {
+        // Sized so the glyph matches Seti's, which fills about 5/8 of its box
+        return (
+            <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialCommunityIcons name="microsoft-powerpoint" size={Math.round(size * 0.75)} color={colorTheme.orange} />
+            </View>
+        );
+    }
+
     const themedGetIcon = themeIcons(colorTheme);
     
-    const iconData = themedGetIcon(fileName);
+    const iconData = themedGetIcon(getSetiFileName(fileName));
     
     return (
         <View style={{ width: size, height: size }}>
