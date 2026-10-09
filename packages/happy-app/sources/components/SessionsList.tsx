@@ -385,10 +385,16 @@ function ViewportInsetsReporter({ height, onChange }: { height: number; onChange
     return null;
 }
 
+type RevealAlign = 'nearest' | 'roomy' | 'center';
+
 const SECTION_HEADER_DOUBLE_TAP_MS = 400;
 // A row the list jumped to flashes once it holds still this long, or after the longest wait at most.
 const FLASH_SETTLE_MS = 100;
 const FLASH_MAX_WAIT_MS = 1500;
+// How far from the edge a revealed row lands, as a share of the list's height.
+const REVEAL_MARGIN_RATIO = 0.25;
+// How soon after a press in the list a route change counts as opened from the list.
+const LIST_PRESS_NAVIGATION_MS = 1500;
 // How long a reveal waits for pins that have not arrived from the cloud.
 const PINS_WAIT_MS = 3000;
 
@@ -671,17 +677,24 @@ export function SessionsList() {
         listRef.current?.scrollToOffset({ offset: -getVisibleInsets().top, animated: true });
     }, [getVisibleInsets]);
     const revealFrameRef = React.useRef<number | null>(null);
+    const lastListPressAtRef = React.useRef(0);
+    const markListPress = React.useCallback(() => { lastListPressAtRef.current = Date.now(); }, []);
     const registerSessionRowRef = React.useCallback<RegisterSessionRowRef>((sessionId, ref) => {
         if (ref) sessionRowRefs.current.set(sessionId, ref);
         else sessionRowRefs.current.delete(sessionId);
     }, []);
-    // 'nearest' scrolls just enough to bring the row into view; 'center' puts it mid-view.
-    const revealSessionRow = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest'): boolean => {
+    // 'nearest' scrolls just enough to bring the row into view; 'roomy' brings it a quarter of the
+    // view in from the edge it was beyond, rather than flush against it; 'center' puts it mid-view.
+    const revealSessionRow = React.useCallback((sessionId: string, align: RevealAlign = 'nearest'): boolean => {
         const row = sessionRowRefs.current.get(sessionId);
         if (!row) return false;
+        const margin = align === 'roomy'
+            ? Math.max(8, Math.round(viewportHeightRef.current * REVEAL_MARGIN_RATIO))
+            : 8;
 
         if (Platform.OS === 'web' && typeof (row as any).scrollIntoView === 'function') {
-            (row as any).scrollIntoView({ behavior: 'smooth', block: align });
+            (row as any).style.scrollMargin = align === 'roomy' ? `${margin}px 0` : '';
+            (row as any).scrollIntoView({ behavior: 'smooth', block: align === 'center' ? 'center' : 'nearest' });
             return true;
         }
 
@@ -689,7 +702,6 @@ export function SessionsList() {
         if (!viewport) return false;
         row.measureInWindow((_rowX, rowY, _rowWidth, rowHeight) => {
             viewport.measureInWindow((_viewportX, viewportY, _viewportWidth, viewportHeight) => {
-                const margin = 8;
                 const insets = getVisibleInsets();
                 const visibleTop = viewportY + insets.top + margin;
                 const visibleBottom = viewportY + viewportHeight - insets.bottom - margin;
@@ -739,7 +751,7 @@ export function SessionsList() {
         flashFrameRef.current = requestAnimationFrame(check);
     }, []);
     // With `flash`, the row flashes once it is in place.
-    const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest', flash = false) => {
+    const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: RevealAlign = 'nearest', flash = false) => {
         const reveal = () => {
             const revealed = revealSessionRow(sessionId, align);
             if (revealed && flash) flashRowWhenSettled(sessionId);
@@ -823,7 +835,10 @@ export function SessionsList() {
             if (activeTab !== pendingSessionTargetTab) setActiveTab(pendingSessionTargetTab);
             return;
         }
-        scheduleRevealSelectedSession(pendingSessionNavigationId);
+        // A session opened from the list only needs to stay in view; one the route brought up on
+        // its own (a reload, a link) gets room around it.
+        const openedFromList = Date.now() - lastListPressAtRef.current < LIST_PRESS_NAVIGATION_MS;
+        scheduleRevealSelectedSession(pendingSessionNavigationId, openedFromList ? 'nearest' : 'roomy');
         setPendingSessionNavigationId(null);
     }, [pendingSessionNavigationId, pendingSessionTargetTab, listOrderSettled, activeTabContainsPendingSession, activeTab, setActiveTab, scheduleRevealSelectedSession]);
 
@@ -986,7 +1001,12 @@ export function SessionsList() {
 
     return (
         <View style={styles.container}>
-            <View ref={listViewportRef} style={styles.contentContainer}>
+            <View
+                ref={listViewportRef}
+                style={styles.contentContainer}
+                onTouchStart={markListPress}
+                {...(Platform.OS === 'web' ? { onPointerDown: markListPress } as any : null)}
+            >
                 {Platform.OS === 'ios' && <ViewportInsetsProbe onChange={setViewportInsets} />}
                 <SessionProjectLabelsContext.Provider value={projectLabel}>
                     <FlatList
