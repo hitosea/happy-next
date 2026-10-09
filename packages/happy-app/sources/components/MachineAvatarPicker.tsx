@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Item } from '@/components/Item';
 import { Text } from '@/components/StyledText';
@@ -23,15 +24,21 @@ import {
  * a row of colors, picked separately and saved as they are tapped. Restoring the default drops the
  * machine's entry, so it goes back to the initials and desktop glyph it had before.
  *
- * Meant as an `ItemGroup` child, which hands it `showDivider`; the row and the presets keep their
- * own dividers.
+ * Meant as an `ItemGroup` child, which hands it `showDivider`: it goes under the row while closed and
+ * under the presets while open, drawn as `Item` draws its own.
  */
-export const MachineAvatarPicker = React.memo(({ machineId }: { machineId: string; showDivider?: boolean }) => {
+export const MachineAvatarPicker = React.memo(({ machineId, showDivider = true }: { machineId: string; showDivider?: boolean }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const [avatars, setAvatars] = useSettingMutable('machineAvatars');
     const [expanded, setExpanded] = React.useState(false);
     const avatar = resolveMachineAvatar(avatars, machineId);
+    // The row's chevron is `Item`'s own, turning down while the presets are open.
+    const rotation = useSharedValue(0);
+    React.useEffect(() => {
+        rotation.value = withTiming(expanded ? 90 : 0, { duration: 180 });
+    }, [expanded, rotation]);
+    const chevronStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.value}deg` }] }));
 
     const save = (next: MachineAvatarPreset | null) => {
         const { [machineId]: _previous, ...rest } = avatars;
@@ -48,9 +55,13 @@ export const MachineAvatarPicker = React.memo(({ machineId }: { machineId: strin
                 icon={avatar
                     ? <MachineAvatar avatar={avatar} size={29} />
                     : <Ionicons name="desktop-outline" size={29} color="#5856D6" />}
-                rightElement={<Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textSecondary} />}
+                rightElement={
+                    <Animated.View style={[styles.chevron, chevronStyle]}>
+                        <Ionicons name="chevron-forward" size={CHEVRON_SIZE} color={theme.colors.groupped.chevron} />
+                    </Animated.View>
+                }
                 showChevron={false}
-                showDivider={expanded}
+                showDivider={expanded || showDivider}
                 onPress={() => setExpanded(value => !value)}
             />
             {expanded && (
@@ -112,11 +123,18 @@ export const MachineAvatarPicker = React.memo(({ machineId }: { machineId: strin
                     )}
                 </View>
             )}
+            {expanded && showDivider && <View style={styles.divider} />}
         </View>
     );
 });
 
+// As `Item` sizes its chevron.
+const CHEVRON_SIZE = Platform.OS === 'ios' ? 17 : 24;
+
 const stylesheet = StyleSheet.create((theme) => ({
+    chevron: {
+        marginLeft: 4,
+    },
     presets: {
         paddingHorizontal: 16,
         paddingTop: 12,
@@ -162,6 +180,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     },
     pressed: {
         opacity: 0.6,
+    },
+    // As `Item` draws it under a row with an icon: a hairline on iOS only, inset past the icon.
+    divider: {
+        height: Platform.select({ ios: StyleSheet.hairlineWidth, default: 0 }),
+        marginLeft: Platform.select({ ios: 75, default: 0 }),
+        backgroundColor: theme.colors.divider,
     },
     reset: {
         alignSelf: 'flex-start',

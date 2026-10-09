@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type ComponentProps } from 'react';
 import { View, Text, ActivityIndicator, RefreshControl, Platform, Pressable, TextInput, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Item } from '@/components/Item';
@@ -63,6 +63,14 @@ function resolveSessionModeForAgent(agent: AgentType) {
         modelMode: lastUsed?.modelMode ?? MODEL_MODE_DEFAULT,
         fastMode: lastUsed?.fastMode ?? false,
     };
+}
+
+// The platform's logo where it has one, as Node reports it in the machine's metadata.
+function platformIcon(platform: string): ComponentProps<typeof Ionicons>['name'] {
+    if (platform === 'darwin') return 'logo-apple';
+    if (platform === 'linux') return 'logo-tux';
+    if (platform === 'win32') return 'logo-windows';
+    return 'cube-outline';
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -743,12 +751,6 @@ export default function MachineDetailScreen() {
                 }
                 keyboardShouldPersistTaps="handled"
             >
-                {machine && (
-                    <ItemGroup>
-                        <MachineAvatarPicker machineId={machine.id} />
-                    </ItemGroup>
-                )}
-
                 {/* Launch section */}
                 {machine && (
                     <>
@@ -762,15 +764,6 @@ export default function MachineDetailScreen() {
                                 />
                             </ItemGroup>
                         )}
-                        <ItemGroup>
-                            <Item
-                                title={t('machine.openTerminal')}
-                                subtitle={t('machine.openTerminalSubtitle')}
-                                icon={<FontAwesome6 name="terminal" size={23} color="#007AFF" />}
-                                disabled={!isMachineOnline(machine)}
-                                onPress={() => openMachineTerminal({ machineId: machine.id, push: router.push })}
-                            />
-                        </ItemGroup>
                         <ItemGroup title={t('machine.launchNewSessionInDirectory')}>
                         <View style={{ opacity: isMachineOnline(machine) ? 1 : 0.5 }}>
                             <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4 }}>
@@ -869,33 +862,6 @@ export default function MachineDetailScreen() {
                     </>
                 )}
 
-                {/* Repositories */}
-                <ItemGroup title={t('machine.repositories')}>
-                    {registeredRepos.map(repo => {
-                        const branch = repo.defaultTargetBranch;
-                        const suffix = branch ? ` · ${branch}` : '';
-                        const maxPathLen = 35 - suffix.length;
-                        let displayPath = formatPathRelativeToHome(repo.path, metadata?.homeDir);
-                        if (displayPath.length > maxPathLen && maxPathLen > 10) {
-                            const tail = displayPath.slice(-Math.floor(maxPathLen * 0.6));
-                            const head = displayPath.slice(0, maxPathLen - tail.length - 3);
-                            displayPath = head + '...' + tail;
-                        }
-                        return (
-                            <Item
-                                key={repo.id}
-                                title={repo.displayName}
-                                subtitle={displayPath + suffix}
-                                onPress={() => router.push(`/machine/${machineId}/repo/${repo.id}` as any)}
-                            />
-                        );
-                    })}
-                    <Item
-                        title={t('machine.addRepository')}
-                        onPress={handleAddRepository}
-                    />
-                </ItemGroup>
-
                 {/* Previous Sessions (debug view) */}
                 {previousSessions.length > 0 && (
                     <SessionProjectLabelsContext.Provider value={previousSessionLabels}>
@@ -925,21 +891,59 @@ export default function MachineDetailScreen() {
                     </SessionProjectLabelsContext.Provider>
                 )}
 
+                {/* Repositories */}
+                <ItemGroup title={t('machine.repositories')}>
+                    {registeredRepos.map(repo => {
+                        const branch = repo.defaultTargetBranch;
+                        const suffix = branch ? ` · ${branch}` : '';
+                        const maxPathLen = 35 - suffix.length;
+                        let displayPath = formatPathRelativeToHome(repo.path, metadata?.homeDir);
+                        if (displayPath.length > maxPathLen && maxPathLen > 10) {
+                            const tail = displayPath.slice(-Math.floor(maxPathLen * 0.6));
+                            const head = displayPath.slice(0, maxPathLen - tail.length - 3);
+                            displayPath = head + '...' + tail;
+                        }
+                        return (
+                            <Item
+                                key={repo.id}
+                                title={repo.displayName}
+                                subtitle={displayPath + suffix}
+                                onPress={() => router.push(`/machine/${machineId}/repo/${repo.id}` as any)}
+                            />
+                        );
+                    })}
+                    <Item
+                        title={t('machine.addRepository')}
+                        onPress={handleAddRepository}
+                    />
+                </ItemGroup>
+
                 {/* Machine */}
                 <ItemGroup title={t('machine.machineGroup')}>
+                        <MachineAvatarPicker machineId={machine.id} />
+                        <Item
+                            title={t('machine.openTerminal')}
+                            subtitle={t('machine.openTerminalSubtitle')}
+                            icon={<FontAwesome6 name="terminal" size={23} color="#007AFF" />}
+                            disabled={!isMachineOnline(machine)}
+                            onPress={() => openMachineTerminal({ machineId: machine.id, push: router.push })}
+                        />
                         <Item
                             title={t('machine.host')}
                             subtitle={metadata?.host || machineId}
+                            icon={<Ionicons name="globe-outline" size={29} color="#007AFF" />}
                         />
                         <Item
                             title={t('machine.machineId')}
                             subtitle={machineId}
                             subtitleStyle={{ fontFamily: 'Menlo', fontSize: 12 }}
+                            icon={<Ionicons name="finger-print-outline" size={29} color="#8E8E93" />}
                         />
                         {metadata?.username && (
                             <Item
                                 title={t('machine.username')}
                                 subtitle={metadata.username}
+                                icon={<Ionicons name="person-outline" size={29} color="#34C759" />}
                             />
                         )}
                         {metadata?.homeDir && (
@@ -947,27 +951,32 @@ export default function MachineDetailScreen() {
                                 title={t('machine.homeDirectory')}
                                 subtitle={metadata.homeDir}
                                 subtitleStyle={{ fontFamily: 'Menlo', fontSize: 13 }}
+                                icon={<Ionicons name="home-outline" size={29} color="#FF9500" />}
                             />
                         )}
                         {metadata?.platform && (
                             <Item
                                 title={t('machine.platform')}
                                 subtitle={metadata.platform}
+                                icon={<Ionicons name={platformIcon(metadata.platform)} size={29} color="#AF52DE" />}
                             />
                         )}
                         {metadata?.arch && (
                             <Item
                                 title={t('machine.architecture')}
                                 subtitle={metadata.arch}
+                                icon={<Ionicons name="hardware-chip-outline" size={29} color="#FF2D55" />}
                             />
                         )}
                         <Item
                             title={t('machine.lastSeen')}
                             subtitle={machine.activeAt ? new Date(machine.activeAt).toLocaleString() : t('machine.never')}
+                            icon={<Ionicons name="time-outline" size={29} color="#30B0C7" />}
                         />
                         <Item
                             title={t('machine.metadataVersion')}
                             subtitle={String(machine.metadataVersion)}
+                            icon={<Ionicons name="git-commit-outline" size={29} color="#8E8E93" />}
                         />
                 </ItemGroup>
 
