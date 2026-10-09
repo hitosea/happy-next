@@ -50,7 +50,6 @@ export const en: TranslationStructure = {
         clearSearch: 'Clear search',
         noMachinesYet: 'No machines yet',
         noMachinesHint: 'Run happy on a computer to connect it to this account.',
-        noSessionsYet: 'No sessions yet',
         newSession: 'New session',
         machineNoSessions: 'No sessions on this machine',
         machineNoSessionsHint: ({ name }: { name: string }) => `Start a new session on ${name}.`,

@@ -46,7 +46,6 @@ export const pl: TranslationStructure = {
         clearSearch: 'Wyczyść wyszukiwanie',
         noMachinesYet: 'Brak maszyn',
         noMachinesHint: 'Uruchom happy na komputerze, aby połączyć go z tym kontem.',
-        noSessionsYet: 'Brak sesji',
         newSession: 'Nowa sesja',
         machineNoSessions: 'Brak sesji na tej maszynie',
         machineNoSessionsHint: ({ name }: { name: string }) => `Rozpocznij nową sesję na ${name}.`,

@@ -46,7 +46,6 @@ export const ru: TranslationStructure = {
         clearSearch: 'Очистить поиск',
         noMachinesYet: 'Машин пока нет',
         noMachinesHint: 'Запустите happy на компьютере, чтобы подключить его к аккаунту.',
-        noSessionsYet: 'Сессий пока нет',
         newSession: 'Новая сессия',
         machineNoSessions: 'На этой машине нет сессий',
         machineNoSessionsHint: ({ name }: { name: string }) => `Начните новую сессию на ${name}.`,

@@ -37,7 +37,6 @@ export const zhHant: TranslationStructure = {
         clearSearch: '清除搜尋',
         noMachinesYet: '還沒有機器',
         noMachinesHint: '在電腦上執行 happy，把它連線到這個帳號。',
-        noSessionsYet: '還沒有工作階段',
         newSession: '新增工作階段',
         machineNoSessions: '這台機器還沒有工作階段',
         machineNoSessionsHint: ({ name }: { name: string }) => `在 ${name} 上開始新的工作階段。`,

@@ -35,7 +35,6 @@ export const it: TranslationStructure = {
         clearSearch: 'Cancella ricerca',
         noMachinesYet: 'Ancora nessuna macchina',
         noMachinesHint: 'Esegui happy su un computer per collegarlo a questo account.',
-        noSessionsYet: 'Ancora nessuna sessione',
         newSession: 'Nuova sessione',
         machineNoSessions: 'Nessuna sessione su questa macchina',
         machineNoSessionsHint: ({ name }: { name: string }) => `Avvia una nuova sessione su ${name}.`,

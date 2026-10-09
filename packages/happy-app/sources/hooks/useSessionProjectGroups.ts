@@ -19,8 +19,11 @@ export type SessionProjectGroup = {
     sessions: Session[];
 };
 
-export function getSessionProjectCollapseKey(projectPath: string): string {
-    return `path:${encodeURIComponent(projectPath)}`;
+// A project on a single machine folds on its own: the same path on another machine is another
+// project. One that spans machines (the phone's merged list) folds by its path alone.
+export function getSessionProjectCollapseKey(projectPath: string, machineId?: string): string {
+    const path = `path:${encodeURIComponent(projectPath)}`;
+    return machineId ? `machine:${encodeURIComponent(machineId)}:${path}` : path;
 }
 
 export function useSessionProjectGroups(sessions: Session[]): SessionProjectGroup[] {
@@ -67,6 +70,10 @@ export function useSessionProjectGroups(sessions: Session[]): SessionProjectGrou
         }
 
         for (const projectGroup of groups.values()) {
+            const machineIds = Array.from(projectGroup.machines.keys());
+            if (machineIds.length === 1 && machineIds[0] !== unknownText) {
+                projectGroup.collapseKey = getSessionProjectCollapseKey(projectGroup.path, machineIds[0]);
+            }
             for (const machineGroup of projectGroup.machines.values()) {
                 machineGroup.sessions.sort((a, b) => b.createdAt - a.createdAt);
             }

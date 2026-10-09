@@ -38,7 +38,6 @@ export const ja: TranslationStructure = {
         clearSearch: '検索をクリア',
         noMachinesYet: 'マシンがまだありません',
         noMachinesHint: 'コンピューターで happy を実行して、このアカウントに接続してください。',
-        noSessionsYet: 'セッションはまだありません',
         newSession: '新しいセッション',
         machineNoSessions: 'このマシンにはセッションがありません',
         machineNoSessionsHint: ({ name }: { name: string }) => `${name} で新しいセッションを開始します。`,

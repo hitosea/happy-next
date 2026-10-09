@@ -21,7 +21,6 @@ export const LocalSettingsSchema = z.object({
     sessionListSelectedTab: z.string().nullable().describe('Persisted selected tab in the session list ("all" / "shared" / "sharedByMe" / a machineId)'),
     machineNameCache: z.record(z.string(), z.string()).describe('Cached machineId -> display name, so machine tabs keep their names before machines sync on restart'),
     collapsedSessionProjectGroups: z.record(z.string(), z.boolean()).describe('Collapsed project paths in the active session list'),
-    collapsedSessionMachineGroups: z.record(z.string(), z.boolean()).describe('Collapsed machine groups in the "All machines" view of the sidebar session list, by machineId'),
     webSidebarWidth: z.number().finite().nullable().describe('Persisted web sidebar width in pixels'),
     // Terminal UI state (device-specific)
     terminalTabOrder: z.array(z.string()).describe('Order the terminal tabs were dragged into, by terminalTabKey'),
@@ -56,7 +55,6 @@ export const localSettingsDefaults: LocalSettings = {
     sessionListSelectedTab: null,
     machineNameCache: {},
     collapsedSessionProjectGroups: {},
-    collapsedSessionMachineGroups: {},
     webSidebarWidth: null,
     terminalTabOrder: [],
     terminalTabNames: {},

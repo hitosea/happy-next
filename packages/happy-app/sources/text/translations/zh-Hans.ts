@@ -37,7 +37,6 @@ export const zhHans: TranslationStructure = {
         clearSearch: '清除搜索',
         noMachinesYet: '还没有机器',
         noMachinesHint: '在电脑上运行 happy，把它连接到这个账号。',
-        noSessionsYet: '还没有会话',
         newSession: '新建会话',
         machineNoSessions: '这台机器还没有会话',
         machineNoSessionsHint: ({ name }: { name: string }) => `在 ${name} 上开始一个新会话。`,
