@@ -37,7 +37,7 @@ uuid = { version = "1", features = ["v4"] }
 block2 = "=0.6.1"
 objc2 = "=0.6.4"
 objc2-app-kit = { version = "=0.3.1", default-features = false, features = ["NSAnimation", "NSAnimationContext", "NSAppearance", "NSApplication", "NSButton", "NSColor", "NSControl", "NSGraphics", "NSImage", "NSImageView", "NSLayoutAnchor", "NSLayoutConstraint", "NSView", "NSWindow", "objc2-core-foundation"] }
-objc2-foundation = { version = "=0.3.1", default-features = false, features = ["NSArray", "NSData", "NSString"] }
+objc2-foundation = { version = "=0.3.1", default-features = false, features = ["NSArray", "NSData", "NSNotification", "NSOperation", "NSString", "block2"] }
 objc2-user-notifications = { version = "=0.3.1", default-features = false, features = ["block2", "UNNotification", "UNNotificationRequest", "UNNotificationResponse", "UNUserNotificationCenter"] }
 objc2-web-kit = { version = "=0.3.1", default-features = false, features = ["WKWebView"] }
 tauri-plugin-notifications = { version = "=0.4.6", default-features = false }

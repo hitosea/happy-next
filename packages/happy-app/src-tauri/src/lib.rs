@@ -1286,11 +1286,63 @@ unsafe fn remove_macos_traffic_light_constraints(owner: &objc2_app_kit::NSView) 
 }
 
 #[cfg(target_os = "macos")]
+unsafe fn has_macos_traffic_light_constraints(owner: &objc2_app_kit::NSView) -> bool {
+    owner.constraints().iter().any(|constraint| {
+        constraint.isActive()
+            && constraint.identifier().is_some_and(|identifier| {
+                identifier
+                    .to_string()
+                    .starts_with(TRAFFIC_LIGHT_CONSTRAINT_PREFIX)
+            })
+    })
+}
+
+/// Hands the title bar and its buttons back to AppKit's own layout.
+///
+/// Full screen moves the title bar into a separate window that AppKit sizes and
+/// reveals itself; a title bar pinned by our constraints fights that, leaving
+/// the buttons unclickable there and misplaced once the window comes back.
+#[cfg(target_os = "macos")]
+unsafe fn release_macos_traffic_light_position(ns_window: &objc2_app_kit::NSWindow) {
+    use objc2_app_kit::NSWindowButton;
+
+    let buttons = [
+        NSWindowButton::CloseButton,
+        NSWindowButton::MiniaturizeButton,
+        NSWindowButton::ZoomButton,
+    ]
+    .map(|kind| ns_window.standardWindowButton(kind));
+    let Some(close) = buttons[0].as_ref() else {
+        return;
+    };
+    let Some(button_parent) = close.superview() else {
+        return;
+    };
+    let Some(title_bar_view) = button_parent.superview() else {
+        return;
+    };
+    if let Some(title_bar_parent) = title_bar_view.superview() {
+        remove_macos_traffic_light_constraints(&title_bar_parent);
+    }
+    remove_macos_traffic_light_constraints(&title_bar_view);
+    remove_macos_traffic_light_constraints(&button_parent);
+    title_bar_view.setTranslatesAutoresizingMaskIntoConstraints(true);
+    for button in buttons.iter().flatten() {
+        button.setTranslatesAutoresizingMaskIntoConstraints(true);
+    }
+}
+
+#[cfg(target_os = "macos")]
 unsafe fn apply_macos_traffic_light_position(
     ns_window: &objc2_app_kit::NSWindow,
     authenticated: bool,
 ) {
-    use objc2_app_kit::{NSView, NSWindowButton};
+    use objc2_app_kit::{NSView, NSWindowButton, NSWindowStyleMask};
+
+    if ns_window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+        release_macos_traffic_light_position(ns_window);
+        return;
+    }
 
     let (x, y) = if authenticated {
         (AUTHENTICATED_TRAFFIC_LIGHT_X, AUTHENTICATED_TRAFFIC_LIGHT_Y)
@@ -1319,19 +1371,16 @@ unsafe fn apply_macos_traffic_light_position(
     let Some(title_bar_parent) = title_bar_view.superview() else {
         return;
     };
-    if authenticated && !title_bar_view.translatesAutoresizingMaskIntoConstraints() {
-        return;
-    }
-    if !authenticated && !title_bar_view.translatesAutoresizingMaskIntoConstraints() {
-        remove_macos_traffic_light_constraints(&title_bar_parent);
-        remove_macos_traffic_light_constraints(&title_bar_view);
-        remove_macos_traffic_light_constraints(&button_parent);
-        title_bar_view.setTranslatesAutoresizingMaskIntoConstraints(true);
-        close.setTranslatesAutoresizingMaskIntoConstraints(true);
-        miniaturize.setTranslatesAutoresizingMaskIntoConstraints(true);
-        if let Some(zoom) = zoom.as_ref() {
-            zoom.setTranslatesAutoresizingMaskIntoConstraints(true);
+    if !title_bar_view.translatesAutoresizingMaskIntoConstraints() {
+        // Still pinned, unless AppKit dropped the constraints when it moved the
+        // title bar in and out of full screen.
+        if authenticated
+            && has_macos_traffic_light_constraints(&title_bar_parent)
+            && has_macos_traffic_light_constraints(&title_bar_view)
+        {
+            return;
         }
+        release_macos_traffic_light_position(ns_window);
     }
 
     title_bar_view.layoutSubtreeIfNeeded();
@@ -1421,6 +1470,64 @@ fn reconcile_macos_traffic_light_position(app: &AppHandle) {
         unsafe {
             let ns_window = &*webview.ns_window().cast::<NSWindow>();
             apply_macos_traffic_light_position(ns_window, authenticated);
+        }
+    });
+}
+
+/// Lets go of the traffic lights before the main window enters full screen, and
+/// moves them back once it has left.
+///
+/// Notifications rather than `WindowEvent::Resized`: the release has to happen
+/// before AppKit moves the title bar into its full-screen window, and resizes
+/// only arrive once the transition is under way.
+#[cfg(target_os = "macos")]
+fn observe_macos_full_screen_transitions(app: &AppHandle) {
+    use block2::RcBlock;
+    use objc2::{rc::Retained, runtime::AnyObject, Message};
+    use objc2_app_kit::NSWindow;
+    use objc2_foundation::{NSNotification, NSNotificationCenter, NSString};
+    use std::ptr::NonNull;
+
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let app = app.clone();
+    let _ = window.with_webview(move |webview| {
+        // SAFETY: Tauri provides the live NSWindow on the WebView UI thread, and
+        // the observers' blocks are delivered on the main thread that posts them.
+        unsafe {
+            let ns_window: Retained<NSWindow> =
+                (*webview.ns_window().cast::<NSWindow>()).retain();
+            let observed = ns_window.clone();
+            let object: &AnyObject = &observed;
+            let center = NSNotificationCenter::defaultCenter();
+
+            let entering = ns_window.clone();
+            let will_enter = RcBlock::new(move |_: NonNull<NSNotification>| {
+                release_macos_traffic_light_position(&entering);
+            });
+            let did_exit = RcBlock::new(move |_: NonNull<NSNotification>| {
+                let authenticated = app
+                    .state::<DesktopState>()
+                    .authenticated
+                    .load(Ordering::SeqCst);
+                release_macos_traffic_light_position(&ns_window);
+                apply_macos_traffic_light_position(&ns_window, authenticated);
+                schedule_macos_traffic_light_reconciliation(&app);
+            });
+
+            let _ = center.addObserverForName_object_queue_usingBlock(
+                Some(&NSString::from_str("NSWindowWillEnterFullScreenNotification")),
+                Some(object),
+                None,
+                &will_enter,
+            );
+            let _ = center.addObserverForName_object_queue_usingBlock(
+                Some(&NSString::from_str("NSWindowDidExitFullScreenNotification")),
+                Some(object),
+                None,
+                &did_exit,
+            );
         }
     });
 }
@@ -2320,8 +2427,11 @@ pub fn run() {
 
             build_tray(app.handle())?;
             #[cfg(target_os = "macos")]
-            if !tauri::is_dev() {
-                macos_notification_delegate::install(app.handle())?;
+            {
+                if !tauri::is_dev() {
+                    macos_notification_delegate::install(app.handle())?;
+                }
+                observe_macos_full_screen_transitions(app.handle());
             }
             #[cfg(target_os = "windows")]
             {
