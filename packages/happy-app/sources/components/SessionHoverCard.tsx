@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, TextInput, View, type ViewStyle, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, TextInput, View, type ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { formatModelDisplay, resolveLocalModelDisplay } from 'happy-wire';
@@ -16,6 +16,7 @@ import { getMachineDisplayName } from './sessionListScope';
 import type { ScrollTarget } from './sessionContextMenuScroll';
 import { SessionContextMenuPortal } from './SessionContextMenuPortal';
 import { sessionHoverCard, type HoverAnchorRect } from './sessionHoverCardController';
+import { canLocateSessionProject, locateSessionProject } from './sessionProjectLocate';
 
 const CARD_WIDTH = 280;
 const GAP = 8;
@@ -182,6 +183,9 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     const hasDraft = useSessionHasDraft(session.id);
     const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const machineId = session.metadata?.machineId;
+    // A pinned session is out of the list below; this finds where it would sit there.
+    const locatable = canLocateSessionProject(session.id);
+    const [locateHovered, setLocateHovered] = React.useState(false);
     const machine = useMachine(machineId ?? '');
     const nameCache = useLocalSetting('machineNameCache');
 
@@ -263,6 +267,22 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
                             </View>
                         ))}
                     </View>
+                )}
+                {locatable && (
+                    <Pressable
+                        style={styles.locate}
+                        onPress={() => locateSessionProject(session.id)}
+                        onHoverIn={() => setLocateHovered(true)}
+                        onHoverOut={() => setLocateHovered(false)}
+                        accessibilityRole="button"
+                    >
+                        <View style={styles.rowIcon}>
+                            <Ionicons name="locate-outline" size={14} color={theme.colors.textLink} />
+                        </View>
+                        <Text style={[styles.locateText, locateHovered && styles.locateTextHovered]}>
+                            {t('sessionHoverCard.locateInList')}
+                        </Text>
+                    </Pressable>
                 )}
             </View>
         </View>
@@ -354,6 +374,22 @@ const styles = StyleSheet.create((theme) => ({
         lineHeight: 16,
         color: theme.colors.textSecondary,
         ...Typography.default(),
+    },
+    locate: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        alignSelf: 'flex-start',
+        gap: 8,
+        marginTop: 10,
+    },
+    locateText: {
+        fontSize: 12,
+        lineHeight: 16,
+        color: theme.colors.textLink,
+        ...Typography.default(),
+    },
+    locateTextHovered: {
+        textDecorationLine: 'underline',
     },
     badges: {
         flexDirection: 'row',

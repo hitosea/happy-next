@@ -23,6 +23,7 @@ export const zhHans: TranslationStructure = {
         unread: '有未读结果',
         draft: '有未发送的草稿',
         runningTasks: ({ count }: { count: number }) => `${count} 个子任务运行中`,
+        locateInList: '在列表中定位',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher

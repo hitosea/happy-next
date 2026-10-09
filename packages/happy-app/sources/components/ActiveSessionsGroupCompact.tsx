@@ -26,6 +26,7 @@ import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
 import { PressHighlight } from './PressHighlight';
 import { SessionRowFlash } from './SessionRowFlash';
+import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
 import { ProjectLabelText } from './ProjectLabelText';
 import { SessionMarkerBar } from './SessionColorMarker';
 import { SessionProjectGroup, useCollapsedSessionProjectGroups, useSessionProjectGroups } from '@/hooks/useSessionProjectGroups';
@@ -71,6 +72,14 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    // Inset to the card's width below, so a located header lights up as a band of its own.
+    sectionHeaderFlash: {
+        top: 6,
+        bottom: 2,
+        left: Platform.select({ ios: 16, default: 12 }),
+        right: Platform.select({ ios: 16, default: 12 }),
+        borderRadius: 8,
     },
     sectionHeaderRight: {
         flexDirection: 'row',
@@ -291,9 +300,12 @@ function ProjectSectionHeader({
             useNativeDriver: true,
         }).start();
     }, [collapsed, expansion]);
+    const collapseKey = projectGroup.collapseKey;
+    const headerRef = React.useCallback((node: View | null) => registerProjectHeader(collapseKey, node), [collapseKey]);
 
     return (
-        <View {...(hoverHandlers as any)}>
+        <View ref={headerRef} {...(hoverHandlers as any)}>
+            <SessionRowFlash sessionId={getProjectHeaderFlashId(collapseKey)} style={styles.sectionHeaderFlash} />
             <Pressable
                 style={styles.sectionHeader}
                 onPress={onToggle}

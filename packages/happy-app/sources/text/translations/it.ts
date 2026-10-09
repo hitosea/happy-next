@@ -21,6 +21,7 @@ export const it: TranslationStructure = {
         unread: 'Risultato non letto',
         draft: 'Bozza non inviata',
         runningTasks: ({ count }: { count: number }) => `${count} sottoattività in corso`,
+        locateInList: 'Mostra nell\'elenco',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher

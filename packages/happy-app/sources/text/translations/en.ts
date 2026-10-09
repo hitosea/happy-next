@@ -36,6 +36,7 @@ export const en: TranslationStructure = {
         unread: 'Unread result',
         draft: 'Unsent draft',
         runningTasks: ({ count }: { count: number }) => `${count} subtasks running`,
+        locateInList: 'Show in list',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher

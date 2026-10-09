@@ -40,6 +40,7 @@ import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
 import { PressHighlight } from './PressHighlight';
 import { SessionRowFlash, flashSessionRow } from './SessionRowFlash';
+import { getProjectHeader, getProjectHeaderFlashId, setSessionProjectLocator } from './sessionProjectLocate';
 import { SessionMarkerBar } from './SessionColorMarker';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -685,9 +686,7 @@ export function SessionsList() {
     }, []);
     // 'nearest' scrolls just enough to bring the row into view; 'roomy' brings it a quarter of the
     // view in from the edge it was beyond, rather than flush against it; 'center' puts it mid-view.
-    const revealSessionRow = React.useCallback((sessionId: string, align: RevealAlign = 'nearest'): boolean => {
-        const row = sessionRowRefs.current.get(sessionId);
-        if (!row) return false;
+    const revealRow = React.useCallback((row: View, align: RevealAlign = 'nearest'): boolean => {
         const margin = align === 'roomy'
             ? Math.max(8, Math.round(viewportHeightRef.current * REVEAL_MARGIN_RATIO))
             : 8;
@@ -720,11 +719,15 @@ export function SessionsList() {
         });
         return true;
     }, [getVisibleInsets, clampScrollOffset]);
+    const revealSessionRow = React.useCallback((sessionId: string, align: RevealAlign = 'nearest'): boolean => {
+        const row = sessionRowRefs.current.get(sessionId);
+        return !!row && revealRow(row, align);
+    }, [revealRow]);
     // Flashes a row once the smooth scroll to it is over (see SessionRowFlash): when it has held
     // still for a moment, so a far row is not done flashing before it comes into view.
     const flashFrameRef = React.useRef<number | null>(null);
     const flashTokenRef = React.useRef(0);
-    const flashRowWhenSettled = React.useCallback((sessionId: string) => {
+    const flashRowWhenSettled = React.useCallback((getRow: () => View | null | undefined, flashId: string) => {
         if (flashFrameRef.current !== null) cancelAnimationFrame(flashFrameRef.current);
         const token = ++flashTokenRef.current;
         const startedAt = Date.now();
@@ -732,7 +735,7 @@ export function SessionsList() {
         let stillSince = startedAt;
         const check = () => {
             flashFrameRef.current = null;
-            const row = sessionRowRefs.current.get(sessionId);
+            const row = getRow();
             if (!row) return;
             measureRowTop(row, top => {
                 if (token !== flashTokenRef.current) return;
@@ -742,7 +745,7 @@ export function SessionsList() {
                     stillSince = now;
                 }
                 if (now - stillSince >= FLASH_SETTLE_MS || now - startedAt >= FLASH_MAX_WAIT_MS) {
-                    flashSessionRow(sessionId);
+                    flashSessionRow(flashId);
                     return;
                 }
                 flashFrameRef.current = requestAnimationFrame(check);
@@ -754,7 +757,7 @@ export function SessionsList() {
     const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: RevealAlign = 'nearest', flash = false) => {
         const reveal = () => {
             const revealed = revealSessionRow(sessionId, align);
-            if (revealed && flash) flashRowWhenSettled(sessionId);
+            if (revealed && flash) flashRowWhenSettled(() => sessionRowRefs.current.get(sessionId), sessionId);
             return revealed;
         };
         if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
@@ -817,6 +820,56 @@ export function SessionsList() {
         }
         scheduleRevealSelectedSession(nextId, 'center', true);
     }), [tabSessions, tabData, collapsedProjectGroups, setCollapsedProjectGroups, scheduleRevealSelectedSession, scrollListToTop]);
+
+    // A pinned session's hover card can show where it would sit in the list: its project's group,
+    // on the same machine, among the sessions left unpinned below. It flashes once found.
+    const findPinnedSessionProject = React.useCallback((sessionId: string) => {
+        if (pins[sessionId] === undefined) return null;
+        const metadata = tabSessions.find(session => session.id === sessionId)?.metadata;
+        if (!metadata?.path) return null;
+        const sameProject = (session: Session) => session.metadata?.path === metadata.path
+            && session.metadata?.machineId === metadata.machineId;
+        const index = (tabData ?? []).findIndex(item =>
+            (item.type === 'active-sessions' || item.type === 'shared-sessions') ? item.sessions.some(sameProject)
+                : item.type === 'machine-sessions' && item.section.sessions.some(sameProject));
+        if (index < 0) return null;
+        return {
+            index,
+            collapseKeys: [
+                ...(metadata.machineId ? [getSessionProjectCollapseKey(metadata.path, metadata.machineId)] : []),
+                getSessionProjectCollapseKey(metadata.path),
+            ],
+        };
+    }, [pins, tabSessions, tabData]);
+    const locatePinnedSessionProject = React.useCallback((sessionId: string) => {
+        const target = findPinnedSessionProject(sessionId);
+        if (!target) return;
+        const reveal = () => {
+            const key = target.collapseKeys.find(collapseKey => getProjectHeader(collapseKey));
+            const header = key && getProjectHeader(key);
+            if (!key || !header || !revealRow(header, 'center')) return false;
+            flashRowWhenSettled(() => getProjectHeader(key), getProjectHeaderFlashId(key));
+            return true;
+        };
+        if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
+        revealFrameRef.current = requestAnimationFrame(() => {
+            revealFrameRef.current = null;
+            if (reveal()) return;
+            // Too far down to be rendered yet: bring its block in first.
+            listRef.current?.scrollToIndex({ index: target.index, animated: false, viewPosition: 0.5 });
+            revealFrameRef.current = requestAnimationFrame(() => {
+                revealFrameRef.current = null;
+                reveal();
+            });
+        });
+    }, [findPinnedSessionProject, revealRow, flashRowWhenSettled]);
+    React.useEffect(() => {
+        setSessionProjectLocator({
+            canLocate: sessionId => findPinnedSessionProject(sessionId) !== null,
+            locate: locatePinnedSessionProject,
+        });
+        return () => setSessionProjectLocator(null);
+    }, [findPinnedSessionProject, locatePinnedSessionProject]);
 
     // A manual switch on the rail or the phone switcher, to anywhere but where the pending session
     // lives, takes precedence over revealing it.

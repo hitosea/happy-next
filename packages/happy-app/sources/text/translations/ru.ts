@@ -32,6 +32,7 @@ export const ru: TranslationStructure = {
         unread: 'Непрочитанный результат',
         draft: 'Неотправленный черновик',
         runningTasks: ({ count }: { count: number }) => `Выполняется подзадач: ${count}`,
+        locateInList: 'Показать в списке',
     },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
