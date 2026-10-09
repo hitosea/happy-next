@@ -1859,7 +1859,20 @@ class Sync {
         color: SessionMarkerColor | null,
         updatedAt: number = Date.now(),
     ) => {
-        const patch: SessionAppearancePatch = { sessionId, color, updatedAt };
+        this.queueSessionAppearancePatch({ sessionId, color, updatedAt });
+    }
+
+    queueSessionPinUpdate = (sessionId: string, pinned: boolean, updatedAt: number = Date.now()) => {
+        this.queueSessionAppearancePatch({ sessionId, pinnedAt: pinned ? updatedAt : null, updatedAt });
+    }
+
+    // A deleted session takes its marks along, so the shared document does not keep them forever.
+    clearSessionAppearance = (sessionId: string) => {
+        if (!storage.getState().sessionAppearance.sessions[sessionId]) return;
+        this.queueSessionAppearancePatch({ sessionId, color: null, pinnedAt: null, updatedAt: Date.now() });
+    }
+
+    private queueSessionAppearancePatch(patch: SessionAppearancePatch) {
         storage.getState().applySessionAppearancePatchLocal(patch);
         this.pendingSessionAppearancePatches.push(patch);
         this.sessionAppearanceSync.invalidate();

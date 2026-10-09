@@ -143,6 +143,9 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         paddingInlineStart: 36,
         backgroundColor: theme.colors.surface,
     },
+    sessionRowUnindented: {
+        paddingInlineStart: 16,
+    },
     sessionDivider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: theme.colors.divider,
@@ -244,6 +247,19 @@ interface ActiveSessionsGroupProps {
     registerSessionRowRef?: (sessionId: string, ref: View | null) => void;
     // Sessions shared with me: their projects are marked as such rather than by a session's avatar.
     shared?: boolean;
+    // The pinned sessions: one card, in the order given.
+    pinned?: boolean;
+}
+
+function PinnedSessionsHeader() {
+    const styles = stylesheet;
+    return (
+        <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.sectionHeaderPath} numberOfLines={1}>{t('sessionScope.pinnedSessions')}</Text>
+            </View>
+        </View>
+    );
 }
 
 function ProjectSectionHeader({
@@ -335,11 +351,32 @@ function ProjectSectionHeader({
 }
 
 
-export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, registerSessionRowRef, shared }: ActiveSessionsGroupProps) {
+export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
     const router = useRouter();
     const projectGroups = useSessionProjectGroups(sessions);
     const { collapsedGroups, toggleGroup } = useCollapsedSessionProjectGroups(projectGroups, selectedSessionId);
+
+    if (pinned) {
+        return (
+            <View style={styles.container}>
+                <PinnedSessionsHeader />
+                <View style={styles.projectCard}>
+                    {sessions.map((session, index) => (
+                        <CompactSessionRow
+                            key={session.id}
+                            session={session}
+                            selected={selectedSessionId === session.id}
+                            registerSessionRowRef={registerSessionRowRef}
+                            isCardFirst={index === 0}
+                            isCardLast={index === sessions.length - 1}
+                            unindented
+                        />
+                    ))}
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -431,9 +468,11 @@ export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, regist
 }
 
 // Compact session row component with status line
-const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFirst, isCardLast, registerSessionRowRef }: {
+const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFirst, isCardLast, registerSessionRowRef, unindented }: {
     session: Session;
     selected?: boolean;
+    // Not under a project header (the pinned card), so not indented under one.
+    unindented?: boolean;
     showBorder?: boolean;
     isCardFirst?: boolean;
     isCardLast?: boolean;
@@ -537,6 +576,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
             <Pressable
                 style={[
                 styles.sessionRow,
+                unindented && styles.sessionRowUnindented,
                 selected && styles.sessionRowSelected
             ]}
             onPress={() => {

@@ -1,13 +1,13 @@
 import React from 'react';
 import { Platform, Pressable, StyleProp, useWindowDimensions, View, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { AntDesign, Ionicons, Octicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/StyledText';
 import { Typography } from '@/constants/Typography';
 import { Session } from '@/sync/storageTypes';
-import { useSessionMarkerColor } from '@/sync/storage';
+import { useSessionMarkerColor, useSessionPinned } from '@/sync/storage';
 import { getSessionName, useSessionStatus, generateCopyTitle, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { promptRenameSession } from '@/utils/sessionRename';
 import { showToast } from './Toast';
@@ -34,6 +34,8 @@ import { ActionMenuItem } from './ActionMenu';
 import { getSessionQuickActionKinds, getSessionQuickActionSections, SessionQuickActionKind } from './sessionQuickActions';
 import { openSessionTerminal } from '@/terminal/openSessionTerminal';
 import { SessionContextMenuPortal } from './SessionContextMenuPortal';
+import { useSessionHoverCard } from './SessionHoverCard';
+import { sessionHoverCard } from './sessionHoverCardController';
 import { SESSION_MARKER_COLOR_VALUES, SessionColorPalette, sessionMarkerColorLabels } from './SessionColorMarker';
 import { SESSION_MARKER_COLORS, type SessionMarkerColor } from '@/sync/sessionAppearance';
 import { hasLiveCompletion, hasUnreadCompletionSince } from '@/utils/sessionAttention';
@@ -47,7 +49,8 @@ import { ContextMenuView, nativeContextMenuAvailable, type ContextMenuSection } 
 type MenuPosition = { x: number; y: number };
 type ActionIconSpec =
     | { family: 'ionicons'; name: React.ComponentProps<typeof Ionicons>['name'] }
-    | { family: 'antdesign'; name: React.ComponentProps<typeof AntDesign>['name'] };
+    | { family: 'antdesign'; name: React.ComponentProps<typeof AntDesign>['name'] }
+    | { family: 'octicons'; name: React.ComponentProps<typeof Octicons>['name'] };
 type QuickAction = {
     kind: SessionQuickActionKind;
     label: string;
@@ -73,6 +76,9 @@ const SECTION_DIVIDER_HEIGHT = 9;
 function ActionIcon({ icon, color }: { icon: ActionIconSpec; color: string }) {
     if (icon.family === 'antdesign') {
         return <AntDesign name={icon.name} size={ICON_SIZE} color={color} />;
+    }
+    if (icon.family === 'octicons') {
+        return <Octicons name={icon.name} size={ICON_SIZE - 2} color={color} />;
     }
     return <Ionicons name={icon.name} size={ICON_SIZE} color={color} />;
 }
@@ -164,6 +170,7 @@ function useSessionQuickActions(session: Session) {
         && !isWorking
         && (!session.accessLevel || hasUnreadCompletionSince(session, 0));
     const canToggleRead = isUnread || canMarkUnread;
+    const isPinned = useSessionPinned(session.id);
     const [forkingSession, setForkingSession] = React.useState(false);
     const [archiveMenuVisible, setArchiveMenuVisible] = React.useState(false);
     const [archiveMenuItems, setArchiveMenuItems] = React.useState<ActionMenuItem[]>([]);
@@ -382,6 +389,7 @@ function useSessionQuickActions(session: Session) {
             }
             sync.markSessionUnread(session.id);
         },
+        togglePin: () => sync.queueSessionPinUpdate(session.id, !isPinned),
         newSession: handleNewSession,
         terminal: handleOpenTerminal,
         revealInFileManager: () => {
@@ -401,6 +409,7 @@ function useSessionQuickActions(session: Session) {
         details: t('common.details'),
         renameSession: t('common.rename'),
         toggleRead: isUnread ? t('sessionInfo.markAsRead') : t('sessionInfo.markAsUnread'),
+        togglePin: isPinned ? t('sessionInfo.unpinSession') : t('sessionInfo.pinSession'),
         newSession: t('sessionInfo.newSession'),
         terminal: t('sessionInfo.openTerminal'),
         revealInFileManager: t(getRevealLabelKey(getDesktopPlatform())),
@@ -413,6 +422,7 @@ function useSessionQuickActions(session: Session) {
         details: { family: 'ionicons', name: 'information-circle-outline' },
         renameSession: { family: 'antdesign', name: 'edit' },
         toggleRead: { family: 'ionicons', name: isUnread ? 'mail-open-outline' : 'mail-unread-outline' },
+        togglePin: { family: 'octicons', name: isPinned ? 'pin-slash' : 'pin' },
         newSession: { family: 'ionicons', name: 'add-circle-outline' },
         terminal: { family: 'ionicons', name: 'terminal-outline' },
         revealInFileManager: { family: 'ionicons', name: 'folder-open-outline' },
@@ -425,6 +435,7 @@ function useSessionQuickActions(session: Session) {
         details: 'info.circle',
         renameSession: 'pencil',
         toggleRead: isUnread ? 'envelope.open' : 'envelope.badge',
+        togglePin: isPinned ? 'pin.slash' : 'pin',
         newSession: 'plus.circle',
         terminal: 'terminal',
         revealInFileManager: 'folder',
@@ -489,6 +500,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
     }, []);
     const lastLongPressAtRef = React.useRef(0);
     const { actions, archiveMenu } = useSessionQuickActions(session);
+    const hoverCard = useSessionHoverCard(session.id, anchorRef);
     const markerColor = useSessionMarkerColor(session.id);
     const nativeQuickActionsMaxHeight = Math.max(
         240,
@@ -502,6 +514,12 @@ export function SessionContextMenu({ session, children, highlightShape }: {
 
     // Whichever menu this platform opens — the floating one on web, the modal elsewhere.
     const menuOpen = position !== null || nativeMenuVisible;
+
+    React.useEffect(() => {
+        if (position === null) return;
+        sessionHoverCard.setBlocked(true);
+        return () => sessionHoverCard.setBlocked(false);
+    }, [position]);
     // Rendered over `children` here rather than set on the row, so every list gets it without
     // having to know the menu exists. `pointerEvents: 'none'` keeps the row clickable underneath.
     const highlight = menuOpen
@@ -673,6 +691,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
     }) => {
         event.preventDefault();
         event.stopPropagation();
+        hoverCard.dismiss();
         setHoveredAction(null);
         setPosition({
             x: event.nativeEvent.clientX ?? event.nativeEvent.pageX,
@@ -683,7 +702,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
 
     return (
         <>
-            <View {...webContextMenuProps} ref={setAnchorRef} style={styles.highlightHost}>
+            <View {...webContextMenuProps} {...(hoverCard.rowProps as any)} ref={setAnchorRef} style={styles.highlightHost}>
                 {children}
                 {highlight}
             </View>

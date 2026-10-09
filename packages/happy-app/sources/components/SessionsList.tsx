@@ -3,7 +3,7 @@ import { View, Pressable, FlatList, Platform, RefreshControl, NativeScrollEvent,
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from '@/components/StyledText';
 import { usePathname } from 'expo-router';
-import { SessionListViewItem, storage, useOrchestratorRunningTaskCount, useSessionHasDraft, useSocketStatus } from '@/sync/storage';
+import { SessionListViewItem, storage, useOrchestratorRunningTaskCount, useSessionAppearanceLoaded, useSessionHasDraft, useSessionPins, useSocketStatus } from '@/sync/storage';
 import { useCompactSessionView } from '@/hooks/useCompactSessionView';
 import { Ionicons } from '@expo/vector-icons';
 import { getSessionName, useSessionStatus, getSessionAvatarId, hasUnreadCompletion } from '@/utils/sessionUtils';
@@ -17,6 +17,7 @@ import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionListScope, collectListSessions } from '@/hooks/useSessionListScope';
 import { isSharingSelection, type SessionListSelection, type SessionMachineGroup } from './sessionListScope';
+import { sortPinnedSessions, splitPinnedSessions } from './pinnedSessions';
 import { useLocalSettingMutable } from '@/sync/storage';
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
 import { Typography } from '@/constants/Typography';
@@ -346,6 +347,7 @@ type ListItem = (
     | { type: 'machine-header'; section: SessionSection }
     | { type: 'machine-sessions'; section: SessionSection }
     | { type: 'shared-sessions'; sessions: Session[] }
+    | { type: 'pinned-sessions'; sessions: Session[] }
 ) & { selected?: boolean };
 
 function getSessionIdFromPathname(pathname: string): string | null {
@@ -387,6 +389,8 @@ const SECTION_HEADER_DOUBLE_TAP_MS = 400;
 // A row the list jumped to flashes once it holds still this long, or after the longest wait at most.
 const FLASH_SETTLE_MS = 100;
 const FLASH_MAX_WAIT_MS = 1500;
+// How long a reveal waits for pins that have not arrived from the cloud.
+const PINS_WAIT_MS = 3000;
 
 // Where a session row sits in the window, for telling when a smooth scroll to it has finished.
 function measureRowTop(row: View, callback: (top: number) => void) {
@@ -465,6 +469,17 @@ export function SessionsList() {
         sharedByMeSessions,
     } = scope;
     const machineNames = useMachineNameMap();
+    const pins = useSessionPins();
+    // Pins arrive from the cloud after the sessions, and the pinned section they add on top moves
+    // every row: a reveal waits for them — or a few seconds, if they cannot be had.
+    const pinsLoaded = useSessionAppearanceLoaded();
+    const [pinsWaitOver, setPinsWaitOver] = React.useState(false);
+    React.useEffect(() => {
+        if (pinsLoaded) return;
+        const timer = setTimeout(() => setPinsWaitOver(true), PINS_WAIT_MS);
+        return () => clearTimeout(timer);
+    }, [pinsLoaded]);
+    const listOrderSettled = pinsLoaded || pinsWaitOver;
     const socketStatus = useSocketStatus();
     // machineId -> name cache, so machine labels survive a restart before machines sync.
     const [machineNameCache, setMachineNameCache] = useLocalSettingMutable('machineNameCache');
@@ -536,29 +551,59 @@ export function SessionsList() {
         [machineGroups, activeTab],
     );
 
+    // The machine and "All" views lead with the pinned sessions, taken out of the projects and
+    // machines below them; the sharing views list theirs as they are.
     const tabData = React.useMemo<ListItem[] | null>(() => {
         if (activeTab === 'shared') return sharedData;
         if (activeTab === 'sharedByMe') return sharedByMeData;
+        const pinned: Session[] = [];
+        const unpinned = (sessions: Session[]) => {
+            const split = splitPinnedSessions(sessions, pins);
+            pinned.push(...split.pinned);
+            return split.rest;
+        };
+        const withPinned = (items: ListItem[]): ListItem[] => pinned.length > 0
+            ? [{ type: 'pinned-sessions', sessions: sortPinnedSessions(pinned, pins) }, ...items]
+            : items;
         if (activeTab !== 'all') {
             if (!selectedGroup) return data;
-            return selectedGroup.sessions.length > 0 ? [{ type: 'active-sessions', sessions: selectedGroup.sessions }] : [];
+            const rest = unpinned(selectedGroup.sessions);
+            return withPinned(rest.length > 0 ? [{ type: 'active-sessions', sessions: rest }] : []);
         }
         if (!data) return data;
         if (!groupByMachine) {
             // Without the sidebar there are no machine sections, only sessions by project: the ones
             // shared with me are grouped the same way, after my own projects, in place of their list.
             const sharedAt = data.findIndex(item => item.type === 'header' && item.title === 'Shared with me');
-            if (sharedAt < 0 || !sharedSection) return data;
-            return [...data.slice(0, sharedAt), { type: 'shared-sessions', sessions: sharedSection.sessions }];
+            const items: ListItem[] = [];
+            for (const item of sharedAt < 0 ? data : data.slice(0, sharedAt)) {
+                if (item.type !== 'active-sessions') {
+                    items.push(item);
+                    continue;
+                }
+                const rest = unpinned(item.sessions);
+                if (rest.length > 0) items.push({ type: 'active-sessions', sessions: rest });
+            }
+            if (sharedAt >= 0 && sharedSection) {
+                const rest = unpinned(sharedSection.sessions);
+                if (rest.length > 0) items.push({ type: 'shared-sessions', sessions: rest });
+            } else if (sharedAt >= 0) {
+                items.push(...data.slice(sharedAt));
+            }
+            return withPinned(items);
         }
-        return sections.flatMap<ListItem>(section => [
-            { type: 'machine-header', section },
-            { type: 'machine-sessions', section },
-        ]);
-    }, [activeTab, sharedData, sharedByMeData, data, selectedGroup, groupByMachine, sections, sharedSection]);
+        // A section whose sessions are all pinned has nothing left to list, so it goes like an idle machine.
+        return withPinned(sections.flatMap<ListItem>(original => {
+            const section = { ...original, sessions: unpinned(original.sessions) };
+            return section.sessions.length > 0 ? [
+                { type: 'machine-header', section },
+                { type: 'machine-sessions', section },
+            ] : [];
+        }));
+    }, [activeTab, sharedData, sharedByMeData, data, selectedGroup, groupByMachine, sections, sharedSection, pins]);
     const tabSessions = React.useMemo(() => (tabData ?? []).flatMap(item =>
         item.type === 'session' ? [item.session]
-            : item.type === 'active-sessions' || item.type === 'shared-sessions' ? item.sessions
+            : item.type === 'active-sessions' || item.type === 'shared-sessions' || item.type === 'pinned-sessions' ? item.sessions
                 : item.type === 'machine-sessions' ? item.section.sessions
                     : []), [tabData]);
     const projectLabel = useSessionProjectLabels(tabSessions);
@@ -708,7 +753,7 @@ export function SessionsList() {
             const topLevelIndex = dataWithSelected?.findIndex(item =>
                 item.type === 'session'
                     ? item.session.id === sessionId
-                    : item.type === 'active-sessions' || item.type === 'shared-sessions'
+                    : item.type === 'active-sessions' || item.type === 'shared-sessions' || item.type === 'pinned-sessions'
                         ? item.sessions.some(session => session.id === sessionId)
                         : item.type === 'machine-sessions' && item.section.sessions.some(session => session.id === sessionId)
             ) ?? -1;
@@ -773,14 +818,14 @@ export function SessionsList() {
     // Process each route-driven session change once. Realtime list updates must not
     // repeatedly reveal the same session after the user has manually scrolled away.
     React.useEffect(() => {
-        if (!pendingSessionNavigationId || !pendingSessionTargetTab) return;
+        if (!pendingSessionNavigationId || !pendingSessionTargetTab || !listOrderSettled) return;
         if (!activeTabContainsPendingSession) {
             if (activeTab !== pendingSessionTargetTab) setActiveTab(pendingSessionTargetTab);
             return;
         }
         scheduleRevealSelectedSession(pendingSessionNavigationId);
         setPendingSessionNavigationId(null);
-    }, [pendingSessionNavigationId, pendingSessionTargetTab, activeTabContainsPendingSession, activeTab, setActiveTab, scheduleRevealSelectedSession]);
+    }, [pendingSessionNavigationId, pendingSessionTargetTab, listOrderSettled, activeTabContainsPendingSession, activeTab, setActiveTab, scheduleRevealSelectedSession]);
 
     React.useEffect(() => () => {
         if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
@@ -800,6 +845,7 @@ export function SessionsList() {
             case 'header': return `header-${item.title}-${index}`;
             case 'active-sessions': return 'active-sessions';
             case 'shared-sessions': return 'shared-sessions';
+            case 'pinned-sessions': return 'pinned-sessions';
             case 'project-group': return `project-group-${item.machine.id}-${item.displayPath}-${index}`;
             case 'session': return `session-${item.session.id}`;
             case 'machine-header': return `machine-header-${item.section.id}`;
@@ -836,6 +882,16 @@ export function SessionsList() {
                         selectedSessionId={selectedId}
                         registerSessionRowRef={registerSessionRowRef}
                         shared
+                    />
+                );
+
+            case 'pinned-sessions':
+                return (
+                    <ActiveComponent
+                        sessions={item.sessions}
+                        selectedSessionId={selectedId}
+                        registerSessionRowRef={registerSessionRowRef}
+                        pinned
                     />
                 );
 

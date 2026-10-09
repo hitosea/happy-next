@@ -15,6 +15,13 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  * Must match the exact structure of the English translations
  */
 export const es: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `Creada ${time}`,
+        updated: ({ time }: { time: string }) => `Actualizada ${time}`,
+        unread: 'Resultado sin leer',
+        draft: 'Borrador sin enviar',
+        runningTasks: ({ count }: { count: number }) => `${count} subtareas en curso`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: 'Todas las máquinas',
@@ -36,6 +43,7 @@ export const es: TranslationStructure = {
         noMachinesYet: 'Aún no hay máquinas',
         noMachinesHint: 'Ejecuta happy en un ordenador para conectarlo a esta cuenta.',
         newSession: 'Nueva sesión',
+        pinnedSessions: 'Fijadas',
         machineNoSessions: 'No hay sesiones en esta máquina',
         machineNoSessionsHint: ({ name }: { name: string }) => `Inicia una nueva sesión en ${name}.`,
         offlineText: 'Las sesiones existentes se conservan. Podrás crear nuevas cuando la máquina vuelva a estar en línea.',
@@ -1014,6 +1022,8 @@ export const es: TranslationStructure = {
         viewMachine: 'Ver máquina',
         markAsRead: 'Marcar como leído',
         markAsUnread: 'Marcar como no leído',
+        pinSession: 'Fijar',
+        unpinSession: 'Desfijar',
         viewMachineSubtitle: 'Ver detalles de máquina y sesiones',
         killSessionSubtitle: 'Terminar inmediatamente la sesión',
         archiveSessionSubtitle: 'Archivar esta sesión y detenerla',

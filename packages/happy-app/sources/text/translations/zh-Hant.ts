@@ -17,6 +17,13 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const zhHant: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `建立於 ${time}`,
+        updated: ({ time }: { time: string }) => `更新於 ${time}`,
+        unread: '有未讀結果',
+        draft: '有未送出的草稿',
+        runningTasks: ({ count }: { count: number }) => `${count} 個子任務執行中`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: '全部機器',
@@ -38,6 +45,7 @@ export const zhHant: TranslationStructure = {
         noMachinesYet: '還沒有機器',
         noMachinesHint: '在電腦上執行 happy，把它連線到這個帳號。',
         newSession: '新增工作階段',
+        pinnedSessions: '置頂',
         machineNoSessions: '這台機器還沒有工作階段',
         machineNoSessionsHint: ({ name }: { name: string }) => `在 ${name} 上開始新的工作階段。`,
         offlineText: '現有工作階段會保留，機器重新上線後才能新增工作階段。',
@@ -1016,6 +1024,8 @@ export const zhHant: TranslationStructure = {
         viewMachine: '查看裝置',
         markAsRead: '標記已讀',
         markAsUnread: '標記未讀',
+        pinSession: '置頂',
+        unpinSession: '取消置頂',
         viewMachineSubtitle: '查看裝置詳情和工作階段',
         killSessionSubtitle: '立即終止工作階段',
         archiveSessionSubtitle: '封存此工作階段並停止它',

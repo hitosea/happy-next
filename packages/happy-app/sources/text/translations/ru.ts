@@ -26,6 +26,13 @@ function plural({ count, one, few, many }: { count: number; one: string; few: st
  * Must match the exact structure of the English translations
  */
 export const ru: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `Создана ${time}`,
+        updated: ({ time }: { time: string }) => `Обновлена ${time}`,
+        unread: 'Непрочитанный результат',
+        draft: 'Неотправленный черновик',
+        runningTasks: ({ count }: { count: number }) => `Выполняется подзадач: ${count}`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: 'Все машины',
@@ -47,6 +54,7 @@ export const ru: TranslationStructure = {
         noMachinesYet: 'Машин пока нет',
         noMachinesHint: 'Запустите happy на компьютере, чтобы подключить его к аккаунту.',
         newSession: 'Новая сессия',
+        pinnedSessions: 'Закреплённые',
         machineNoSessions: 'На этой машине нет сессий',
         machineNoSessionsHint: ({ name }: { name: string }) => `Начните новую сессию на ${name}.`,
         offlineText: 'Существующие сессии сохранены. Новые сессии станут доступны, когда машина снова будет в сети.',
@@ -828,6 +836,8 @@ export const ru: TranslationStructure = {
         viewMachine: 'Посмотреть машину',
         markAsRead: 'Отметить как прочитанное',
         markAsUnread: 'Отметить как непрочитанное',
+        pinSession: 'Закрепить',
+        unpinSession: 'Открепить',
         viewMachineSubtitle: 'Посмотреть детали машины и сессии',
         killSessionSubtitle: 'Немедленно завершить сессию',
         archiveSessionSubtitle: 'Архивировать эту сессию и остановить её',

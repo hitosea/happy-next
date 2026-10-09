@@ -17,6 +17,13 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const zhHans: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `创建于 ${time}`,
+        updated: ({ time }: { time: string }) => `更新于 ${time}`,
+        unread: '有未读结果',
+        draft: '有未发送的草稿',
+        runningTasks: ({ count }: { count: number }) => `${count} 个子任务运行中`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: '全部机器',
@@ -38,6 +45,7 @@ export const zhHans: TranslationStructure = {
         noMachinesYet: '还没有机器',
         noMachinesHint: '在电脑上运行 happy，把它连接到这个账号。',
         newSession: '新建会话',
+        pinnedSessions: '置顶',
         machineNoSessions: '这台机器还没有会话',
         machineNoSessionsHint: ({ name }: { name: string }) => `在 ${name} 上开始一个新会话。`,
         offlineText: '已有会话会保留，机器重新上线后才能新建会话。',
@@ -1016,6 +1024,8 @@ export const zhHans: TranslationStructure = {
         viewMachine: '查看设备',
         markAsRead: '标记已读',
         markAsUnread: '标记未读',
+        pinSession: '置顶',
+        unpinSession: '取消置顶',
         viewMachineSubtitle: '查看设备详情和会话',
         killSessionSubtitle: '立即终止会话',
         archiveSessionSubtitle: '归档此会话并停止它',

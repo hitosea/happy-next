@@ -2,6 +2,7 @@ import { useAuth } from '@/auth/AuthContext';
 import * as React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { useIsTablet } from '@/utils/responsive';
+import { sessionHoverCard } from './sessionHoverCardController';
 import { SidebarView } from './SidebarView';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import { useLocalSettingMutable } from '@/sync/storage';
@@ -22,6 +23,10 @@ export const SidebarNavigator = React.memo(() => {
     // A terminal window is a shell onto a machine, not somewhere to read
     // conversations, so it carries no session list even where one would fit.
     const showPermanentDrawer = auth.isAuthenticated && isTablet && !isDedicatedTerminalWindow();
+    React.useEffect(() => {
+        sessionHoverCard.setEnabled(showPermanentDrawer);
+        return () => sessionHoverCard.setEnabled(false);
+    }, [showPermanentDrawer]);
     const { width: windowWidth } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
     const [persistedWebSidebarWidth, setPersistedWebSidebarWidth] = useLocalSettingMutable('webSidebarWidth');

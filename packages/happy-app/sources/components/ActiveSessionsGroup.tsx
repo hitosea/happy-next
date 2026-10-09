@@ -272,6 +272,19 @@ interface ActiveSessionsGroupProps {
     registerSessionRowRef?: (sessionId: string, ref: View | null) => void;
     // Sessions shared with me: their projects are marked as such rather than by a session's avatar.
     shared?: boolean;
+    // The pinned sessions: one card, in the order given.
+    pinned?: boolean;
+}
+
+function PinnedSessionsHeader() {
+    const styles = stylesheet;
+    return (
+        <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+                <Text style={styles.sectionHeaderPath} numberOfLines={1}>{t('sessionScope.pinnedSessions')}</Text>
+            </View>
+        </View>
+    );
 }
 
 function ProjectSectionHeader({
@@ -367,11 +380,32 @@ function ProjectSectionHeader({
 }
 
 
-export function ActiveSessionsGroup({ sessions, selectedSessionId, registerSessionRowRef, shared }: ActiveSessionsGroupProps) {
+export function ActiveSessionsGroup({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
     const router = useRouter();
     const projectGroups = useSessionProjectGroups(sessions);
     const { collapsedGroups, toggleGroup } = useCollapsedSessionProjectGroups(projectGroups, selectedSessionId);
+
+    if (pinned) {
+        return (
+            <View style={styles.container}>
+                <PinnedSessionsHeader />
+                <View style={styles.projectCard}>
+                    {sessions.map((session, index) => (
+                        <CompactSessionRow
+                            key={session.id}
+                            session={session}
+                            selected={selectedSessionId === session.id}
+                            registerSessionRowRef={registerSessionRowRef}
+                            showBorder={index < sessions.length - 1}
+                            isCardFirst={index === 0}
+                            isCardLast={index === sessions.length - 1}
+                        />
+                    ))}
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>

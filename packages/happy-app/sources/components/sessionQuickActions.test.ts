@@ -29,6 +29,7 @@ describe('getSessionQuickActionKinds', () => {
             'details',
             'renameSession',
             'toggleRead',
+            'togglePin',
             'newSession',
             'terminal',
             'forkSession',
@@ -99,7 +100,7 @@ describe('getSessionQuickActionKinds', () => {
             session: session({ accessLevel: 'view' }),
             isConnected: true,
             isLocalMachine: false,
-        })).toEqual(['details', 'toggleRead', 'leaveSharedSession']);
+        })).toEqual(['details', 'toggleRead', 'togglePin', 'leaveSharedSession']);
     });
 
     it('offers native archive for stopped Codex sessions until explicitly archived', () => {
@@ -141,13 +142,14 @@ describe('getSessionQuickActionSections', () => {
             'details',
             'renameSession',
             'toggleRead',
+            'togglePin',
             'newSession',
             'terminal',
             'revealInFileManager',
             'forkSession',
             'archiveSession',
         ])).toEqual([
-            ['details', 'renameSession', 'toggleRead'],
+            ['details', 'renameSession', 'toggleRead', 'togglePin'],
             ['newSession', 'terminal', 'revealInFileManager', 'forkSession'],
             ['archiveSession'],
         ]);

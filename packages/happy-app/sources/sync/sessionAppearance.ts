@@ -13,8 +13,11 @@ export const SESSION_MARKER_COLORS = [
 
 export type SessionMarkerColor = typeof SESSION_MARKER_COLORS[number];
 
+// An entry exists while it carries at least one mark: a colour, a pin, or both.
 export interface SessionAppearanceEntry {
-    color: SessionMarkerColor;
+    color?: SessionMarkerColor;
+    // When the session was pinned to the top of the list; pinned sessions sort newest pin first.
+    pinnedAt?: number;
     updatedAt: number;
 }
 
@@ -24,9 +27,11 @@ export interface SessionAppearanceDocument {
     sessions: Record<string, SessionAppearanceEntry>;
 }
 
+// Only the marks a patch names change: `undefined` leaves one as it is, `null` clears it.
 export interface SessionAppearancePatch {
     sessionId: string;
-    color: SessionMarkerColor | null;
+    color?: SessionMarkerColor | null;
+    pinnedAt?: number | null;
     updatedAt: number;
 }
 
@@ -34,6 +39,10 @@ const markerColorSet = new Set<string>(SESSION_MARKER_COLORS);
 
 function isMarkerColor(value: unknown): value is SessionMarkerColor {
     return typeof value === 'string' && markerColorSet.has(value);
+}
+
+function isTimestamp(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
 }
 
 function toBase64Utf8(value: string): string {
@@ -74,18 +83,19 @@ export function normalizeSessionAppearance(input: unknown, now: number = Date.no
     for (const [sessionId, rawEntry] of Object.entries(rawSessions)) {
         if (!sessionId.trim() || !rawEntry || typeof rawEntry !== 'object') continue;
         const entry = rawEntry as Record<string, unknown>;
-        if (!isMarkerColor(entry.color)) continue;
+        const color = isMarkerColor(entry.color) ? entry.color : undefined;
+        const pinnedAt = isTimestamp(entry.pinnedAt) ? entry.pinnedAt : undefined;
+        if (!color && pinnedAt === undefined) continue;
         sessions[sessionId] = {
-            color: entry.color,
-            updatedAt: typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
-                ? entry.updatedAt
-                : now,
+            ...(color ? { color } : {}),
+            ...(pinnedAt !== undefined ? { pinnedAt } : {}),
+            updatedAt: isTimestamp(entry.updatedAt) ? entry.updatedAt : now,
         };
     }
 
     return {
         schemaVersion: SESSION_APPEARANCE_SCHEMA_VERSION,
-        updatedAt: typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : now,
+        updatedAt: isTimestamp(raw.updatedAt) ? raw.updatedAt : now,
         sessions,
     };
 }
@@ -99,10 +109,19 @@ export function applySessionAppearancePatch(
     if (!sessionId) return normalized;
 
     const sessions = { ...normalized.sessions };
-    if (patch.color === null) {
-        delete sessions[sessionId];
+    const { updatedAt: _, ...marks } = sessions[sessionId] ?? {};
+    if (patch.color !== undefined) {
+        if (patch.color === null) delete marks.color;
+        else marks.color = patch.color;
+    }
+    if (patch.pinnedAt !== undefined) {
+        if (patch.pinnedAt === null) delete marks.pinnedAt;
+        else marks.pinnedAt = patch.pinnedAt;
+    }
+    if (marks.color || marks.pinnedAt !== undefined) {
+        sessions[sessionId] = { ...marks, updatedAt: patch.updatedAt };
     } else {
-        sessions[sessionId] = { color: patch.color, updatedAt: patch.updatedAt };
+        delete sessions[sessionId];
     }
 
     return {

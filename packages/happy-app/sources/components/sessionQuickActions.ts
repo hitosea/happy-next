@@ -5,6 +5,7 @@ export type SessionQuickActionKind =
     | 'details'
     | 'renameSession'
     | 'toggleRead'
+    | 'togglePin'
     | 'newSession'
     | 'terminal'
     | 'revealInFileManager'
@@ -26,6 +27,7 @@ const SESSION_QUICK_ACTION_SECTION: Record<SessionQuickActionKind, number> = {
     details: 0,
     renameSession: 0,
     toggleRead: 0,
+    togglePin: 0,
     // Where it runs — the machine and the directory behind it.
     newSession: 1,
     terminal: 1,
@@ -63,6 +65,8 @@ export function getSessionQuickActionKinds({
     // not apply, the item is disabled instead so the capability stays discoverable on a session
     // that has simply never finished a task. See `markSessionUnread` for why that matters.
     actions.push('toggleRead');
+    // A pin is the viewer's own mark, kept in their session appearance, so shared sessions take one too.
+    actions.push('togglePin');
     // Starting a session in this directory spawns it on the session's machine, which a session
     // shared with me does not grant — it points at the owner's machine and directory.
     if (isOwner) actions.push('newSession');

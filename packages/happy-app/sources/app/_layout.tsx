@@ -43,6 +43,7 @@ import { DesktopWindowFrame } from '@/desktop/DesktopWindowFrame';
 import { DesktopAuthWindowSync } from '@/desktop/DesktopAuthWindowSync';
 import { DesktopTerminalWindowRedirect } from '@/desktop/DesktopTerminalWindowRedirect';
 import { ThemePreferenceSync } from '@/components/ThemePreferenceSync';
+import { SessionHoverCardHost } from '@/components/SessionHoverCard';
 import { ActionMenuOverlayProvider } from '@/components/ActionMenuOverlayProvider';
 import { getNotificationSessionId } from '@/utils/notificationData';
 
@@ -358,6 +359,7 @@ export default function RootLayout() {
                                     </ModalProvider>
                                     <TtsFloatingPlayer />
                                     <ToastHost />
+                                    <SessionHoverCardHost />
                                 </StatusBarProvider>
                             </ThemeProvider>
                         </AuthProvider>

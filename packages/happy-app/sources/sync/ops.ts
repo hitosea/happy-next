@@ -1013,6 +1013,7 @@ export async function sessionDelete(sessionId: string): Promise<{ success: boole
 
         if (response.ok) {
             const result = await response.json();
+            sync.clearSessionAppearance(sessionId);
             return { success: true };
         } else {
             const error = await response.text();

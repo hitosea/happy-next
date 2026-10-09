@@ -18,6 +18,13 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
 }
 
 export const ja: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `作成 ${time}`,
+        updated: ({ time }: { time: string }) => `更新 ${time}`,
+        unread: '未読の結果',
+        draft: '未送信の下書き',
+        runningTasks: ({ count }: { count: number }) => `${count} 件のサブタスク実行中`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: 'すべてのマシン',
@@ -39,6 +46,7 @@ export const ja: TranslationStructure = {
         noMachinesYet: 'マシンがまだありません',
         noMachinesHint: 'コンピューターで happy を実行して、このアカウントに接続してください。',
         newSession: '新しいセッション',
+        pinnedSessions: 'ピン留め',
         machineNoSessions: 'このマシンにはセッションがありません',
         machineNoSessionsHint: ({ name }: { name: string }) => `${name} で新しいセッションを開始します。`,
         offlineText: '既存のセッションは保持されます。マシンがオンラインに戻ると新しいセッションを作成できます。',
@@ -1046,6 +1054,8 @@ export const ja: TranslationStructure = {
         viewMachine: 'マシンを表示',
         markAsRead: '既読にする',
         markAsUnread: '未読にする',
+        pinSession: 'ピン留め',
+        unpinSession: 'ピン留めを解除',
         viewMachineSubtitle: 'マシンの詳細とセッションを表示',
         killSessionSubtitle: 'セッションを即座に終了',
         archiveSessionSubtitle: 'このセッションをアーカイブして停止',

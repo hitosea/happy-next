@@ -109,6 +109,8 @@ interface StorageState {
     sessionModeConfigVersion: number;
     sessionAppearance: SessionAppearanceDocument;
     sessionAppearanceVersion: number;
+    // Whether the cloud copy has been read since launch: until then, pins are not known yet.
+    sessionAppearanceLoaded: boolean;
     localSettings: LocalSettings;
     profile: Profile;
     sessions: Record<string, Session>;
@@ -464,6 +466,7 @@ export const storage = create<StorageState>()((set, get) => {
         sessionModeConfigVersion: -1,
         sessionAppearance: createEmptySessionAppearance(),
         sessionAppearanceVersion: -1,
+        sessionAppearanceLoaded: false,
         localSettings,
         profile,
         sessions: {},
@@ -1314,12 +1317,15 @@ export const storage = create<StorageState>()((set, get) => {
             };
         }),
         applySessionAppearanceFromCloud: (doc: SessionAppearanceDocument, version: number) => set((state) => {
-            if (version < state.sessionAppearanceVersion) return state;
-            if (version === state.sessionAppearanceVersion && doc === state.sessionAppearance) return state;
+            if (version < state.sessionAppearanceVersion
+                || (version === state.sessionAppearanceVersion && doc === state.sessionAppearance)) {
+                return state.sessionAppearanceLoaded ? state : { ...state, sessionAppearanceLoaded: true };
+            }
             return {
                 ...state,
                 sessionAppearance: doc,
                 sessionAppearanceVersion: version,
+                sessionAppearanceLoaded: true,
             };
         }),
         applySessionAppearancePatchLocal: (patch: SessionAppearancePatch) => set((state) => ({
@@ -2462,6 +2468,27 @@ export function useSessionModeConfig(): SessionModeConfigDocument {
 
 export function useSessionMarkerColor(sessionId: string) {
     return storage(useShallow((state) => state.sessionAppearance.sessions[sessionId]?.color ?? null));
+}
+
+export function useSessionPinned(sessionId: string): boolean {
+    return storage((state) => state.sessionAppearance.sessions[sessionId]?.pinnedAt !== undefined);
+}
+
+/** sessionId -> when it was pinned, for every pinned session. */
+export function useSessionPins(): Record<string, number> {
+    const entries = storage((state) => state.sessionAppearance.sessions);
+    return React.useMemo(() => {
+        const pins: Record<string, number> = {};
+        for (const [sessionId, entry] of Object.entries(entries)) {
+            if (entry.pinnedAt !== undefined) pins[sessionId] = entry.pinnedAt;
+        }
+        return pins;
+    }, [entries]);
+}
+
+/** Whether pins have been read from the cloud yet, so the list's order is final. */
+export function useSessionAppearanceLoaded(): boolean {
+    return storage((state) => state.sessionAppearanceLoaded);
 }
 
 export function useSessionModeLastUsed(agentType: SessionModeAgentType) {

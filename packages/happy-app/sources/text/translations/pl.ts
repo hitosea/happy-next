@@ -26,6 +26,13 @@ function plural({ count, one, few, many }: { count: number; one: string; few: st
  * Must match the exact structure of the English translations
  */
 export const pl: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `Utworzono ${time}`,
+        updated: ({ time }: { time: string }) => `Zaktualizowano ${time}`,
+        unread: 'Nieprzeczytany wynik',
+        draft: 'Niewysłany szkic',
+        runningTasks: ({ count }: { count: number }) => `Uruchomione podzadania: ${count}`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: 'Wszystkie maszyny',
@@ -47,6 +54,7 @@ export const pl: TranslationStructure = {
         noMachinesYet: 'Brak maszyn',
         noMachinesHint: 'Uruchom happy na komputerze, aby połączyć go z tym kontem.',
         newSession: 'Nowa sesja',
+        pinnedSessions: 'Przypięte',
         machineNoSessions: 'Brak sesji na tej maszynie',
         machineNoSessionsHint: ({ name }: { name: string }) => `Rozpocznij nową sesję na ${name}.`,
         offlineText: 'Istniejące sesje zostają zachowane. Nowe sesje będą dostępne, gdy maszyna wróci online.',
@@ -1026,6 +1034,8 @@ export const pl: TranslationStructure = {
         viewMachine: 'Zobacz maszynę',
         markAsRead: 'Oznacz jako przeczytane',
         markAsUnread: 'Oznacz jako nieprzeczytane',
+        pinSession: 'Przypnij',
+        unpinSession: 'Odepnij',
         viewMachineSubtitle: 'Zobacz szczegóły maszyny i sesje',
         killSessionSubtitle: 'Natychmiastowo zakończ sesję',
         archiveSessionSubtitle: 'Zarchiwizuj tę sesję i zatrzymaj ją',

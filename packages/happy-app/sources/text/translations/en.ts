@@ -30,6 +30,13 @@ function plural({ count, singular, plural }: { count: number; singular: string; 
  * - New translation keys must be added to ALL language files
  */
 export const en: TranslationStructure = {
+    sessionHoverCard: {
+        created: ({ time }: { time: string }) => `Created ${time}`,
+        updated: ({ time }: { time: string }) => `Updated ${time}`,
+        unread: 'Unread result',
+        draft: 'Unsent draft',
+        runningTasks: ({ count }: { count: number }) => `${count} subtasks running`,
+    },
     sessionScope: {
         // Machine scope of the session list: sidebar machine rail and phone machine switcher
         allMachines: 'All machines',
@@ -51,6 +58,7 @@ export const en: TranslationStructure = {
         noMachinesYet: 'No machines yet',
         noMachinesHint: 'Run happy on a computer to connect it to this account.',
         newSession: 'New session',
+        pinnedSessions: 'Pinned',
         machineNoSessions: 'No sessions on this machine',
         machineNoSessionsHint: ({ name }: { name: string }) => `Start a new session on ${name}.`,
         offlineText: 'Existing sessions are kept. New sessions are available once the machine is back online.',
@@ -1030,6 +1038,8 @@ export const en: TranslationStructure = {
         viewMachine: 'View Machine',
         markAsRead: 'Mark as Read',
         markAsUnread: 'Mark as Unread',
+        pinSession: 'Pin',
+        unpinSession: 'Unpin',
         viewMachineSubtitle: 'View machine details and sessions',
         killSessionSubtitle: 'Immediately terminate the session',
         archiveSessionSubtitle: 'Archive this session and stop it',
