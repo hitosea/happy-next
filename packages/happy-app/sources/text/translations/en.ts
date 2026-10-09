@@ -1990,6 +1990,11 @@ export const en: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Avatar',
+        avatarDescription: 'Shown in the sidebar and machine lists',
+        avatarIcon: 'Icon',
+        avatarColor: 'Color',
+        avatarReset: 'Restore Default',
         renameMachine: 'Rename Machine',
         renameMachineDescription: 'Give this machine a custom name. Leave empty to use the default hostname.',
         machineNamePlaceholder: 'Machine name',

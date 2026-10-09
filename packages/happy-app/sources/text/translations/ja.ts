@@ -2005,6 +2005,11 @@ export const ja: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'アバター',
+        avatarDescription: 'サイドバーとマシン一覧に表示されます',
+        avatarIcon: 'アイコン',
+        avatarColor: '色',
+        avatarReset: 'デフォルトに戻す',
         renameMachine: 'マシン名を変更',
         renameMachineDescription: 'マシンにカスタム名を設定します。空欄にするとデフォルトのホスト名が使用されます。',
         machineNamePlaceholder: 'マシン名',

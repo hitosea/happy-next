@@ -300,6 +300,10 @@ export const SettingsSchema = z.object({
     machineOrder: z.array(z.string()).describe('User-defined machine order (machine IDs); machines not listed follow in their default order'),
     showFullProjectPath: z.boolean().describe('Show project paths in session lists in full instead of by directory name'),
     hideIdleMachines: z.boolean().describe('Leave online machines without active sessions out of the sidebar machine rail and the machine switcher'),
+    machineAvatars: z.record(z.string(), z.object({
+        icon: z.string(),
+        color: z.string(),
+    })).describe('Preset avatar (icon and color keys) per machine ID; machines without one show their default look'),
     // Dismissed CLI warning banners (supports both per-machine and global dismissal)
     dismissedCLIWarnings: z.object({
         perMachine: z.record(z.string(), z.object({
@@ -376,6 +380,7 @@ export const settingsDefaults: Settings = {
     machineOrder: [],
     showFullProjectPath: false,
     hideIdleMachines: false,
+    machineAvatars: {},
     // Dismissed CLI warnings (empty by default)
     dismissedCLIWarnings: { perMachine: {}, global: {} },
 };

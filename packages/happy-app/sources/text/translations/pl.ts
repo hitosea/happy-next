@@ -1984,6 +1984,11 @@ export const pl: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Awatar',
+        avatarDescription: 'Wyświetlany na pasku bocznym i na listach maszyn',
+        avatarIcon: 'Ikona',
+        avatarColor: 'Kolor',
+        avatarReset: 'Przywróć domyślny',
         renameMachine: 'Zmień nazwę maszyny',
         renameMachineDescription: 'Nadaj tej maszynie własną nazwę. Pozostaw puste, aby użyć domyślnej nazwy hosta.',
         machineNamePlaceholder: 'Nazwa maszyny',

@@ -1975,6 +1975,11 @@ export const zhHans: TranslationStructure = {
     },
 
     machine: {
+        avatar: '头像',
+        avatarDescription: '显示在侧边栏和设备列表中',
+        avatarIcon: '图标',
+        avatarColor: '颜色',
+        avatarReset: '恢复默认',
         renameMachine: '重命名机器',
         renameMachineDescription: '为此机器设置自定义名称。留空则使用默认主机名。',
         machineNamePlaceholder: '机器名称',

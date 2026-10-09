@@ -5,6 +5,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import { Typography } from '@/constants/Typography';
 import { useAllMachines, useSessions } from '@/sync/storage';
 import { Ionicons } from '@expo/vector-icons';
+import { MachineIcon } from '@/components/MachineAvatar';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { useCLIDetectionBatch } from '@/hooks/useCLIDetection';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -157,10 +158,16 @@ export default function MachinePickerScreen() {
                                     return installed.join(', ');
                                 },
                                 getItemIcon: (machine) => (
-                                    <Ionicons
-                                        name="desktop-outline"
+                                    <MachineIcon
+                                        machineId={machine.id}
                                         size={24}
-                                        color={theme.colors.textSecondary}
+                                        fallback={
+                                            <Ionicons
+                                                name="desktop-outline"
+                                                size={24}
+                                                color={theme.colors.textSecondary}
+                                            />
+                                        }
                                     />
                                 ),
                                 getRecentItemIcon: (machine) => (

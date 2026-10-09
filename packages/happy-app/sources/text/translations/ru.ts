@@ -1972,6 +1972,11 @@ export const ru: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Аватар',
+        avatarDescription: 'Отображается на боковой панели и в списках машин',
+        avatarIcon: 'Значок',
+        avatarColor: 'Цвет',
+        avatarReset: 'Сбросить',
         renameMachine: 'Переименовать машину',
         renameMachineDescription: 'Задайте пользовательское имя для этой машины. Оставьте пустым, чтобы использовать имя хоста по умолчанию.',
         machineNamePlaceholder: 'Название машины',

@@ -1973,6 +1973,11 @@ export const pt: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Avatar',
+        avatarDescription: 'Exibido na barra lateral e nas listas de máquinas',
+        avatarIcon: 'Ícone',
+        avatarColor: 'Cor',
+        avatarReset: 'Restaurar padrão',
         renameMachine: 'Renomear máquina',
         renameMachineDescription: 'Dê um nome personalizado a esta máquina. Deixe vazio para usar o nome de host padrão.',
         machineNamePlaceholder: 'Nome da máquina',

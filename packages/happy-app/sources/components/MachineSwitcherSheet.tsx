@@ -11,12 +11,16 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useSessionListScope } from '@/hooks/useSessionListScope';
 import { createInitialScrollHandlersHook } from '@/hooks/bottomSheetInitialScroll';
 import { SessionScopeDot } from './SessionScopeDot';
+import { MACHINE_AVATAR_COLORS, MACHINE_AVATAR_ICONS, resolveMachineAvatar } from './MachineAvatar';
+import { useSetting } from '@/sync/storage';
 import { filterMachineGroups, type SessionListSelection, type SessionScopeDot as Dot } from './sessionListScope';
 
 const SheetTextInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
 
 type SwitcherItemProps = {
     icon: React.ComponentProps<typeof Ionicons>['name'];
+    // A machine's avatar color: the tile takes it and the glyph turns white.
+    tint?: string;
     name: string;
     meta: string;
     selected: boolean;
@@ -26,7 +30,7 @@ type SwitcherItemProps = {
     onLayout?: (event: LayoutChangeEvent) => void;
 };
 
-const SwitcherItem = React.memo(({ icon, name, meta, selected, online, dot = 'none', onPress, onLayout }: SwitcherItemProps) => {
+const SwitcherItem = React.memo(({ icon, tint, name, meta, selected, online, dot = 'none', onPress, onLayout }: SwitcherItemProps) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     return (
@@ -38,8 +42,8 @@ const SwitcherItem = React.memo(({ icon, name, meta, selected, online, dot = 'no
             onLayout={selected ? onLayout : undefined}
             style={({ pressed }) => [styles.item, (selected || pressed) && styles.itemSelected]}
         >
-            <View style={styles.itemIcon}>
-                <Ionicons name={icon} size={18} color={theme.colors.textSecondary} />
+            <View style={[styles.itemIcon, tint !== undefined && { backgroundColor: tint }]}>
+                <Ionicons name={icon} size={18} color={tint !== undefined ? '#FFFFFF' : theme.colors.textSecondary} />
                 {online !== undefined && (
                     <View style={[styles.onlineDot, { backgroundColor: online ? theme.colors.status.connected : theme.colors.textSecondary }]} />
                 )}
@@ -70,6 +74,7 @@ export const MachineSwitcherSheet = React.memo(React.forwardRef<BottomSheetModal
     const scope = useSessionListScope();
     const [search, setSearch] = React.useState('');
 
+    const machineAvatars = useSetting('machineAvatars');
     const machines = scope.groups.filter(group => !group.unknown);
     const filtered = filterMachineGroups(scope.groups, search);
     const keyword = search.trim();
@@ -205,20 +210,24 @@ export const MachineSwitcherSheet = React.memo(React.forwardRef<BottomSheetModal
                     {machines.length > 1 && filtered.length > 0 && !keyword && (
                         <Text style={styles.section}>{t('sessionScope.machinesSection')}</Text>
                     )}
-                    {filtered.map(group => (
-                        <SwitcherItem
-                            onLayout={handleSelectedLayout}
-                            key={group.id}
-                            icon="desktop-outline"
-                            name={group.name}
-                            meta={`${group.online ? t('status.online') : t('status.offline')} · ${sessionsMeta(group.sessions.length)}`}
-                            online={group.online}
-                            dot={group.dot}
-                            // With a single machine there is nothing to switch to; it is the whole list.
-                            selected={scope.switchable ? scope.selection === group.id : true}
-                            onPress={() => select(scope.switchable ? group.id : 'all')}
-                        />
-                    ))}
+                    {filtered.map(group => {
+                        const avatar = resolveMachineAvatar(machineAvatars, group.id);
+                        return (
+                            <SwitcherItem
+                                onLayout={handleSelectedLayout}
+                                key={group.id}
+                                icon={avatar ? MACHINE_AVATAR_ICONS[avatar.icon] : 'desktop-outline'}
+                                tint={avatar ? MACHINE_AVATAR_COLORS[avatar.color] : undefined}
+                                name={group.name}
+                                meta={`${group.online ? t('status.online') : t('status.offline')} · ${sessionsMeta(group.sessions.length)}`}
+                                online={group.online}
+                                dot={group.dot}
+                                // With a single machine there is nothing to switch to; it is the whole list.
+                                selected={scope.switchable ? scope.selection === group.id : true}
+                                onPress={() => select(scope.switchable ? group.id : 'all')}
+                            />
+                        );
+                    })}
                     {keyword && filtered.length === 0 && (
                         <View style={styles.empty}>
                             <Text style={styles.emptyTitle}>{t('sessionScope.noMatchingMachines')}</Text>

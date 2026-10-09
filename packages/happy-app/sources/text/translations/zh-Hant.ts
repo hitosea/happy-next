@@ -1975,6 +1975,11 @@ export const zhHant: TranslationStructure = {
     },
 
     machine: {
+        avatar: '頭像',
+        avatarDescription: '顯示在側邊欄和裝置列表中',
+        avatarIcon: '圖示',
+        avatarColor: '顏色',
+        avatarReset: '恢復預設',
         renameMachine: '重新命名機器',
         renameMachineDescription: '為此機器設定自訂名稱。留空則使用預設主機名稱。',
         machineNamePlaceholder: '機器名稱',

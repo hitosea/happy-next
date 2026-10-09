@@ -11,6 +11,8 @@ import { isTauriDesktop } from '@/utils/tauri';
 import { SessionScopeDot } from './SessionScopeDot';
 import { requestSessionListJump } from './sessionListJump';
 import { MachineRailContextMenu, menuAt, type ContextMenuEvent, type MachineRailMenu } from './MachineRailContextMenu';
+import { MACHINE_AVATAR_COLORS, MACHINE_AVATAR_ICONS, resolveMachineAvatar } from './MachineAvatar';
+import { useSetting } from '@/sync/storage';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
 const BUTTON_SIZE = 34;
@@ -26,6 +28,9 @@ type RailButtonProps = {
     // when shown, so it never reads as a second scope picked beside the machine.
     plain?: boolean;
     slotStyle?: StyleProp<ViewStyle>;
+    // A machine's avatar color, filling the tile in place of the surface; picked, it keeps its color
+    // rather than taking the primary fill, and the side indicator alone marks it.
+    tint?: string;
     onContextMenu?: (event: ContextMenuEvent) => void;
     children: React.ReactNode;
 };
@@ -37,7 +42,7 @@ function setTooltip(label: string) {
     };
 }
 
-const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, onContextMenu, children }: RailButtonProps) => {
+const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, tint, onContextMenu, children }: RailButtonProps) => {
     const styles = stylesheet;
     return (
         <View style={[styles.buttonSlot, slotStyle]}>
@@ -53,7 +58,8 @@ const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', p
                 style={({ hovered, pressed }: any) => [
                     styles.button,
                     plain && !active && !hovered && !pressed && styles.buttonPlain,
-                    active && !plain && styles.buttonActive,
+                    active && !plain && !tint && styles.buttonActive,
+                    tint !== undefined && { backgroundColor: tint },
                     // An offline machine steps back so the online ones stand out, unless it is the one shown.
                     online === false && !active && !hovered && styles.buttonOffline,
                 ]}
@@ -181,6 +187,7 @@ export const MachineRail = React.memo(({
 }) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
+    const machineAvatars = useSetting('machineAvatars');
     const machines = groups.filter(group => !group.unknown);
     const selectedMachine = machines.find(group => group.id === selection);
     const iconColor = (active: boolean) => active ? theme.colors.button.primary.tint : theme.colors.text;
@@ -228,6 +235,7 @@ export const MachineRail = React.memo(({
             >
                 {machines.map(group => {
                     const active = selection === group.id;
+                    const avatar = resolveMachineAvatar(machineAvatars, group.id);
                     const status = group.online ? t('status.online') : t('status.offline');
                     return (
                         <RailButton
@@ -237,14 +245,19 @@ export const MachineRail = React.memo(({
                             online={group.online}
                             dot={group.dot}
                             onPress={() => selectOrJump(group.id)}
+                            tint={avatar ? MACHINE_AVATAR_COLORS[avatar.color] : undefined}
                             onContextMenu={openMachineMenu(group)}
                         >
-                            <Text
-                                numberOfLines={1}
-                                style={[styles.initials, { color: iconColor(active) }]}
-                            >
-                                {getMachineInitials(group.name)}
-                            </Text>
+                            {avatar ? (
+                                <Ionicons name={MACHINE_AVATAR_ICONS[avatar.icon]} size={19} color="#FFFFFF" />
+                            ) : (
+                                <Text
+                                    numberOfLines={1}
+                                    style={[styles.initials, { color: iconColor(active) }]}
+                                >
+                                    {getMachineInitials(group.name)}
+                                </Text>
+                            )}
                         </RailButton>
                     );
                 })}

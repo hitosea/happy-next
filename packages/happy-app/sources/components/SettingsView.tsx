@@ -5,6 +5,7 @@ import * as React from 'react';
 import { Text } from '@/components/StyledText';
 import { useRouter } from 'expo-router';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
+import { MachineIcon } from './MachineAvatar';
 import Constants from 'expo-constants';
 import { useAuth } from '@/auth/AuthContext';
 import { isTauriDesktop } from '@/utils/tauri';
@@ -82,10 +83,17 @@ export const SettingsView = React.memo(function SettingsView() {
                 title={title}
                 subtitle={subtitle}
                 icon={
-                    <Ionicons
-                        name="desktop-outline"
+                    <MachineIcon
+                        machineId={machine.id}
                         size={29}
-                        color={isOnline ? theme.colors.status.connected : theme.colors.status.disconnected}
+                        statusColor={isOnline ? theme.colors.status.connected : theme.colors.status.disconnected}
+                        fallback={
+                            <Ionicons
+                                name="desktop-outline"
+                                size={29}
+                                color={isOnline ? theme.colors.status.connected : theme.colors.status.disconnected}
+                            />
+                        }
                     />
                 }
                 onPress={reorderHandle ? undefined : () => router.push(`/machine/${machine.id}`)}

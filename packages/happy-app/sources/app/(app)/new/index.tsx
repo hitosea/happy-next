@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Typography } from '@/constants/Typography';
 import { useAllMachines, storage, useLocalSetting, useSessionModeLastUsed, useSetting, useSettingMutable, useSessions } from '@/sync/storage';
 import { Ionicons, Octicons } from '@expo/vector-icons';
+import { MachineIcon } from '@/components/MachineAvatar';
 import { ItemGroup } from '@/components/ItemGroup';
 import { Item } from '@/components/Item';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -1801,7 +1802,11 @@ function NewSessionWizard() {
                                     alignItems: 'center',
                                     gap: STATUS_ITEM_GAP,
                                 }}>
-                                    <Ionicons name="desktop-outline" size={16} color={theme.colors.textSecondary} />
+                                    <MachineIcon
+                                        machineId={selectedMachineId}
+                                        size={16}
+                                        fallback={<Ionicons name="desktop-outline" size={16} color={theme.colors.textSecondary} />}
+                                    />
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: STATUS_ITEM_GAP, flexWrap: 'wrap' }}>
                                         <Text style={{ fontSize: 11, color: theme.colors.textSecondary, ...Typography.default() }}>
                                             {selectedMachine.metadata?.displayName || selectedMachine.metadata?.host || 'Machine'}:
@@ -2189,10 +2194,16 @@ function NewSessionWizard() {
                                     getItemTitle: (machine) => machine.metadata?.displayName || machine.metadata?.host || machine.id,
                                     getItemSubtitle: undefined,
                                     getItemIcon: (machine) => (
-                                        <Ionicons
-                                            name="desktop-outline"
+                                        <MachineIcon
+                                            machineId={machine.id}
                                             size={24}
-                                            color={theme.colors.textSecondary}
+                                            fallback={
+                                                <Ionicons
+                                                    name="desktop-outline"
+                                                    size={24}
+                                                    color={theme.colors.textSecondary}
+                                                />
+                                            }
                                         />
                                     ),
                                     getRecentItemIcon: (machine) => (

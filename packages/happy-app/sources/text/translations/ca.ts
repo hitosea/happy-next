@@ -1973,6 +1973,11 @@ export const ca: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Avatar',
+        avatarDescription: 'Es mostra a la barra lateral i a les llistes de màquines',
+        avatarIcon: 'Icona',
+        avatarColor: 'Color',
+        avatarReset: 'Restaura el valor per defecte',
         renameMachine: 'Canviar nom de la màquina',
         renameMachineDescription: "Dona un nom personalitzat a aquesta màquina. Deixa'l buit per utilitzar el nom d'amfitrió predeterminat.",
         machineNamePlaceholder: 'Nom de la màquina',

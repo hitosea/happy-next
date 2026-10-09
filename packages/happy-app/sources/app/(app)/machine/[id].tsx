@@ -43,6 +43,8 @@ import { MODEL_MODE_DEFAULT } from 'happy-wire';
 import { NativeMenu } from '@/components/NativeMenu';
 import { openMachineTerminal } from '@/terminal/openMachineTerminal';
 import { SessionHistoryCard } from '@/components/SessionHistoryCard';
+import { MachineIcon } from '@/components/MachineAvatar';
+import { MachineAvatarPicker } from '@/components/MachineAvatarPicker';
 import { useSessionFork } from '@/hooks/useSessionFork';
 import { SessionProjectLabelsContext, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 
@@ -669,11 +671,18 @@ export default function MachineDetailScreen() {
                     headerTitle: useNativeSoftHeader ? machineName : () => (
                         <View style={{ alignItems: 'center', justifyContent: 'center', maxWidth: headerTitleMaxWidth }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: '100%' }}>
-                                <Ionicons
-                                    name="desktop-outline"
-                                    size={18}
-                                    color={theme.colors.header.tint}
+                                <MachineIcon
+                                    machineId={machineId}
+                                    size={20}
                                     style={{ marginRight: 6, flexShrink: 0 }}
+                                    fallback={
+                                        <Ionicons
+                                            name="desktop-outline"
+                                            size={18}
+                                            color={theme.colors.header.tint}
+                                            style={{ marginRight: 6, flexShrink: 0 }}
+                                        />
+                                    }
                                 />
                                 <Text
                                     numberOfLines={1}
@@ -734,6 +743,12 @@ export default function MachineDetailScreen() {
                 }
                 keyboardShouldPersistTaps="handled"
             >
+                {machine && (
+                    <ItemGroup>
+                        <MachineAvatarPicker machineId={machine.id} />
+                    </ItemGroup>
+                )}
+
                 {/* Launch section */}
                 {machine && (
                     <>

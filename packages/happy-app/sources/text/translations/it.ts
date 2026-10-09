@@ -2003,6 +2003,11 @@ export const it: TranslationStructure = {
     },
 
     machine: {
+        avatar: 'Avatar',
+        avatarDescription: 'Mostrato nella barra laterale e negli elenchi delle macchine',
+        avatarIcon: 'Icona',
+        avatarColor: 'Colore',
+        avatarReset: 'Ripristina predefinito',
         renameMachine: 'Rinomina macchina',
         renameMachineDescription: 'Assegna un nome personalizzato a questa macchina. Lascia vuoto per usare il nome host predefinito.',
         machineNamePlaceholder: 'Nome macchina',

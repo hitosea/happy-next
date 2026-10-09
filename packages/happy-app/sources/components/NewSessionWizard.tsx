@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { Ionicons } from '@expo/vector-icons';
+import { MachineIcon } from './MachineAvatar';
 import { SessionTypeSelector } from '@/components/SessionTypeSelector';
 import { PermissionModeSelector, PermissionMode, ModelMode } from '@/components/PermissionModeSelector';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -1783,10 +1784,16 @@ export function NewSessionWizard({ onComplete, onCancel, initialPrompt = '' }: N
                                     title={machine.metadata?.displayName || machine.metadata?.host || machine.id}
                                     subtitle={machine.metadata?.host || ''}
                                     leftElement={
-                                        <Ionicons
-                                            name="laptop-outline"
+                                        <MachineIcon
+                                            machineId={machine.id}
                                             size={24}
-                                            color={theme.colors.textSecondary}
+                                            fallback={
+                                                <Ionicons
+                                                    name="laptop-outline"
+                                                    size={24}
+                                                    color={theme.colors.textSecondary}
+                                                />
+                                            }
                                         />
                                     }
                                     rightElement={selectedMachineId === machine.id ? (
