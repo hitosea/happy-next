@@ -51,6 +51,8 @@ export const en: TranslationStructure = {
         openTerminal: 'Open terminal',
         hideIdleMachines: 'Hide idle machines',
         showIdleMachines: 'Show idle machines',
+        reorderMachines: 'Reorder machines',
+        reorderMachinesDone: 'Done reordering',
         close: 'Close',
         searchMachines: 'Search machines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'machine' : 'machines'} · ${online} online`,

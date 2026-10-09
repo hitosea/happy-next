@@ -36,6 +36,8 @@ export const pt: TranslationStructure = {
         openTerminal: 'Abrir terminal',
         hideIdleMachines: 'Ocultar máquinas ociosas',
         showIdleMachines: 'Mostrar máquinas ociosas',
+        reorderMachines: 'Reordenar máquinas',
+        reorderMachinesDone: 'Concluir reordenação',
         close: 'Fechar',
         searchMachines: 'Pesquisar máquinas…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'máquina' : 'máquinas'} · ${online} online`,

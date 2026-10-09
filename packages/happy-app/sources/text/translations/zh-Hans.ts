@@ -38,6 +38,8 @@ export const zhHans: TranslationStructure = {
         openTerminal: '打开终端',
         hideIdleMachines: '隐藏无会话的设备',
         showIdleMachines: '显示无会话的设备',
+        reorderMachines: '调整排序',
+        reorderMachinesDone: '完成排序',
         close: '关闭',
         searchMachines: '搜索机器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台机器 · ${online} 在线`,

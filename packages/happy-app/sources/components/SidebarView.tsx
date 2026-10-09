@@ -20,6 +20,7 @@ import { useDootaskProfile, useProfile } from '@/sync/storage';
 import { getDesktopPlatform } from '@/desktop/desktopWindowUtils';
 import { useSessionListScope } from '@/hooks/useSessionListScope';
 import { openMachineTerminal } from '@/terminal/openMachineTerminal';
+import { mergeMachineOrder } from '@/utils/machineOrder';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -144,6 +145,7 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
     const router = useRouter();
     const pathname = usePathname();
     const [hideIdleMachines, setHideIdleMachines] = useSettingMutable('hideIdleMachines');
+    const [machineOrder, setMachineOrder] = useSettingMutable('machineOrder');
     return (
         <MachineRail
             groups={scope.groups}
@@ -162,6 +164,7 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
             onOpenTerminal={(machineId) => openMachineTerminal({ machineId, push: router.push })}
             hideIdleMachines={hideIdleMachines}
             onHideIdleMachinesChange={setHideIdleMachines}
+            onReorderMachines={(machineIds) => setMachineOrder(mergeMachineOrder(machineOrder, machineIds))}
             header={header}
         />
     );

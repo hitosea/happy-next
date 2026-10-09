@@ -38,6 +38,8 @@ export const zhHant: TranslationStructure = {
         openTerminal: '開啟終端機',
         hideIdleMachines: '隱藏無會話的裝置',
         showIdleMachines: '顯示無會話的裝置',
+        reorderMachines: '調整排序',
+        reorderMachinesDone: '完成排序',
         close: '關閉',
         searchMachines: '搜尋機器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台機器 · ${online} 在線`,

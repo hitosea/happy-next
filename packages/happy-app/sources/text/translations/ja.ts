@@ -39,6 +39,8 @@ export const ja: TranslationStructure = {
         openTerminal: 'ターミナルを開く',
         hideIdleMachines: 'セッションのないマシンを隠す',
         showIdleMachines: 'セッションのないマシンを表示',
+        reorderMachines: '並べ替え',
+        reorderMachinesDone: '並べ替えを完了',
         close: '閉じる',
         searchMachines: 'マシンを検索…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台のマシン · ${online} 台オンライン`,

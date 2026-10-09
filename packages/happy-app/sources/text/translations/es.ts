@@ -36,6 +36,8 @@ export const es: TranslationStructure = {
         openTerminal: 'Abrir terminal',
         hideIdleMachines: 'Ocultar máquinas inactivas',
         showIdleMachines: 'Mostrar máquinas inactivas',
+        reorderMachines: 'Reordenar máquinas',
+        reorderMachinesDone: 'Terminar de reordenar',
         close: 'Cerrar',
         searchMachines: 'Buscar máquinas…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'máquina' : 'máquinas'} · ${online} en línea`,

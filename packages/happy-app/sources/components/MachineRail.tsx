@@ -10,12 +10,15 @@ import { t } from '@/text';
 import { isTauriDesktop } from '@/utils/tauri';
 import { SessionScopeDot } from './SessionScopeDot';
 import { requestSessionListJump } from './sessionListJump';
-import { MachineRailContextMenu, menuAt, type ContextMenuEvent, type MachineRailMenu } from './MachineRailContextMenu';
+import { MachineRailContextMenu, menuAt, type ContextMenuEvent, type MachineRailMenu, type MachineRailMenuItem } from './MachineRailContextMenu';
+import { useMouseReorder } from '@/hooks/useMouseReorder';
 import { MACHINE_AVATAR_COLORS, MACHINE_AVATAR_ICONS, resolveMachineAvatar } from './MachineAvatar';
 import { useSetting } from '@/sync/storage';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
 const BUTTON_SIZE = 34;
+// A machine button plus the gap under it: one place in the order while dragging.
+const MACHINE_PITCH = BUTTON_SIZE + 12;
 export const MACHINE_RAIL_WIDTH = 56;
 
 type RailButtonProps = {
@@ -32,6 +35,9 @@ type RailButtonProps = {
     // rather than taking the primary fill, and the side indicator alone marks it.
     tint?: string;
     onContextMenu?: (event: ContextMenuEvent) => void;
+    // Reordering (web): the slot is grabbed with the mouse, and the tile shows the grab cursor.
+    onPointerDown?: (event: any) => void;
+    buttonStyle?: StyleProp<ViewStyle>;
     children: React.ReactNode;
 };
 
@@ -42,10 +48,13 @@ function setTooltip(label: string) {
     };
 }
 
-const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, tint, onContextMenu, children }: RailButtonProps) => {
+const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, tint, onContextMenu, onPointerDown, buttonStyle, children }: RailButtonProps) => {
     const styles = stylesheet;
     return (
-        <View style={[styles.buttonSlot, slotStyle]}>
+        <View
+            style={[styles.buttonSlot, slotStyle]}
+            {...(onPointerDown ? { onPointerDown } : {})}
+        >
             {active && !plain && <View style={styles.activeIndicator} />}
             <Pressable
                 ref={setTooltip(label)}
@@ -62,6 +71,7 @@ const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', p
                     tint !== undefined && { backgroundColor: tint },
                     // An offline machine steps back so the online ones stand out, unless it is the one shown.
                     online === false && !active && !hovered && styles.buttonOffline,
+                    buttonStyle,
                 ]}
             >
                 {children}
@@ -162,6 +172,7 @@ export const MachineRail = React.memo(({
     onOpenTerminal,
     hideIdleMachines,
     onHideIdleMachinesChange,
+    onReorderMachines,
     header,
 }: {
     groups: SessionMachineGroup[];
@@ -182,6 +193,8 @@ export const MachineRail = React.memo(({
     onOpenTerminal: (machineId: string) => void;
     hideIdleMachines: boolean;
     onHideIdleMachinesChange: (hide: boolean) => void;
+    // The machines on the rail in the order they were dragged into.
+    onReorderMachines: (machineIds: string[]) => void;
     // Sits above the rail's buttons, where the web sidebar keeps the app logo.
     header?: React.ReactNode;
 }) => {
@@ -197,18 +210,52 @@ export const MachineRail = React.memo(({
         if (next === selection) requestSessionListJump();
         else onSelect(next);
     };
+
+    // Reordering, entered from the right-click menus: the machine buttons are dragged with the mouse
+    // instead of picked, until Done in the menu, Escape, or a click anywhere off the machines.
+    const [reordering, setReordering] = React.useState(false);
+    const canReorder = Platform.OS === 'web' && machines.length >= 2;
+    const machinesRef = React.useRef<HTMLElement | null>(null);
+    const machineIds = React.useMemo(() => machines.map(group => group.id), [machines]);
+    const reorder = useMouseReorder(machineIds, MACHINE_PITCH, onReorderMachines);
+    React.useEffect(() => {
+        if (!canReorder) setReordering(false);
+    }, [canReorder]);
+    React.useEffect(() => {
+        if (!reordering || typeof document === 'undefined') return;
+        const handlePointerDown = (event: PointerEvent) => {
+            // A right-click is left to open the menu, which offers Done.
+            if (event.button !== 0) return;
+            if (!(event.target instanceof Node && machinesRef.current?.contains(event.target))) setReordering(false);
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setReordering(false);
+        };
+        document.addEventListener('pointerdown', handlePointerDown, true);
+        document.addEventListener('keydown', handleKeyDown, true);
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown, true);
+            document.removeEventListener('keydown', handleKeyDown, true);
+        };
+    }, [reordering]);
+
     const [menu, setMenu] = React.useState<MachineRailMenu | null>(null);
     const closeMenu = React.useCallback(() => setMenu(null), []);
+    const reorderItem: MachineRailMenuItem[] = !canReorder ? [] : reordering
+        ? [{ label: t('sessionScope.reorderMachinesDone'), icon: 'checkmark-outline', onPress: () => setReordering(false) }]
+        : [{ label: t('sessionScope.reorderMachines'), icon: 'swap-vertical-outline', onPress: () => setReordering(true) }];
     const openMachineMenu = (group: SessionMachineGroup) => (event: ContextMenuEvent) => setMenu(menuAt(event, [
         { label: t('sessionScope.newSession'), icon: 'add-circle-outline', onPress: () => onNewSession(group.id) },
         { label: t('sessionScope.openTerminal'), icon: 'terminal-outline', disabled: !group.online, onPress: () => onOpenTerminal(group.id) },
         { label: t('sessionScope.machineDetails'), icon: 'information-circle-outline', onPress: () => onMachineDetails(group.id) },
+        ...reorderItem,
     ]));
-    // Anywhere on the rail outside a machine button: the item names what it will do next.
+    // Anywhere on the rail outside a machine button: the items name what they will do next.
     const openRailMenu = (event: ContextMenuEvent) => setMenu(menuAt(event, [
         hideIdleMachines
             ? { label: t('sessionScope.showIdleMachines'), icon: 'eye-outline', onPress: () => onHideIdleMachinesChange(false) }
             : { label: t('sessionScope.hideIdleMachines'), icon: 'eye-off-outline', onPress: () => onHideIdleMachinesChange(true) },
+        ...reorderItem,
     ]));
 
     return (
@@ -233,34 +280,46 @@ export const MachineRail = React.memo(({
                 contentContainerStyle={styles.machinesContent}
                 showsVerticalScrollIndicator={false}
             >
-                {machines.map(group => {
-                    const active = selection === group.id;
-                    const avatar = resolveMachineAvatar(machineAvatars, group.id);
-                    const status = group.online ? t('status.online') : t('status.offline');
-                    return (
-                        <RailButton
-                            key={group.id}
-                            label={`${group.name} · ${status} · ${t('sessionScope.sessionCount', { count: group.sessions.length })}`}
-                            active={active}
-                            online={group.online}
-                            dot={group.dot}
-                            onPress={() => selectOrJump(group.id)}
-                            tint={avatar ? MACHINE_AVATAR_COLORS[avatar.color] : undefined}
-                            onContextMenu={openMachineMenu(group)}
-                        >
-                            {avatar ? (
-                                <Ionicons name={MACHINE_AVATAR_ICONS[avatar.icon]} size={19} color="#FFFFFF" />
-                            ) : (
-                                <Text
-                                    numberOfLines={1}
-                                    style={[styles.initials, { color: iconColor(active) }]}
-                                >
-                                    {getMachineInitials(group.name)}
-                                </Text>
-                            )}
-                        </RailButton>
-                    );
-                })}
+                <View
+                    ref={(node) => { machinesRef.current = node as unknown as HTMLElement | null; }}
+                    style={[styles.machineList, reordering && styles.machineListReordering]}
+                >
+                    {machines.map((group, index) => {
+                        const active = selection === group.id;
+                        const avatar = resolveMachineAvatar(machineAvatars, group.id);
+                        const status = group.online ? t('status.online') : t('status.offline');
+                        const dragged = reorder.drag?.id === group.id;
+                        return (
+                            <RailButton
+                                key={group.id}
+                                label={`${group.name} · ${status} · ${t('sessionScope.sessionCount', { count: group.sessions.length })}`}
+                                active={active}
+                                online={group.online}
+                                dot={group.dot}
+                                onPress={reordering ? noop : () => selectOrJump(group.id)}
+                                tint={avatar ? MACHINE_AVATAR_COLORS[avatar.color] : undefined}
+                                onContextMenu={openMachineMenu(group)}
+                                onPointerDown={reordering ? (event) => reorder.start(group.id, event) : undefined}
+                                slotStyle={reordering && reorder.drag ? [
+                                    { transform: [{ translateY: reorder.offsetOf(group.id, index) }] },
+                                    dragged ? styles.slotDragged : styles.slotShifting,
+                                ] : undefined}
+                                buttonStyle={reordering ? (reorder.drag ? styles.buttonGrabbing : styles.buttonGrab) : undefined}
+                            >
+                                {avatar ? (
+                                    <Ionicons name={MACHINE_AVATAR_ICONS[avatar.icon]} size={19} color="#FFFFFF" />
+                                ) : (
+                                    <Text
+                                        numberOfLines={1}
+                                        style={[styles.initials, { color: iconColor(active) }]}
+                                    >
+                                        {getMachineInitials(group.name)}
+                                    </Text>
+                                )}
+                            </RailButton>
+                        );
+                    })}
+                </View>
                 {(hasShared || hasSharedByMe) && <View style={styles.separator} />}
                 {hasShared && (
                     <RailButton
@@ -304,6 +363,8 @@ export const MachineRail = React.memo(({
     );
 });
 
+const noop = () => {};
+
 const stylesheet = StyleSheet.create((theme) => ({
     rail: {
         width: MACHINE_RAIL_WIDTH,
@@ -326,6 +387,50 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 12,
         paddingVertical: 2,
     },
+    // Spelled out at rest, so reordering eases in from and back to these.
+    machineList: {
+        alignSelf: 'stretch',
+        alignItems: 'center',
+        gap: 12,
+        marginHorizontal: 0,
+        marginTop: 0,
+        marginBottom: 0,
+        paddingVertical: 0,
+        borderRadius: 12,
+        backgroundColor: 'transparent',
+        ...Platform.select({
+            web: {
+                transitionProperty: 'margin, padding, background-color',
+                transitionDuration: '180ms',
+                transitionTimingFunction: 'ease-out',
+            } as any,
+        }),
+    },
+    // Marks the machines as being reordered, sunk into a darker well: the tiles are a step lighter
+    // than the rail in both themes, so a darker wash sets them off where a lighter one blends in.
+    // The padding is pulled back below; above, the scroll view's own padding is all there is to
+    // pull into, so the machines ease down a little.
+    machineListReordering: {
+        marginHorizontal: 6,
+        marginTop: -2,
+        marginBottom: -6,
+        paddingVertical: 6,
+        backgroundColor: theme.dark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.06)',
+    },
+    slotDragged: {
+        zIndex: 1,
+    },
+    // Web: the machines stepping aside glide into place rather than jump.
+    slotShifting: {
+        transitionProperty: 'transform',
+        transitionDuration: '150ms',
+    } as any,
+    buttonGrab: {
+        cursor: 'grab',
+    } as any,
+    buttonGrabbing: {
+        cursor: 'grabbing',
+    } as any,
     footer: {
         alignItems: 'center',
         gap: 12,

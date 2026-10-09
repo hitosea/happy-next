@@ -36,6 +36,8 @@ export const ca: TranslationStructure = {
         openTerminal: 'Obre el terminal',
         hideIdleMachines: 'Amaga les màquines inactives',
         showIdleMachines: 'Mostra les màquines inactives',
+        reorderMachines: 'Reordena les màquines',
+        reorderMachinesDone: 'Acaba de reordenar',
         close: 'Tanca',
         searchMachines: 'Cerca màquines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'màquina' : 'màquines'} · ${online} en línia`,

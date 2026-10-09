@@ -47,6 +47,8 @@ export const pl: TranslationStructure = {
         openTerminal: 'Otwórz terminal',
         hideIdleMachines: 'Ukryj bezczynne maszyny',
         showIdleMachines: 'Pokaż bezczynne maszyny',
+        reorderMachines: 'Zmień kolejność',
+        reorderMachinesDone: 'Zakończ zmianę kolejności',
         close: 'Zamknij',
         searchMachines: 'Szukaj maszyn…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Maszyny: ${total} · online: ${online}`,

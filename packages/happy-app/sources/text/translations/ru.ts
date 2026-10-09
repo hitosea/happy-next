@@ -47,6 +47,8 @@ export const ru: TranslationStructure = {
         openTerminal: 'Открыть терминал',
         hideIdleMachines: 'Скрыть неактивные машины',
         showIdleMachines: 'Показать неактивные машины',
+        reorderMachines: 'Изменить порядок',
+        reorderMachinesDone: 'Готово',
         close: 'Закрыть',
         searchMachines: 'Поиск машин…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Машин: ${total} · в сети: ${online}`,
