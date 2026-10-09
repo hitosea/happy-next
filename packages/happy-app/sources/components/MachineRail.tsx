@@ -387,35 +387,38 @@ const stylesheet = StyleSheet.create((theme) => ({
         gap: 12,
         paddingVertical: 2,
     },
-    // Spelled out at rest, so reordering eases in from and back to these.
+    // Spelled out at rest, so reordering eases in from and back to these. The border is always
+    // there, unseen until reordering, with the margins taking back its width so it moves nothing.
     machineList: {
         alignSelf: 'stretch',
         alignItems: 'center',
         gap: 12,
-        marginHorizontal: 0,
-        marginTop: 0,
-        marginBottom: 0,
+        marginHorizontal: -1,
+        marginTop: -1,
+        marginBottom: -1,
         paddingVertical: 0,
         borderRadius: 12,
-        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: 'transparent',
         ...Platform.select({
             web: {
-                transitionProperty: 'margin, padding, background-color',
+                transitionProperty: 'margin, padding, border-color',
                 transitionDuration: '180ms',
                 transitionTimingFunction: 'ease-out',
             } as any,
         }),
     },
-    // Marks the machines as being reordered, sunk into a darker well: the tiles are a step lighter
-    // than the rail in both themes, so a darker wash sets them off where a lighter one blends in.
-    // The padding is pulled back below; above, the scroll view's own padding is all there is to
-    // pull into, so the machines ease down a little.
+    // Marks the machines as being reordered with a dashed outline, which no tile color blends into.
+    // The outline and padding are pulled back below; above, the scroll view's own padding is all
+    // there is to pull into (any further and the scroll view clips the outline's top), so the
+    // machines ease down a little.
     machineListReordering: {
         marginHorizontal: 6,
         marginTop: -2,
         marginBottom: -6,
-        paddingVertical: 6,
-        backgroundColor: theme.dark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(0, 0, 0, 0.06)',
+        paddingVertical: 4,
+        borderColor: theme.colors.textSecondary,
     },
     slotDragged: {
         zIndex: 1,
