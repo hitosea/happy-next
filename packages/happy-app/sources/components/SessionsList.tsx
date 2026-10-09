@@ -38,6 +38,7 @@ import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
 import { PressHighlight } from './PressHighlight';
+import { SessionRowFlash, flashSessionRow } from './SessionRowFlash';
 import { SessionMarkerBar } from './SessionColorMarker';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -383,6 +384,18 @@ function ViewportInsetsReporter({ height, onChange }: { height: number; onChange
 }
 
 const SECTION_HEADER_DOUBLE_TAP_MS = 400;
+// A row the list jumped to flashes once it holds still this long, or after the longest wait at most.
+const FLASH_SETTLE_MS = 100;
+const FLASH_MAX_WAIT_MS = 1500;
+
+// Where a session row sits in the window, for telling when a smooth scroll to it has finished.
+function measureRowTop(row: View, callback: (top: number) => void) {
+    if (Platform.OS === 'web' && typeof (row as any).getBoundingClientRect === 'function') {
+        callback((row as any).getBoundingClientRect().top);
+        return;
+    }
+    row.measureInWindow((_x, y) => callback(y));
+}
 
 // Header of one section in the sidebar's "All machines" view: a plain divider that stays pinned while
 // its sessions scroll by. Only the project groups below it fold, so the list has a single fold level.
@@ -650,11 +663,47 @@ export function SessionsList() {
         });
         return true;
     }, [getVisibleInsets, clampScrollOffset]);
-    const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest') => {
+    // Flashes a row once the smooth scroll to it is over (see SessionRowFlash): when it has held
+    // still for a moment, so a far row is not done flashing before it comes into view.
+    const flashFrameRef = React.useRef<number | null>(null);
+    const flashTokenRef = React.useRef(0);
+    const flashRowWhenSettled = React.useCallback((sessionId: string) => {
+        if (flashFrameRef.current !== null) cancelAnimationFrame(flashFrameRef.current);
+        const token = ++flashTokenRef.current;
+        const startedAt = Date.now();
+        let lastTop: number | null = null;
+        let stillSince = startedAt;
+        const check = () => {
+            flashFrameRef.current = null;
+            const row = sessionRowRefs.current.get(sessionId);
+            if (!row) return;
+            measureRowTop(row, top => {
+                if (token !== flashTokenRef.current) return;
+                const now = Date.now();
+                if (lastTop === null || Math.abs(top - lastTop) >= 1) {
+                    lastTop = top;
+                    stillSince = now;
+                }
+                if (now - stillSince >= FLASH_SETTLE_MS || now - startedAt >= FLASH_MAX_WAIT_MS) {
+                    flashSessionRow(sessionId);
+                    return;
+                }
+                flashFrameRef.current = requestAnimationFrame(check);
+            });
+        };
+        flashFrameRef.current = requestAnimationFrame(check);
+    }, []);
+    // With `flash`, the row flashes once it is in place.
+    const scheduleRevealSelectedSession = React.useCallback((sessionId: string, align: 'nearest' | 'center' = 'nearest', flash = false) => {
+        const reveal = () => {
+            const revealed = revealSessionRow(sessionId, align);
+            if (revealed && flash) flashRowWhenSettled(sessionId);
+            return revealed;
+        };
         if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
         revealFrameRef.current = requestAnimationFrame(() => {
             revealFrameRef.current = null;
-            if (revealSessionRow(sessionId, align)) return;
+            if (reveal()) return;
 
             const topLevelIndex = dataWithSelected?.findIndex(item =>
                 item.type === 'session'
@@ -668,10 +717,10 @@ export function SessionsList() {
             listRef.current?.scrollToIndex({ index: topLevelIndex, animated: false, viewPosition: 0.5 });
             revealFrameRef.current = requestAnimationFrame(() => {
                 revealFrameRef.current = null;
-                revealSessionRow(sessionId, align);
+                reveal();
             });
         });
-    }, [dataWithSelected, revealSessionRow]);
+    }, [dataWithSelected, revealSessionRow, flashRowWhenSettled]);
 
     // Double-tapping the sessions tab reveals the next session that wants a look (see
     // sessionListJump), unfolding its project group first if needed; with none, back to the top.
@@ -709,7 +758,7 @@ export function SessionsList() {
             for (const key of collapseKeys) delete next[key];
             setCollapsedProjectGroups(next);
         }
-        scheduleRevealSelectedSession(nextId, 'center');
+        scheduleRevealSelectedSession(nextId, 'center', true);
     }), [tabSessions, tabData, collapsedProjectGroups, setCollapsedProjectGroups, scheduleRevealSelectedSession, scrollListToTop]);
 
     // A manual switch on the rail or the phone switcher, to anywhere but where the pending session
@@ -735,6 +784,8 @@ export function SessionsList() {
 
     React.useEffect(() => () => {
         if (revealFrameRef.current !== null) cancelAnimationFrame(revealFrameRef.current);
+        if (flashFrameRef.current !== null) cancelAnimationFrame(flashFrameRef.current);
+        flashTokenRef.current++;
     }, []);
 
     // Request review
@@ -1003,6 +1054,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
         >
             {({ pressed }) => (<>
             {pressed && <PressHighlight style={rowShape} />}
+            <SessionRowFlash sessionId={session.id} style={rowShape} />
             {/* The session's colour marker, down the leading edge — out of flow, so an
                 unmarked row costs nothing and nothing shifts. See SessionMarkerBar. */}
             <SessionMarkerBar sessionId={session.id} />

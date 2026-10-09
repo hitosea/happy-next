@@ -8,6 +8,7 @@ import { Typography } from '@/constants/Typography';
 import { t } from '@/text';
 import { isTauriDesktop } from '@/utils/tauri';
 import { SessionScopeDot } from './SessionScopeDot';
+import { requestSessionListJump } from './sessionListJump';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
 const BUTTON_SIZE = 34;
@@ -93,6 +94,12 @@ export const MachineRail = React.memo(({
     const { theme } = useUnistyles();
     const machines = groups.filter(group => !group.unknown);
     const iconColor = (active: boolean) => active ? theme.colors.button.primary.tint : theme.colors.text;
+    // Tapping the machine already shown, or All machines when shown, reveals the next session that
+    // wants a look, like double-tapping the phone's sessions tab; any other tap switches to it.
+    const selectOrJump = (next: SessionListSelection) => {
+        if (next === selection) requestSessionListJump();
+        else onSelect(next);
+    };
 
     return (
         <View style={[styles.rail, !!header && styles.railWithHeader]}>
@@ -100,7 +107,7 @@ export const MachineRail = React.memo(({
             <RailButton
                 label={`${t('sessionScope.allMachines')} · ${t('sessionScope.sessionCount', { count: sessionCount })}`}
                 active={selection === 'all'}
-                onPress={() => onSelect('all')}
+                onPress={() => selectOrJump('all')}
                 // Browser only: this lines the button up with the search field beside it. The desktop app
                 // (also web) keeps the default position.
                 slotStyle={Platform.OS === 'web' && !isTauriDesktop() ? { marginTop: -2 } : undefined}
@@ -123,7 +130,7 @@ export const MachineRail = React.memo(({
                             active={active}
                             online={group.online}
                             dot={group.dot}
-                            onPress={() => onSelect(group.id)}
+                            onPress={() => selectOrJump(group.id)}
                         >
                             <Text
                                 numberOfLines={1}
