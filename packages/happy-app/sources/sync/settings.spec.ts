@@ -18,17 +18,17 @@ describe('settings', () => {
 
         it('should parse valid settings object', () => {
             const validSettings = {
-                viewInline: true
+                wrapLinesInDiffs: true
             };
             expect(settingsParse(validSettings)).toEqual({
                 ...settingsDefaults,
-                viewInline: true
+                wrapLinesInDiffs: true
             });
         });
 
         it('should ignore invalid field types and use defaults', () => {
             const invalidSettings = {
-                viewInline: 'not a boolean'
+                wrapLinesInDiffs: 'not a boolean'
             };
             expect(settingsParse(invalidSettings)).toEqual(settingsDefaults);
         });
@@ -67,14 +67,14 @@ describe('settings', () => {
 
         it('should preserve unknown fields (loose schema)', () => {
             const settingsWithExtra = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 unknownField: 'some value',
                 anotherField: 123
             };
             const result = settingsParse(settingsWithExtra);
             expect(result).toEqual({
                 ...settingsDefaults,
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 unknownField: 'some value',
                 anotherField: 123
             });
@@ -82,17 +82,17 @@ describe('settings', () => {
 
         it('should handle partial settings and merge with defaults', () => {
             const partialSettings = {
-                viewInline: true
+                wrapLinesInDiffs: true
             };
             expect(settingsParse(partialSettings)).toEqual({
                 ...settingsDefaults,
-                viewInline: true
+                wrapLinesInDiffs: true
             });
         });
 
         it('should handle settings with null/undefined values', () => {
             const settingsWithNull = {
-                viewInline: null,
+                wrapLinesInDiffs: null,
                 someOtherField: undefined
             };
             expect(settingsParse(settingsWithNull)).toEqual({
@@ -103,7 +103,7 @@ describe('settings', () => {
 
         it('should handle nested objects as extra fields', () => {
             const settingsWithNested = {
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 image: {
                     url: 'http://example.com',
                     width: 100,
@@ -113,7 +113,7 @@ describe('settings', () => {
             const result = settingsParse(settingsWithNested);
             expect(result).toEqual({
                 ...settingsDefaults,
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 image: {
                     url: 'http://example.com',
                     width: 100,
@@ -127,9 +127,6 @@ describe('settings', () => {
         it('should apply delta to existing settings', () => {
             const currentSettings: Settings = {
                 schemaVersion: 1,
-                viewInline: false,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
                 wrapLinesInDiffs: false,
                 analyticsOptOut: false,
@@ -168,15 +165,12 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: Partial<Settings> = {
-                viewInline: true
+                wrapLinesInDiffs: true
             };
             expect(applySettings(currentSettings, delta)).toEqual({
                 schemaVersion: 1, // Preserved from currentSettings
-                viewInline: true,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
-                wrapLinesInDiffs: false,
+                wrapLinesInDiffs: true,
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
@@ -217,11 +211,8 @@ describe('settings', () => {
         it('should merge with defaults', () => {
             const currentSettings: Settings = {
                 schemaVersion: 1,
-                viewInline: true,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
-                wrapLinesInDiffs: false,
+                wrapLinesInDiffs: true,
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
@@ -264,11 +255,8 @@ describe('settings', () => {
         it('should override existing values with delta', () => {
             const currentSettings: Settings = {
                 schemaVersion: 1,
-                viewInline: true,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
-                wrapLinesInDiffs: false,
+                wrapLinesInDiffs: true,
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
@@ -305,22 +293,19 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: Partial<Settings> = {
-                viewInline: false
+                wrapLinesInDiffs: false
             };
             expect(applySettings(currentSettings, delta)).toEqual({
                 ...currentSettings,
-                viewInline: false
+                wrapLinesInDiffs: false
             });
         });
 
         it('should handle empty delta', () => {
             const currentSettings: Settings = {
                 schemaVersion: 1,
-                viewInline: true,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
-                wrapLinesInDiffs: false,
+                wrapLinesInDiffs: true,
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
@@ -361,15 +346,15 @@ describe('settings', () => {
 
         it('should handle extra fields in current settings', () => {
             const currentSettings: any = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 extraField: 'value'
             };
             const delta: Partial<Settings> = {
-                viewInline: false
+                wrapLinesInDiffs: false
             };
             expect(applySettings(currentSettings, delta)).toEqual({
                 ...settingsDefaults,
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 extraField: 'value'
             });
         });
@@ -377,11 +362,8 @@ describe('settings', () => {
         it('should handle extra fields in delta', () => {
             const currentSettings: Settings = {
                 schemaVersion: 1,
-                viewInline: true,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
-                wrapLinesInDiffs: false,
+                wrapLinesInDiffs: true,
                 analyticsOptOut: false,
                 inferenceOpenAIKey: null,
                 experiments: false,
@@ -418,28 +400,28 @@ describe('settings', () => {
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: any = {
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 newField: 'new value'
             };
             expect(applySettings(currentSettings, delta)).toEqual({
                 ...currentSettings,
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 newField: 'new value'
             });
         });
 
         it('should preserve unknown fields from both current and delta', () => {
             const currentSettings: any = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 existingExtra: 'keep me'
             };
             const delta: any = {
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 newExtra: 'add me'
             };
             expect(applySettings(currentSettings, delta)).toEqual({
                 ...settingsDefaults,
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 existingExtra: 'keep me',
                 newExtra: 'add me'
             });
@@ -450,9 +432,6 @@ describe('settings', () => {
         it('should have correct default values', () => {
             expect(settingsDefaults).toEqual({
                 schemaVersion: 2,
-                viewInline: false,
-                expandTodos: true,
-                showLineNumbers: true,
                 showLineNumbersInToolViews: false,
                 wrapLinesInDiffs: false,
                 analyticsOptOut: false,
@@ -507,29 +486,29 @@ describe('settings', () => {
 
         it('should handle settings from newer version (extra fields)', () => {
             const newVersionSettings = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 futureFeature: 'some value',
                 anotherNewField: { complex: 'object' }
             };
             const parsed = settingsParse(newVersionSettings);
-            expect(parsed.viewInline).toBe(true);
+            expect(parsed.wrapLinesInDiffs).toBe(true);
             expect((parsed as any).futureFeature).toBe('some value');
             expect((parsed as any).anotherNewField).toEqual({ complex: 'object' });
         });
 
         it('should preserve unknown fields when applying changes', () => {
             const settingsWithFutureFields: any = {
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 futureField1: 'value1',
                 futureField2: 42
             };
             const delta: Partial<Settings> = {
-                viewInline: true
+                wrapLinesInDiffs: true
             };
             const result = applySettings(settingsWithFutureFields, delta);
             expect(result).toEqual({
                 ...settingsDefaults,
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 futureField1: 'value1',
                 futureField2: 42
             });
@@ -538,7 +517,7 @@ describe('settings', () => {
 
     describe('edge cases', () => {
         it('should handle circular references gracefully', () => {
-            const circular: any = { viewInline: true };
+            const circular: any = { wrapLinesInDiffs: true };
             circular.self = circular;
 
             // Should not throw and should return defaults due to parse error
@@ -546,23 +525,23 @@ describe('settings', () => {
         });
 
         it('should handle very large objects', () => {
-            const largeSettings: any = { viewInline: true };
+            const largeSettings: any = { wrapLinesInDiffs: true };
             for (let i = 0; i < 1000; i++) {
                 largeSettings[`field${i}`] = `value${i}`;
             }
             const parsed = settingsParse(largeSettings);
-            expect(parsed.viewInline).toBe(true);
+            expect(parsed.wrapLinesInDiffs).toBe(true);
             expect(Object.keys(parsed).length).toBeGreaterThan(1000);
         });
 
         it('should handle settings with prototype pollution attempts', () => {
             const maliciousSettings = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 '__proto__': { evil: true },
                 'constructor': { prototype: { evil: true } }
             };
             const parsed = settingsParse(maliciousSettings);
-            expect(parsed.viewInline).toBe(true);
+            expect(parsed.wrapLinesInDiffs).toBe(true);
             // Zod's loose() mode doesn't preserve __proto__ as a regular property
             // which is actually good for security
             expect((parsed as any).__proto__).not.toEqual({ evil: true });
@@ -664,7 +643,7 @@ describe('settings', () => {
             const serverSettings: Partial<Settings> = {
                 // Server settings from another device (version 11)
                 // Missing useEnhancedSessionWizard because other device doesn't have it
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 profiles: [
                     {
                         id: 'server-profile',
@@ -710,12 +689,12 @@ describe('settings', () => {
             // CRITICAL: Pending changes should override defaults
             expect(mergedSettings.useEnhancedSessionWizard).toBe(true);
             expect(mergedSettings.profiles).toEqual(pendingChanges.profiles);
-            expect(mergedSettings.viewInline).toBe(true); // Preserved from server
+            expect(mergedSettings.wrapLinesInDiffs).toBe(true); // Preserved from server
         });
 
         it('should handle multiple pending changes during version-mismatch', () => {
             const serverSettings = settingsParse({
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 experiments: false
             });
 
@@ -729,7 +708,7 @@ describe('settings', () => {
 
             expect(merged.useEnhancedSessionWizard).toBe(true);
             expect(merged.experiments).toBe(true);
-            expect(merged.viewInline).toBe(false); // From server
+            expect(merged.wrapLinesInDiffs).toBe(false); // From server
         });
 
         it('should handle empty server settings (server reset scenario)', () => {
@@ -744,7 +723,7 @@ describe('settings', () => {
             // Pending change should override default
             expect(merged.useEnhancedSessionWizard).toBe(true);
             // Other fields use defaults
-            expect(merged.viewInline).toBe(false);
+            expect(merged.wrapLinesInDiffs).toBe(false);
         });
 
         it('should preserve user flag when server lacks field', () => {
@@ -752,7 +731,7 @@ describe('settings', () => {
             // Server has old settings without useEnhancedSessionWizard
             const serverSettings = settingsParse({
                 schemaVersion: 1,
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 // useEnhancedSessionWizard: NOT PRESENT
             });
 
@@ -774,7 +753,7 @@ describe('settings', () => {
 
             // Initial state from server
             const serverSettings = settingsParse({
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 experiments: false
             });
 
@@ -807,7 +786,7 @@ describe('settings', () => {
             expect(merged.profiles).toHaveLength(1);
             expect(merged.profiles[0].id).toBe('test-profile');
             // Server settings preserved
-            expect(merged.viewInline).toBe(false);
+            expect(merged.wrapLinesInDiffs).toBe(false);
             expect(merged.experiments).toBe(false);
         });
 
@@ -870,7 +849,7 @@ describe('settings', () => {
         it('should handle server settings with extra fields + pending changes', () => {
             // Server has newer schema version with new fields
             const serverSettings = settingsParse({
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 futureFeature: 'some value',  // Field this device doesn't know about
                 anotherNewField: 123
             });
@@ -886,7 +865,7 @@ describe('settings', () => {
             expect(merged.useEnhancedSessionWizard).toBe(true);
             expect(merged.experiments).toBe(true);
             // Server fields preserved
-            expect(merged.viewInline).toBe(true);
+            expect(merged.wrapLinesInDiffs).toBe(true);
             expect((merged as any).futureFeature).toBe('some value');
             expect((merged as any).anotherNewField).toBe(123);
         });
@@ -894,7 +873,7 @@ describe('settings', () => {
         it('should handle empty pending (no local changes)', () => {
             const serverSettings = settingsParse({
                 useEnhancedSessionWizard: true,
-                viewInline: true
+                wrapLinesInDiffs: true
             });
 
             const pendingChanges: Partial<Settings> = {};
@@ -907,14 +886,14 @@ describe('settings', () => {
 
         it('should handle delta overriding multiple server fields', () => {
             const serverSettings = settingsParse({
-                viewInline: false,
+                wrapLinesInDiffs: false,
                 experiments: false,
                 useEnhancedSessionWizard: false,
                 analyticsOptOut: false
             });
 
             const pendingChanges: Partial<Settings> = {
-                viewInline: true,
+                wrapLinesInDiffs: true,
                 useEnhancedSessionWizard: true,
                 analyticsOptOut: true
             };
@@ -922,7 +901,7 @@ describe('settings', () => {
             const merged = applySettings(serverSettings, pendingChanges);
 
             // All pending changes applied
-            expect(merged.viewInline).toBe(true);
+            expect(merged.wrapLinesInDiffs).toBe(true);
             expect(merged.useEnhancedSessionWizard).toBe(true);
             expect(merged.analyticsOptOut).toBe(true);
             // Un-changed field from server

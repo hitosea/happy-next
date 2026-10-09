@@ -21,9 +21,6 @@ const isKnownAvatarStyle = (style: string): style is KnownAvatarStyle => {
 export default function AppearanceSettingsScreen() {
     const { theme } = useUnistyles();
     const router = useRouter();
-    const [viewInline, setViewInline] = useSettingMutable('viewInline');
-    const [expandTodos, setExpandTodos] = useSettingMutable('expandTodos');
-    const [showLineNumbers, setShowLineNumbers] = useSettingMutable('showLineNumbers');
     const [showLineNumbersInToolViews, setShowLineNumbersInToolViews] = useSettingMutable('showLineNumbersInToolViews');
     const [wrapLinesInDiffs, setWrapLinesInDiffs] = useSettingMutable('wrapLinesInDiffs');
     const [alwaysShowContextSize, setAlwaysShowContextSize] = useSettingMutable('alwaysShowContextSize');
@@ -141,28 +138,6 @@ export default function AppearanceSettingsScreen() {
                     }
                 />
                 <Item
-                    title={t('settingsAppearance.inlineToolCalls')}
-                    subtitle={t('settingsAppearance.inlineToolCallsDescription')}
-                    icon={<Ionicons name="code-slash-outline" size={29} color="#5856D6" />}
-                    rightElement={
-                        <Switch
-                            value={viewInline}
-                            onValueChange={setViewInline}
-                        />
-                    }
-                />
-                <Item
-                    title={t('settingsAppearance.expandTodoLists')}
-                    subtitle={t('settingsAppearance.expandTodoListsDescription')}
-                    icon={<Ionicons name="checkmark-done-outline" size={29} color="#5856D6" />}
-                    rightElement={
-                        <Switch
-                            value={expandTodos}
-                            onValueChange={setExpandTodos}
-                        />
-                    }
-                />
-                <Item
                     title={t('settingsAppearance.showThinkingMessages')}
                     subtitle={t('settingsAppearance.showThinkingMessagesDescription')}
                     icon={<Ionicons name="bulb-outline" size={29} color="#5856D6" />}
@@ -188,17 +163,6 @@ export default function AppearanceSettingsScreen() {
                         }
                     />
                 )}
-                <Item
-                    title={t('settingsAppearance.showLineNumbersInDiffs')}
-                    subtitle={t('settingsAppearance.showLineNumbersInDiffsDescription')}
-                    icon={<Ionicons name="list-outline" size={29} color="#5856D6" />}
-                    rightElement={
-                        <Switch
-                            value={showLineNumbers}
-                            onValueChange={setShowLineNumbers}
-                        />
-                    }
-                />
                 <Item
                     title={t('settingsAppearance.showLineNumbersInToolViews')}
                     subtitle={t('settingsAppearance.showLineNumbersInToolViewsDescription')}

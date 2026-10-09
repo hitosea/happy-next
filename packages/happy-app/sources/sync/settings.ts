@@ -255,10 +255,7 @@ export const SettingsSchema = z.object({
     // Schema version for compatibility detection
     schemaVersion: z.number().default(SUPPORTED_SCHEMA_VERSION).describe('Settings schema version for compatibility checks'),
 
-    viewInline: z.boolean().describe('Whether to view inline tool calls'),
     inferenceOpenAIKey: z.string().nullish().describe('OpenAI API key for inference'),
-    expandTodos: z.boolean().describe('Whether to expand todo lists'),
-    showLineNumbers: z.boolean().describe('Whether to show line numbers in diffs'),
     showLineNumbersInToolViews: z.boolean().describe('Whether to show line numbers in tool view diffs'),
     wrapLinesInDiffs: z.boolean().describe('Whether to wrap long lines in diff views'),
     analyticsOptOut: z.boolean().describe('Whether to opt out of anonymous analytics'),
@@ -340,10 +337,7 @@ export type Settings = z.infer<typeof SettingsSchema>;
 
 export const settingsDefaults: Settings = {
     schemaVersion: SUPPORTED_SCHEMA_VERSION,
-    viewInline: false,
     inferenceOpenAIKey: null,
-    expandTodos: true,
-    showLineNumbers: true,
     showLineNumbersInToolViews: false,
     wrapLinesInDiffs: false,
     analyticsOptOut: false,
