@@ -202,6 +202,14 @@ export function PendingMessageDetailModal({
                                 )}
                             </View>
                         )}
+                        {m.fileCount > 0 && (
+                            <View style={styles.imageBadge}>
+                                <Octicons name="file" size={13} color={theme.colors.textSecondary} />
+                                {m.fileCount > 1 && (
+                                    <Text style={styles.imageBadgeCount}>x{m.fileCount}</Text>
+                                )}
+                            </View>
+                        )}
                     </View>
                 </View>
 

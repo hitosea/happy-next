@@ -6,5 +6,6 @@ export * from './modelCatalogSchema';
 export * from './permissionModes';
 export * from './filePreview';
 export * from './fileDownload';
+export * from './fileUpload';
 export * from './toolImagePreview';
 export * from './terminal';

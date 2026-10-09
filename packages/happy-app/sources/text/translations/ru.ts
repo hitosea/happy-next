@@ -999,6 +999,17 @@ export const ru: TranslationStructure = {
         minimapNavigator: 'Навигатор по сообщениям',
         takePhoto: 'Камера',
         chooseFromLibrary: 'Фото',
+        files: {
+            menu: 'Файлы',
+            cliTooOld: 'CLI этой сессии слишком старый и не может принимать файлы. Обновите happy-next на той машине и повторите попытку.',
+            cliTooOldShort: 'Обновите CLI',
+            failedTapToRetry: 'Ошибка · нажмите, чтобы повторить',
+            limitReached: ({ count }: { count: number }) => `Можно прикрепить не более ${count} файлов.`,
+            pickFailed: 'Не удалось открыть выбор файлов.',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: размер файла не должен превышать ${limit} МБ.`,
+            stillUploading: 'Файлы ещё загружаются. Отправьте после завершения.',
+            removeFailed: 'Некоторые файлы не загрузились. Повторите или сначала удалите их.',
+        },
         addMenuTitle: 'Добавить',
         scheduleMessage: 'Отложенное сообщение',
         pasteFromClipboard: 'Вставить из буфера обмена',
@@ -1069,6 +1080,7 @@ export const ru: TranslationStructure = {
         confirm: 'Запланировать',
         save: 'Сохранить',
         imagesAttached: ({ count }: { count: number }) => `Прикреплено изображений: ${count}`,
+        filesAttached: ({ count }: { count: number }) => `Прикреплено файлов: ${count}`,
     },
 
     pendingQueue: {

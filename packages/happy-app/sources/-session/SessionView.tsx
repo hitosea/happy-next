@@ -19,6 +19,7 @@ import { ScheduleMessageSheet } from '@/components/ScheduleMessageSheet';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
 import { useDraft } from '@/hooks/useDraft';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
@@ -523,6 +524,22 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage, images, initImages);
 
+    // Files upload to the session's machine as soon as they are picked; messages carry their paths
+    const fileAttachments = useFileAttachments(sessionId);
+    const { attachments, clearFiles } = fileAttachments;
+    // Paths only exist once every attached file has landed on the machine
+    const filesBlockSend = React.useCallback(() => {
+        if (fileAttachments.isUploading) {
+            Modal.alert(t('common.error'), t('session.files.stillUploading'));
+            return true;
+        }
+        if (fileAttachments.hasFailed) {
+            Modal.alert(t('common.error'), t('session.files.removeFailed'));
+            return true;
+        }
+        return false;
+    }, [fileAttachments.isUploading, fileAttachments.hasFailed]);
+
     const [isUploadingImages, setIsUploadingImages] = React.useState(false);
     const [isSending, setIsSending] = React.useState(false);
 
@@ -974,6 +991,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
     // Add (+) menu items. Image rows are disabled (not hidden) when the AI has no image support, so
     // scheduling stays reachable. Web has no camera and opens the file picker for the library.
+    // Files write to the owner's machine, which a shared session's guests may not do.
+    const pickFiles = fileAttachments.pickFiles;
+    const canAttachFiles = !session.accessLevel;
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         ...(Platform.OS === 'web' ? [] : [{ label: t('session.takePhoto'), onPress: pickFromCamera, disabled: !supportsImages }]),
         {
@@ -981,8 +1001,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             onPress: Platform.OS === 'web' ? () => fileInputRef.current?.click() : pickFromGallery,
             disabled: !supportsImages,
         },
+        ...(canAttachFiles ? [{ label: t('session.files.menu'), onPress: () => void pickFiles() }] : []),
         { label: t('session.scheduleMessage'), onPress: handleOpenScheduleSheet },
-    ], [pickFromCamera, pickFromGallery, supportsImages, handleOpenScheduleSheet]);
+    ], [pickFromCamera, pickFromGallery, supportsImages, canAttachFiles, pickFiles, handleOpenScheduleSheet]);
 
     // Handle file input change (web only)
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1151,6 +1172,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             Modal.alert(t('sessionInfo.cliUpgradeAvailable'), t('sessionInfo.cliUpgradeSendBlocked'));
             return;
         }
+        if (filesBlockSend()) return;
 
         const imagesToSend = images.length > 0 ? [...images] : undefined;
         if (imagesToSend) {
@@ -1163,8 +1185,10 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                     setMessage('');
                     clearDraft();
                     clearImages();
+                    clearFiles();
                 },
                 deliverAt,
+                attachments,
             );
             if (!result.success) {
                 Modal.alert(t('common.error'), t(sendFailureKey(result.reason)));
@@ -1175,7 +1199,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         } finally {
             setIsUploadingImages(false);
         }
-    }, [clearDraft, clearImages, images, session.upgrading, sessionId]);
+    }, [clearDraft, clearImages, clearFiles, attachments, filesBlockSend, images, session.upgrading, sessionId]);
 
     const rescheduleTarget = reschedulePendingId
         ? pendingMessages.find((pending) => pending.id === reschedulePendingId) ?? null
@@ -1278,7 +1302,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 }
 
                 const messageToSend = (textSnapshot ?? message).trim();
-                if (messageToSend || images.length > 0) {
+                if (messageToSend || images.length > 0 || fileAttachments.files.length > 0) {
                     const socketStatus = storage.getState().socketStatus;
                     log.log(`[SEND_DEBUG][UI] tap_send sid=${sessionId} hasText=${messageToSend.length > 0} images=${images.length} isSending=${isSending} socket=${socketStatus}`);
 
@@ -1290,8 +1314,10 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                         return;
                     }
 
+                    if (filesBlockSend()) return;
+
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
-                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []);
+                    const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(attachments);
 
                     // Check if this is a retry of the same content
                     const existingLocalId = failedMessageRef.current?.content === contentForRetry
@@ -1312,7 +1338,10 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                                 setMessage('');
                                 clearDraft();
                                 clearImages();
-                            }
+                                clearFiles();
+                            },
+                            undefined,
+                            attachments,
                         );
                         const mode = result.success ? result.mode : 'failed';
                         const errorText = result.success ? 'none' : (result.error || 'none');
@@ -1375,6 +1404,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             imageMenuItems={imagePickerMenuItems}
             supportsImages={supportsImages}
             isUploadingImages={isUploadingImages}
+            files={fileAttachments.files}
+            onRemoveFile={fileAttachments.removeFile}
+            onRetryFile={fileAttachments.retryFile}
         />
     ) : null;
 
@@ -1540,6 +1572,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 mode="create"
                 initialText={message}
                 imageCount={images.length}
+                fileCount={fileAttachments.files.length}
                 limitEndsAt={scheduleSheet.limitEndsAt}
                 autoFocus={scheduleSheet.autoFocus}
                 onClose={() => setScheduleSheet((current) => ({ ...current, visible: false }))}

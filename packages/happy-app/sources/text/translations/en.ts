@@ -825,6 +825,17 @@ export const en: TranslationStructure = {
         minimapNavigator: 'Message navigator',
         takePhoto: 'Camera',
         chooseFromLibrary: 'Photos',
+        files: {
+            menu: 'Files',
+            cliTooOld: 'This session\'s CLI is too old to receive files. Update happy-next on that machine and try again.',
+            cliTooOldShort: 'Update CLI',
+            failedTapToRetry: 'Failed · tap to retry',
+            limitReached: ({ count }: { count: number }) => `You can attach up to ${count} files.`,
+            pickFailed: 'Could not open the file picker.',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: files must be ${limit} MB or smaller.`,
+            stillUploading: 'Files are still uploading. Send once they finish.',
+            removeFailed: 'Some files failed to upload. Retry or remove them first.',
+        },
         addMenuTitle: 'Add',
         scheduleMessage: 'Schedule Message',
         pasteFromClipboard: 'Paste from Clipboard',
@@ -895,6 +906,7 @@ export const en: TranslationStructure = {
         confirm: 'Schedule',
         save: 'Save',
         imagesAttached: ({ count }: { count: number }) => count === 1 ? `${count} image attached` : `${count} images attached`,
+        filesAttached: ({ count }: { count: number }) => count === 1 ? `${count} file attached` : `${count} files attached`,
     },
 
     pendingQueue: {

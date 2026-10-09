@@ -9,6 +9,7 @@ import { storage } from './storage';
 import type { MachineMetadata, Metadata } from './storageTypes';
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
+import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
 
 export async function sessionOpenFileDownload(sessionId: string, request: OpenFileDownloadRequest) {
     return apiSocket.sessionRPC<OpenFileDownloadResponse, OpenFileDownloadRequest>(sessionId, 'openFileDownload', request, 65000);
@@ -20,6 +21,18 @@ export async function sessionReadFileDownloadChunk(sessionId: string, token: str
 
 export async function sessionCloseFileDownload(sessionId: string, token: string) {
     return apiSocket.sessionRPC(sessionId, 'closeFileDownload', { token, offset: 0 });
+}
+
+export async function sessionOpenFileUpload(sessionId: string, request: OpenFileUploadRequest) {
+    return apiSocket.sessionRPC<OpenFileUploadResponse, OpenFileUploadRequest>(sessionId, 'openFileUpload', request);
+}
+
+export async function sessionWriteFileUploadChunk(sessionId: string, token: string, offset: number, content: string) {
+    return apiSocket.sessionRPC<FileUploadChunkResponse, { token: string; offset: number; content: string }>(sessionId, 'writeFileUploadChunk', { token, offset, content }, 65000);
+}
+
+export async function sessionCloseFileUpload(sessionId: string, token: string, commit: boolean) {
+    return apiSocket.sessionRPC<CloseFileUploadResponse, { token: string; commit: boolean }>(sessionId, 'closeFileUpload', { token, commit });
 }
 
 export async function sessionOpenFilePreview(sessionId: string, request: OpenFilePreviewRequest) {

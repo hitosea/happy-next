@@ -12,6 +12,7 @@ import { getDiffDetail } from './diffStore';
 import { getToolOutputRecord } from './toolOutputStore';
 import { createFilePreviewHandlers, createFileDownloadHandlers } from './filePreview';
 import { createToolImagePreviewHandlers } from './toolImagePreview';
+import { createFileUploadHandlers } from './fileUpload';
 
 const execAsync = promisify(exec);
 
@@ -196,6 +197,13 @@ export function registerCommonHandlers(rpcHandlerManager: RpcHandlerManager, wor
     rpcHandlerManager.registerHandler('openFileDownload', downloads.open);
     rpcHandlerManager.registerHandler('readFileDownloadChunk', downloads.chunk);
     rpcHandlerManager.registerHandler('closeFileDownload', downloads.close);
+    // Attachments belong to a session's working directory, so the machine itself takes none
+    if (sessionId) {
+        const uploads = createFileUploadHandlers(workingDirectory);
+        rpcHandlerManager.registerHandler('openFileUpload', uploads.open);
+        rpcHandlerManager.registerHandler('writeFileUploadChunk', uploads.chunk);
+        rpcHandlerManager.registerHandler('closeFileUpload', uploads.close);
+    }
 
     // Shell command handler - executes commands in the default shell
     rpcHandlerManager.registerHandler<BashRequest, BashResponse>('bash', async (data) => {

@@ -25,8 +25,8 @@ export function shouldHideMessageInChatList(message: Message, showThinkingMessag
     if (message.kind !== 'user-text') {
         return false;
     }
-    // Never hide a message that actually carries images — only the text companion is noise.
-    if (message.images?.length) {
+    // Never hide a message that actually carries images or files — only the text companion is noise.
+    if (message.images?.length || message.meta?.attachments?.length) {
         return false;
     }
     const text = message.displayText ?? message.text;

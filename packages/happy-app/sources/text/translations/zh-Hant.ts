@@ -811,6 +811,17 @@ export const zhHant: TranslationStructure = {
         minimapNavigator: '訊息導覽列',
         takePhoto: '相機',
         chooseFromLibrary: '照片',
+        files: {
+            menu: '檔案',
+            cliTooOld: '此工作階段所在機器的 CLI 版本過舊，無法接收檔案。請在那台機器上更新 happy-next 後重試。',
+            cliTooOldShort: '需更新 CLI',
+            failedTapToRetry: '上傳失敗 · 點按重試',
+            limitReached: ({ count }: { count: number }) => `最多可附加 ${count} 個檔案。`,
+            pickFailed: '無法開啟檔案選擇器。',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：檔案不能超過 ${limit} MB。`,
+            stillUploading: '檔案仍在上傳，請等待完成後再傳送。',
+            removeFailed: '有檔案上傳失敗，請先重試或移除。',
+        },
         addMenuTitle: '新增',
         scheduleMessage: '定時訊息',
         pasteFromClipboard: '從剪貼簿貼上',
@@ -881,6 +892,7 @@ export const zhHant: TranslationStructure = {
         confirm: '安排傳送',
         save: '儲存',
         imagesAttached: ({ count }: { count: number }) => `已附 ${count} 張圖片`,
+        filesAttached: ({ count }: { count: number }) => `已附 ${count} 個檔案`,
     },
 
     pendingQueue: {

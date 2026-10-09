@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { messageAttachmentSchema } from 'happy-wire';
 
 // Shared message metadata schema
 export const MessageMetaSchema = z.object({
@@ -12,6 +13,7 @@ export const MessageMetaSchema = z.object({
     allowedTools: z.array(z.string()).nullable().optional(), // Allowed tools for this message (null = reset)
     disallowedTools: z.array(z.string()).nullable().optional(), // Disallowed tools for this message (null = reset)
     displayText: z.string().optional(), // Optional text to display in UI instead of actual message text
+    attachments: z.array(messageAttachmentSchema).optional(), // Files attached to a user message, already on the session's machine
     isCompactSummary: z.boolean().optional() // Claude Code's post-compaction summary record; the list shows it, the minimap leaves it off the rail
 });
 

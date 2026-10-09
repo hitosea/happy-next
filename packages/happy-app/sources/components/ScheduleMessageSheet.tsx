@@ -22,6 +22,7 @@ export type ScheduleMessageSheetProps = {
     initialText?: string;
     /** Images that go out with the message; they count as content when the text is empty. */
     imageCount?: number;
+    fileCount?: number;
     /** Time preselected when the sheet opens (reschedule mode), epoch ms. */
     initialDeliverAt?: number | null;
     /** Epoch seconds at which the provider usage limit resets; offers a one-tap option. */
@@ -69,6 +70,7 @@ export function ScheduleMessageSheet({
     mode,
     initialText = '',
     imageCount = 0,
+    fileCount = 0,
     initialDeliverAt,
     limitEndsAt,
     autoFocus = false,
@@ -170,7 +172,7 @@ export function ScheduleMessageSheet({
     };
 
     const selectedDeliverAt = deliverAtFor(selectedOption, now);
-    const hasContent = mode === 'reschedule' || text.trim().length > 0 || imageCount > 0;
+    const hasContent = mode === 'reschedule' || text.trim().length > 0 || imageCount > 0 || fileCount > 0;
     const canSubmit = hasContent && selectedDeliverAt !== null && selectedDeliverAt > now && !submitting;
 
     const submit = async () => {
@@ -240,6 +242,9 @@ export function ScheduleMessageSheet({
                             />
                             {imageCount > 0 && (
                                 <Text style={styles.sectionTitle}>{t('scheduleMessage.imagesAttached', { count: imageCount })}</Text>
+                            )}
+                            {fileCount > 0 && (
+                                <Text style={styles.sectionTitle}>{t('scheduleMessage.filesAttached', { count: fileCount })}</Text>
                             )}
                         </>
                     )}

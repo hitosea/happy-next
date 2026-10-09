@@ -60,7 +60,7 @@ import { getFriendsList, getUserProfile } from './apiFriends';
 import { fetchFeed } from './apiFeed';
 import { FeedItem } from './feedTypes';
 import { UserProfile } from './friendTypes';
-import { resolveModelSelectionForFlavor } from 'happy-wire';
+import { resolveModelSelectionForFlavor, type MessageAttachment } from 'happy-wire';
 import { getOrchestratorActivity, getOrchestratorActivityBatch } from './apiOrchestrator';
 import { sessionUpdateMetadataFields } from './ops';
 import { shouldInvalidateGitStatusOnActivityTransition } from './gitStatusRefreshPolicy';
@@ -928,30 +928,31 @@ class Sync {
         return systemPrompt;
     }
 
-    private buildPendingPreview(rawContent: unknown): { previewText: string; imageCount: number } {
+    private buildPendingPreview(rawContent: unknown): { previewText: string; imageCount: number; fileCount: number } {
         const parsed = RawRecordSchema.safeParse(rawContent);
         if (!parsed.success) {
-            return { previewText: '', imageCount: 0 };
+            return { previewText: '', imageCount: 0, fileCount: 0 };
         }
 
         const raw = parsed.data;
         if (raw.role !== 'user') {
-            return { previewText: '', imageCount: 0 };
+            return { previewText: '', imageCount: 0, fileCount: 0 };
         }
 
+        const fileCount = raw.meta?.attachments?.length ?? 0;
         if (raw.meta?.displayText) {
-            return { previewText: raw.meta.displayText, imageCount: 0 };
+            return { previewText: raw.meta.displayText, imageCount: 0, fileCount };
         }
 
         if (raw.content.type === 'text') {
-            return { previewText: raw.content.text, imageCount: 0 };
+            return { previewText: raw.content.text, imageCount: 0, fileCount };
         }
 
         if (raw.content.type === 'mixed') {
-            return { previewText: raw.content.text, imageCount: raw.content.images.length };
+            return { previewText: raw.content.text, imageCount: raw.content.images.length, fileCount };
         }
 
-        return { previewText: '', imageCount: 0 };
+        return { previewText: '', imageCount: 0, fileCount };
     }
 
     private async decryptPendingMessage(sessionId: string, pending: ApiPendingMessage): Promise<PendingMessage | null> {
@@ -968,6 +969,7 @@ class Sync {
             content,
             previewText: preview.previewText,
             imageCount: preview.imageCount,
+            fileCount: preview.fileCount,
             sentBy: pending.sentBy ?? null,
             sentByName: pending.sentByName ?? null,
             trackCliDelivery: pending.trackCliDelivery,
@@ -1303,7 +1305,8 @@ class Sync {
         text: string,
         displayText?: string,
         images?: LocalImage[],
-        existingLocalId?: string
+        existingLocalId?: string,
+        attachments?: MessageAttachment[]
     ): Promise<PreparedOutgoingMessage | PreparedOutgoingMessageFailure> {
         const encryption = this.encryption.getSessionEncryption(sessionId);
         if (!encryption) {
@@ -1376,7 +1379,8 @@ class Sync {
                 reasoningEffort,
                 fallbackModel,
                 appendSystemPrompt: this.buildSystemPrompt(sessionId),
-                ...(displayText && { displayText })
+                ...(displayText && { displayText }),
+                ...(attachments?.length ? { attachments } : {})
             }
         };
 
@@ -1552,9 +1556,10 @@ class Sync {
         images?: LocalImage[],
         existingLocalId?: string,
         onBeforeApply?: () => void,
-        deliverAt?: number
+        deliverAt?: number,
+        attachments?: MessageAttachment[]
     ): Promise<SendOrQueueResult> {
-        const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId);
+        const prepared = await this.prepareOutgoingMessage(sessionId, text, displayText, images, existingLocalId, attachments);
         if ('error' in prepared) {
             return { success: false, error: prepared.error, reason: prepared.reason, localId: prepared.localId };
         }

@@ -5,6 +5,7 @@ import { Ionicons, SimpleLineIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { ImageViewer } from "./ImageViewer";
+import { MessageAttachments } from "./FileAttachments";
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { MarkdownView, OptionsLoadingState } from "./markdown/MarkdownView";
 import { t } from '@/text';
@@ -485,6 +486,7 @@ function UserTextBlock(props: {
   }, [messageText]);
 
   const renderedText = props.message.displayText || props.message.text;
+  const attachments = props.message.meta?.attachments ?? [];
   const presentation = userTextPresentation(renderedText, props.message.meta);
   // The reason travels as the entry point, so the screen it opens knows what to call itself.
   const handleOpenFullText = React.useCallback((reason: CollapsedTextReason) => {
@@ -524,7 +526,10 @@ function UserTextBlock(props: {
             />
           </>
         )}
-        {presentation.kind === 'collapsed' ? (
+        {attachments.length > 0 && (
+          <MessageAttachments sessionId={props.sessionId} attachments={attachments} />
+        )}
+        {attachments.length > 0 && !renderedText.trim() ? null : presentation.kind === 'collapsed' ? (
           <Pressable
             onPress={() => handleOpenFullText(presentation.reason)}
             onLongPress={() => handleOpenFullText(presentation.reason)}

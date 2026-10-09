@@ -117,6 +117,14 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo(({
                                                 )}
                                             </View>
                                         )}
+                                        {message.fileCount > 0 && (
+                                            <View style={styles.imageBadge}>
+                                                <Octicons name="file" size={13} color={theme.colors.textSecondary} />
+                                                {message.fileCount > 1 && (
+                                                    <Text style={styles.imageBadgeCount}>x{message.fileCount}</Text>
+                                                )}
+                                            </View>
+                                        )}
                                         <Text
                                             style={[
                                                 styles.preview,

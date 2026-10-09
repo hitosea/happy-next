@@ -811,6 +811,17 @@ export const zhHans: TranslationStructure = {
         minimapNavigator: '消息导航条',
         takePhoto: '相机',
         chooseFromLibrary: '照片',
+        files: {
+            menu: '文件',
+            cliTooOld: '该会话所在机器的 CLI 版本过旧，无法接收文件。请在那台机器上更新 happy-next 后重试。',
+            cliTooOldShort: '需更新 CLI',
+            failedTapToRetry: '上传失败 · 点按重试',
+            limitReached: ({ count }: { count: number }) => `最多可附加 ${count} 个文件。`,
+            pickFailed: '无法打开文件选择器。',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：文件不能超过 ${limit} MB。`,
+            stillUploading: '文件仍在上传，请等待完成后再发送。',
+            removeFailed: '有文件上传失败，请先重试或移除。',
+        },
         addMenuTitle: '添加',
         scheduleMessage: '定时消息',
         pasteFromClipboard: '从剪贴板粘贴',
@@ -881,6 +892,7 @@ export const zhHans: TranslationStructure = {
         confirm: '安排发送',
         save: '保存',
         imagesAttached: ({ count }: { count: number }) => `已附 ${count} 张图片`,
+        filesAttached: ({ count }: { count: number }) => `已附 ${count} 个文件`,
     },
 
     pendingQueue: {

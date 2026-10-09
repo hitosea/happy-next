@@ -809,6 +809,17 @@ export const ca: TranslationStructure = {
         minimapNavigator: 'Navegador de missatges',
         takePhoto: 'Càmera',
         chooseFromLibrary: 'Fotos',
+        files: {
+            menu: 'Fitxers',
+            cliTooOld: 'La CLI d\'aquesta sessió és massa antiga per rebre fitxers. Actualitza happy-next en aquella màquina i torna-ho a provar.',
+            cliTooOldShort: 'Actualitza la CLI',
+            failedTapToRetry: 'Error · toca per tornar-ho a provar',
+            limitReached: ({ count }: { count: number }) => `Pots adjuntar fins a ${count} fitxers.`,
+            pickFailed: 'No s\'ha pogut obrir el selector de fitxers.',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: els fitxers han d'ocupar ${limit} MB o menys.`,
+            stillUploading: 'Els fitxers encara s\'estan pujant. Envia quan acabin.',
+            removeFailed: 'Alguns fitxers no s\'han pujat. Torna-ho a provar o elimina\'ls primer.',
+        },
         addMenuTitle: 'Afegeix',
         scheduleMessage: 'Programa un missatge',
         pasteFromClipboard: 'Enganxa des del porta-retalls',
@@ -879,6 +890,7 @@ export const ca: TranslationStructure = {
         confirm: 'Programa',
         save: 'Desa',
         imagesAttached: ({ count }: { count: number }) => count === 1 ? `${count} imatge adjunta` : `${count} imatges adjuntes`,
+        filesAttached: ({ count }: { count: number }) => count === 1 ? `${count} fitxer adjunt` : `${count} fitxers adjunts`,
     },
 
     pendingQueue: {

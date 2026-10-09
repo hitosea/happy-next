@@ -841,6 +841,17 @@ export const ja: TranslationStructure = {
         minimapNavigator: 'メッセージナビゲーター',
         takePhoto: 'カメラ',
         chooseFromLibrary: '写真',
+        files: {
+            menu: 'ファイル',
+            cliTooOld: 'このセッションの CLI が古いため、ファイルを受け取れません。そのマシンで happy-next を更新してから再試行してください。',
+            cliTooOldShort: 'CLI の更新が必要',
+            failedTapToRetry: '失敗 · タップで再試行',
+            limitReached: ({ count }: { count: number }) => `添付できるファイルは最大 ${count} 個です。`,
+            pickFailed: 'ファイル選択を開けませんでした。',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：ファイルは ${limit} MB 以下にしてください。`,
+            stillUploading: 'ファイルをアップロード中です。完了してから送信してください。',
+            removeFailed: 'アップロードに失敗したファイルがあります。再試行するか削除してください。',
+        },
         addMenuTitle: '追加',
         scheduleMessage: 'メッセージを予約',
         pasteFromClipboard: 'クリップボードから貼り付け',
@@ -911,6 +922,7 @@ export const ja: TranslationStructure = {
         confirm: '予約する',
         save: '保存',
         imagesAttached: ({ count }: { count: number }) => `画像 ${count} 枚を添付`,
+        filesAttached: ({ count }: { count: number }) => `ファイル ${count} 個を添付`,
     },
 
     pendingQueue: {

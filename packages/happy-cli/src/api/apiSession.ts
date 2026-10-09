@@ -15,6 +15,7 @@ import { trimToolUseResult, trimToolResultContent, trimToolUseInput } from './tr
 import { RpcHandlerManager } from './rpc/RpcHandlerManager';
 
 import { registerCommonHandlers } from '../modules/common/registerCommonHandlers';
+import { appendAttachmentsToPrompt } from '../modules/common/fileUpload';
 import { registerToolImageForCall } from '../modules/common/toolImageStore';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
@@ -263,6 +264,12 @@ export class ApiSessionClient extends EventEmitter {
                     // Try to parse as user message first
                     const userResult = UserMessageSchema.safeParse(body);
                     if (userResult.success) {
+                        const typedText = userResult.data.content.text;
+                        // Attached files reach the agent as paths after the text; every flavor reads them itself
+                        const attachments = userResult.data.meta?.attachments;
+                        if (attachments?.length) {
+                            userResult.data.content.text = appendAttachmentsToPrompt(typedText, attachments);
+                        }
                         // Skip echoes of our own messages — the scanner sends user
                         // messages to the server and the server broadcasts them back.
                         // Without this check the CLI would treat its own echo as an
@@ -271,7 +278,7 @@ export class ApiSessionClient extends EventEmitter {
                             logger.debug('[SOCKET] [UPDATE] Ignoring echo of CLI-originated user message');
                         } else if (this.pendingMessageCallback) {
                             // Title seed for Codex/Gemini remote mode — their user messages don't re-echo through buildMessageContent
-                            this.maybeSetInitialTitleFromUserText(userResult.data.content.text);
+                            this.maybeSetInitialTitleFromUserText(typedText);
                             this.pendingMessageCallback(userResult.data);
                             emitMessageReceipt({
                                 sid: data.body.sid,
@@ -280,7 +287,7 @@ export class ApiSessionClient extends EventEmitter {
                                 ok: true,
                             });
                         } else {
-                            this.maybeSetInitialTitleFromUserText(userResult.data.content.text);
+                            this.maybeSetInitialTitleFromUserText(typedText);
                             this.pendingMessages.push(userResult.data);
                             emitMessageReceipt({
                                 sid: data.body.sid,

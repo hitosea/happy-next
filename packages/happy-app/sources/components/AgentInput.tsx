@@ -29,6 +29,8 @@ import { log } from '@/log';
 import { AIBackendProfile, getProfileEnvironmentVariables, validateProfileForAgent } from '@/sync/settings';
 import { getBuiltInProfile } from '@/sync/profileUtils';
 import { ImagePreview, LocalImage } from '@/components/ImagePreview';
+import { ComposerFiles } from '@/components/FileAttachments';
+import type { ComposerFile } from '@/hooks/useFileAttachments';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
@@ -137,6 +139,10 @@ interface AgentInputProps {
     imageMenuItems?: ActionMenuItem[];
     supportsImages?: boolean;
     isUploadingImages?: boolean;
+    // Files attached to the next message, already uploading to the session's machine
+    files?: ComposerFile[];
+    onRemoveFile?: (id: string) => void;
+    onRetryFile?: (id: string) => void;
     onImageDrop?: (files: File[]) => void;
 }
 
@@ -785,15 +791,15 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         selection: { start: 0, end: 0 }
     });
     const hasText = inputState.text.trim().length > 0 || props.value.trim().length > 0;
-    // Attached images alone are enough to send (e.g. an image-only chat message),
+    // Attached images or files alone are enough to send (e.g. an image-only chat message),
     // even when the text input is empty.
-    const hasImages = (props.images?.length ?? 0) > 0;
+    const hasAttachments = (props.images?.length ?? 0) > 0 || (props.files?.length ?? 0) > 0;
     const imageButtonIcon = props.imageButtonIcon ?? 'add';
     const imageButtonIconSize = imageButtonIcon === 'image-outline' ? 24 : 25;
     // While the agent works and there is nothing to send, the round button stops the turn
     // instead of starting a voice session. Text/images keep the send button so messages can
     // still be queued.
-    const showStopButton = !!(props.isBusy && props.onAbort && !hasText && !hasImages && !props.isSending);
+    const showStopButton = !!(props.isBusy && props.onAbort && !hasText && !hasAttachments && !props.isSending);
 
     // Keep a latest text snapshot to avoid stale parent-state reads during fast click-after-type sends.
     const latestTextRef = React.useRef(props.value);
@@ -1799,6 +1805,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                         />
                     )}
 
+                    {props.files && props.onRemoveFile && props.onRetryFile && (
+                        <ComposerFiles files={props.files} onRemove={props.onRemoveFile} onRetry={props.onRetryFile} />
+                    )}
+
                     {/* Input field */}
                     <View style={[styles.inputContainer, statusInPanel && styles.inputContainerCompact, props.minHeight ? { minHeight: props.minHeight } : undefined]}>
                         <MultiTextInput
@@ -1969,7 +1979,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 <View
                                     style={[
                                         styles.sendButton,
-                                        (hasText || hasImages || props.isSending || props.allowEmptySend || showStopButton || (props.onMicPress && !props.isMicActive))
+                                        (hasText || hasAttachments || props.isSending || props.allowEmptySend || showStopButton || (props.onMicPress && !props.isMicActive))
                                             ? styles.sendButtonActive
                                             : styles.sendButtonInactive
                                     ]}
@@ -1990,7 +2000,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             }
                                             const textSnapshot = resolveSendSnapshot();
                                             log.log(`[SEND_DEBUG][INPUT] press hasText=${hasText} latestLen=${latestTextRef.current.trim().length} stateLen=${inputState.text.trim().length} propLen=${props.value.trim().length} pickedLen=${textSnapshot.trim().length} mic=${props.onMicPress ? 'yes' : 'no'} disabled=${props.isSendDisabled || props.isSending ? 'yes' : 'no'}`);
-                                            if (textSnapshot.trim() || hasImages || props.allowEmptySend) {
+                                            if (textSnapshot.trim() || hasAttachments || props.allowEmptySend) {
                                                 hapticsLight();
                                                 props.onSend(textSnapshot);
                                                 return;
@@ -2001,7 +2011,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             }
                                         }}
                                         accessibilityState={{
-                                            disabled: !!(props.isSending || (!showStopButton && (props.isSendDisabled || (!hasText && !hasImages && !props.onMicPress && !props.allowEmptySend)))),
+                                            disabled: !!(props.isSending || (!showStopButton && (props.isSendDisabled || (!hasText && !hasAttachments && !props.onMicPress && !props.allowEmptySend)))),
                                         }}
                                         disabled={props.isSending || (!!props.isSendDisabled && !showStopButton)}
                                     >
@@ -2010,7 +2020,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 size="small"
                                                 color={theme.colors.button.primary.tint}
                                             />
-                                        ) : (hasText || hasImages) ? (
+                                        ) : (hasText || hasAttachments) ? (
                                             <Octicons
                                                 name="arrow-up"
                                                 size={16}

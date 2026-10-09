@@ -253,6 +253,7 @@ export interface PendingMessage {
     content: unknown | null;
     previewText: string;
     imageCount: number;
+    fileCount: number;
     sentBy: string | null;
     sentByName: string | null;
     trackCliDelivery: boolean;

@@ -809,6 +809,17 @@ export const pt: TranslationStructure = {
         minimapNavigator: 'Navegador de mensagens',
         takePhoto: 'Câmera',
         chooseFromLibrary: 'Fotos',
+        files: {
+            menu: 'Arquivos',
+            cliTooOld: 'A CLI desta sessão é antiga demais para receber arquivos. Atualize o happy-next nessa máquina e tente novamente.',
+            cliTooOldShort: 'Atualize a CLI',
+            failedTapToRetry: 'Falhou · toque para tentar de novo',
+            limitReached: ({ count }: { count: number }) => `Você pode anexar até ${count} arquivos.`,
+            pickFailed: 'Não foi possível abrir o seletor de arquivos.',
+            tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: os arquivos devem ter ${limit} MB ou menos.`,
+            stillUploading: 'Os arquivos ainda estão sendo enviados. Envie quando terminarem.',
+            removeFailed: 'Alguns arquivos falharam. Tente novamente ou remova-os primeiro.',
+        },
         addMenuTitle: 'Adicionar',
         scheduleMessage: 'Agendar mensagem',
         pasteFromClipboard: 'Colar da área de transferência',
@@ -879,6 +890,7 @@ export const pt: TranslationStructure = {
         confirm: 'Agendar',
         save: 'Salvar',
         imagesAttached: ({ count }: { count: number }) => count === 1 ? `${count} imagem anexada` : `${count} imagens anexadas`,
+        filesAttached: ({ count }: { count: number }) => count === 1 ? `${count} arquivo anexado` : `${count} arquivos anexados`,
     },
 
     pendingQueue: {

@@ -8,6 +8,7 @@ import {
   SessionMessageSchema as WireSessionMessageSchema,
   UpdateSchema as WireUpdateSchema,
   createEnvelope,
+  messageAttachmentSchema,
 } from 'happy-wire'
 import type {
   ApiUpdateMachineState as WireApiUpdateMachineState,
@@ -246,7 +247,8 @@ export const MessageMetaSchema = z.object({
   customSystemPrompt: z.string().nullable().optional(), // Custom system prompt for this message (null = reset)
   appendSystemPrompt: z.string().nullable().optional(), // Append to system prompt for this message (null = reset)
   allowedTools: z.array(z.string()).nullable().optional(), // Allowed tools for this message (null = reset)
-  disallowedTools: z.array(z.string()).nullable().optional() // Disallowed tools for this message (null = reset)
+  disallowedTools: z.array(z.string()).nullable().optional(), // Disallowed tools for this message (null = reset)
+  attachments: z.array(messageAttachmentSchema).optional() // Files the user attached, already on this machine
 })
 
 export type MessageMeta = z.infer<typeof MessageMetaSchema>
