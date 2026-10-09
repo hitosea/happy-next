@@ -48,6 +48,7 @@ Happy Next now ships as a native-feeling desktop client instead of requiring a b
 - **Platform visuals**: refreshed logos, favicons, splash screens, notification assets, and independent macOS and Windows icons, including the macOS 26 layered icon format and compatibility fallback for older macOS versions
 
 - **Terminal windows**: a terminal opens in a window of its own with a tab bar, titled by the directory the shell is in
+- **Compact macOS title bar**: the macOS title bar is a compact toolbar
 
 ## Orchestrator
 
@@ -70,6 +71,7 @@ A multi-agent orchestration system that lets you define task dependency graphs a
 - **Run and task durations**: runs and tasks show how long they take, counting up while running
 - **Simplified run filters**: All, Active, Completed, Failed and Cancelled, which add up to All
 - **Final-message results**: a task's result is just the agent's final message, and running tasks can be followed live
+- **Follow-ups report to the sender**: a resumed task reports back to the session that sent the follow-up, and the run is listed in both sessions
 
 ## Pending Message Queue
 
@@ -255,6 +257,7 @@ Happy Next adds a first-class self-hosting path.
 - **`VOICE_TOOL_BRIDGE_BASE_URL`** for voice-to-server communication in Docker networks
 - **Self-host documentation**: `docs/self-host.md`
 - **`/healthz` endpoint** served directly by nginx for load-balancer and uptime probes (no app round-trip)
+- **Automatic migrations**: the server image runs database migrations on container start; set `SKIP_DB_MIGRATIONS=true` to opt out
 
 ## Sync & Messaging Reliability
 
@@ -371,6 +374,14 @@ Extensive improvements to the chat and session management experience.
 - **Built-in command descriptions**: Claude's built-in slash commands show their descriptions
 - **Header status color**: the connection status under the header title keeps its color on Android and the web
 
+- **File attachments**: attach files to a message from the add menu; the agent reads them on the session's machine, and they show as cards with typed, colored file icons that open in the file viewer
+- **Pinned sessions**: pin sessions to the top of the list, including in the shared-with-me and shared-by-me views
+- **Session hover card**: hover a session on web to rename it, find its project in the list, pin it or archive it
+- **Machine dividers**: the all machines view shows plain machine dividers, and double-tapping a divider folds or unfolds its projects
+- **Jump to sessions that want a look**: double-tap the sessions tab, or tap the shown machine on the rail
+- **Whole replies**: copy, read aloud and long-press take a reply split across several blocks as one whole
+- **Translated wizard**: the new session wizard and the remaining English strings follow the app language
+
 ## CLI Improvements
 
 The CLI (`happy-next-cli`) received substantial upgrades.
@@ -423,6 +434,8 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Codex v0.159.3 and archiving**: new Codex sessions start on Codex v0.159.3, and archiving a Codex session goes through the running app-server daemon
 
 - **Happy CLI v0.11.0 with Codex v0.160.1**: Codex fast mode stays off unless a delegated task asks for it, and Claude, Codex and Gemini history lists count messages correctly
+
+- **Happy CLI v0.12.0 with Codex v0.162.0**: attached files are sent to the agent, session profiles stay separate per agent, and `sudo happy update` no longer misreports not-logged-in
 
 ## Server
 

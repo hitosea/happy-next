@@ -1,5 +1,29 @@
 # Changelog
 
+## Version 30 - 2026-10-09
+
+Happy Next v2.15.0 lets you attach files to messages and pin sessions to the top of the list, adds a hover card for sessions on the web, and flattens the all machines view so it is quicker to scan. Happy CLI is updated to v0.12.0, and new Codex sessions start on Codex v0.162.0.
+
+- Composer: attach files to a message from the add menu; the agent reads them on the session's machine, and they show as cards with typed, colored file icons that open in the file viewer
+- Composer: reorder the add menu to camera, photos and schedule, with shorter labels
+- Sessions: pin sessions to the top of the list, including in the shared-with-me and shared-by-me views
+- Sessions: hover a session on web to see a card where you can rename it, find its project in the list, pin it or archive it
+- Sessions: show the all machines view as plain machine dividers, and double-tap a divider to fold or unfold its projects
+- Sessions: double-tap the sessions tab, or tap the shown machine on the rail, to jump to the next session that wants a look
+- Sessions: highlight a row on hover, leave room around a session that a link or reload brings up, and open the selected machine's page from the rail
+- Sessions: archiving from session details stays on the page, archived sessions no longer offer archive, and swipe to delete only works on your own stopped sessions
+- Sessions: show a status dot on the sessions header title, and refresh sharing state as soon as a share changes
+- Sidebar: open the add menu on hover, enable search on native tablets, and enlarge the rail buttons
+- Conversation: copy, read aloud and long-press now take a reply split across several blocks as one whole
+- Machines: show the daemon's CLI version and start time on the machine page
+- iOS: a session row no longer opens when its context menu lifts, and the bottom tabs are updated for iOS 27
+- Desktop: lower the macOS title bar to a compact toolbar
+- Languages: translate the new session wizard and other strings that still showed in English
+- Orchestrator: report a resumed task to the session that sent the follow-up
+- Self-hosting: the server runs database migrations automatically on container start
+- CLI: Happy CLI v0.12.0 sends attached files to the agent, keeps session profiles separate per agent, and no longer misreports not-logged-in on sudo happy update
+- Codex: new Codex sessions start on Codex v0.162.0
+
 ## Version 29 - 2026-10-07
 
 Happy Next v2.14.0 scopes the session list by machine — a machine rail on tablets and desktop, a machine switcher on phones, and machines you can reorder — and lets you schedule a message to send later. A turn's steps now fold in runs between the agent's words, orchestrator runs show how long they take, and Happy CLI is updated to v0.11.0 with Codex v0.160.1.

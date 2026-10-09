@@ -95,6 +95,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Desktop diagnostics, rotating local logs, WebKit storage maintenance, upload retry recovery, microphone/camera support, native context menus, reliable theme-isolated HTML preview windows, CSP-compatible code editing, system-browser external links, and restricted native capabilities
 
 - Terminals open in a dedicated desktop window with a tab bar of their own, titled by the directory the shell is in
+- The macOS title bar is a compact toolbar
 
 ### Orchestrator
 - Define task dependency graphs (DAGs) with per-task model and working directory
@@ -106,6 +107,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI auto-installs the orchestrator skill and `/orchestrator` slash commands on startup — fan a task out to parallel or dependency-ordered Claude / Codex / Gemini agents straight from the CLI
 - Built-in `/preview-html` slash command — generate a self-contained HTML document from the CLI and preview it directly in the app
 - Runs and tasks show how long they take, run filters are simplified to All, Active, Completed, Failed and Cancelled, and a task's result is just the agent's final message, followed live while it runs
+- A resumed task reports back to the session that sent the follow-up, and the run is listed in both sessions
 
 ### Pending Message Queue
 - Messages sent while the CLI is busy are queued server-side and auto-dispatched
@@ -202,6 +204,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - `.env.example` with full configuration reference
 - Runtime env var injection for Docker builds
 - Zero-cost nginx `/healthz` endpoint for load-balancer / uptime probes
+- The server image runs database migrations automatically on container start (set `SKIP_DB_MIGRATIONS=true` to opt out)
 
 ### Sync & Reliability
 - v3 messages API with seq-based sync, batch writes, and cursor pagination
@@ -285,6 +288,13 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Text selection previews open as code, JSON or markdown to match the source, and the web session history preview supports text selection, smooth scrolling and timestamps
 - Claude's built-in slash commands show their descriptions, and the header's connection status keeps its color on Android and the web
 
+- Attach files to a message from the add menu; the agent reads them on the session's machine, and they show as cards with typed, colored file icons that open in the file viewer
+- Pin sessions to the top of the list, including in the sharing views, and hover a session on web for a card to rename, locate, pin or archive it
+- The all machines view shows plain machine dividers, and double-tapping a divider folds or unfolds its projects
+- Double-tap the sessions tab, or tap the shown machine on the rail, to jump to the next session that wants a look
+- Copy, read aloud and long-press take a reply split across several blocks as one whole
+- The new session wizard and the remaining English strings follow the app language
+
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
 - Daemon auto-start on boot (`happy daemon enable/disable`), restart command
@@ -312,6 +322,8 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - New Codex sessions start on Codex v0.159.3, and archiving a Codex session goes through the running app-server daemon
 
 - Happy CLI v0.11.0 keeps Codex fast mode off unless a delegated task asks for it, and counts messages correctly in Claude, Codex and Gemini history lists; new Codex sessions start on Codex v0.160.1
+
+- Happy CLI v0.12.0 sends attached files to the agent, keeps session profiles separate per agent, and no longer misreports not-logged-in on `sudo happy update`; new Codex sessions start on Codex v0.162.0
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing
