@@ -25,7 +25,6 @@ import { ActionMenuItem } from '@/components/ActionMenu';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
 import { canArchiveSessionFromList } from './sessionQuickActions';
-import { PressHighlight } from './PressHighlight';
 import { SessionRowFlash } from './SessionRowFlash';
 import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
 import { ProjectLabelText } from './ProjectLabelText';
@@ -588,17 +587,16 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
     const itemContent = (
         <SessionContextMenu session={session} highlightShape={cardRowShape}>
             <Pressable
-                style={[
+                // Selected, hovered (web, mouse) and pressed rows share one background.
+                style={({ hovered, pressed }: any) => [
                 styles.sessionRow,
                 unindented && styles.sessionRowUnindented,
-                selected && styles.sessionRowSelected
+                (selected || hovered || pressed) && styles.sessionRowSelected
             ]}
             onPress={() => {
                 navigateToSession(session.id);
             }}
         >
-            {({ pressed }) => (<>
-            {pressed && <PressHighlight style={cardRowShape} />}
             <SessionRowFlash sessionId={session.id} style={cardRowShape} />
             {/* The session's colour marker, down the leading edge — out of flow, so an
                 unmarked row costs nothing and nothing shifts. See SessionMarkerBar. */}
@@ -668,7 +666,6 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
                     })()}
                 </View>
             </View>
-            </>)}
             </Pressable>
         </SessionContextMenu>
     );

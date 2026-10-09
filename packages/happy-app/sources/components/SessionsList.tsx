@@ -39,7 +39,6 @@ import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
-import { PressHighlight } from './PressHighlight';
 import { SessionRowFlash, flashSessionRow } from './SessionRowFlash';
 import { getProjectHeader, getProjectHeaderFlashId, setSessionProjectLocator } from './sessionProjectLocate';
 import { SessionMarkerBar } from './SessionColorMarker';
@@ -1180,17 +1179,16 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
     const itemContent = (
         <SessionContextMenu session={session} highlightShape={rowShape}>
             <Pressable
-                style={[
+                // Selected, hovered (web, mouse) and pressed rows share one background.
+                style={({ hovered, pressed }: any) => [
                 compactSessionView ? styles.sessionItemCompact : styles.sessionItem,
-                selected && styles.sessionItemSelected,
+                (selected || hovered || pressed) && styles.sessionItemSelected,
                 rowShape
             ]}
             onPress={() => {
                 navigateToSession(session.id);
             }}
         >
-            {({ pressed }) => (<>
-            {pressed && <PressHighlight style={rowShape} />}
             <SessionRowFlash sessionId={session.id} style={rowShape} />
             {/* The session's colour marker, down the leading edge — out of flow, so an
                 unmarked row costs nothing and nothing shifts. See SessionMarkerBar. */}
@@ -1280,7 +1278,6 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
                     </>
                 )}
             </View>
-            </>)}
             </Pressable>
         </SessionContextMenu>
     );
