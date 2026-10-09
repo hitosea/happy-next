@@ -33,6 +33,9 @@ export const pt: TranslationStructure = {
         addMachine: 'Adicionar máquina',
         addMachineWebHint: 'Na nova máquina, execute `npm i -g happy-next-cli` e depois `happy`, e cole aqui o link de conexão exibido.',
         switchMachine: 'Trocar máquina',
+        openTerminal: 'Abrir terminal',
+        hideIdleMachines: 'Ocultar máquinas ociosas',
+        showIdleMachines: 'Mostrar máquinas ociosas',
         close: 'Fechar',
         searchMachines: 'Pesquisar máquinas…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'máquina' : 'máquinas'} · ${online} online`,
@@ -550,6 +553,8 @@ export const pt: TranslationStructure = {
         compactSessionViewDescription: 'Mostrar sessões ativas em um layout mais compacto',
         showFullProjectPath: 'Caminhos completos dos projetos',
         showFullProjectPathDescription: 'Mostrar o caminho completo de cada projeto nas listas de sessões em vez de apenas o nome do diretório',
+        hideIdleMachines: 'Ocultar máquinas ociosas',
+        hideIdleMachinesDescription: 'Não mostrar na barra lateral nem no seletor as máquinas sem sessões ativas',
     },
 
     settingsFeatures: {
@@ -1976,6 +1981,8 @@ export const pt: TranslationStructure = {
         offlineUnableToSpawn: 'Inicializador desativado enquanto a máquina está offline',
         offlineHelp: '• Verifique se seu computador está online\n• Execute `happy daemon status` para diagnosticar\n• Você está usando a versão mais recente do CLI? Atualize com `happy update`',
         launchNewSessionInDirectory: 'Iniciar nova sessão no diretório',
+        openTerminal: 'Abrir terminal',
+        openTerminalSubtitle: 'Abrir um shell no diretório pessoal desta máquina',
         daemon: 'Daemon',
         status: 'Status',
         stopDaemon: 'Parar daemon',
@@ -2003,6 +2010,7 @@ export const pt: TranslationStructure = {
         repositories: 'Repositórios',
         addRepository: 'Adicionar repositório',
         worktreeAutoPath: 'Gerenciado automaticamente pelo workspace',
+        previousSessionsAll: 'Sessões anteriores',
         previousSessions: ({ count }: { count: number }) => `Sessões anteriores (até ${count} mais recentes)`,
     },
 

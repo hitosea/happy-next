@@ -32,7 +32,7 @@ import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { ActionMenuModal } from './ActionMenuModal';
 import { ActionMenuItem } from './ActionMenu';
 import { getSessionQuickActionKinds, getSessionQuickActionSections, SessionQuickActionKind } from './sessionQuickActions';
-import { openSessionTerminal } from '@/terminal/openSessionTerminal';
+import { openMachineTerminal } from '@/terminal/openMachineTerminal';
 import { SessionContextMenuPortal } from './SessionContextMenuPortal';
 import { useSessionHoverCard } from './SessionHoverCard';
 import { sessionHoverCard } from './sessionHoverCardController';
@@ -224,7 +224,7 @@ function useSessionQuickActions(session: Session) {
     const handleOpenTerminal = React.useCallback(() => {
         const machineId = session.metadata?.machineId;
         if (!machineId) return;
-        openSessionTerminal({ machineId, sessionPath: session.metadata?.path, push: router.push });
+        openMachineTerminal({ machineId, sessionPath: session.metadata?.path, push: router.push });
     }, [router, session.metadata?.machineId, session.metadata?.path]);
 
     const handleArchive = React.useCallback(() => {

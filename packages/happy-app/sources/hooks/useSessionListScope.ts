@@ -53,6 +53,7 @@ export function useSessionListScope(): SessionListScope {
     const machines = storage(useShallow((state) => state.machines));
     const [nameCache] = useLocalSettingMutable('machineNameCache');
     const machineOrder = useSetting('machineOrder');
+    const hideIdleMachines = useSetting('hideIdleMachines');
     const [persisted, setPersisted] = useLocalSettingMutable('sessionListSelectedTab');
 
     const activeSessions = React.useMemo(() => {
@@ -60,8 +61,11 @@ export function useSessionListScope(): SessionListScope {
         return item && item.type === 'active-sessions' ? item.sessions : [];
     }, [data]);
     const groups = React.useMemo(
-        () => buildSessionMachineGroups(activeSessions, machines, nameCache, machineOrder),
-        [activeSessions, machines, nameCache, machineOrder],
+        () => buildSessionMachineGroups(activeSessions, machines, nameCache, machineOrder, {
+            hideIdle: hideIdleMachines,
+            keepMachineId: persisted,
+        }),
+        [activeSessions, machines, nameCache, machineOrder, hideIdleMachines, persisted],
     );
     const sharedSessions = React.useMemo(() => collectListSessions(sharedData), [sharedData]);
     const sharedByMeSessions = React.useMemo(() => collectListSessions(sharedByMeData), [sharedByMeData]);

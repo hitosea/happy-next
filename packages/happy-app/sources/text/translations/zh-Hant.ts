@@ -35,6 +35,9 @@ export const zhHant: TranslationStructure = {
         addMachine: '新增機器',
         addMachineWebHint: '在新機器上執行 `npm i -g happy-next-cli`，然後執行 `happy`，把終端輸出的連線連結貼到這裡。',
         switchMachine: '切換機器',
+        openTerminal: '開啟終端機',
+        hideIdleMachines: '隱藏無會話的裝置',
+        showIdleMachines: '顯示無會話的裝置',
         close: '關閉',
         searchMachines: '搜尋機器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台機器 · ${online} 在線`,
@@ -551,6 +554,8 @@ export const zhHant: TranslationStructure = {
         compactSessionViewDescription: '以更緊湊的版面配置顯示活躍工作階段',
         showFullProjectPath: '顯示完整目錄',
         showFullProjectPathDescription: '工作階段列表中顯示專案的完整路徑，而不只是目錄名稱',
+        hideIdleMachines: '隱藏無會話的裝置',
+        hideIdleMachinesDescription: '側邊欄和裝置切換中不顯示沒有活躍會話的裝置',
     },
 
     settingsFeatures: {
@@ -1976,6 +1981,8 @@ export const zhHant: TranslationStructure = {
         machineRenamedSuccess: '機器重新命名成功',
         machineRenameFailed: '重新命名機器失敗',
         launchNewSessionInDirectory: '在目錄中啟動新工作階段',
+        openTerminal: '開啟終端機',
+        openTerminalSubtitle: '在這台裝置的主目錄中開啟終端機',
         offlineUnableToSpawn: '裝置離線時無法啟動',
         offlineHelp: '• 確保您的電腦在線上\n• 執行 `happy daemon status` 進行診斷\n• 您是否在執行最新的 CLI 版本？請使用 `happy update` 升級',
         daemon: '守護程序',
@@ -2005,6 +2012,7 @@ export const zhHant: TranslationStructure = {
         repositories: '儲存庫',
         addRepository: '新增儲存庫',
         worktreeAutoPath: '由工作區自動管理',
+        previousSessionsAll: '歷史工作階段',
         previousSessions: ({ count }: { count: number }) => `歷史工作階段（最近 ${count} 個）`,
     },
 

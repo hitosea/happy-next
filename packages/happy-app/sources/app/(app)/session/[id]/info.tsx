@@ -25,7 +25,7 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { buildReviewPrompt } from '@/utils/reviewPrompt';
 import { sync } from '@/sync/sync';
-import { openSessionTerminal } from '@/terminal/openSessionTerminal';
+import { openMachineTerminal } from '@/terminal/openMachineTerminal';
 import { useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
 import { t } from '@/text';
@@ -140,7 +140,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const handleOpenTerminal = useCallback(() => {
         const machineId = session.metadata?.machineId;
         if (!machineId) return;
-        openSessionTerminal({ machineId, sessionPath: session.metadata?.path, push: router.push });
+        openMachineTerminal({ machineId, sessionPath: session.metadata?.path, push: router.push });
     }, [router, session.metadata?.machineId, session.metadata?.path]);
 
     const handleOpenOrchestratorRuns = useCallback(() => {

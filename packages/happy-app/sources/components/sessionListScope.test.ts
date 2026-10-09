@@ -36,6 +36,12 @@ describe('buildSessionMachineGroups', () => {
         expect(groups[groups.length - 1].sessions.map(s => s.id)).toEqual(['s2']);
     });
 
+    it('leaves idle online machines out when hiding them, except the one being shown', () => {
+        const machines = { a: machine('a', true, 'a'), b: machine('b', true, 'b'), c: machine('c', true, 'c') };
+        const groups = buildSessionMachineGroups([session('s1', 'b')], machines, {}, [], { hideIdle: true, keepMachineId: 'c' });
+        expect(groups.map(g => g.id)).toEqual(['b', 'c']);
+    });
+
     it('falls back to the cached name for machines not synced yet', () => {
         const groups = buildSessionMachineGroups([session('s1', 'm-x')], {}, { 'm-x': 'cached' });
         expect(groups[0].name).toBe('cached');

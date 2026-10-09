@@ -10,7 +10,7 @@ import { StatusDot } from './StatusDot';
 import { MachineRail, MACHINE_RAIL_WIDTH } from './MachineRail';
 import { SidebarSearchRow } from './SidebarSearchRow';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
-import { useRealtimeStatus } from '@/sync/storage';
+import { useRealtimeStatus, useSettingMutable } from '@/sync/storage';
 import { MainView } from './MainView';
 import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
@@ -19,6 +19,7 @@ import { useInboxHasContent } from '@/hooks/useInboxHasContent';
 import { useDootaskProfile, useProfile } from '@/sync/storage';
 import { getDesktopPlatform } from '@/desktop/desktopWindowUtils';
 import { useSessionListScope } from '@/hooks/useSessionListScope';
+import { openMachineTerminal } from '@/terminal/openMachineTerminal';
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
     container: {
@@ -142,6 +143,7 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
     const scope = useSessionListScope();
     const router = useRouter();
     const pathname = usePathname();
+    const [hideIdleMachines, setHideIdleMachines] = useSettingMutable('hideIdleMachines');
     return (
         <MachineRail
             groups={scope.groups}
@@ -156,6 +158,10 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
             onSettings={() => router.navigate('/settings')}
             machineDetailsActive={pathname === `/machine/${scope.selection}`}
             onMachineDetails={(machineId) => router.navigate(`/machine/${machineId}`)}
+            onNewSession={(machineId) => router.push({ pathname: '/new', params: { machineId } })}
+            onOpenTerminal={(machineId) => openMachineTerminal({ machineId, push: router.push })}
+            hideIdleMachines={hideIdleMachines}
+            onHideIdleMachinesChange={setHideIdleMachines}
             header={header}
         />
     );

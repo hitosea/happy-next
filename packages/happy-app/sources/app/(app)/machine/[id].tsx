@@ -7,13 +7,13 @@ import { ItemList } from '@/components/ItemList';
 import { Typography } from '@/constants/Typography';
 import { useSessions, useMachine, storage } from '@/sync/storage';
 import type { PermissionMode } from '@/components/PermissionModeSelector';
-import { Ionicons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, AntDesign, FontAwesome6 } from '@expo/vector-icons';
 import type { Session } from '@/sync/storageTypes';
 import { machineBash, machineStopDaemon, machineUpdateMetadata } from '@/sync/ops';
 import { Modal } from '@/modal';
 import { hapticsLight } from '@/components/haptics';
 import { showToast } from '@/components/Toast';
-import { formatPathRelativeToHome, getSessionName, getSessionSubtitle } from '@/utils/sessionUtils';
+import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { sync } from '@/sync/sync';
 import { useUnistyles, StyleSheet } from 'react-native-unistyles';
@@ -41,6 +41,10 @@ import { isRunningOnMac } from '@/utils/platform';
 import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { MODEL_MODE_DEFAULT } from 'happy-wire';
 import { NativeMenu } from '@/components/NativeMenu';
+import { openMachineTerminal } from '@/terminal/openMachineTerminal';
+import { SessionHistoryCard } from '@/components/SessionHistoryCard';
+import { useSessionFork } from '@/hooks/useSessionFork';
+import { SessionProjectLabelsContext, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 
 type AgentType = 'claude' | 'codex' | 'gemini';
 
@@ -98,6 +102,19 @@ const styles = StyleSheet.create((theme) => ({
             android: theme.colors.permissionButton?.inactive?.background ?? theme.colors.surfaceHigh,
             default: theme.colors.permissionButton?.inactive?.background ?? theme.colors.surfaceHigh,
         }) as any,
+    },
+    recentSessionsContainer: {
+        backgroundColor: 'transparent',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    // The group rounds and insets the run of cards, so each one only keeps the gap below it.
+    recentSessionCard: {
+        marginHorizontal: 0,
+        borderRadius: 0,
+    },
+    recentSessionCardLast: {
+        marginBottom: 0,
     },
 }));
 
@@ -159,6 +176,9 @@ export default function MachineDetailScreen() {
             .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
             .slice(0, 5);
     }, [machineSessions]);
+    const hasMorePreviousSessions = machineSessions.length > previousSessions.length;
+    const previousSessionLabels = useSessionProjectLabels(previousSessions);
+    const { resumingSessionId, forkSession } = useSessionFork();
 
     const recentPaths = useMemo(() => {
         const paths = new Set<string>();
@@ -727,6 +747,15 @@ export default function MachineDetailScreen() {
                                 />
                             </ItemGroup>
                         )}
+                        <ItemGroup>
+                            <Item
+                                title={t('machine.openTerminal')}
+                                subtitle={t('machine.openTerminalSubtitle')}
+                                icon={<FontAwesome6 name="terminal" size={23} color="#007AFF" />}
+                                disabled={!isMachineOnline(machine)}
+                                onPress={() => openMachineTerminal({ machineId: machine.id, push: router.push })}
+                            />
+                        </ItemGroup>
                         <ItemGroup title={t('machine.launchNewSessionInDirectory')}>
                         <View style={{ opacity: isMachineOnline(machine) ? 1 : 0.5 }}>
                             <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4 }}>
@@ -854,23 +883,31 @@ export default function MachineDetailScreen() {
 
                 {/* Previous Sessions (debug view) */}
                 {previousSessions.length > 0 && (
-                    <ItemGroup
-                        title={t('machine.previousSessions', { count: 5 })}
-                        headerAction={{
-                            label: t('common.more'),
-                            onPress: () => router.push({ pathname: '/session/recent', params: { machineId } }),
-                        }}
-                    >
-                        {previousSessions.map(session => (
-                            <Item
-                                key={session.id}
-                                title={getSessionName(session)}
-                                subtitle={getSessionSubtitle(session)}
-                                onPress={() => navigateToSession(session.id)}
-                                rightElement={<Ionicons name="chevron-forward" size={20} color="#C7C7CC" />}
-                            />
-                        ))}
-                    </ItemGroup>
+                    <SessionProjectLabelsContext.Provider value={previousSessionLabels}>
+                        <ItemGroup
+                            // Only a list cut short says so. More stays either way: older sessions are fetched
+                            // by the history page, so this machine may have more than the ones loaded here.
+                            title={hasMorePreviousSessions ? t('machine.previousSessions', { count: 5 }) : t('machine.previousSessionsAll')}
+                            headerAction={{
+                                label: t('common.more'),
+                                onPress: () => router.push({ pathname: '/session/recent', params: { machineId } }),
+                            }}
+                            // The rows are the session history's cards, the group's own background showing
+                            // between them as it does there.
+                            containerStyle={styles.recentSessionsContainer}
+                        >
+                            {previousSessions.map((session, index) => (
+                                <SessionHistoryCard
+                                    key={session.id}
+                                    session={session}
+                                    isResuming={resumingSessionId === session.id}
+                                    onPress={() => navigateToSession(session.id)}
+                                    onFork={forkSession}
+                                    style={[styles.recentSessionCard, index === previousSessions.length - 1 && styles.recentSessionCardLast]}
+                                />
+                            ))}
+                        </ItemGroup>
+                    </SessionProjectLabelsContext.Provider>
                 )}
 
                 {/* Machine */}

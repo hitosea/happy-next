@@ -44,6 +44,9 @@ export const ru: TranslationStructure = {
         addMachine: 'Добавить машину',
         addMachineWebHint: 'На новой машине выполните `npm i -g happy-next-cli`, затем `happy`, и вставьте сюда ссылку подключения.',
         switchMachine: 'Сменить машину',
+        openTerminal: 'Открыть терминал',
+        hideIdleMachines: 'Скрыть неактивные машины',
+        showIdleMachines: 'Показать неактивные машины',
         close: 'Закрыть',
         searchMachines: 'Поиск машин…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Машин: ${total} · в сети: ${online}`,
@@ -511,6 +514,8 @@ export const ru: TranslationStructure = {
         compactSessionViewDescription: 'Отображать активные сессии в более компактном виде',
         showFullProjectPath: 'Полные пути проектов',
         showFullProjectPathDescription: 'Показывать в списках сессий полный путь проекта, а не только имя папки',
+        hideIdleMachines: 'Скрыть неактивные машины',
+        hideIdleMachinesDescription: 'Не показывать в боковой панели и переключателе машины без активных сессий',
     },
 
     settingsFeatures: {
@@ -1975,6 +1980,8 @@ export const ru: TranslationStructure = {
         offlineUnableToSpawn: 'Запуск отключен: машина offline',
         offlineHelp: '• Убедитесь, что компьютер online\n• Выполните `happy daemon status` для диагностики\n• Используете последнюю версию CLI? Обновите командой `happy update`',
         launchNewSessionInDirectory: 'Запустить новую сессию в папке',
+        openTerminal: 'Открыть терминал',
+        openTerminalSubtitle: 'Открыть оболочку в домашнем каталоге этой машины',
         daemon: 'Daemon',
         status: 'Статус',
         stopDaemon: 'Остановить daemon',
@@ -2002,6 +2009,7 @@ export const ru: TranslationStructure = {
         repositories: 'Репозитории',
         addRepository: 'Добавить репозиторий',
         worktreeAutoPath: 'Путь управляется рабочей средой',
+        previousSessionsAll: 'Предыдущие сеансы',
         previousSessions: ({ count }: { count: number }) => `Предыдущие сеансы (до ${count} последних)`,
     },
 

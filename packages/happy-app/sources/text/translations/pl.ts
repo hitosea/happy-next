@@ -44,6 +44,9 @@ export const pl: TranslationStructure = {
         addMachine: 'Dodaj maszynę',
         addMachineWebHint: 'Na nowej maszynie uruchom `npm i -g happy-next-cli`, potem `happy`, i wklej tutaj wyświetlony link połączenia.',
         switchMachine: 'Zmień maszynę',
+        openTerminal: 'Otwórz terminal',
+        hideIdleMachines: 'Ukryj bezczynne maszyny',
+        showIdleMachines: 'Pokaż bezczynne maszyny',
         close: 'Zamknij',
         searchMachines: 'Szukaj maszyn…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `Maszyny: ${total} · online: ${online}`,
@@ -561,6 +564,8 @@ export const pl: TranslationStructure = {
         compactSessionViewDescription: 'Pokazuj aktywne sesje w bardziej zwartym układzie',
         showFullProjectPath: 'Pełne ścieżki projektów',
         showFullProjectPathDescription: 'Pokazuj na listach sesji pełną ścieżkę projektu zamiast samej nazwy katalogu',
+        hideIdleMachines: 'Ukryj bezczynne maszyny',
+        hideIdleMachinesDescription: 'Nie pokazuj na pasku bocznym ani w przełączniku maszyn bez aktywnych sesji',
     },
 
     settingsFeatures: {
@@ -1987,6 +1992,8 @@ export const pl: TranslationStructure = {
         offlineUnableToSpawn: 'Launcher wyłączony, gdy maszyna jest offline',
         offlineHelp: '• Upewnij się, że komputer jest online\n• Uruchom `happy daemon status`, aby zdiagnozować\n• Czy używasz najnowszej wersji CLI? Zaktualizuj poleceniem `happy update`',
         launchNewSessionInDirectory: 'Uruchom nową sesję w katalogu',
+        openTerminal: 'Otwórz terminal',
+        openTerminalSubtitle: 'Otwórz powłokę w katalogu domowym tej maszyny',
         daemon: 'Daemon',
         status: 'Status',
         stopDaemon: 'Zatrzymaj daemon',
@@ -2014,6 +2021,7 @@ export const pl: TranslationStructure = {
         repositories: 'Repozytoria',
         addRepository: 'Dodaj repozytorium',
         worktreeAutoPath: 'Automatycznie zarządzane przez workspace',
+        previousSessionsAll: 'Poprzednie sesje',
         previousSessions: ({ count }: { count: number }) => `Poprzednie sesje (do ${count} najnowszych)`,
     },
 

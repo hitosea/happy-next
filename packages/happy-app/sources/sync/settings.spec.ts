@@ -163,6 +163,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: Partial<Settings> = {
@@ -206,6 +207,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             });
         });
@@ -249,6 +251,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: Partial<Settings> = {};
@@ -294,6 +297,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: Partial<Settings> = {
@@ -344,6 +348,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             expect(applySettings(currentSettings, {})).toEqual(currentSettings);
@@ -403,6 +408,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
             };
             const delta: any = {
@@ -471,6 +477,7 @@ describe('settings', () => {
                 favoriteMachines: [],
                 machineOrder: [],
                 showFullProjectPath: false,
+                hideIdleMachines: false,
                 dismissedCLIWarnings: { perMachine: {}, global: {} },
                 useEnhancedSessionWizard: false,
                 showThinkingMessages: false,

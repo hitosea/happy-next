@@ -36,6 +36,9 @@ export const ja: TranslationStructure = {
         addMachine: 'マシンを追加',
         addMachineWebHint: '新しいマシンで `npm i -g happy-next-cli` を実行し、続けて `happy` を実行して、表示された接続リンクをここに貼り付けてください。',
         switchMachine: 'マシンを切り替え',
+        openTerminal: 'ターミナルを開く',
+        hideIdleMachines: 'セッションのないマシンを隠す',
+        showIdleMachines: 'セッションのないマシンを表示',
         close: '閉じる',
         searchMachines: 'マシンを検索…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台のマシン · ${online} 台オンライン`,
@@ -582,6 +585,8 @@ export const ja: TranslationStructure = {
         compactSessionViewDescription: 'アクティブなセッションをコンパクトなレイアウトで表示',
         showFullProjectPath: 'フルパスを表示',
         showFullProjectPathDescription: 'セッション一覧でプロジェクトのディレクトリ名だけでなくフルパスを表示',
+        hideIdleMachines: 'セッションのないマシンを隠す',
+        hideIdleMachinesDescription: 'アクティブなセッションがないマシンをサイドバーとマシン切り替えに表示しません',
     },
 
     settingsFeatures: {
@@ -2006,6 +2011,8 @@ export const ja: TranslationStructure = {
         machineRenamedSuccess: 'マシン名を変更しました',
         machineRenameFailed: 'マシン名の変更に失敗しました',
         launchNewSessionInDirectory: 'ディレクトリで新しいセッションを起動',
+        openTerminal: 'ターミナルを開く',
+        openTerminalSubtitle: 'このマシンのホームディレクトリでシェルを開きます',
         offlineUnableToSpawn: 'マシンがオフラインのためランチャーは無効です',
         offlineHelp: '• コンピューターがオンラインであることを確認してください\n• `happy daemon status`を実行して診断してください\n• 最新のCLIバージョンを使用していますか？`happy update`でアップグレードしてください',
         daemon: 'デーモン',
@@ -2035,6 +2042,7 @@ export const ja: TranslationStructure = {
         repositories: 'リポジトリ',
         addRepository: 'リポジトリを追加',
         worktreeAutoPath: 'ワークスペースが自動管理',
+        previousSessionsAll: '過去のセッション',
         previousSessions: ({ count }: { count: number }) => `過去のセッション（最新${count}件）`,
     },
 

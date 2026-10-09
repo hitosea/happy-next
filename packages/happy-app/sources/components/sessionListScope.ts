@@ -55,12 +55,17 @@ export function getMachineDisplayName(machine: Machine | undefined, machineId: s
  * offline or no longer synced. Offline machines with nothing on them are left out — the account
  * keeps every machine it ever registered, and listing all of them would bury the live ones.
  * Sessions without a machineId go to a trailing "unknown" group.
+ *
+ * With `hideIdle` (appearance > hide idle machines) an online machine needs sessions too, except
+ * `keepMachineId` — the one being shown — so archiving its last session does not pull it out from
+ * under the user; it goes once they switch away.
  */
 export function buildSessionMachineGroups(
     activeSessions: Session[],
     machines: Record<string, Machine>,
     nameCache: Record<string, string>,
     machineOrder: readonly string[] = [],
+    { hideIdle = false, keepMachineId = null }: { hideIdle?: boolean; keepMachineId?: string | null } = {},
 ): SessionMachineGroup[] {
     const groups = new Map<string, SessionMachineGroup>();
     const ensure = (machineId: string) => {
@@ -81,7 +86,7 @@ export function buildSessionMachineGroups(
     };
 
     for (const machine of Object.values(machines)) {
-        if (machine.active) ensure(machine.id);
+        if (machine.active && (!hideIdle || machine.id === keepMachineId)) ensure(machine.id);
     }
 
     const unknownSessions: Session[] = [];

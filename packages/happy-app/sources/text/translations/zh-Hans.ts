@@ -35,6 +35,9 @@ export const zhHans: TranslationStructure = {
         addMachine: '添加机器',
         addMachineWebHint: '在新机器上运行 `npm i -g happy-next-cli`，然后运行 `happy`，把终端输出的连接链接粘贴到这里。',
         switchMachine: '切换机器',
+        openTerminal: '打开终端',
+        hideIdleMachines: '隐藏无会话的设备',
+        showIdleMachines: '显示无会话的设备',
         close: '关闭',
         searchMachines: '搜索机器…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} 台机器 · ${online} 在线`,
@@ -552,6 +555,8 @@ export const zhHans: TranslationStructure = {
         compactSessionViewDescription: '以更紧凑的布局显示活跃会话',
         showFullProjectPath: '显示完整目录',
         showFullProjectPathDescription: '会话列表中显示项目的完整路径，而不只是目录名',
+        hideIdleMachines: '隐藏无会话的设备',
+        hideIdleMachinesDescription: '侧边栏和设备切换中不显示没有活跃会话的设备',
     },
 
     settingsFeatures: {
@@ -1976,6 +1981,8 @@ export const zhHans: TranslationStructure = {
         machineRenamedSuccess: '机器重命名成功',
         machineRenameFailed: '重命名机器失败',
         launchNewSessionInDirectory: '在目录中启动新会话',
+        openTerminal: '打开终端',
+        openTerminalSubtitle: '在这台设备的主目录中打开终端',
         offlineUnableToSpawn: '设备离线时无法启动',
         offlineHelp: '• 确保您的计算机在线\n• 运行 `happy daemon status` 进行诊断\n• 您是否在运行最新的 CLI 版本？请使用 `happy update` 升级',
         daemon: '守护进程',
@@ -2005,6 +2012,7 @@ export const zhHans: TranslationStructure = {
         repositories: '仓库',
         addRepository: '添加仓库',
         worktreeAutoPath: '由工作区自动管理',
+        previousSessionsAll: '历史会话',
         previousSessions: ({ count }: { count: number }) => `历史会话（最近 ${count} 个）`,
     },
 

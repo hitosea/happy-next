@@ -33,6 +33,9 @@ export const it: TranslationStructure = {
         addMachine: 'Aggiungi macchina',
         addMachineWebHint: 'Sulla nuova macchina esegui `npm i -g happy-next-cli`, poi `happy`, e incolla qui il link di connessione mostrato.',
         switchMachine: 'Cambia macchina',
+        openTerminal: 'Apri terminale',
+        hideIdleMachines: 'Nascondi macchine inattive',
+        showIdleMachines: 'Mostra macchine inattive',
         close: 'Chiudi',
         searchMachines: 'Cerca macchine…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'macchina' : 'macchine'} · ${online} online`,
@@ -579,6 +582,8 @@ export const it: TranslationStructure = {
         compactSessionViewDescription: 'Mostra le sessioni attive in un layout più compatto',
         showFullProjectPath: 'Percorsi completi dei progetti',
         showFullProjectPathDescription: 'Mostra il percorso completo di ogni progetto negli elenchi delle sessioni invece del solo nome della cartella',
+        hideIdleMachines: 'Nascondi macchine inattive',
+        hideIdleMachinesDescription: 'Non mostrare nella barra laterale e nel selettore le macchine senza sessioni attive',
     },
 
     settingsFeatures: {
@@ -2004,6 +2009,8 @@ export const it: TranslationStructure = {
         machineRenamedSuccess: 'Macchina rinominata con successo',
         machineRenameFailed: 'Impossibile rinominare la macchina',
         launchNewSessionInDirectory: 'Avvia nuova sessione nella directory',
+        openTerminal: 'Apri terminale',
+        openTerminalSubtitle: 'Apri una shell nella directory home di questa macchina',
         offlineUnableToSpawn: 'Avvio disabilitato quando la macchina è offline',
         offlineHelp: '• Assicurati che il tuo computer sia online\n• Esegui `happy daemon status` per diagnosticare\n• Stai usando l\'ultima versione della CLI? Aggiorna con `happy update`',
         daemon: 'Daemon',
@@ -2033,6 +2040,7 @@ export const it: TranslationStructure = {
         repositories: 'Repository',
         addRepository: 'Aggiungi repository',
         worktreeAutoPath: 'Gestito automaticamente dal workspace',
+        previousSessionsAll: 'Sessioni precedenti',
         previousSessions: ({ count }: { count: number }) => `Sessioni precedenti (fino a ${count} più recenti)`,
     },
 

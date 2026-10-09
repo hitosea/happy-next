@@ -4,11 +4,8 @@ import { Image } from 'expo-image';
 import { Text } from '@/components/StyledText';
 import { useAllSessions, useAllMachines, storage } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
-import { Avatar } from '@/components/Avatar';
-import { generateCopyTitle, getSessionName, getSessionSubtitle, getSessionAvatarId, useSessionStatus, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
-import { SessionProjectLabelsContext, useSessionProjectLabel, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
-import { ProjectLabelText } from '@/components/ProjectLabelText';
-import { StatusDot } from '@/components/StatusDot';
+import { getSessionName, getSessionSubtitle } from '@/utils/sessionUtils';
+import { SessionProjectLabelsContext, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { NativeMenu } from '@/components/NativeMenu';
@@ -18,12 +15,12 @@ import { Typography } from '@/constants/Typography';
 import { layout } from '@/components/layout';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal } from '@/modal';
-import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineSpawnNewSession } from '@/sync/ops';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
 import { MMKV } from 'react-native-mmkv';
 import { useLocalSearchParams } from 'expo-router';
+import { SessionHistoryCard } from '@/components/SessionHistoryCard';
+import { useSessionFork } from '@/hooks/useSessionFork';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
@@ -44,8 +41,6 @@ const agentIcons: Record<string, any> = {
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
 };
-
-type ForkMode = 'resume' | 'copy';
 
 interface SessionHistoryItem {
     type: 'session' | 'date-header';
@@ -78,44 +73,6 @@ const styles = StyleSheet.create((theme) => ({
         fontWeight: '600',
         letterSpacing: 0.1,
     },
-    sessionCard: {
-        backgroundColor: theme.colors.surface,
-        marginHorizontal: 16,
-        marginBottom: 1,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    sessionCardFirst: {
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-    },
-    sessionCardLast: {
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
-        marginBottom: 12,
-    },
-    sessionCardSingle: {
-        borderRadius: 12,
-        marginBottom: 12,
-    },
-    sessionContent: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    sessionTitle: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: theme.colors.text,
-        marginBottom: 2,
-        ...Typography.default('semiBold'),
-    },
-    sessionSubtitle: {
-        fontSize: 13,
-        color: theme.colors.textSecondary,
-        ...Typography.default(),
-    },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -132,41 +89,6 @@ const styles = StyleSheet.create((theme) => ({
         paddingVertical: 18,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    rightSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 8,
-    },
-    playButton: {
-        width: 29,
-        height: 29,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statusRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    statusDotContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 16,
-        marginRight: 4,
-    },
-    statusText: {
-        fontSize: 12,
-        fontWeight: '500',
-        lineHeight: 16,
-        ...Typography.default(),
-    },
-    unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#007AFF',
-        marginRight: 6,
     },
     searchContainer: {
         paddingHorizontal: 16,
@@ -298,7 +220,7 @@ function SessionHistory() {
     const allSessions = useAllSessions();
     const machines = useAllMachines();
     const navigateToSession = useNavigateToSession();
-    const [resumingSessionId, setResumingSessionId] = React.useState<string | null>(null);
+    const { resumingSessionId, forkSession: handleForkSession } = useSessionFork();
     const [searchQuery, setSearchQuery] = React.useState('');
     // Opened from a machine's page: start filtered to that machine.
     const { machineId: machineIdParam } = useLocalSearchParams<{ machineId?: string }>();
@@ -445,105 +367,6 @@ function SessionHistory() {
         );
     }, [loadingMore, theme.colors.textSecondary]);
 
-    const handleForkSession = React.useCallback(async (session: Session, mode: 'resume' | 'copy') => {
-        if (resumingSessionId) return;
-        const flavor = session.metadata?.flavor;
-        const claudeSessionId = session.metadata?.claudeSessionId;
-        const codexSessionId = session.metadata?.codexSessionId;
-        const machineId = session.metadata?.machineId;
-        const directory = session.metadata?.path;
-
-        // Guard: must have a forkable session identifier
-        if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId) return;
-        if (!directory) {
-            Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
-            return;
-        }
-        if (!machineId) {
-            Modal.alert(t('common.error'), t('claudeHistory.noMachines'));
-            return;
-        }
-
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
-        const confirmTitle = mode === 'copy' ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
-        const confirmMessage = mode === 'copy' ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
-        const confirmed = await Modal.confirm(
-            confirmTitle,
-            confirmMessage,
-            { confirmText: t('common.continue'), cancelText: t('common.cancel') }
-        );
-        if (!confirmed) return;
-
-        setResumingSessionId(session.id);
-        try {
-            const originalTitle = session.metadata?.summary?.text || getSessionName(session);
-            let sessionTitle = originalTitle;
-            if (mode === 'copy') {
-                sessionTitle = generateCopyTitle(originalTitle);
-            }
-
-            let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
-
-            if (flavor === 'gemini') {
-                const forkResult = await machineForkGeminiSession(machineId, session.id);
-                if (!forkResult.success || !forkResult.newSessionId) {
-                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
-                    return;
-                }
-                resumeSessionId = forkResult.newSessionId;
-                agent = 'gemini';
-            } else if (flavor === 'codex' && codexSessionId) {
-                const forkResult = await machineForkCodexSession(machineId, codexSessionId, { restoreArchived: mode !== 'copy' });
-                if (!forkResult.success || !forkResult.newFilePath) {
-                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
-                    return;
-                }
-                resumeSessionId = forkResult.newFilePath;
-                agent = 'codex';
-            } else if (claudeSessionId) {
-                const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
-                if (!forkResult.success || !forkResult.newSessionId) {
-                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
-                    return;
-                }
-                resumeSessionId = forkResult.newSessionId;
-                agent = 'claude';
-            } else {
-                return;
-            }
-
-            const result = await machineSpawnNewSession({
-                machineId,
-                directory,
-                approvedNewDirectoryCreation: false,
-                agent,
-                resumeSessionId,
-                sessionTitle,
-                skipForkSession: true,
-            });
-            if (result.type === 'requestToApproveDirectoryCreation') {
-                Modal.alert(t('common.error'), t('claudeHistory.directoryNotFound'));
-                return;
-            }
-            if (result.type === 'error') {
-                Modal.alert(t('common.error'), result.errorMessage || t('claudeHistory.resumeFailed'));
-                return;
-            }
-            if (result.type === 'success') {
-                await sync.refreshSessions();
-                await copySessionMetadata(session, result.sessionId).catch(e => console.warn('copySessionMetadata failed:', e));
-                copySessionModeSettings(session, result.sessionId);
-                navigateToSession(result.sessionId);
-            }
-        } catch (error) {
-            console.error('Failed to fork session', error);
-            Modal.alert(t('common.error'), t('claudeHistory.resumeFailed'));
-        } finally {
-            setResumingSessionId(null);
-        }
-    }, [navigateToSession, resumingSessionId]);
-
     const handleNavigateToSession = React.useCallback((session: Session) => {
         const state = storage.getState();
         if (!state.sessions[session.id] && !state.sharedSessions[session.id]) {
@@ -573,7 +396,7 @@ function SessionHistory() {
             const isSingle = isFirst && isLast;
 
             return (
-                <SessionHistoryItemCard
+                <SessionHistoryCard
                     session={item.session}
                     isFirst={isFirst}
                     isLast={isLast}
@@ -761,76 +584,3 @@ function SessionHistory() {
 }
 
 export default React.memo(SessionHistory);
-
-const SessionHistoryItemCard = React.memo(({ session, isFirst, isLast, isSingle, isResuming, onPress, onFork }: {
-    session: Session;
-    isFirst?: boolean;
-    isLast?: boolean;
-    isSingle?: boolean;
-    isResuming: boolean;
-    onPress: () => void;
-    onFork: (session: Session, mode: ForkMode) => void;
-}) => {
-    const { theme } = useUnistyles();
-    const sessionStatus = useSessionStatus(session);
-    const sessionName = getSessionName(session);
-    const sessionSubtitle = useSessionProjectLabel(session);
-    const avatarId = getSessionAvatarId(session);
-    const canFork = Boolean(session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId);
-    const isOnline = session.active;
-
-    return (
-        <Pressable
-            style={[
-                styles.sessionCard,
-                isSingle ? styles.sessionCardSingle :
-                isFirst ? styles.sessionCardFirst :
-                isLast ? styles.sessionCardLast : {}
-            ]}
-            onPress={onPress}
-        >
-            <Avatar id={avatarId} size={48} monochrome={!sessionStatus.isConnected} flavor={session.metadata?.flavor} sessionIcon={session.metadata?.sessionIcon} />
-            <View style={styles.sessionContent}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {sessionStatus.hasUnreadCompletion && (
-                        <View style={styles.unreadDot} />
-                    )}
-                    <Text style={[styles.sessionTitle, { flex: 1 }]} numberOfLines={1}>
-                        {sessionName}
-                    </Text>
-                </View>
-                <ProjectLabelText label={sessionSubtitle} style={styles.sessionSubtitle} />
-                <View style={styles.statusRow}>
-                    <View style={styles.statusDotContainer}>
-                        <StatusDot color={sessionStatus.statusDotColor} isPulsing={sessionStatus.isPulsing} />
-                    </View>
-                    <Text style={[styles.statusText, { color: sessionStatus.statusColor }]}>
-                        {sessionStatus.statusText}
-                    </Text>
-                </View>
-            </View>
-            <View style={styles.rightSection}>
-                {canFork && !isResuming && (
-                    <Pressable
-                        style={styles.playButton}
-                        onPress={(event) => {
-                            event.stopPropagation?.();
-                            onFork(session, isOnline ? 'copy' : 'resume');
-                        }}
-                    >
-                        <Ionicons
-                            name={isOnline ? "copy-outline" : "play-circle-outline"}
-                            size={isOnline ? 22 : 29}
-                            color={theme.colors.groupped.chevron}
-                        />
-                    </Pressable>
-                )}
-                {isResuming && (
-                    <View style={styles.playButton}>
-                        <ActivityIndicator size="small" color={theme.colors.textSecondary} />
-                    </View>
-                )}
-            </View>
-        </Pressable>
-    );
-});

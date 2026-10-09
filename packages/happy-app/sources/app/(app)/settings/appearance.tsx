@@ -30,6 +30,7 @@ export default function AppearanceSettingsScreen() {
     const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
     const [showFullProjectPath, setShowFullProjectPath] = useSettingMutable('showFullProjectPath');
+    const [hideIdleMachines, setHideIdleMachines] = useSettingMutable('hideIdleMachines');
     const [showThinkingMessages, setShowThinkingMessages] = useSettingMutable('showThinkingMessages');
     const [foldTurnProcess, setFoldTurnProcess] = useSettingMutable('foldTurnProcess');
     const [compactSessionView, setCompactSessionView] = useCompactSessionViewMutable();
@@ -125,6 +126,17 @@ export default function AppearanceSettingsScreen() {
                         <Switch
                             value={showFullProjectPath}
                             onValueChange={setShowFullProjectPath}
+                        />
+                    }
+                />
+                <Item
+                    title={t('settingsAppearance.hideIdleMachines')}
+                    subtitle={t('settingsAppearance.hideIdleMachinesDescription')}
+                    icon={<Ionicons name="eye-off-outline" size={29} color="#5856D6" />}
+                    rightElement={
+                        <Switch
+                            value={hideIdleMachines}
+                            onValueChange={setHideIdleMachines}
                         />
                     }
                 />

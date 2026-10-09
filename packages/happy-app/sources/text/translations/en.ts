@@ -48,6 +48,9 @@ export const en: TranslationStructure = {
         addMachine: 'Add machine',
         addMachineWebHint: 'On the new machine, run `npm i -g happy-next-cli`, then `happy`, and paste the connection link it prints here.',
         switchMachine: 'Switch machine',
+        openTerminal: 'Open terminal',
+        hideIdleMachines: 'Hide idle machines',
+        showIdleMachines: 'Show idle machines',
         close: 'Close',
         searchMachines: 'Search machines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'machine' : 'machines'} · ${online} online`,
@@ -565,6 +568,8 @@ export const en: TranslationStructure = {
         compactSessionViewDescription: 'Show active sessions in a more compact layout',
         showFullProjectPath: 'Full Project Paths',
         showFullProjectPathDescription: 'Show each project\'s full path in session lists instead of just its directory name',
+        hideIdleMachines: 'Hide idle machines',
+        hideIdleMachinesDescription: 'Leave machines without active sessions out of the sidebar and the machine switcher',
     },
 
     settingsFeatures: {
@@ -1991,6 +1996,8 @@ export const en: TranslationStructure = {
         machineRenamedSuccess: 'Machine renamed successfully',
         machineRenameFailed: 'Failed to rename machine',
         launchNewSessionInDirectory: 'Launch New Session in Directory',
+        openTerminal: 'Open Terminal',
+        openTerminalSubtitle: 'Open a shell in this machine\'s home directory',
         offlineUnableToSpawn: 'Launcher disabled while machine is offline',
         offlineHelp: '• Make sure your computer is online\n• Run `happy daemon status` to diagnose\n• Are you running the latest CLI version? Upgrade with `happy update`',
         daemon: 'Daemon',
@@ -2020,6 +2027,7 @@ export const en: TranslationStructure = {
         repositories: 'Repositories',
         addRepository: 'Add Repository',
         worktreeAutoPath: 'Auto-managed by workspace',
+        previousSessionsAll: 'Previous Sessions',
         previousSessions: ({ count }: { count: number }) => `Previous Sessions (up to ${count} most recent)`,
     },
 

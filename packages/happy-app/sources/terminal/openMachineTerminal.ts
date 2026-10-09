@@ -8,16 +8,17 @@ import { resolveTerminalDirectory, spawnTerminal } from './openTerminal';
 import { openTerminalPopup } from './terminalPopupWindow';
 
 /**
- * Opens a shell for a session: on the machine it runs on, in the directory it runs in.
+ * Opens a shell on a machine: in a session's directory when given one, else the machine's home.
  *
- * Shared by the session's long-press menu and its details screen, so both end up in the same
- * place. `push` is the caller's router, kept out of here so this stays a plain function.
+ * Shared by the session's long-press menu and details screen, and the machine's details screen and
+ * sidebar menu, so all of them end up in the same place. `push` is the caller's router, kept out of
+ * here so this stays a plain function.
  *
  * Where the app has windows of its own the terminal opens in one: the desktop app's terminal
  * window, or a popup in a desktop browser. Anywhere else, or when a browser refuses the popup,
  * it is a screen in the app.
  */
-export function openSessionTerminal(input: {
+export function openMachineTerminal(input: {
     machineId: string;
     sessionPath?: string;
     push: (href: Href) => void;

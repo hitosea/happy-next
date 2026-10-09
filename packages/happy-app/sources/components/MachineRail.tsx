@@ -10,6 +10,7 @@ import { t } from '@/text';
 import { isTauriDesktop } from '@/utils/tauri';
 import { SessionScopeDot } from './SessionScopeDot';
 import { requestSessionListJump } from './sessionListJump';
+import { MachineRailContextMenu, menuAt, type ContextMenuEvent, type MachineRailMenu } from './MachineRailContextMenu';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
 const BUTTON_SIZE = 34;
@@ -25,6 +26,7 @@ type RailButtonProps = {
     // when shown, so it never reads as a second scope picked beside the machine.
     plain?: boolean;
     slotStyle?: StyleProp<ViewStyle>;
+    onContextMenu?: (event: ContextMenuEvent) => void;
     children: React.ReactNode;
 };
 
@@ -35,7 +37,7 @@ function setTooltip(label: string) {
     };
 }
 
-const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, children }: RailButtonProps) => {
+const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', plain, slotStyle, onContextMenu, children }: RailButtonProps) => {
     const styles = stylesheet;
     return (
         <View style={[styles.buttonSlot, slotStyle]}>
@@ -46,6 +48,8 @@ const RailButton = React.memo(({ label, active, onPress, online, dot = 'none', p
                 accessibilityLabel={label}
                 accessibilityState={{ selected: active }}
                 onPress={onPress}
+                // Spread rather than written inline: `onContextMenu` is a DOM prop the React Native types do not carry.
+                {...(onContextMenu ? { onContextMenu } : {})}
                 style={({ hovered, pressed }: any) => [
                     styles.button,
                     plain && !active && !hovered && !pressed && styles.buttonPlain,
@@ -148,6 +152,10 @@ export const MachineRail = React.memo(({
     onSettings,
     machineDetailsActive,
     onMachineDetails,
+    onNewSession,
+    onOpenTerminal,
+    hideIdleMachines,
+    onHideIdleMachinesChange,
     header,
 }: {
     groups: SessionMachineGroup[];
@@ -163,6 +171,11 @@ export const MachineRail = React.memo(({
     // Shown above settings while a machine is picked, opening that machine's page.
     machineDetailsActive: boolean;
     onMachineDetails: (machineId: string) => void;
+    // The right-click menus (web): a machine's actions, and the rail's own display option.
+    onNewSession: (machineId: string) => void;
+    onOpenTerminal: (machineId: string) => void;
+    hideIdleMachines: boolean;
+    onHideIdleMachinesChange: (hide: boolean) => void;
     // Sits above the rail's buttons, where the web sidebar keeps the app logo.
     header?: React.ReactNode;
 }) => {
@@ -177,9 +190,25 @@ export const MachineRail = React.memo(({
         if (next === selection) requestSessionListJump();
         else onSelect(next);
     };
+    const [menu, setMenu] = React.useState<MachineRailMenu | null>(null);
+    const closeMenu = React.useCallback(() => setMenu(null), []);
+    const openMachineMenu = (group: SessionMachineGroup) => (event: ContextMenuEvent) => setMenu(menuAt(event, [
+        { label: t('sessionScope.newSession'), icon: 'add-circle-outline', onPress: () => onNewSession(group.id) },
+        { label: t('sessionScope.openTerminal'), icon: 'terminal-outline', disabled: !group.online, onPress: () => onOpenTerminal(group.id) },
+        { label: t('sessionScope.machineDetails'), icon: 'information-circle-outline', onPress: () => onMachineDetails(group.id) },
+    ]));
+    // Anywhere on the rail outside a machine button: the item names what it will do next.
+    const openRailMenu = (event: ContextMenuEvent) => setMenu(menuAt(event, [
+        hideIdleMachines
+            ? { label: t('sessionScope.showIdleMachines'), icon: 'eye-outline', onPress: () => onHideIdleMachinesChange(false) }
+            : { label: t('sessionScope.hideIdleMachines'), icon: 'eye-off-outline', onPress: () => onHideIdleMachinesChange(true) },
+    ]));
 
     return (
-        <View style={[styles.rail, !!header && styles.railWithHeader]}>
+        <View
+            style={[styles.rail, !!header && styles.railWithHeader]}
+            {...(Platform.OS === 'web' ? { onContextMenu: openRailMenu } : {})}
+        >
             {header}
             <RailButton
                 label={`${t('sessionScope.allMachines')} · ${t('sessionScope.sessionCount', { count: sessionCount })}`}
@@ -208,6 +237,7 @@ export const MachineRail = React.memo(({
                             online={group.online}
                             dot={group.dot}
                             onPress={() => selectOrJump(group.id)}
+                            onContextMenu={openMachineMenu(group)}
                         >
                             <Text
                                 numberOfLines={1}
@@ -256,6 +286,7 @@ export const MachineRail = React.memo(({
                     <SettingsIcon size={20} color={theme.colors.text} />
                 </RailButton>
             </View>
+            <MachineRailContextMenu menu={menu} onClose={closeMenu} />
         </View>
     );
 });

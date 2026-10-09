@@ -33,6 +33,9 @@ export const ca: TranslationStructure = {
         addMachine: 'Afegeix una màquina',
         addMachineWebHint: 'A la màquina nova, executa `npm i -g happy-next-cli` i després `happy`, i enganxa aquí l\'enllaç de connexió que mostra.',
         switchMachine: 'Canvia de màquina',
+        openTerminal: 'Obre el terminal',
+        hideIdleMachines: 'Amaga les màquines inactives',
+        showIdleMachines: 'Mostra les màquines inactives',
         close: 'Tanca',
         searchMachines: 'Cerca màquines…',
         machineSummary: ({ total, online }: { total: number, online: number }) => `${total} ${total === 1 ? 'màquina' : 'màquines'} · ${online} en línia`,
@@ -550,6 +553,8 @@ export const ca: TranslationStructure = {
         compactSessionViewDescription: 'Mostra les sessions actives en un disseny més compacte',
         showFullProjectPath: 'Camins complets dels projectes',
         showFullProjectPathDescription: 'Mostra el camí complet de cada projecte a les llistes de sessions en lloc de només el nom del directori',
+        hideIdleMachines: 'Amaga les màquines inactives',
+        hideIdleMachinesDescription: 'No mostris a la barra lateral ni al selector les màquines sense sessions actives',
     },
 
     settingsFeatures: {
@@ -1976,6 +1981,8 @@ export const ca: TranslationStructure = {
         offlineUnableToSpawn: 'El llançador està desactivat mentre la màquina està fora de línia',
         offlineHelp: '• Assegura\'t que l\'ordinador estigui en línia\n• Executa `happy daemon status` per diagnosticar\n• Fas servir l\'última versió del CLI? Actualitza amb `happy update`',
         launchNewSessionInDirectory: 'Inicia una nova sessió al directori',
+        openTerminal: 'Obre el terminal',
+        openTerminalSubtitle: 'Obre un intèrpret a la carpeta personal d\'aquesta màquina',
         daemon: 'Dimoni',
         status: 'Estat',
         stopDaemon: 'Atura el dimoni',
@@ -2003,6 +2010,7 @@ export const ca: TranslationStructure = {
         repositories: 'Repositoris',
         addRepository: 'Afegir repositori',
         worktreeAutoPath: 'Gestionat automàticament pel workspace',
+        previousSessionsAll: 'Sessions anteriors',
         previousSessions: ({ count }: { count: number }) => `Sessions anteriors (fins a ${count} més recents)`,
     },
 
