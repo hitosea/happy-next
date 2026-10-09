@@ -28,6 +28,7 @@ export const es: TranslationStructure = {
         allMachines: 'Todas las máquinas',
         allMachinesHint: 'Ver sesiones de todas las máquinas',
         sessionCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'sesión' : 'sesiones'}`,
+        machineDetails: 'Detalles de la máquina',
         addMachine: 'Añadir máquina',
         addMachineWebHint: 'En la nueva máquina, ejecuta `npm i -g happy-next-cli` y luego `happy`, y pega aquí el enlace de conexión que muestra.',
         switchMachine: 'Cambiar máquina',

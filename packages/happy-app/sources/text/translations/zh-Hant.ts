@@ -30,6 +30,7 @@ export const zhHant: TranslationStructure = {
         allMachines: '全部機器',
         allMachinesHint: '跨機器查看所有工作階段',
         sessionCount: ({ count }: { count: number }) => `${count} 個工作階段`,
+        machineDetails: '機器詳情',
         addMachine: '新增機器',
         addMachineWebHint: '在新機器上執行 `npm i -g happy-next-cli`，然後執行 `happy`，把終端輸出的連線連結貼到這裡。',
         switchMachine: '切換機器',

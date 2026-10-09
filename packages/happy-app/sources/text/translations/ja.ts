@@ -31,6 +31,7 @@ export const ja: TranslationStructure = {
         allMachines: 'すべてのマシン',
         allMachinesHint: 'すべてのマシンのセッションを表示',
         sessionCount: ({ count }: { count: number }) => `${count} 件のセッション`,
+        machineDetails: 'マシンの詳細',
         addMachine: 'マシンを追加',
         addMachineWebHint: '新しいマシンで `npm i -g happy-next-cli` を実行し、続けて `happy` を実行して、表示された接続リンクをここに貼り付けてください。',
         switchMachine: 'マシンを切り替え',

@@ -39,6 +39,7 @@ export const ru: TranslationStructure = {
         allMachines: 'Все машины',
         allMachinesHint: 'Сессии на всех машинах',
         sessionCount: ({ count }: { count: number }) => `Сессий: ${count}`,
+        machineDetails: 'Сведения о машине',
         addMachine: 'Добавить машину',
         addMachineWebHint: 'На новой машине выполните `npm i -g happy-next-cli`, затем `happy`, и вставьте сюда ссылку подключения.',
         switchMachine: 'Сменить машину',

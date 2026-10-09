@@ -39,6 +39,7 @@ export const pl: TranslationStructure = {
         allMachines: 'Wszystkie maszyny',
         allMachinesHint: 'Sesje ze wszystkich maszyn',
         sessionCount: ({ count }: { count: number }) => `Sesje: ${count}`,
+        machineDetails: 'Szczegóły maszyny',
         addMachine: 'Dodaj maszynę',
         addMachineWebHint: 'Na nowej maszynie uruchom `npm i -g happy-next-cli`, potem `happy`, i wklej tutaj wyświetlony link połączenia.',
         switchMachine: 'Zmień maszynę',

@@ -30,6 +30,7 @@ export const zhHans: TranslationStructure = {
         allMachines: '全部机器',
         allMachinesHint: '跨机器查看所有会话',
         sessionCount: ({ count }: { count: number }) => `${count} 个会话`,
+        machineDetails: '机器详情',
         addMachine: '添加机器',
         addMachineWebHint: '在新机器上运行 `npm i -g happy-next-cli`，然后运行 `happy`，把终端输出的连接链接粘贴到这里。',
         switchMachine: '切换机器',

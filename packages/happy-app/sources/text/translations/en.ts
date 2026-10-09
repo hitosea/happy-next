@@ -43,6 +43,7 @@ export const en: TranslationStructure = {
         allMachines: 'All machines',
         allMachinesHint: 'View sessions across every machine',
         sessionCount: ({ count }: { count: number }) => `${count} ${count === 1 ? 'session' : 'sessions'}`,
+        machineDetails: 'Machine details',
         addMachine: 'Add machine',
         addMachineWebHint: 'On the new machine, run `npm i -g happy-next-cli`, then `happy`, and paste the connection link it prints here.',
         switchMachine: 'Switch machine',

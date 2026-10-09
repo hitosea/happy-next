@@ -154,6 +154,8 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
             sessionCount={scope.activeSessions.length}
             settingsActive={pathname.startsWith('/settings')}
             onSettings={() => router.navigate('/settings')}
+            machineDetailsActive={pathname === `/machine/${scope.selection}`}
+            onMachineDetails={(machineId) => router.navigate(`/machine/${machineId}`)}
             header={header}
         />
     );
