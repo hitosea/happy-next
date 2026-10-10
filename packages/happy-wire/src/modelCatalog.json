@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "codexCli": {
         "package": "@openai/codex",
-        "version": "0.162.0"
+        "version": "0.162.1"
     },
     "effortDescriptions": {
         "low": "Fast responses",
