@@ -51,8 +51,12 @@ export function useMouseReorder(ids: readonly string[], pitch: number, onReorder
             next.splice(to, 0, id);
             latest.current.onReorder(next);
         };
+        // Escape takes back this drag only: caught on the window before the document sees it, so
+        // whatever else listens for it there (the rail leaving reordering) does not.
         const handleKeyDown = (keyEvent: KeyboardEvent) => {
-            if (keyEvent.key === 'Escape') stop();
+            if (keyEvent.key !== 'Escape') return;
+            keyEvent.stopPropagation();
+            stop();
         };
         const stop = () => {
             window.removeEventListener('pointermove', handleMove, true);

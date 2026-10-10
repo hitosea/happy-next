@@ -173,6 +173,7 @@ export const MachineRail = React.memo(({
     hideIdleMachines,
     onHideIdleMachinesChange,
     onReorderMachines,
+    onReorderingChange,
     header,
 }: {
     groups: SessionMachineGroup[];
@@ -195,6 +196,9 @@ export const MachineRail = React.memo(({
     onHideIdleMachinesChange: (hide: boolean) => void;
     // The machines on the rail in the order they were dragged into.
     onReorderMachines: (machineIds: string[]) => void;
+    // Reordering began, was kept (Done, a click elsewhere), or was cancelled with Escape, which
+    // puts back the order it began with.
+    onReorderingChange: (change: 'start' | 'done' | 'cancel') => void;
     // Sits above the rail's buttons, where the web sidebar keeps the app logo.
     header?: React.ReactNode;
 }) => {
@@ -212,24 +216,35 @@ export const MachineRail = React.memo(({
     };
 
     // Reordering, entered from the right-click menus: the machine buttons are dragged with the mouse
-    // instead of picked, until Done in the menu, Escape, or a click anywhere off the machines.
+    // instead of picked, until Done in the menu or a click anywhere off the machines keeps the new
+    // order, or Escape takes it back.
     const [reordering, setReordering] = React.useState(false);
     const canReorder = Platform.OS === 'web' && machines.length >= 2;
     const machinesRef = React.useRef<HTMLElement | null>(null);
     const machineIds = React.useMemo(() => machines.map(group => group.id), [machines]);
     const reorder = useMouseReorder(machineIds, MACHINE_PITCH, onReorderMachines);
+    const onReorderingChangeRef = React.useRef(onReorderingChange);
+    onReorderingChangeRef.current = onReorderingChange;
+    const startReordering = () => {
+        onReorderingChangeRef.current('start');
+        setReordering(true);
+    };
+    const endReordering = React.useCallback((change: 'done' | 'cancel') => {
+        onReorderingChangeRef.current(change);
+        setReordering(false);
+    }, []);
     React.useEffect(() => {
-        if (!canReorder) setReordering(false);
-    }, [canReorder]);
+        if (!canReorder && reordering) endReordering('done');
+    }, [canReorder, reordering, endReordering]);
     React.useEffect(() => {
         if (!reordering || typeof document === 'undefined') return;
         const handlePointerDown = (event: PointerEvent) => {
             // A right-click is left to open the menu, which offers Done.
             if (event.button !== 0) return;
-            if (!(event.target instanceof Node && machinesRef.current?.contains(event.target))) setReordering(false);
+            if (!(event.target instanceof Node && machinesRef.current?.contains(event.target))) endReordering('done');
         };
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setReordering(false);
+            if (event.key === 'Escape') endReordering('cancel');
         };
         document.addEventListener('pointerdown', handlePointerDown, true);
         document.addEventListener('keydown', handleKeyDown, true);
@@ -237,13 +252,13 @@ export const MachineRail = React.memo(({
             document.removeEventListener('pointerdown', handlePointerDown, true);
             document.removeEventListener('keydown', handleKeyDown, true);
         };
-    }, [reordering]);
+    }, [reordering, endReordering]);
 
     const [menu, setMenu] = React.useState<MachineRailMenu | null>(null);
     const closeMenu = React.useCallback(() => setMenu(null), []);
     const reorderItem: MachineRailMenuItem[] = !canReorder ? [] : reordering
-        ? [{ label: t('sessionScope.reorderMachinesDone'), icon: 'checkmark-outline', onPress: () => setReordering(false) }]
-        : [{ label: t('sessionScope.reorderMachines'), icon: 'swap-vertical-outline', onPress: () => setReordering(true) }];
+        ? [{ label: t('sessionScope.reorderMachinesDone'), icon: 'checkmark-outline', onPress: () => endReordering('done') }]
+        : [{ label: t('sessionScope.reorderMachines'), icon: 'swap-vertical-outline', onPress: startReordering }];
     const openMachineMenu = (group: SessionMachineGroup) => (event: ContextMenuEvent) => setMenu(menuAt(event, [
         { label: t('sessionScope.newSession'), icon: 'add-circle-outline', onPress: () => onNewSession(group.id) },
         { label: t('sessionScope.openTerminal'), icon: 'terminal-outline', disabled: !group.online, onPress: () => onOpenTerminal(group.id) },

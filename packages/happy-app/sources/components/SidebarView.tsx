@@ -146,6 +146,8 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
     const pathname = usePathname();
     const [hideIdleMachines, setHideIdleMachines] = useSettingMutable('hideIdleMachines');
     const [machineOrder, setMachineOrder] = useSettingMutable('machineOrder');
+    // The saved order as reordering began, put back if it is cancelled.
+    const orderBeforeReordering = React.useRef<string[] | null>(null);
     return (
         <MachineRail
             groups={scope.groups}
@@ -165,6 +167,16 @@ const SidebarMachineRail = React.memo(({ header }: { header?: React.ReactNode })
             hideIdleMachines={hideIdleMachines}
             onHideIdleMachinesChange={setHideIdleMachines}
             onReorderMachines={(machineIds) => setMachineOrder(mergeMachineOrder(machineOrder, machineIds))}
+            onReorderingChange={(change) => {
+                if (change === 'start') orderBeforeReordering.current = machineOrder;
+                else if (change === 'cancel') {
+                    const before = orderBeforeReordering.current;
+                    if (before && (before.length !== machineOrder.length || before.some((id, i) => id !== machineOrder[i]))) {
+                        setMachineOrder(before);
+                    }
+                }
+                if (change !== 'start') orderBeforeReordering.current = null;
+            }}
             header={header}
         />
     );
