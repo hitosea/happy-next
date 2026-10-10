@@ -495,7 +495,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         );
     });
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-    // Keep the settings overlay aligned with the panel in both new and existing sessions.
+    // Keep the settings and autocomplete overlays aligned with the panel in both new and existing sessions.
     const panelHorizontalInset = props.panelSideMargin ? 8 : 0;
     const useGlassPanel = !!props.glassPanel && Platform.OS === 'ios' && isLiquidGlassAvailable();
     // Wide layout: show the reasoning-effort column beside the model list instead of below it.
@@ -1367,7 +1367,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 {suggestions.length > 0 && (
                     <View style={[
                         styles.autocompleteOverlay,
-                        { paddingHorizontal: screenWidth > 700 ? 0 : 8 }
+                        { paddingHorizontal: screenWidth > 700 ? panelHorizontalInset : 8 }
                     ]}>
                         <AgentInputAutocomplete
                             suggestions={suggestions.map(s => {

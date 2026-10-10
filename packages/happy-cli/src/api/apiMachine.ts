@@ -19,6 +19,7 @@ import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
 import { forkCodexSession, forkAndTruncateCodexSession } from '@/codex/utils/codexSessionFork';
 import { executeSessionArchive } from '@/daemon/executeSessionArchive';
+import { discoverCapabilities, type DiscoverCapabilitiesAgent } from '@/daemon/discoverCapabilities';
 import { AsyncLock } from '@/utils/lock';
 import { SessionCache, matchFields, type SessionCacheRuntimeStats } from '@/cache/SessionCache';
 import { encodeBase64, decodeBase64, encrypt, decrypt } from './encryption';
@@ -441,6 +442,18 @@ export class ApiMachineClient {
                 taskId,
                 dispatchToken,
             });
+        });
+
+        // Discover slash commands and skills for a directory before any session runs there
+        this.rpcHandlerManager.registerHandler('discover-capabilities', async (params: any) => {
+            const { agent, directory } = params || {};
+            if (!directory || typeof directory !== 'string') {
+                throw new Error('directory is required');
+            }
+            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini') {
+                throw new Error(`Unsupported agent: ${agent}`);
+            }
+            return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory);
         });
 
         // List Claude sessions from local index

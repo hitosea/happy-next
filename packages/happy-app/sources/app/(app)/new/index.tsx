@@ -30,6 +30,7 @@ import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
+import { useNewSessionAutocomplete } from '@/hooks/useNewSessionAutocomplete';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
@@ -347,6 +348,13 @@ function NewSessionWizard() {
         }
         didApplyDooTaskProjectDefaultsRef.current = true;
     }, [tempSessionData, dooTaskProjectRecentConfig, selectedMachineId, selectedPath]);
+
+    // Worktrees aren't created until send; their source repo has the same .claude/.codex files
+    const autocomplete = useNewSessionAutocomplete(
+        selectedMachineId,
+        sessionType === 'worktree' && selectedRepos.length > 0 ? selectedRepos[0].repo.path : selectedPath,
+        agentType,
+    );
 
     const [sessionPrompt, setSessionPrompt] = React.useState(() => {
         return tempSessionData?.prompt || prompt || persistedDraft?.input || '';
@@ -1031,8 +1039,8 @@ function NewSessionWizard() {
                         allowEmptySend={true}
                         isSending={isCreating}
                         placeholder={t('session.initialMessage')}
-                        autocompletePrefixes={[]}
-                        autocompleteSuggestions={async () => []}
+                        autocompletePrefixes={autocomplete.prefixes}
+                        autocompleteSuggestions={autocomplete.suggestions}
                         agentType={agentType}
                         onAgentClick={handleAgentClick}
                         permissionMode={permissionMode}

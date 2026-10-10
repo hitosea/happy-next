@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js';
 import { getSession, storage } from './storage';
+import type { SessionCapabilities } from './storageTypes';
 
 export type SkillScope = 'REPO' | 'USER' | 'ADMIN' | 'SYSTEM';
 
@@ -36,8 +37,24 @@ export function searchSkills(
     query: string,
     options: SearchOptions = {}
 ): SkillItem[] {
+    return searchSkillItems(getSkillsFromSession(sessionId), query, options);
+}
+
+// Searches the skills discovered for a session that has not started yet
+export function searchCapabilitySkills(
+    capabilities: SessionCapabilities,
+    query: string,
+    options: SearchOptions = {}
+): SkillItem[] {
+    return searchSkillItems(capabilities.skills ?? [], query, options);
+}
+
+function searchSkillItems(
+    skills: SkillItem[],
+    query: string,
+    options: SearchOptions
+): SkillItem[] {
     const { limit, threshold = 0.35 } = options;
-    const skills = getSkillsFromSession(sessionId);
 
     if (!query || query.trim().length === 0) {
         return limit ? skills.slice(0, limit) : skills;

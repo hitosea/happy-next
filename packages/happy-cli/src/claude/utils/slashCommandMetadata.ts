@@ -79,22 +79,20 @@ function readFrontmatter(filePath: string): Record<string, unknown> | null {
     }
 }
 
-function addAlias(
-    map: Map<string, ClaudeSlashCommandMetadata>,
+/**
+ * Receives each command/skill found on disk: `name` is the name Claude exposes it under, `aliases`
+ * are every name a Claude init payload may use for it (e.g. a plugin skill with and without prefix).
+ */
+type CommandSink = (
+    name: string,
     aliases: string[],
     metadata: Omit<ClaudeSlashCommandMetadata, 'name'>,
-): void {
-    for (const alias of aliases) {
-        const name = normalizeCommandName(alias);
-        if (!name || map.has(name)) continue;
-        map.set(name, { name, ...metadata });
-    }
-}
+) => void;
 
 function scanSkillRoot(
     root: string,
     scope: ClaudeSlashCommandScope,
-    map: Map<string, ClaudeSlashCommandMetadata>,
+    sink: CommandSink,
     pluginName?: string,
 ): void {
     try {
@@ -107,10 +105,9 @@ function scanSkillRoot(
 
             const skillName = readYamlString(frontmatter?.name) || entry.name;
             const description = readYamlString(frontmatter?.description, true);
-            const aliases = [skillName];
-            if (pluginName) aliases.push(`${pluginName}:${skillName}`);
+            const name = pluginName ? `${pluginName}:${skillName}` : skillName;
 
-            addAlias(map, aliases, {
+            sink(name, [skillName, name], {
                 kind: 'skill',
                 scope,
                 ...(description ? { description } : {}),
@@ -124,7 +121,7 @@ function scanSkillRoot(
 function scanCommandRoot(
     root: string,
     scope: ClaudeSlashCommandScope,
-    map: Map<string, ClaudeSlashCommandMetadata>,
+    sink: CommandSink,
     pluginName?: string,
 ): void {
     function visit(dir: string): void {
@@ -152,7 +149,7 @@ function scanCommandRoot(
             }
             const frontmatter = readFrontmatter(fullPath);
             const description = readYamlString(frontmatter?.description, true);
-            addAlias(map, aliases, {
+            sink(pluginName ? `${pluginName}:${commandName}` : commandName, aliases, {
                 kind: 'command',
                 scope,
                 ...(description ? { description } : {}),
@@ -170,33 +167,101 @@ function getPluginName(plugin: ClaudePluginMetadata): string | undefined {
     return sourceName || undefined;
 }
 
+function scanClaudeCommands(
+    plugins: ClaudePluginMetadata[],
+    cwd: string,
+    homeDir: string,
+    sink: CommandSink,
+): void {
+    const repoRoot = findGitRoot(cwd);
+
+    for (const ancestor of collectAncestors(cwd, repoRoot)) {
+        scanSkillRoot(join(ancestor, '.claude', 'skills'), 'REPO', sink);
+        scanCommandRoot(join(ancestor, '.claude', 'commands'), 'REPO', sink);
+    }
+
+    scanSkillRoot(join(homeDir, '.claude', 'skills'), 'USER', sink);
+    scanCommandRoot(join(homeDir, '.claude', 'commands'), 'USER', sink);
+
+    for (const plugin of plugins) {
+        if (!plugin.path) continue;
+        const pluginRoot = normalizePath(plugin.path);
+        const pluginName = getPluginName(plugin);
+        scanSkillRoot(join(pluginRoot, 'skills'), 'PLUGIN', sink, pluginName);
+        scanSkillRoot(join(pluginRoot, '.claude', 'skills'), 'PLUGIN', sink, pluginName);
+        scanCommandRoot(join(pluginRoot, 'commands'), 'PLUGIN', sink, pluginName);
+        scanCommandRoot(join(pluginRoot, '.claude', 'commands'), 'PLUGIN', sink, pluginName);
+    }
+}
+
 function buildKnownCommandMetadata(
     capabilities: ClaudeInitCapabilities,
     cwd: string,
     homeDir: string,
 ): Map<string, ClaudeSlashCommandMetadata> {
     const map = new Map<string, ClaudeSlashCommandMetadata>();
-    const repoRoot = findGitRoot(cwd);
-
-    for (const ancestor of collectAncestors(cwd, repoRoot)) {
-        scanSkillRoot(join(ancestor, '.claude', 'skills'), 'REPO', map);
-        scanCommandRoot(join(ancestor, '.claude', 'commands'), 'REPO', map);
-    }
-
-    scanSkillRoot(join(homeDir, '.claude', 'skills'), 'USER', map);
-    scanCommandRoot(join(homeDir, '.claude', 'commands'), 'USER', map);
-
-    for (const plugin of capabilities.plugins ?? []) {
-        if (!plugin.path) continue;
-        const pluginRoot = normalizePath(plugin.path);
-        const pluginName = getPluginName(plugin);
-        scanSkillRoot(join(pluginRoot, 'skills'), 'PLUGIN', map, pluginName);
-        scanSkillRoot(join(pluginRoot, '.claude', 'skills'), 'PLUGIN', map, pluginName);
-        scanCommandRoot(join(pluginRoot, 'commands'), 'PLUGIN', map, pluginName);
-        scanCommandRoot(join(pluginRoot, '.claude', 'commands'), 'PLUGIN', map, pluginName);
-    }
-
+    scanClaudeCommands(capabilities.plugins ?? [], cwd, homeDir, (_name, aliases, metadata) => {
+        for (const alias of aliases) {
+            const name = normalizeCommandName(alias);
+            if (!name || map.has(name)) continue;
+            map.set(name, { name, ...metadata });
+        }
+    });
     return map;
+}
+
+function readJsonFile(filePath: string): unknown {
+    try {
+        return JSON.parse(readFileSync(filePath, 'utf8'));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Plugins Claude would load in `cwd`: installed (`~/.claude/plugins/installed_plugins.json`) and
+ * enabled by the user, project or local settings, with later files overriding earlier ones.
+ */
+function readEnabledClaudePlugins(cwd: string, homeDir: string): ClaudePluginMetadata[] {
+    const repoRoot = findGitRoot(cwd);
+    const enabled: Record<string, unknown> = {};
+    for (const settingsPath of [
+        join(homeDir, '.claude', 'settings.json'),
+        join(repoRoot, '.claude', 'settings.json'),
+        join(repoRoot, '.claude', 'settings.local.json'),
+    ]) {
+        const settings = readJsonFile(settingsPath) as { enabledPlugins?: Record<string, unknown> } | null;
+        Object.assign(enabled, settings?.enabledPlugins);
+    }
+
+    const installed = readJsonFile(join(homeDir, '.claude', 'plugins', 'installed_plugins.json')) as {
+        plugins?: Record<string, Array<{ installPath?: string; projectPath?: string }>>;
+    } | null;
+    const normalizedRepoRoot = normalizePath(repoRoot);
+
+    return Object.entries(installed?.plugins ?? {}).flatMap(([source, installs]) => {
+        if (enabled[source] !== true || !Array.isArray(installs)) return [];
+        const install = installs.find((entry) => !entry.projectPath || normalizePath(entry.projectPath) === normalizedRepoRoot);
+        return install?.installPath ? [{ name: source.split('@')[0], source, path: install.installPath }] : [];
+    });
+}
+
+/**
+ * Lists the commands and skills Claude will expose in `cwd`, read from disk before any Claude
+ * process runs. Unlike `buildClaudeSlashCommandMetadata` this has no init payload to start from,
+ * so Claude's own built-in commands and MCP prompts are not included.
+ */
+export function discoverClaudeSlashCommandMetadata(
+    cwd: string,
+    homeDir = os.homedir(),
+): ClaudeSlashCommandMetadata[] {
+    const commands = new Map<string, ClaudeSlashCommandMetadata>();
+    scanClaudeCommands(readEnabledClaudePlugins(cwd, homeDir), cwd, homeDir, (rawName, _aliases, metadata) => {
+        const name = normalizeCommandName(rawName);
+        if (!name || commands.has(name)) return;
+        commands.set(name, { name, ...metadata });
+    });
+    return Array.from(commands.values());
 }
 
 export function buildClaudeSlashCommandMetadata(

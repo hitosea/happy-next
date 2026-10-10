@@ -1,8 +1,9 @@
 import { CommandSuggestion, FileMentionSuggestion, SkillSuggestion } from '@/components/AgentInputSuggestionView';
 import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
-import { searchCommands, CommandItem } from '@/sync/suggestionCommands';
-import { searchSkills, SkillItem } from '@/sync/suggestionSkills';
+import { searchCommands, searchCapabilityCommands, CommandItem } from '@/sync/suggestionCommands';
+import { searchSkills, searchCapabilitySkills, SkillItem } from '@/sync/suggestionSkills';
+import type { SessionCapabilities } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { storage } from '@/sync/storage';
 
@@ -31,6 +32,39 @@ async function ensureSessionCapabilities(sessionId: string): Promise<void> {
     return fetchPromise;
 }
 
+type Suggestion = {
+    key: string;
+    text: string;
+    component: React.ComponentType;
+};
+
+function toCommandSuggestions(commands: CommandItem[]): Suggestion[] {
+    return commands.map((cmd) => ({
+        key: `cmd-${cmd.command}`,
+        text: `/${cmd.command}`,
+        component: () => React.createElement(CommandSuggestion, {
+            command: cmd.command,
+            description: cmd.description,
+            scope: cmd.scope,
+            kind: cmd.kind
+        })
+    }));
+}
+
+function toSkillSuggestions(skills: SkillItem[], options: { showSkillCategory?: boolean }): Suggestion[] {
+    return skills.map((skill) => ({
+        key: `skill-${skill.scope}-${skill.path}`,
+        text: `$${skill.name}`,
+        component: () => React.createElement(SkillSuggestion, {
+            name: skill.name,
+            description: skill.shortDescription || skill.description,
+            scope: skill.scope,
+            displayName: skill.displayName,
+            showSkillCategory: options.showSkillCategory,
+        })
+    }));
+}
+
 export async function getCommandSuggestions(sessionId: string, query: string): Promise<{
     key: string;
     text: string;
@@ -40,18 +74,7 @@ export async function getCommandSuggestions(sessionId: string, query: string): P
 
     try {
         await ensureSessionCapabilities(sessionId);
-        const commands = await searchCommands(sessionId, searchTerm);
-
-        return commands.map((cmd: CommandItem) => ({
-            key: `cmd-${cmd.command}`,
-            text: `/${cmd.command}`,
-            component: () => React.createElement(CommandSuggestion, {
-                command: cmd.command,
-                description: cmd.description,
-                scope: cmd.scope,
-                kind: cmd.kind
-            })
-        }));
+        return toCommandSuggestions(await searchCommands(sessionId, searchTerm));
     } catch (error) {
         console.error('Error fetching command suggestions:', error);
         return [];
@@ -71,19 +94,7 @@ export async function getSkillSuggestions(
 
     try {
         await ensureSessionCapabilities(sessionId);
-        const skills = searchSkills(sessionId, searchTerm);
-
-        return skills.map((skill: SkillItem) => ({
-            key: `skill-${skill.scope}-${skill.path}`,
-            text: `$${skill.name}`,
-            component: () => React.createElement(SkillSuggestion, {
-                name: skill.name,
-                description: skill.shortDescription || skill.description,
-                scope: skill.scope,
-                displayName: skill.displayName,
-                showSkillCategory: options.showSkillCategory,
-            })
-        }));
+        return toSkillSuggestions(searchSkills(sessionId, searchTerm), options);
     } catch (error) {
         console.error('Error fetching skill suggestions:', error);
         return [];
@@ -144,6 +155,31 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
 
     if (query.startsWith('@')) {
         return getFileMentionSuggestions(sessionId, query);
+    }
+
+    return [];
+}
+
+/**
+ * Suggestions for the new-session screen, where no session exists yet: commands and skills come
+ * from capabilities the daemon discovered for the chosen directory and agent.
+ */
+export function getNewSessionSuggestions(capabilities: SessionCapabilities, query: string): Suggestion[] {
+    const searchTerm = query.slice(1);
+
+    if (query.startsWith('/')) {
+        // Discovered commands take free-form arguments only, so nothing to complete after a space
+        if (/\s/.test(query)) {
+            return [];
+        }
+        return [
+            ...toCommandSuggestions(searchCapabilityCommands(capabilities, searchTerm)),
+            ...toSkillSuggestions(searchCapabilitySkills(capabilities, searchTerm), { showSkillCategory: true }),
+        ];
+    }
+
+    if (query.startsWith('$')) {
+        return toSkillSuggestions(searchCapabilitySkills(capabilities, searchTerm), {});
     }
 
     return [];

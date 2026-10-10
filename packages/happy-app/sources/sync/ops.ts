@@ -6,7 +6,7 @@
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import { storage } from './storage';
-import type { MachineMetadata, Metadata } from './storageTypes';
+import { SessionCapabilitiesSchema, type MachineMetadata, type Metadata, type SessionCapabilities } from './storageTypes';
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
 import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
@@ -295,6 +295,24 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
                 : 'Failed to spawn session'
         };
     }
+}
+
+/**
+ * Discover the slash commands and skills an agent would offer in a directory, before any session
+ * runs there (used by the new-session screen for autocomplete)
+ */
+export async function machineDiscoverCapabilities(
+    machineId: string,
+    agent: 'claude' | 'codex' | 'gemini',
+    directory: string
+): Promise<SessionCapabilities> {
+    const result = await apiSocket.machineRPC<unknown, { agent: string; directory: string }>(
+        machineId,
+        'discover-capabilities',
+        { agent, directory },
+        10000
+    );
+    return SessionCapabilitiesSchema.parse(result);
 }
 
 /**

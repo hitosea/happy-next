@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildClaudeSlashCommandMetadata } from './slashCommandMetadata';
+import { buildClaudeSlashCommandMetadata, discoverClaudeSlashCommandMetadata } from './slashCommandMetadata';
 
 const createdDirs: string[] = [];
 
@@ -114,5 +114,64 @@ describe('buildClaudeSlashCommandMetadata', () => {
         expect(metadata).toEqual([
             { name: 'ship', description: 'From disk', kind: 'command', scope: 'USER' },
         ]);
+    });
+});
+
+describe('discoverClaudeSlashCommandMetadata', () => {
+    function writeSkill(root: string, name: string, description: string): void {
+        mkdirSync(join(root, name), { recursive: true });
+        writeFileSync(join(root, name, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n`, 'utf8');
+    }
+
+    function installPlugin(homeDir: string, source: string, enabled: boolean): string {
+        const pluginRoot = join(homeDir, '.claude', 'plugins', 'cache', source);
+        const pluginsDir = join(homeDir, '.claude', 'plugins');
+        mkdirSync(pluginsDir, { recursive: true });
+        writeFileSync(join(pluginsDir, 'installed_plugins.json'), JSON.stringify({
+            version: 2,
+            plugins: { [source]: [{ scope: 'user', installPath: pluginRoot }] },
+        }), 'utf8');
+        writeFileSync(join(homeDir, '.claude', 'settings.json'), JSON.stringify({
+            enabledPlugins: { [source]: enabled },
+        }), 'utf8');
+        return pluginRoot;
+    }
+
+    it('lists repo, user and enabled plugin commands under the names Claude exposes', () => {
+        const cwd = createTempDir();
+        const homeDir = createTempDir();
+        writeSkill(join(cwd, '.claude', 'skills'), 'release', 'Cut a release');
+        mkdirSync(join(homeDir, '.claude', 'commands'), { recursive: true });
+        writeFileSync(join(homeDir, '.claude', 'commands', 'ship.md'), '---\ndescription: Ship it\n---\n', 'utf8');
+        const pluginRoot = installPlugin(homeDir, 'tools@market', true);
+        writeSkill(join(pluginRoot, 'skills'), 'lint', 'Lint the code');
+
+        expect(discoverClaudeSlashCommandMetadata(cwd, homeDir)).toEqual([
+            { name: 'release', description: 'Cut a release', kind: 'skill', scope: 'REPO' },
+            { name: 'ship', description: 'Ship it', kind: 'command', scope: 'USER' },
+            { name: 'tools:lint', description: 'Lint the code', kind: 'skill', scope: 'PLUGIN' },
+        ]);
+    });
+
+    it('skips installed plugins that are not enabled', () => {
+        const cwd = createTempDir();
+        const homeDir = createTempDir();
+        const pluginRoot = installPlugin(homeDir, 'tools@market', false);
+        writeSkill(join(pluginRoot, 'skills'), 'lint', 'Lint the code');
+
+        expect(discoverClaudeSlashCommandMetadata(cwd, homeDir)).toEqual([]);
+    });
+
+    it('lets project settings enable a plugin', () => {
+        const cwd = createTempDir();
+        const homeDir = createTempDir();
+        const pluginRoot = installPlugin(homeDir, 'tools@market', false);
+        writeSkill(join(pluginRoot, 'skills'), 'lint', 'Lint the code');
+        mkdirSync(join(cwd, '.claude'), { recursive: true });
+        writeFileSync(join(cwd, '.claude', 'settings.local.json'), JSON.stringify({
+            enabledPlugins: { 'tools@market': true },
+        }), 'utf8');
+
+        expect(discoverClaudeSlashCommandMetadata(cwd, homeDir).map((command) => command.name)).toEqual(['tools:lint']);
     });
 });

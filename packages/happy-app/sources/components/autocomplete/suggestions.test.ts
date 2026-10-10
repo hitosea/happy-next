@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { searchCommands, searchSkills } = vi.hoisted(() => ({
+const { searchCommands, searchSkills, searchCapabilityCommands, searchCapabilitySkills } = vi.hoisted(() => ({
     searchCommands: vi.fn(),
     searchSkills: vi.fn(),
+    searchCapabilityCommands: vi.fn(),
+    searchCapabilitySkills: vi.fn(),
 }));
 
 vi.mock('@/components/AgentInputSuggestionView', () => ({
@@ -11,8 +13,8 @@ vi.mock('@/components/AgentInputSuggestionView', () => ({
     SkillSuggestion: () => null,
 }));
 
-vi.mock('@/sync/suggestionCommands', () => ({ searchCommands }));
-vi.mock('@/sync/suggestionSkills', () => ({ searchSkills }));
+vi.mock('@/sync/suggestionCommands', () => ({ searchCommands, searchCapabilityCommands }));
+vi.mock('@/sync/suggestionSkills', () => ({ searchSkills, searchCapabilitySkills }));
 vi.mock('@/sync/suggestionFile', () => ({ searchFiles: vi.fn() }));
 vi.mock('@/sync/sync', () => ({
     sync: { fetchSessionCapabilities: vi.fn() },
@@ -27,7 +29,7 @@ vi.mock('@/sync/storage', () => ({
     },
 }));
 
-import { getSuggestions } from './suggestions';
+import { getNewSessionSuggestions, getSuggestions } from './suggestions';
 
 describe('getSuggestions', () => {
     beforeEach(() => {
@@ -109,5 +111,40 @@ describe('getSuggestions', () => {
 
         const skillElement = (suggestions[0].component as unknown as () => { props: Record<string, unknown> })();
         expect(skillElement.props.showSkillCategory).toBeUndefined();
+    });
+});
+
+describe('getNewSessionSuggestions', () => {
+    const capabilities = { slashCommandMetadata: [], skills: [] };
+
+    beforeEach(() => {
+        searchCapabilityCommands.mockReset();
+        searchCapabilitySkills.mockReset();
+        searchCapabilityCommands.mockReturnValue([
+            { command: 'release', description: 'Cut a release', scope: 'REPO', kind: 'skill' },
+        ]);
+        searchCapabilitySkills.mockReturnValue([
+            { name: 'imagegen', description: 'Generate images', scope: 'USER', path: '/skills/imagegen/SKILL.md' },
+        ]);
+    });
+
+    it('searches discovered commands and skills for a slash query', () => {
+        const suggestions = getNewSessionSuggestions(capabilities, '/rel');
+
+        expect(searchCapabilityCommands).toHaveBeenCalledWith(capabilities, 'rel');
+        expect(searchCapabilitySkills).toHaveBeenCalledWith(capabilities, 'rel');
+        expect(suggestions.map((suggestion) => suggestion.text)).toEqual(['/release', '$imagegen']);
+    });
+
+    it('shows nothing once a slash command is followed by arguments', () => {
+        expect(getNewSessionSuggestions(capabilities, '/release now')).toEqual([]);
+        expect(searchCapabilityCommands).not.toHaveBeenCalled();
+    });
+
+    it('limits dollar completion to skills', () => {
+        const suggestions = getNewSessionSuggestions(capabilities, '$img');
+
+        expect(searchCapabilityCommands).not.toHaveBeenCalled();
+        expect(suggestions.map((suggestion) => suggestion.text)).toEqual(['$imagegen']);
     });
 });

@@ -5,6 +5,7 @@
 
 import Fuse from 'fuse.js';
 import { getSession, storage } from './storage';
+import type { SessionCapabilities } from './storageTypes';
 
 export type CommandScope = 'REPO' | 'USER' | 'PLUGIN' | 'SYSTEM';
 export type CommandKind = 'command' | 'skill';
@@ -199,6 +200,38 @@ export async function searchCommands(
             : subcommands;
         return limit ? filtered.slice(0, limit) : filtered;
     }
+
+    return fuzzySearchCommands(commands, query, { limit, threshold });
+}
+
+/**
+ * Searches the commands discovered for a session that has not started yet. Only commands the agent
+ * itself provides are included; Happy's session commands (clear, compact, duplicate, ...) need a
+ * running session.
+ */
+export function searchCapabilityCommands(
+    capabilities: SessionCapabilities,
+    query: string,
+    options: SearchOptions = {}
+): CommandItem[] {
+    const commands: CommandItem[] = [];
+    for (const cmd of capabilities.slashCommandMetadata ?? []) {
+        mergeCommand(commands, {
+            command: cmd.name,
+            description: cmd.description,
+            scope: cmd.scope,
+            kind: cmd.kind,
+        });
+    }
+    return fuzzySearchCommands(commands, query, options);
+}
+
+function fuzzySearchCommands(
+    commands: CommandItem[],
+    query: string,
+    options: SearchOptions
+): CommandItem[] {
+    const { limit, threshold = 0.3 } = options;
 
     if (!query || query.trim().length === 0) {
         return limit ? commands.slice(0, limit) : commands;
