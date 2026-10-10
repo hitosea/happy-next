@@ -27,6 +27,7 @@ import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSe
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineForkClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineForkGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, machineForkCodexSession, machineResolveClaudeForkTarget, machineResolveGeminiForkTarget, machineResolveCodexForkTarget, machineGetClaudeSessionUserMessage, machineGetGeminiSessionUserMessage, machineGetCodexSessionUserMessage, type UserMessageWithUuid, type UserMessagePage, type ResolvedForkTarget } from '@/sync/ops';
 import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
+import { useInputHistory } from '@/hooks/useInputHistory';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
@@ -343,6 +344,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const isIpad = Platform.OS === 'ios' && Platform.isPad;
     const shouldUseCompactLandscapeSessionLayout = isLandscape && !isIpad && deviceType === 'phone';
     const [message, setMessage] = React.useState('');
+    const { inputHistory, rememberSentInput } = useInputHistory();
     const realtimeStatus = useRealtimeStatus();
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const messagesFetching = useSessionMessagesFetching(sessionId);
@@ -1283,6 +1285,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             value={message}
             onChangeText={setMessage}
             sessionId={sessionId}
+            inputHistory={inputHistory}
             permissionMode={permissionMode}
             onPermissionModeChange={updatePermissionMode}
             modelMode={modelMode as any}
@@ -1315,6 +1318,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                     }
 
                     if (filesBlockSend()) return;
+
+                    // Remembered before the send resolves so a failed message can still be recalled.
+                    rememberSentInput(messageToSend);
 
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
                     const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(attachments);

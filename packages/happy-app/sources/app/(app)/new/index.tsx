@@ -35,6 +35,7 @@ import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useInputHistory } from '@/hooks/useInputHistory';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
@@ -356,6 +357,7 @@ function NewSessionWizard() {
         agentType,
     );
 
+    const { inputHistory, rememberSentInput } = useInputHistory();
     const [sessionPrompt, setSessionPrompt] = React.useState(() => {
         return tempSessionData?.prompt || prompt || persistedDraft?.input || '';
     });
@@ -717,6 +719,10 @@ function NewSessionWizard() {
             return;
         }
 
+        if (promptToSend) {
+            rememberSentInput(promptToSend);
+        }
+
         setIsCreating(true);
 
         try {
@@ -1034,6 +1040,7 @@ function NewSessionWizard() {
                         panelSideMargin
                         value={sessionPrompt}
                         onChangeText={setSessionPrompt}
+                        inputHistory={inputHistory}
                         onSend={handleCreateSession}
                         isSendDisabled={!canCreate}
                         allowEmptySend={true}

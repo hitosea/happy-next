@@ -17,6 +17,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { TextInputState, MultiTextInputHandle } from './MultiTextInput';
 import { applySuggestion } from './autocomplete/applySuggestion';
 import { ABORT_ESCAPE_WINDOW_MS, resolveEscapeAbort, shouldSendOnEnter } from './agentInputKeyboard';
+import { initialInputHistoryCursor, shouldNavigateInputHistory, stepInputHistory, type InputHistoryCursor } from './inputHistory';
 import { GitStatusBadge, useHasLoadedGitStatus } from './GitStatusBadge';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { KeyboardEvents, useKeyboardState } from 'react-native-keyboard-controller';
@@ -64,6 +65,8 @@ interface AgentInputProps {
     placeholder: string;
     onChangeText: (text: string) => void;
     sessionId?: string;
+    /** Previously sent inputs, newest first. Enables ArrowUp/ArrowDown recall when non-empty. */
+    inputHistory?: string[];
     onSend: (textSnapshot?: string) => void;
     sendIcon?: React.ReactNode;
     onMicPress?: () => void;
@@ -787,6 +790,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // still be queued.
     const showStopButton = !!(props.isBusy && props.onAbort && !hasText && !hasAttachments && !props.isSending);
 
+    // Position while stepping through props.inputHistory with ArrowUp/ArrowDown. A ref is enough:
+    // it never drives rendering, and stepInputHistory ends browsing itself once the text diverges.
+    const inputHistoryCursorRef = React.useRef<InputHistoryCursor>(initialInputHistoryCursor);
+
     // Keep a latest text snapshot to avoid stale parent-state reads during fast click-after-type sends.
     const latestTextRef = React.useRef(props.value);
     React.useEffect(() => {
@@ -972,6 +979,24 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             }
         }
 
+        // ArrowUp/ArrowDown recall previously sent inputs once autocomplete has declined the key.
+        if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && !event.shiftKey && props.inputHistory?.length && inputRef.current) {
+            const currentText = latestTextRef.current;
+            if (shouldNavigateInputHistory(event.key, currentText, inputState.selection)) {
+                const step = stepInputHistory(
+                    inputHistoryCursorRef.current,
+                    event.key === 'ArrowUp' ? 'older' : 'newer',
+                    props.inputHistory,
+                    currentText,
+                );
+                if (step) {
+                    inputHistoryCursorRef.current = step.cursor;
+                    inputRef.current.setTextAndSelection(step.text, { start: step.text.length, end: step.text.length });
+                    return true;
+                }
+            }
+        }
+
         // Handle Escape for abort when no suggestions are visible. A single press only arms
         // the gesture - a second press inside the window confirms it.
         const escapeAbortNow = Date.now();
@@ -1023,7 +1048,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
         }
         return false; // Key was not handled
-    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.isBusy, props.onAbort, isAborting, handleAbortPress, armEscapeAbort, disarmEscapeAbort, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.isSending, props.isSendDisabled, permissionModeOptions]);
+    }, [suggestions, moveUp, moveDown, selected, handleSuggestionSelect, props.inputHistory, inputState.selection, props.isBusy, props.onAbort, isAborting, handleAbortPress, armEscapeAbort, disarmEscapeAbort, agentInputEnterToSend, resolveSendSnapshot, props.onSend, props.permissionMode, props.onPermissionModeChange, props.isSending, props.isSendDisabled, permissionModeOptions]);
 
     const connectionStatusIndicator = props.connectionStatus ? (
         <>

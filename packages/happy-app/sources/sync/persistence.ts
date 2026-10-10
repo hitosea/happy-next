@@ -147,6 +147,30 @@ export function saveSessionDrafts(drafts: Record<string, SessionDraft>) {
     mmkv.set('session-drafts', JSON.stringify(drafts));
 }
 
+// History of sent inputs (newest first) for ArrowUp/ArrowDown recall in the composer.
+// Shared by every session and the new-session page, like shell history.
+const INPUT_HISTORY_KEY = 'input-history-v1';
+
+export function loadInputHistory(): string[] {
+    try {
+        const raw = mmkv.getString(INPUT_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    } catch (e) {
+        console.error('Failed to parse input history', e);
+        return [];
+    }
+}
+
+export function saveInputHistory(history: string[]) {
+    try {
+        mmkv.set(INPUT_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+        console.error('Failed to save input history', e);
+    }
+}
+
 export function loadAskUserQuestionDrafts(now: number = Date.now()): AskUserQuestionDraftMap {
     try {
         const raw = mmkv.getString(ASK_USER_QUESTION_DRAFTS_KEY);
