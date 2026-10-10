@@ -1379,14 +1379,14 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 cacheCreation: sessionUsage.cacheCreation,
                 cacheRead: sessionUsage.cacheRead,
                 contextSize: sessionUsage.contextSize,
-                contextWindowSize: sessionUsage.contextWindowSize,
+                contextWindowSize: sessionUsage.contextWindowSize ?? session.agentState?.contextWindowSize ?? undefined,
             } : session.latestUsage ? {
                 inputTokens: session.latestUsage.inputTokens,
                 outputTokens: session.latestUsage.outputTokens,
                 cacheCreation: session.latestUsage.cacheCreation,
                 cacheRead: session.latestUsage.cacheRead,
                 contextSize: session.latestUsage.contextSize,
-                contextWindowSize: session.latestUsage.contextWindowSize,
+                contextWindowSize: session.latestUsage.contextWindowSize ?? session.agentState?.contextWindowSize ?? undefined,
             } : undefined}
             alwaysShowContextSize={alwaysShowContextSize}
             images={images}

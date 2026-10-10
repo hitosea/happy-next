@@ -24,6 +24,8 @@ import {
     type SetModelRequest,
     type InitializeRequest,
     type SDKCommandInfo,
+    type GetContextUsageRequest,
+    type SDKContextUsage,
     AbortError
 } from './types'
 import { getDefaultClaudeCodePath, getCleanEnv, logDebug, streamToStdin } from './utils'
@@ -187,6 +189,32 @@ export class Query implements AsyncIterableIterator<SDKMessage> {
         } catch (error) {
             logger.debug('[Claude SDK] supportedCommands failed:', error)
             return []
+        } finally {
+            clearTimeout(timer)
+        }
+    }
+
+    /**
+     * Ask Claude Code how full the context is. `maxTokens` is the effective window, which honours
+     * `/autocompact` and `--autocompact`, so it can differ from the model's own window. Local only
+     * (no API call). Best effort: resolves to null on error or timeout (e.g. an older Claude Code build).
+     */
+    async getContextUsage(timeoutMs = 3000): Promise<SDKContextUsage | null> {
+        if (!this.childStdin) {
+            throw new Error('getContextUsage requires --input-format stream-json')
+        }
+        const req: GetContextUsageRequest = { subtype: 'get_context_usage', detail: 'summary' }
+        let timer: NodeJS.Timeout | undefined
+        try {
+            const response = await Promise.race([
+                this.request(req, this.childStdin),
+                new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), timeoutMs) }),
+            ])
+            const usage = response?.response as SDKContextUsage | undefined
+            return usage && typeof usage === 'object' ? usage : null
+        } catch (error) {
+            logger.debug('[Claude SDK] getContextUsage failed:', error)
+            return null
         } finally {
             clearTimeout(timer)
         }

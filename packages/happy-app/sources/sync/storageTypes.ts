@@ -163,7 +163,9 @@ export const AgentStateSchema = z.object({
         allowedTools: z.array(z.string()).nullish(),
         decision: z.enum(['approved', 'approved_for_session', 'denied', 'abort']).nullish(),
         answers: z.record(z.string(), z.string()).nullish()
-    })).nullish()
+    })).nullish(),
+    // Effective context window reported by the CLI (Claude: honours /autocompact and autoCompactWindow)
+    contextWindowSize: z.number().nullish(),
 });
 
 export type AgentState = z.infer<typeof AgentStateSchema>;

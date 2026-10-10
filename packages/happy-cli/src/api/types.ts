@@ -422,6 +422,8 @@ export type Metadata = {
 
 export type AgentState = {
   controlledByUser?: boolean | null | undefined
+  // Effective context window reported by the agent (Claude: honours /autocompact and autoCompactWindow)
+  contextWindowSize?: number | null
   taskCompleted?: number | null | undefined
   requests?: {
     [id: string]: {

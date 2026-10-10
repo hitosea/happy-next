@@ -137,6 +137,22 @@ export interface SDKCommandInfo {
     builtin?: boolean
 }
 
+export interface GetContextUsageRequest extends ControlRequest {
+    subtype: 'get_context_usage'
+    detail: 'summary' | 'full'
+}
+
+/** Subset of Claude Code's `get_context_usage` control response that we consume. */
+export interface SDKContextUsage {
+    totalTokens?: number
+    /** Effective context window: the model window, or the `/autocompact` / `--autocompact` window when set */
+    maxTokens?: number
+    rawMaxTokens?: number
+    autoCompactThreshold?: number
+    isAutoCompactEnabled?: boolean
+    model?: string
+}
+
 export interface SetModelRequest extends ControlRequest {
     subtype: 'set_model'
     model?: string

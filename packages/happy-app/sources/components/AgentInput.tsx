@@ -645,8 +645,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [profiles, props.profileId]);
 
     // Calculate context warning
-    // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window),
-    // fall back to static lookup by model/agent flavor
+    // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window,
+    // Claude reports its /autocompact-aware window via agentState), fall back to static lookup
+    // by model/agent flavor
     const agentFlavor = props.metadata?.flavor || props.agentType || null;
     const maxContextSize = props.usageData?.contextWindowSize || getMaxContextSize(props.modelMode, agentFlavor, props.metadata?.model, props.usageData?.contextSize);
     const contextWarning = props.usageData?.contextSize

@@ -207,6 +207,22 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     // (e.g. unknown slash command like `/foo` → result.result = "Unknown command: /foo").
     let hadAssistantMessage = false;
 
+    // Effective context window as Claude Code sees it — honours /autocompact, --autocompact and
+    // autoCompactWindow settings, so the app's usage bar matches when Claude will actually compact.
+    // Lives in agentState rather than metadata: only the CLI writes agentState, so an app that
+    // predates the field can't drop it by rewriting.
+    let currentSyncedContextWindowSize: number | undefined;
+    function syncContextWindowSize(query: Query) {
+        query.getContextUsage()
+            .then((usage) => {
+                const size = usage?.maxTokens;
+                if (!size || size <= 0 || size === currentSyncedContextWindowSize) return;
+                currentSyncedContextWindowSize = size;
+                session.client.updateAgentState((state) => ({ ...state, contextWindowSize: size }));
+            })
+            .catch((error) => logger.debug('[remote]: failed to sync context window size', error));
+    }
+
     function syncInitCapabilities(init: SDKSystemMessage, sdkCommands: SDKCommandInfo[]) {
         const nextModel = init.model && init.model !== currentSyncedModel ? init.model : undefined;
         const toolsSig = init.tools ? JSON.stringify(init.tools) : undefined;
@@ -261,6 +277,11 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
             sdkCommands
                 .then((commands) => syncInitCapabilities(init, commands))
                 .catch((error) => logger.debug('[remote]: failed to sync init capabilities', error));
+        }
+
+        // Re-read after every turn: /autocompact or a model switch may have changed the window.
+        if (currentQuery && (message.type === 'result' || (message.type === 'system' && (message as SDKSystemMessage).subtype === 'init'))) {
+            syncContextWindowSize(currentQuery);
         }
 
         // Handle result messages with errors - send as session event
