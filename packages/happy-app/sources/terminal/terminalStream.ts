@@ -103,6 +103,18 @@ export class TerminalStream {
     private lastAppliedRevision = -1;
     /** Frames that arrived before the snapshot, held so they can be discarded. */
     private sawSnapshot = false;
+    /**
+     * Frames are applied one at a time, in the order the socket delivered them.
+     * Decryption is async and does not finish in the order it started, so
+     * applying each frame as soon as it decrypted would see holes that are not
+     * there and let an older snapshot overwrite a newer one.
+     */
+    private frameQueue: Promise<void> = Promise.resolve();
+    /** A re-attach to fill a hole is in flight; further holes wait for its snapshot. */
+    private resyncing = false;
+    /** Keystrokes typed while the previous batch was still on its way to the daemon. */
+    private pendingInput = '';
+    private sendingInput = false;
 
     constructor(private readonly options: TerminalStreamOptions) {
         this.size = options.size;
@@ -126,7 +138,7 @@ export class TerminalStream {
             this.options.machineId,
             this.options.terminalId,
             (frame: TerminalRelayedFrame) => {
-                void this.handleFrame(frame);
+                this.enqueueFrame(frame);
             },
         );
         // The server drops subscriptions when the socket goes away, so a
@@ -208,7 +220,7 @@ export class TerminalStream {
         }
     }
 
-    private async handleFrame(frame: TerminalRelayedFrame): Promise<void> {
+    private enqueueFrame(frame: TerminalRelayedFrame): void {
         if (this.disposed || !frame || frame.terminalId !== this.options.terminalId) {
             return;
         }
@@ -218,10 +230,23 @@ export class TerminalStream {
             return;
         }
 
-        const body = await apiSocket.decryptMachinePayload<TerminalFrameBody>(
-            this.options.machineId,
-            frame.payload,
-        );
+        // Decryption starts now so a burst of frames decrypts in parallel; only
+        // applying them waits its turn.
+        const decrypting = (async () => {
+            try {
+                return await apiSocket.decryptMachinePayload<TerminalFrameBody>(this.options.machineId, frame.payload);
+            } catch {
+                return null;
+            }
+        })();
+        this.frameQueue = this.frameQueue
+            .then(async () => this.handleFrame(frame.revision, await decrypting))
+            .catch(() => {
+                // A frame that failed to render must not stall every frame after it.
+            });
+    }
+
+    private async handleFrame(revision: number, body: TerminalFrameBody | null): Promise<void> {
         // A payload that will not decrypt is not ours to render, and retrying
         // would not help — drop it rather than tearing down a working screen.
         if (!body || this.disposed) {
@@ -229,7 +254,7 @@ export class TerminalStream {
         }
 
         if (body.type === 'snapshot') {
-            await this.applySnapshot(frame.revision, body);
+            await this.applySnapshot(revision, body);
             return;
         }
 
@@ -238,20 +263,36 @@ export class TerminalStream {
             return;
         }
 
-        if (frame.revision <= this.baselineRevision) {
+        if (revision <= this.baselineRevision) {
             return;
         }
 
-        if (frame.revision !== this.lastAppliedRevision + 1) {
+        if (revision !== this.lastAppliedRevision + 1) {
             // Output went missing, so the mirror no longer matches the daemon.
             // Rendering on would show a screen with a silent hole in it, so
-            // rebuild from a fresh snapshot instead.
-            await this.attach();
+            // stop applying deltas and rebuild from a fresh snapshot instead.
+            this.sawSnapshot = false;
+            this.resync();
             return;
         }
 
-        this.lastAppliedRevision = frame.revision;
+        this.lastAppliedRevision = revision;
         await this.applyDelta(body);
+    }
+
+    /**
+     * Re-attaches to fill a hole in the output. Every frame after the hole
+     * mismatches too, and one snapshot covers all of them, so a hole found
+     * while a re-attach is already running does not start another.
+     */
+    private resync(): void {
+        if (this.resyncing) {
+            return;
+        }
+        this.resyncing = true;
+        void this.attach().finally(() => {
+            this.resyncing = false;
+        });
     }
 
     private async applySnapshot(
@@ -298,20 +339,42 @@ export class TerminalStream {
         }
     }
 
-    /** Sends keystrokes to the shell. */
+    /**
+     * Sends keystrokes to the shell.
+     *
+     * One batch is in flight at a time. Each RPC encrypts its payload
+     * asynchronously before it goes on the socket, and those encryptions do
+     * not finish in the order they started, so keystrokes sent as independent
+     * RPCs can reach the shell reordered. Whatever is typed while a batch is
+     * on its way goes out together once it lands.
+     */
     write(data: string): void {
         if (this.disposed || data.length === 0) {
             return;
         }
-        void apiSocket
-            .machineRPC<TerminalOkResponse, TerminalInputRequest>(this.options.machineId, 'terminal-input', {
-                terminalId: this.options.terminalId,
-                data,
-            })
-            .catch(() => {
+        this.pendingInput += data;
+        if (!this.sendingInput) {
+            void this.flushInput();
+        }
+    }
+
+    private async flushInput(): Promise<void> {
+        this.sendingInput = true;
+        while (this.pendingInput.length > 0 && !this.disposed) {
+            const data = this.pendingInput;
+            this.pendingInput = '';
+            try {
+                await apiSocket.machineRPC<TerminalOkResponse, TerminalInputRequest>(
+                    this.options.machineId,
+                    'terminal-input',
+                    { terminalId: this.options.terminalId, data },
+                );
+            } catch {
                 // A dropped keystroke is not worth tearing the screen down for;
                 // the socket's own reconnect path will re-attach if it is gone.
-            });
+            }
+        }
+        this.sendingInput = false;
     }
 
     /** Resizes the shell to match the view. */

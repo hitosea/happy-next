@@ -59,6 +59,8 @@ interface Harness {
     exits: Array<{ exitCode: number | null; signal: number | null }>;
     /** Delivers a frame to whatever handler the stream registered. */
     emit: (frame: TerminalRelayedFrame) => Promise<void>;
+    /** Delivers a frame without waiting for it to be processed. */
+    deliver: (frame: TerminalRelayedFrame) => void;
     /** Frame text as the mirror currently holds it. */
     screen: () => string;
     /** Lets queued microtasks (decrypt, write) settle. */
@@ -125,6 +127,10 @@ function createHarness(): Harness {
             frameHandler?.(frame);
             await settle();
         },
+        deliver: (frame) => {
+            frames.push(frame);
+            frameHandler?.(frame);
+        },
         screen: () => textOf(viewports[viewports.length - 1] ?? { rows: 0, cols: 0, text: '' }),
         settle,
         reconnect: async () => {
@@ -149,6 +155,18 @@ function frame(revision: number, body: TerminalFrameBody, overrides: Partial<Ter
         revision,
         payload: `payload-${revision}`,
         ...overrides,
+    };
+}
+
+/** A frame whose decryption finishes only when the test says so. */
+function deferredFrame(revision: number, body: TerminalFrameBody): { frame: TerminalRelayedFrame; decrypt: () => void } {
+    let resolve: (value: TerminalFrameBody) => void = () => {};
+    decryptMachinePayload.mockReturnValueOnce(new Promise<TerminalFrameBody>((done) => {
+        resolve = done;
+    }));
+    return {
+        frame: { machineId: MACHINE_ID, terminalId: TERMINAL_ID, revision, payload: `payload-${revision}` },
+        decrypt: () => resolve(body),
     };
 }
 
@@ -412,6 +430,90 @@ describe('TerminalStream', () => {
         await harness.emit(frame(2, { type: 'output', data: '-after' }));
 
         expect(harness.viewports.length).toBe(countAfterDispose);
+    });
+
+    it('applies frames in arrival order when they decrypt out of order', async () => {
+        const harness = createHarness();
+        await startAttached(harness);
+        await harness.emit(frame(1, { type: 'snapshot', ansi: '', rows: 6, cols: 20 }));
+        machineRPC.mockClear();
+
+        const keys = ['1', '2', '3', '4', '5', '6'].map((key, index) =>
+            deferredFrame(index + 2, { type: 'output', data: key }),
+        );
+        for (const key of keys) {
+            harness.deliver(key.frame);
+        }
+        // The last keystroke's echo decrypts first, the first one's last.
+        for (const key of [...keys].reverse()) {
+            key.decrypt();
+        }
+        await harness.settle();
+
+        expect(harness.screen()).toContain('123456');
+        // Nothing went missing, so nothing may be re-attached.
+        expect(machineRPC).not.toHaveBeenCalledWith(MACHINE_ID, 'terminal-attach', expect.anything());
+        harness.stream.dispose();
+    });
+
+    it('does not let an older snapshot that decrypts late overwrite a newer one', async () => {
+        const harness = createHarness();
+        await startAttached(harness);
+
+        const older = deferredFrame(5, { type: 'snapshot', ansi: 'old', rows: 6, cols: 20 });
+        const newer = deferredFrame(9, { type: 'snapshot', ansi: 'new', rows: 6, cols: 20 });
+        harness.deliver(older.frame);
+        harness.deliver(newer.frame);
+        newer.decrypt();
+        await harness.settle();
+        older.decrypt();
+        await harness.settle();
+
+        expect(harness.screen()).toContain('new');
+        expect(harness.screen()).not.toContain('old');
+        harness.stream.dispose();
+    });
+
+    it('re-attaches once for a hole, however many frames follow it', async () => {
+        const harness = createHarness();
+        await startAttached(harness);
+        await harness.emit(frame(1, { type: 'snapshot', ansi: '', rows: 6, cols: 20 }));
+        machineRPC.mockClear();
+        // Hold the re-attach open so every frame below lands while it runs.
+        machineRPC.mockReturnValue(new Promise(() => {}));
+
+        await harness.emit(frame(3, { type: 'output', data: 'a' }));
+        await harness.emit(frame(4, { type: 'output', data: 'b' }));
+        await harness.emit(frame(5, { type: 'output', data: 'c' }));
+
+        // The resize that opens the re-attach, and nothing after it.
+        expect(machineRPC).toHaveBeenCalledTimes(1);
+        expect(machineRPC).toHaveBeenCalledWith(MACHINE_ID, 'terminal-resize', expect.anything());
+        harness.stream.dispose();
+    });
+
+    it('sends keystrokes typed during a pending send as one batch, in order', async () => {
+        const harness = createHarness();
+        await startAttached(harness);
+        machineRPC.mockClear();
+        let landFirst: () => void = () => {};
+        machineRPC.mockReturnValueOnce(new Promise<void>((done) => {
+            landFirst = done;
+        }));
+        machineRPC.mockResolvedValue({ ok: true });
+
+        harness.stream.write('1');
+        harness.stream.write('2');
+        harness.stream.write('3');
+        harness.stream.write('4');
+        await harness.settle();
+        expect(machineRPC).toHaveBeenCalledTimes(1);
+
+        landFirst();
+        await harness.settle();
+
+        expect(machineRPC.mock.calls.map((call) => (call[2] as { data: string }).data)).toEqual(['1', '234']);
+        harness.stream.dispose();
     });
 
     it('surfaces a rejected subscription as an error', async () => {
