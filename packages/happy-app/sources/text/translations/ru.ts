@@ -1254,6 +1254,7 @@ export const ru: TranslationStructure = {
     toolView: {
         input: 'Входные данные',
         output: 'Результат',
+        moreLines: ({ count }: { count: number }) => `Ещё строк: ${count}`,
     },
 
     tools: {

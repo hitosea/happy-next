@@ -1246,6 +1246,7 @@ export const ja: TranslationStructure = {
     toolView: {
         input: '入力',
         output: '出力',
+        moreLines: ({ count }: { count: number }) => `残り ${count} 行`,
     },
 
     tools: {

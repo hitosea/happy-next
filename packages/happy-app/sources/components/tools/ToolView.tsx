@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Text, View, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Ionicons, Octicons } from '@expo/vector-icons';
-import { getToolViewComponent } from './views/_all';
+import { getToolViewComponent, toolViewHasContent } from './views/_all';
 import { Message, ToolCall } from '@/sync/typesMessage';
 import { ToolInputView, SmartDataView } from '../KeyValueView';
 import { ToolSectionView } from './ToolSectionView';
@@ -279,15 +279,21 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
                 // Try to use a specific tool view component first
                 const SpecificToolView = getToolViewComponent(tool.name);
                 if (SpecificToolView) {
+                    const showView = toolViewHasContent(tool);
+                    const showError = tool.state === 'error' && !!tool.result &&
+                        !(tool.permission && (tool.permission.status === 'denied' || tool.permission.status === 'canceled')) &&
+                        !hideDefaultError &&
+                        !shouldHideBackfillErrorBox;
+                    // Nothing to show — skip the padded container so no empty strip is left under the header
+                    if (!showView && !showError) {
+                        return null;
+                    }
                     return (
                         <View style={styles.content}>
-                            <SpecificToolView tool={tool} metadata={props.metadata} messages={props.messages ?? []} sessionId={sessionId} messageId={messageId} />
-                            {tool.state === 'error' && tool.result &&
-                                !(tool.permission && (tool.permission.status === 'denied' || tool.permission.status === 'canceled')) &&
-                                !hideDefaultError &&
-                                !shouldHideBackfillErrorBox && (
-                                    <ToolError message={toolResultText} />
-                                )}
+                            {showView && (
+                                <SpecificToolView tool={tool} metadata={props.metadata} messages={props.messages ?? []} sessionId={sessionId} messageId={messageId} />
+                            )}
+                            {showError && <ToolError message={toolResultText} />}
                         </View>
                     );
                 }

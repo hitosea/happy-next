@@ -15,8 +15,9 @@ import { CodexBashView } from './CodexBashView';
 import { CodexPatchView } from './CodexPatchView';
 import { CodexDiffView } from './CodexDiffView';
 import { AskUserQuestionView } from './AskUserQuestionView';
-import { GeminiEditView } from './GeminiEditView';
-import { GeminiExecuteView } from './GeminiExecuteView';
+import { GeminiEditView, extractEditContent } from './GeminiEditView';
+import { GeminiEditViewFull } from './GeminiEditViewFull';
+import { GeminiExecuteView, extractExecuteInfo } from './GeminiExecuteView';
 import { ViewImageViewFull } from './ViewImageViewFull';
 import { getToolImagePath } from '@/utils/toolImagePath';
 
@@ -66,11 +67,28 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     Bash: BashViewFull,
     Edit: EditViewFull,
     MultiEdit: MultiEditViewFull,
+    edit: GeminiEditViewFull,
+};
+
+// A view that can render nothing for some calls says so here, so ToolView can skip its
+// padded container instead of leaving an empty strip under the header.
+const toolViewHasContentRegistry: Record<string, (tool: ToolCall) => boolean> = {
+    execute: (tool) => !!extractExecuteInfo(tool.input).command,
+    edit: (tool) => {
+        const { oldText, newText } = extractEditContent(tool.input);
+        return !!(oldText || newText);
+    },
 };
 
 // Helper function to get the appropriate view component for a tool
 export function getToolViewComponent(toolName: string): ToolViewComponent | null {
     return toolViewRegistry[toolName] || null;
+}
+
+// Whether the tool's specific view renders anything for this call — true unless it says otherwise
+export function toolViewHasContent(tool: ToolCall): boolean {
+    const hasContent = toolViewHasContentRegistry[tool.name];
+    return hasContent ? hasContent(tool) : true;
 }
 
 // Helper function to get the full view for a tool. Any call whose input names a previewable

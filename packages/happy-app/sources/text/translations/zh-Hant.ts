@@ -1245,6 +1245,7 @@ export const zhHant: TranslationStructure = {
     toolView: {
         input: '輸入',
         output: '輸出',
+        moreLines: ({ count }: { count: number }) => `還有 ${count} 行`,
     },
 
     tools: {

@@ -1254,6 +1254,7 @@ export const pl: TranslationStructure = {
     toolView: {
         input: 'Wejście',
         output: 'Wyjście',
+        moreLines: ({ count }: { count: number }) => `Pozostałe wiersze: ${count}`,
     },
 
     tools: {

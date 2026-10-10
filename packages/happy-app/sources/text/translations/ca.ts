@@ -1244,6 +1244,7 @@ export const ca: TranslationStructure = {
     toolView: {
         input: 'Entrada',
         output: 'Sortida',
+        moreLines: ({ count }: { count: number }) => `${count} ${count === 1 ? 'línia més' : 'línies més'}`,
     },
 
     tools: {

@@ -4,6 +4,10 @@ import { ToolViewProps } from './_all';
 import { ToolDiffView } from '@/components/tools/ToolDiffView';
 import { trimIdent } from '@/utils/trimIdent';
 import { useSetting } from '@/sync/storage';
+import { useRouter } from 'expo-router';
+
+// The chat shows only the head of the diff; the whole one is a tap away on the message page
+const INLINE_PREVIEW_MAX_LINES = 10;
 
 /**
  * Extract edit content from Gemini's nested input format.
@@ -13,7 +17,7 @@ import { useSetting } from '@/sync/storage';
  * - tool.input.input[0]
  * - tool.input (direct fields)
  */
-function extractEditContent(input: any): { oldText: string; newText: string; path: string } {
+export function extractEditContent(input: any): { oldText: string; newText: string; path: string } {
     // Try various locations where Gemini might put the edit data
     
     // 1. Check tool.input.toolCall.content[0]
@@ -36,10 +40,11 @@ function extractEditContent(input: any): { oldText: string; newText: string; pat
         };
     }
     
-    // 3. Check direct fields (simple format)
+    // 3. Check direct fields (simple format). A write (Qoder creating a file) carries the
+    // whole file as `content`, which reads as a diff where every line is new.
     return {
         oldText: input?.oldText || input?.old_string || '',
-        newText: input?.newText || input?.new_string || '',
+        newText: input?.newText || input?.new_string || (typeof input?.content === 'string' ? input.content : ''),
         path: input?.path || input?.file_path || ''
     };
 }
@@ -52,12 +57,17 @@ function extractEditContent(input: any): { oldText: string; newText: string; pat
  * - newText (instead of new_string)
  * - path (instead of file_path)
  */
-export const GeminiEditView = React.memo<ToolViewProps>(({ tool }) => {
+export const GeminiEditView = React.memo<ToolViewProps>(({ tool, sessionId, messageId }) => {
     const showLineNumbersInToolViews = useSetting('showLineNumbersInToolViews');
-    
+    const router = useRouter();
+
     const { oldText, newText } = extractEditContent(tool.input);
     const oldString = trimIdent(oldText);
     const newString = trimIdent(newText);
+
+    const openFullDiff = React.useCallback(() => {
+        router.push(`/session/${sessionId}/message/${messageId}`);
+    }, [router, sessionId, messageId]);
 
     return (
         <>
@@ -67,6 +77,8 @@ export const GeminiEditView = React.memo<ToolViewProps>(({ tool }) => {
                     newText={newString} 
                     showLineNumbers={showLineNumbersInToolViews}
                     showPlusMinusSymbols={showLineNumbersInToolViews}
+                    maxLines={INLINE_PREVIEW_MAX_LINES}
+                    onPressMoreLines={sessionId && messageId ? openFullDiff : undefined}
                 />
             </ToolSectionView>
         </>

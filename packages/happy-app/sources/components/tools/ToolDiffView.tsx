@@ -9,14 +9,18 @@ interface ToolDiffViewProps {
     style?: any;
     showLineNumbers?: boolean;
     showPlusMinusSymbols?: boolean;
+    maxLines?: number;
+    onPressMoreLines?: () => void;
 }
 
-export const ToolDiffView = React.memo<ToolDiffViewProps>(({ 
-    oldText, 
-    newText, 
-    style, 
+export const ToolDiffView = React.memo<ToolDiffViewProps>(({
+    oldText,
+    newText,
+    style,
     showLineNumbers = false,
-    showPlusMinusSymbols = false 
+    showPlusMinusSymbols = false,
+    maxLines,
+    onPressMoreLines
 }) => {
     const wrapLines = useSetting('wrapLinesInDiffs');
     
@@ -27,6 +31,8 @@ export const ToolDiffView = React.memo<ToolDiffViewProps>(({
             wrapLines={wrapLines}
             showLineNumbers={showLineNumbers}
             showPlusMinusSymbols={showPlusMinusSymbols}
+            maxLines={maxLines}
+            onPressMoreLines={onPressMoreLines}
             style={{ flex: 1, ...style }}
         />
     );

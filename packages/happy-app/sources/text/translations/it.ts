@@ -1243,6 +1243,7 @@ export const it: TranslationStructure = {
     toolView: {
         input: 'Input',
         output: 'Output',
+        moreLines: ({ count }: { count: number }) => `${count} ${count === 1 ? 'altra riga' : 'altre righe'}`,
     },
 
     tools: {

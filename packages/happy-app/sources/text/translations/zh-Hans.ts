@@ -1246,6 +1246,7 @@ export const zhHans: TranslationStructure = {
     toolView: {
         input: '输入',
         output: '输出',
+        moreLines: ({ count }: { count: number }) => `还有 ${count} 行`,
     },
 
     tools: {

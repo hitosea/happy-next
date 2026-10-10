@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { calculateUnifiedDiff, DiffToken } from '@/components/diff/calculateDiff';
 import { Typography } from '@/constants/Typography';
 import { useUnistyles } from 'react-native-unistyles';
+import { t } from '@/text';
 
 
 interface DiffViewProps {
@@ -18,6 +20,10 @@ interface DiffViewProps {
     maxHeight?: number;
     wrapLines?: boolean;
     fontScaleX?: number;
+    /** Render at most this many diff lines, then a "N more lines" row; unset renders all */
+    maxLines?: number;
+    /** Makes the "N more lines" row a link, e.g. to the page with the whole diff */
+    onPressMoreLines?: () => void;
 }
 
 export const DiffView: React.FC<DiffViewProps> = ({
@@ -29,6 +35,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
     wrapLines = false,
     style,
     fontScaleX = 1,
+    maxLines,
+    onPressMoreLines,
 }) => {
     // Always use light theme colors
     const { theme } = useUnistyles();
@@ -127,8 +135,16 @@ export const DiffView: React.FC<DiffViewProps> = ({
     // Render diff content as separate lines to prevent wrapping
     const renderDiffContent = () => {
         const lines: React.ReactNode[] = [];
-        
+        let shownLines = 0;
+        let hiddenLines = 0;
+        const isFull = () => maxLines !== undefined && shownLines >= maxLines;
+
         hunks.forEach((hunk, hunkIndex) => {
+            if (isFull()) {
+                hiddenLines += hunk.lines.length;
+                return;
+            }
+
             // Add hunk header for non-first hunks
             if (hunkIndex > 0) {
                 lines.push(
@@ -151,6 +167,12 @@ export const DiffView: React.FC<DiffViewProps> = ({
             }
 
             hunk.lines.forEach((line, lineIndex) => {
+                if (isFull()) {
+                    hiddenLines++;
+                    return;
+                }
+                shownLines++;
+
                 const isAdded = line.type === 'add';
                 const isRemoved = line.type === 'remove';
                 const textColor = isAdded ? colors.addedText : isRemoved ? colors.removedText : colors.contextText;
@@ -191,7 +213,42 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 );
             });
         });
-        
+
+        if (hiddenLines > 0) {
+            const moreLinesText = (
+                <Text
+                    numberOfLines={1}
+                    style={{
+                        ...Typography.mono(),
+                        fontSize: 12,
+                        color: colors.hunkHeaderText,
+                    }}
+                >
+                    {t('toolView.moreLines', { count: hiddenLines })}
+                </Text>
+            );
+            const moreLinesRowStyle: ViewStyle = {
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                backgroundColor: colors.hunkHeaderBg,
+                paddingVertical: 8,
+                paddingHorizontal: 16,
+            };
+            lines.push(
+                onPressMoreLines ? (
+                    <TouchableOpacity key="more-lines" style={moreLinesRowStyle} onPress={onPressMoreLines} activeOpacity={0.6}>
+                        {moreLinesText}
+                        <Ionicons name="chevron-forward" size={14} color={colors.hunkHeaderText} />
+                    </TouchableOpacity>
+                ) : (
+                    <View key="more-lines" style={moreLinesRowStyle}>
+                        {moreLinesText}
+                    </View>
+                )
+            );
+        }
+
         return lines;
     };
 

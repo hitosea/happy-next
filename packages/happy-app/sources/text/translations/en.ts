@@ -1260,6 +1260,7 @@ export const en: TranslationStructure = {
     toolView: {
         input: 'Input',
         output: 'Output',
+        moreLines: ({ count }: { count: number }) => `${count} more ${count === 1 ? 'line' : 'lines'}`,
     },
 
     tools: {
