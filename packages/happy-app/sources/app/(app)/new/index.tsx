@@ -30,6 +30,7 @@ import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
+import { useQoderModels } from '@/hooks/useQoderModels';
 import { useNewSessionAutocomplete } from '@/hooks/useNewSessionAutocomplete';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
@@ -39,7 +40,7 @@ import { useInputHistory } from '@/hooks/useInputHistory';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent } from 'happy-wire';
+import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseQoderModelMode } from 'happy-wire';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -139,30 +140,19 @@ function NewSessionWizard() {
         );
     }, [dooTaskProjectId, sessions, machines]);
 
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini'>(() => {
+    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'qoder'>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
             return tempSessionData.agentType;
         }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini') {
+        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini' || lastUsedAgent === 'qoder') {
             return lastUsedAgent;
         }
         return 'claude';
     });
     const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', PermissionMode>>>({});
-    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini', ModelMode>>>({});
-
-    // Agent cycling handler (for cycling through claude -> codex -> gemini)
-    // Note: Does NOT persist immediately - persistence is handled by useEffect below
-    const handleAgentClick = React.useCallback(() => {
-        setAgentType(prev => {
-            // Cycle: claude -> codex -> gemini -> claude
-            if (prev === 'claude') return 'codex';
-            if (prev === 'codex') return 'gemini';
-            return 'claude';
-        });
-    }, []);
+    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', PermissionMode>>>({});
+    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', ModelMode>>>({});
 
     // Persist agent selection changes (separate from setState to avoid race condition)
     // This runs after agentType state is updated, ensuring the value is stable
@@ -181,7 +171,8 @@ function NewSessionWizard() {
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
         const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : validClaudeModes;
+        const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'dontAsk', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : validClaudeModes;
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -195,6 +186,7 @@ function NewSessionWizard() {
 
     const [modelMode, setModelMode] = React.useState<ModelMode>(() => {
         const mode = lastUsedSessionMode?.modelMode;
+        // A saved Qoder model is restored by the effect below once the account's models are known
         if (mode && isModelModeForAgent(agentType, mode)) {
             return mode as ModelMode;
         }
@@ -487,6 +479,21 @@ function NewSessionWizard() {
     // CLI Detection - automatic, non-blocking detection of installed CLIs on selected machine
     const cliAvailability = useCLIDetection(selectedMachineId);
 
+    // Agent cycling handler: claude -> codex -> gemini -> qoder -> claude, skipping agents detected as not installed
+    // (landing on one would make the auto-correct below jump back to the first available agent).
+    // Note: Does NOT persist immediately - persistence is handled by useEffect above
+    const handleAgentClick = React.useCallback(() => {
+        const order = ['claude', 'codex', 'gemini', 'qoder'] as const;
+        setAgentType(prev => {
+            const start = order.indexOf(prev);
+            for (let step = 1; step <= order.length; step++) {
+                const next = order[(start + step) % order.length];
+                if (cliAvailability[next] !== false) return next;
+            }
+            return prev;
+        });
+    }, [cliAvailability]);
+
     // Auto-correct invalid agent selection after CLI detection completes
     // This handles the case where lastUsedAgent was 'codex' but codex is not installed
     React.useEffect(() => {
@@ -498,21 +505,33 @@ function NewSessionWizard() {
 
         if (agentAvailable === false) {
             // Current agent not available - find first available
-            const availableAgent: 'claude' | 'codex' | 'gemini' =
+            const availableAgent: 'claude' | 'codex' | 'gemini' | 'qoder' =
                 cliAvailability.claude === true ? 'claude' :
                 cliAvailability.codex === true ? 'codex' :
                 cliAvailability.gemini === true ? 'gemini' :
+                cliAvailability.qoder === true ? 'qoder' :
                 'claude'; // Fallback to claude (will fail at spawn with clear error)
 
             console.warn(`[AgentSelection] ${agentType} not available, switching to ${availableAgent}`);
             setAgentType(availableAgent);
         }
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, agentType]);
+    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder, agentType]);
 
     const selectedMachine = React.useMemo(() => {
         if (!selectedMachineId) return null;
         return machines.find(m => m.id === selectedMachineId);
     }, [selectedMachineId, machines]);
+
+    const qoderModels = useQoderModels(selectedMachineId, selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
+    // Qoder models are per account and not in the catalog: a saved one is kept while the account still offers it.
+    const isModelModeAvailable = (agent: 'claude' | 'codex' | 'gemini' | 'qoder', mode: string) => {
+        if (agent !== 'qoder') return isModelModeForAgent(agent, mode);
+        const { model, effort } = parseQoderModelMode(mode);
+        const listed = qoderModels?.find((candidate) => candidate.code === model);
+        return !!listed && (!effort || !!listed.efforts?.some((level) => level.code === effort));
+    };
+    // Qoder offers no "CLI default" entry, so it starts on the first model the account lists (Qoder's Auto).
+    const fallbackModelMode = (agentType === 'qoder' ? qoderModels?.[0]?.code : undefined) ?? MODEL_MODE_DEFAULT;
 
     /** Save defaultTargetBranch on a registered repo (fire-and-forget). */
     const persistDefaultBranch = React.useCallback((mId: string, repoId: string, branch: string) => {
@@ -637,7 +656,8 @@ function NewSessionWizard() {
         const validClaudeModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
         const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : validClaudeModes;
+        const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'dontAsk', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : validClaudeModes;
         const manualMode = manualPermissionModeByAgentRef.current[agentType];
 
         if (manualMode && validModes.includes(manualMode)) {
@@ -656,18 +676,18 @@ function NewSessionWizard() {
     // Restore saved model mode when agent type changes
     React.useEffect(() => {
         const manualMode = manualModelModeByAgentRef.current[agentType];
-        if (manualMode && isModelModeForAgent(agentType, manualMode)) {
+        if (manualMode && isModelModeAvailable(agentType, manualMode)) {
             setModelMode((prev) => (prev === manualMode ? prev : manualMode));
             return;
         }
 
         const savedMode = lastUsedSessionMode?.modelMode;
-        if (savedMode && isModelModeForAgent(agentType, savedMode)) {
+        if (savedMode && isModelModeAvailable(agentType, savedMode)) {
             setModelMode((prev) => (prev === savedMode ? prev : (savedMode as ModelMode)));
         } else {
-            setModelMode((prev) => (prev === MODEL_MODE_DEFAULT ? prev : MODEL_MODE_DEFAULT));
+            setModelMode((prev) => (prev === fallbackModelMode ? prev : fallbackModelMode));
         }
-    }, [agentType, lastUsedSessionMode?.modelMode]);
+    }, [agentType, lastUsedSessionMode?.modelMode, qoderModels]);
 
     // Restore saved fast mode when agent type changes
     React.useEffect(() => {
@@ -1049,6 +1069,7 @@ function NewSessionWizard() {
                         autocompletePrefixes={autocomplete.prefixes}
                         autocompleteSuggestions={autocomplete.suggestions}
                         agentType={agentType}
+                        agentModels={agentType === 'qoder' ? qoderModels : undefined}
                         onAgentClick={handleAgentClick}
                         permissionMode={permissionMode}
                         onPermissionModeChange={handlePermissionModeChange}

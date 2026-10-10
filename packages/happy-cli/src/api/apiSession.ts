@@ -57,9 +57,9 @@ export type ACPMessageData =
     // Usage/metrics
     | { type: 'token_count';[key: string]: unknown };
 
-export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode';
+export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode' | 'qoder';
 
-type OrchestratorProvider = 'claude' | 'codex' | 'gemini';
+type OrchestratorProvider = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 type OrchestratorSubmitTask = {
     taskKey?: string;
@@ -887,7 +887,7 @@ export class ApiSessionClient extends EventEmitter {
      * @param provider - The agent provider sending the message (e.g., 'gemini', 'codex', 'claude')
      * @param body - The message payload (type: 'message' | 'reasoning' | 'tool-call' | 'tool-result')
      */
-    sendAgentMessage(provider: 'gemini' | 'codex' | 'claude' | 'opencode', body: ACPMessageData) {
+    sendAgentMessage(provider: ACPProvider, body: ACPMessageData) {
         if (body.type === 'tool-call') {
             registerToolImageForCall(this.sessionId, this.metadata?.path, body.name, body.callId, body.input);
         }

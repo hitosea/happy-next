@@ -183,7 +183,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini';
+    agent?: 'codex' | 'claude' | 'gemini' | 'qoder';
     resumeSessionId?: string;
     sessionTitle?: string;
     skipForkSession?: boolean;
@@ -303,7 +303,7 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
  */
 export async function machineDiscoverCapabilities(
     machineId: string,
-    agent: 'claude' | 'codex' | 'gemini',
+    agent: 'claude' | 'codex' | 'gemini' | 'qoder',
     directory: string
 ): Promise<SessionCapabilities> {
     const result = await apiSocket.machineRPC<unknown, { agent: string; directory: string }>(
@@ -1435,6 +1435,76 @@ export async function machineForkCodexSession(
             success: false,
             errorMessage: error instanceof Error ? error.message : 'Unknown RPC error'
         };
+    }
+}
+
+// --- Qoder session operations ---
+
+/**
+ * Copy a Qoder conversation into a new Qoder session (ACP session/fork in the session's directory)
+ */
+export async function machineForkQoderSession(
+    machineId: string,
+    sessionId: string,
+    directory: string
+): Promise<{ success: boolean; newSessionId?: string; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string }>(
+            machineId,
+            'qoder-fork-session',
+            { sessionId, directory },
+            60000
+        );
+
+        if (!result) {
+            return { success: false, errorMessage: 'RPC returned empty response' };
+        }
+        if (result.error) {
+            return { success: false, errorMessage: result.error };
+        }
+        return {
+            success: result.success ?? false,
+            newSessionId: result.newSessionId,
+            errorMessage: result.errorMessage
+        };
+    } catch (error) {
+        return {
+            success: false,
+            errorMessage: error instanceof Error ? error.message : 'Unknown RPC error'
+        };
+    }
+}
+
+/**
+ * Lists the models the machine's signed-in Qoder account offers
+ */
+/** A model the machine's Qoder account offers, with the reasoning efforts it takes. */
+export type QoderModel = NonNullable<Metadata['models']>[number] & {
+    efforts?: NonNullable<Metadata['thoughtLevels']>;
+    defaultEffort?: string;
+};
+
+/** Model code → description from Qoder's text bundle, per language it carries. */
+export type QoderModelDescriptions = { version: string; en: Record<string, string>; zh: Record<string, string> };
+
+export async function machineListQoderModels(machineId: string, directory: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, { directory: string }>(machineId, 'qoder-list-models', { directory }, 60000);
+        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
+        if (result.error) return { success: false, errorMessage: result.error };
+        return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
+    } catch (error) {
+        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
+    }
+}
+
+/** `cache` reads what qodercli last downloaded; `latest` downloads Qoder's current text bundle. */
+export async function machineQoderModelDescriptions(machineId: string, source: 'cache' | 'latest'): Promise<QoderModelDescriptions | null> {
+    try {
+        const result = await apiSocket.machineRPC<any, { source: string }>(machineId, 'qoder-model-descriptions', { source }, 30000);
+        return result?.success ? result.descriptions : null;
+    } catch {
+        return null;
     }
 }
 

@@ -1,0 +1,57 @@
+---
+title: "Qoder Mode"
+description: "Use Happy Next with Qoder CLI for AI-powered coding."
+---
+
+Start a Qoder session with:
+
+```bash
+happy qoder
+```
+
+## Prerequisites
+
+Install [Qoder CLI](https://qoder.com). Qoder ships two builds of the same CLI; install the one for your region:
+
+| Build | Command | Install |
+|-------|---------|---------|
+| International | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
+| China | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
+
+Then sign in once in a terminal:
+
+```bash
+qodercli login    # or: qoderclicn login
+```
+
+Qoder signs in with your Qoder account, so there is no `happy connect qoder` step. The two builds sign in separately.
+
+Happy looks for the executable on `PATH` and in `~/.local/bin`. To use a specific binary, set `HAPPY_QODER_PATH`:
+
+```bash
+HAPPY_QODER_PATH=/path/to/qodercli happy qoder
+```
+
+## Models
+
+Qoder's model list depends on your account, so Happy asks the CLI on your machine for it. Pick a model in the app's model selector; new sessions start on Qoder's **Auto**. Models with reasoning control also show a **Reasoning Effort** column, starting on the effort Qoder picks for that model.
+
+Model descriptions are Qoder's own. Happy shows the copy `qodercli` last downloaded (`~/.qoder/.auth/dynamic-texts.json`, or `~/.qoder-cn/` for `qoderclicn`), then replaces it with Qoder's current text once downloaded. Without either, the model's tags are shown.
+
+## Permission modes
+
+| Mode | Behavior |
+|------|----------|
+| **Default** | Asks before tools that need approval |
+| **Accept Edits** | Approves file edits automatically |
+| **Auto** | Lets Qoder's safety check decide |
+| **Don't Ask** | Refuses instead of asking |
+| **Bypass Permissions** | Approves every tool |
+
+## Resuming sessions
+
+Happy stores the Qoder session ID, shown on the session info screen. Copying, resuming, or upgrading a Qoder session forks the conversation in Qoder, so the new session keeps the context and the original stays untouched.
+
+## How it works
+
+Happy spawns `qodercli --acp` and communicates through the Agent Client Protocol (ACP). Mobile control, voice, and orchestrator tasks work with Qoder sessions. Image attachments are not supported.

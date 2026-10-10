@@ -55,7 +55,7 @@ export function getSessionQuickActionKinds({
     const isForkable = !!(
         session.metadata?.machineId
         && session.metadata?.path
-        && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId)
+        && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId)
     );
 
     const actions: SessionQuickActionKind[] = ['details'];

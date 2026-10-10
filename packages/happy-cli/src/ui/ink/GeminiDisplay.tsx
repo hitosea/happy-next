@@ -15,9 +15,11 @@ interface GeminiDisplayProps {
   logPath?: string;
   currentModel?: string;
   onExit?: () => void;
+  /** Agent name in the header and running banner; the Qoder runner reuses this UI. */
+  agentLabel?: string;
 }
 
-export const GeminiDisplay: React.FC<GeminiDisplayProps> = ({ messageBuffer, logPath, currentModel, onExit }) => {
+export const GeminiDisplay: React.FC<GeminiDisplayProps> = ({ messageBuffer, logPath, currentModel, onExit, agentLabel = 'Gemini Agent' }) => {
   const [messages, setMessages] = useState<BufferedMessage[]>([]);
   const [confirmationMode, setConfirmationMode] = useState<boolean>(false);
   const [actionInProgress, setActionInProgress] = useState<boolean>(false);
@@ -149,7 +151,7 @@ export const GeminiDisplay: React.FC<GeminiDisplayProps> = ({ messageBuffer, log
         overflow="hidden"
       >
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="cyan" bold>✨ Gemini Agent Messages</Text>
+          <Text color="cyan" bold>✨ {agentLabel} Messages</Text>
           <Text color="gray" dimColor>{'─'.repeat(Math.min(terminalWidth - 4, 60))}</Text>
         </Box>
 
@@ -213,7 +215,7 @@ export const GeminiDisplay: React.FC<GeminiDisplayProps> = ({ messageBuffer, log
           ) : (
             <>
               <Text color="cyan" bold>
-                ✨ Gemini Agent Running • Ctrl-C to exit
+                ✨ {agentLabel} Running • Ctrl-C to exit
               </Text>
               {model && (
                 <Text color="gray" dimColor>

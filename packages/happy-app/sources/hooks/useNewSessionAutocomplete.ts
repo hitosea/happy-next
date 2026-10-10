@@ -14,7 +14,7 @@ import type { SessionCapabilities } from '@/sync/storageTypes';
 export function useNewSessionAutocomplete(
     machineId: string | null | undefined,
     directory: string | null | undefined,
-    agent: 'claude' | 'codex' | 'gemini',
+    agent: 'claude' | 'codex' | 'gemini' | 'qoder',
 ) {
     const fetchRef = React.useRef<{ key: string; promise: Promise<SessionCapabilities | null> } | null>(null);
     const key = machineId && directory ? `${machineId}\n${directory}\n${agent}` : null;

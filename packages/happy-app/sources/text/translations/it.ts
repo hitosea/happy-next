@@ -789,6 +789,7 @@ export const it: TranslationStructure = {
         resumeFailed: 'Failed to resume session',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: 'Cerca per nome o ID',
     },
@@ -987,6 +988,8 @@ export const it: TranslationStructure = {
         geminiSessionId: 'Gemini Session ID',
         geminiSessionIdCopied: 'Gemini Session ID copied to clipboard',
         failedToCopyGeminiSessionId: 'Failed to copy Gemini Session ID',
+        qoderSessionId: 'ID sessione Qoder',
+        failedToCopyQoderSessionId: 'Impossibile copiare l\'ID sessione Qoder',
         metadataCopied: 'Metadati copiati negli appunti',
         failedToCopyMetadata: 'Impossibile copiare i metadati',
         failedToKillSession: 'Impossibile terminare la sessione',
@@ -1148,6 +1151,7 @@ export const it: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1161,7 +1165,6 @@ export const it: TranslationStructure = {
             useCliDefaults: 'Impostazioni predefinite di profilo/CLI',
         },
         codexPermissionMode: {
-            title: 'CODEX PERMISSION MODE',
             default: 'Default Permissions',
             readOnly: 'Read Only',
             onFailure: 'Auto Review',
@@ -1181,7 +1184,6 @@ export const it: TranslationStructure = {
             gpt5High: 'GPT-5 Alto',
         },
         geminiPermissionMode: {
-            title: 'GEMINI PERMISSION MODE',
             default: 'Default',
             autoEdit: 'Auto Edit',
             plan: 'Plan Mode',
@@ -1189,6 +1191,17 @@ export const it: TranslationStructure = {
             badgeAutoEdit: 'Auto Edit',
             badgePlan: 'Plan Mode',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: 'Predefinita',
+            acceptEdits: 'Accetta modifiche',
+            auto: 'Modalità automatica',
+            dontAsk: 'Non chiedere',
+            yolo: 'Ignora permessi',
+            badgeAcceptEdits: 'Accetta modifiche',
+            badgeAuto: 'Modalità automatica',
+            badgeDontAsk: 'Non chiedere',
+            badgeYolo: 'Ignora permessi',
         },
         opencodePermissionMode: {
             title: 'OPENCODE PERMISSION MODE',

@@ -25,6 +25,7 @@ const flavorIcons = {
     claude: require('@/assets/images/icon-claude.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 const sessionIconPresets: Record<string, any> = {
@@ -86,7 +87,9 @@ export const Avatar = React.memo((props: AvatarProps) => {
         ? Math.round(size * 0.25)
         : effectiveFlavor === 'claude'
             ? Math.round(size * 0.28)
-            : Math.round(size * 0.35);
+            : effectiveFlavor === 'qoder'
+                ? Math.round(size * 0.26)
+                : Math.round(size * 0.35);
 
     const renderSessionIconBadge = (offsetRight: number) => {
         if (!sessionIcon) return null;
@@ -157,7 +160,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
                                 source={flavorIcon}
                                 style={{ width: iconSize, height: iconSize }}
                                 contentFit="contain"
-                                tintColor={effectiveFlavor === 'codex' ? theme.colors.text : undefined}
+                                tintColor={effectiveFlavor === 'codex' || effectiveFlavor === 'qoder' ? theme.colors.text : undefined}
                             />
                         </View>
                     )}
@@ -201,7 +204,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
                             source={flavorIcon}
                             style={{ width: iconSize, height: iconSize }}
                             contentFit="contain"
-                            tintColor={effectiveFlavor === 'codex' ? theme.colors.text : undefined}
+                            tintColor={effectiveFlavor === 'codex' || effectiveFlavor === 'qoder' ? theme.colors.text : undefined}
                         />
                     </View>
                 )}

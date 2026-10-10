@@ -113,4 +113,15 @@ describe('runOneShot spawn plan', () => {
     expect(plan.args).toContain('-p');
     expect(plan.args).toContain('continue');
   });
+
+  it('starts qoder with the scheduler-assigned session id and model', () => {
+    const plan = buildSpawnPlan('qoder', 'hello', '/tmp/workdir', 'performance', 'initial', 'session-uuid');
+    expect(plan.args).toEqual(['--dangerously-skip-permissions', '--model', 'performance', '--session-id', 'session-uuid', '-p', 'hello']);
+    expect(plan.env?.QODER_AGENT_SDK_ENTRYPOINT).toBe('');
+  });
+
+  it('resumes qoder by session id without a model override', () => {
+    const plan = buildSpawnPlan('qoder', 'continue', '/tmp/workdir', 'performance', 'resume', 'session-uuid');
+    expect(plan.args).toEqual(['--dangerously-skip-permissions', '--resume', 'session-uuid', '-p', 'continue']);
+  });
 });

@@ -5,11 +5,13 @@ const authVariables = {
   codex: ['OPENAI_API_KEY', 'CODEX_HOME', 'AZURE_OPENAI_API_KEY', 'TOGETHER_API_KEY'],
   // Gemini resolves cloud/local tokens in createGeminiBackend before validating.
   gemini: [],
+  // Qoder CLI only uses its own `qodercli login`.
+  qoder: [],
 } as const;
 
 export function getUnexpandedSessionAuthVariables(
   environment: Record<string, string>,
-  agent: 'claude' | 'codex' | 'gemini' = 'claude',
+  agent: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude',
 ): string[] {
   return authVariables[agent].filter(name => environment[name]?.includes('${'));
 }

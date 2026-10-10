@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Modal } from '@/modal';
 import type { Session } from '@/sync/storageTypes';
-import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineSpawnNewSession } from '@/sync/ops';
+import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession } from '@/sync/ops';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
 import { copySessionMetadata, copySessionModeSettings, generateCopyTitle, getSessionName } from '@/utils/sessionUtils';
@@ -24,11 +24,12 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
     const flavor = session.metadata?.flavor;
     const claudeSessionId = session.metadata?.claudeSessionId;
     const codexSessionId = session.metadata?.codexSessionId;
+    const qoderSessionId = session.metadata?.qoderSessionId;
     const machineId = session.metadata?.machineId;
     const directory = session.metadata?.path;
 
     // Guard: must have a forkable session identifier
-    if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId) return;
+    if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId) return;
     if (!directory) {
         Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
         return;
@@ -38,7 +39,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
         return;
     }
 
-    const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+    const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
     const confirmTitle = mode === 'copy' ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
     const confirmMessage = mode === 'copy' ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
     const confirmed = await Modal.confirm(
@@ -57,7 +58,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
         }
 
         let resumeSessionId: string | undefined;
-        let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+        let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
         if (flavor === 'gemini') {
             const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -75,6 +76,14 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
             }
             resumeSessionId = forkResult.newFilePath;
             agent = 'codex';
+        } else if (flavor === 'qoder' && qoderSessionId) {
+            const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+            if (!forkResult.success || !forkResult.newSessionId) {
+                Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                return;
+            }
+            resumeSessionId = forkResult.newSessionId;
+            agent = 'qoder';
         } else if (claudeSessionId) {
             const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
             if (!forkResult.success || !forkResult.newSessionId) {

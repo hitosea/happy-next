@@ -23,6 +23,8 @@ import {
     parseCodexModelMode,
     resolveLocalModelDisplay,
     resolveModelSelectionForFlavor,
+    buildQoderModelMode,
+    parseQoderModelMode,
     splitFastModeSuffix,
 } from './modelCatalog';
 
@@ -218,6 +220,17 @@ describe('modelCatalog', () => {
         expect(getValidModelModesForAgent('gemini')).toContain('gemini-3.5-flash-lite');
         expect(getValidModelModesForAgent('gemini')).not.toContain('gemini-3.5-pro-preview');
         expect(getValidModelModesForAgent('gemini')).toContain('gemini-2.5-flash-lite');
+    });
+
+    it('passes qoder account models through and uses the 200K default window', () => {
+        expect(getValidModelModesForAgent('qoder')).toEqual([MODEL_MODE_DEFAULT]);
+        expect(resolveModelSelectionForFlavor('qoder', 'efficient')).toEqual({ model: 'efficient', reasoningEffort: null });
+        expect(resolveModelSelectionForFlavor('qoder', 'performance:high')).toEqual({ model: 'performance', reasoningEffort: 'high' });
+        expect(buildQoderModelMode('performance', 'high')).toBe('performance:high');
+        expect(buildQoderModelMode('auto', null)).toBe('auto');
+        expect(parseQoderModelMode('auto')).toEqual({ model: 'auto', effort: null });
+        expect(resolveLocalModelDisplay('smodel:max')).toEqual({ model: 'smodel', reasoningEffort: 'max' });
+        expect(getMaxContextSize('default', 'qoder')).toBe(200_000);
     });
 
     it('resolves context windows for claude composite and fast model modes', () => {

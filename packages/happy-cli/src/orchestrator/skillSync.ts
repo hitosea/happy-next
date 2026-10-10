@@ -9,6 +9,7 @@ import {
   ORCHESTRATOR_COMMAND_CLAUDE,
   ORCHESTRATOR_COMMAND_CODEX,
   ORCHESTRATOR_COMMAND_GEMINI,
+  ORCHESTRATOR_COMMAND_QODER,
 } from './skillAssets';
 
 let didSync = false;
@@ -26,7 +27,7 @@ function writeIfChanged(filePath: string, content: string): void {
 
 /**
  * Sync the bundled orchestrator skill + commands into the Claude and Codex config dirs so the
- * controller session can use /orchestrator:claude|codex|gemini and the orchestrator skill out of
+ * controller session can use /orchestrator:claude|codex|gemini|qoder and the orchestrator skill out of
  * the box.
  *
  * - Idempotent: each file is written only when its content differs (no churn).
@@ -53,6 +54,7 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'claude.md'), ORCHESTRATOR_COMMAND_CLAUDE);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'codex.md'), ORCHESTRATOR_COMMAND_CODEX);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
+    writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
   }
 
   // Codex — $CODEX_HOME/skills, defaulting to ~/.codex/skills.

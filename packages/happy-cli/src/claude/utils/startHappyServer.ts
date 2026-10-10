@@ -180,11 +180,12 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         retryMaxAttempts: 1,
                         retryBackoffMs: 0,
                     },
-                    providers: ['claude', 'codex', 'gemini'],
+                    providers: ['claude', 'codex', 'gemini', 'qoder'],
                     modelModes: {
                         claude: getValidModelModesForAgent('claude'),
                         codex: getValidModelModesForAgent('codex'),
                         gemini: getValidModelModesForAgent('gemini'),
+                        qoder: getValidModelModesForAgent('qoder'),
                     },
                     machines: [],
                 };

@@ -791,6 +791,7 @@ export const zhHant: TranslationStructure = {
         resumeFailed: '無法繼續工作階段',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: '按名稱或 ID 搜尋',
     },
@@ -989,6 +990,8 @@ export const zhHant: TranslationStructure = {
         geminiSessionId: 'Gemini 工作階段 ID',
         geminiSessionIdCopied: 'Gemini 工作階段 ID 已複製到剪貼簿',
         failedToCopyGeminiSessionId: '複製 Gemini 工作階段 ID 失敗',
+        qoderSessionId: 'Qoder 工作階段 ID',
+        failedToCopyQoderSessionId: '複製 Qoder 工作階段 ID 失敗',
         metadataCopied: '中繼資料已複製到剪貼簿',
         failedToCopyMetadata: '複製中繼資料失敗',
         failedToKillSession: '終止工作階段失敗',
@@ -1150,6 +1153,7 @@ export const zhHant: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1163,7 +1167,6 @@ export const zhHant: TranslationStructure = {
             useCliDefaults: '使用設定檔/CLI 的預設設定',
         },
         codexPermissionMode: {
-            title: 'CODEX 權限模式',
             default: '預設權限',
             readOnly: '唯讀模式',
             onFailure: '自動審查',
@@ -1183,7 +1186,6 @@ export const zhHant: TranslationStructure = {
             gpt5High: 'GPT-5 高',
         },
         geminiPermissionMode: {
-            title: 'GEMINI 權限模式',
             default: '預設',
             autoEdit: '自動編輯',
             plan: '計劃模式',
@@ -1191,6 +1193,17 @@ export const zhHant: TranslationStructure = {
             badgeAutoEdit: '自動編輯',
             badgePlan: '計劃模式',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: '預設',
+            acceptEdits: '接受編輯',
+            auto: '自動模式',
+            dontAsk: '不詢問',
+            yolo: '略過權限',
+            badgeAcceptEdits: '接受編輯',
+            badgeAuto: '自動模式',
+            badgeDontAsk: '不詢問',
+            badgeYolo: '略過權限',
         },
         opencodePermissionMode: {
             title: 'OPENCODE 權限模式',

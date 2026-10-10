@@ -501,7 +501,9 @@ export function DesktopBridge() {
                 ? 'Codex'
                 : session?.metadata?.flavor === 'gemini'
                     ? 'Gemini'
-                    : 'Claude';
+                    : session?.metadata?.flavor === 'qoder'
+                        ? 'Qoder'
+                        : 'Claude';
             const id = notificationId(sessionId);
             notificationSessionsRef.current.set(id, sessionId);
             rememberDesktopNotificationRoute(id, sessionId);

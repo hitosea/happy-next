@@ -21,7 +21,7 @@ export type OrchestratorExecutionRecord = {
     attempt: number;
     status: OrchestratorExecutionStatus;
     machineId: string;
-    provider: 'claude' | 'codex' | 'gemini';
+    provider: 'claude' | 'codex' | 'gemini' | 'qoder';
     model: string | null;
     childSessionId: string | null;
     executionType: 'initial' | 'resume';
@@ -44,7 +44,7 @@ export type OrchestratorTaskRecord = {
     taskKey: string | null;
     title: string | null;
     status: OrchestratorTaskStatus;
-    provider: 'claude' | 'codex' | 'gemini';
+    provider: 'claude' | 'codex' | 'gemini' | 'qoder';
     model: string | null;
     prompt?: string | null;
     workingDirectory: string | null;

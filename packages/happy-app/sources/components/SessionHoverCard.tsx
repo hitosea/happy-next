@@ -11,7 +11,7 @@ import { useLocalSetting, useMachine, useOrchestratorRunningTaskCount, useSessio
 import { sync } from '@/sync/sync';
 import type { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
-import { formatLastSeen, formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
+import { agentModelName, formatLastSeen, formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { StatusDot } from './StatusDot';
 import { getMachineDisplayName } from './sessionListScope';
 import type { ScrollTarget } from './sessionContextMenuScroll';
@@ -93,6 +93,7 @@ function providerName(flavor: string | null | undefined): string {
     if (!flavor || flavor === 'claude') return 'Claude';
     if (flavor === 'codex' || flavor === 'gpt' || flavor === 'openai') return 'Codex';
     if (flavor === 'gemini') return 'Gemini';
+    if (flavor === 'qoder') return 'Qoder';
     return flavor;
 }
 
@@ -223,8 +224,8 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     const path = metadata?.path ? formatPathRelativeToHome(metadata.path, metadata.homeDir) : null;
     const machineName = machineId ? getMachineDisplayName(machine ?? undefined, machineId, nameCache) : null;
     const local = resolveLocalModelDisplay(session.modelMode);
-    const model = formatModelDisplay(metadata?.model, metadata?.reasoningEffort)
-        || formatModelDisplay(local.model, local.reasoningEffort);
+    const model = formatModelDisplay(agentModelName(metadata, metadata?.model), metadata?.reasoningEffort)
+        || formatModelDisplay(agentModelName(metadata, local.model), local.reasoningEffort);
     const agent = [providerName(metadata?.flavor), model].filter(Boolean).join(' · ');
 
     // The gap to the row is transparent padding on the card's own box, which starts a pixel inside

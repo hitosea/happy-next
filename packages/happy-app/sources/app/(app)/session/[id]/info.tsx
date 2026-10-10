@@ -9,14 +9,14 @@ import { ItemGroup } from '@/components/ItemGroup';
 import { ItemList } from '@/components/ItemList';
 import { Avatar } from '@/components/Avatar';
 import { useSession, useIsDataReady, useMachine, useOrchestratorHasRuns, storage } from '@/sync/storage';
-import { generateCopyTitle, getSessionName, useSessionStatus, formatOSPlatform, formatPathRelativeToHome, getSessionAvatarId, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
+import { agentModelName, generateCopyTitle, getSessionName, useSessionStatus, formatOSPlatform, formatPathRelativeToHome, getSessionAvatarId, copySessionMetadata, copySessionModeSettings } from '@/utils/sessionUtils';
 import { canArchiveSession } from '@/utils/sessionLifecycle';
 import { promptRenameSession } from '@/utils/sessionRename';
 import * as Clipboard from 'expo-clipboard';
 import { Modal } from '@/modal';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
-import { sessionArchive, sessionKill, sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
+import { sessionArchive, sessionKill, sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
 import { leaveSharedSession } from '@/sync/apiSharing';
 import { pushWorktreeBranch, mergeWorktreeBranch, createWorktreePR, cleanupWorktree, cleanupWorkspace, getLocalBranches, getCurrentBranch } from '@/utils/worktreeOps';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
@@ -90,9 +90,9 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const modelSubtitle = React.useMemo(() => {
         const cliModel = session.metadata?.model;
         const cliEffort = session.metadata?.reasoningEffort;
-        const cliLabel = formatModelDisplay(cliModel, cliEffort);
+        const cliLabel = formatModelDisplay(agentModelName(session.metadata, cliModel), cliEffort);
 
-        const localLabel = formatModelDisplay(localModelDisplay.model, localModelDisplay.reasoningEffort);
+        const localLabel = formatModelDisplay(agentModelName(session.metadata, localModelDisplay.model), localModelDisplay.reasoningEffort);
 
         let text: string | null;
         if (cliLabel && localLabel && cliLabel !== localLabel) {
@@ -105,7 +105,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         const fast = session.fastMode === true || isModelFast(cliModel) || isModelFast(localModelDisplay.model);
         if (!fast) return text;
         return <>{text} <MaterialCommunityIcons name="lightning-bolt" size={14} color={FAST_MODE_ICON_COLOR} /></>;
-    }, [localModelDisplay.model, localModelDisplay.reasoningEffort, session.metadata?.model, session.metadata?.reasoningEffort, session.fastMode]);
+    }, [localModelDisplay.model, localModelDisplay.reasoningEffort, session.metadata?.model, session.metadata?.reasoningEffort, session.metadata?.models, session.fastMode]);
     const geminiSessionId = session.metadata?.flavor === 'gemini' ? session.id : undefined;
     
     // Check if CLI version is outdated
@@ -198,6 +198,17 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             Modal.alert(t('common.error'), t('sessionInfo.failedToCopyGeminiSessionId'));
         }
     }, [geminiSessionId]);
+
+    const handleCopyQoderSessionId = useCallback(async () => {
+        const qoderSessionId = session.metadata?.qoderSessionId;
+        if (!qoderSessionId) return;
+        try {
+            await Clipboard.setStringAsync(qoderSessionId);
+            hapticsLight(); showCopiedToast();
+        } catch (error) {
+            Modal.alert(t('common.error'), t('sessionInfo.failedToCopyQoderSessionId'));
+        }
+    }, [session.metadata?.qoderSessionId]);
 
     // Worktree state: unified multi-repo + legacy single-repo support
     const workspaceRepos = getWorkspaceRepos(session.metadata);
@@ -365,14 +376,15 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
-        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId;
+        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || qoderSessionId;
         if (!hasForkableId || !directory || !machineId) return;
 
         const isOnline = session.active;
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
         const confirmTitle = isOnline ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
         const confirmMessage = isOnline ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
         const confirmed = await Modal.confirm(confirmTitle, confirmMessage, {
@@ -390,7 +402,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -408,6 +420,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 }
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
+            } else if (flavor === 'qoder' && qoderSessionId) {
+                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'qoder';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {
@@ -507,7 +527,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             // Fork and resume — mirrors the "resume session" flow exactly
             const flavor = session.metadata?.flavor;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'codex' | 'gemini' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -525,6 +545,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 }
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
+            } else if (flavor === 'qoder' && session.metadata?.qoderSessionId) {
+                const forkResult = await machineForkQoderSession(machineId, session.metadata.qoderSessionId, session.metadata.path || '');
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'qoder';
             } else if (session.metadata?.claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, session.metadata.claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {
@@ -756,7 +784,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const [reviewMenuVisible, setReviewMenuVisible] = React.useState(false);
     const [requestingReview, setRequestingReview] = React.useState(false);
 
-    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini') => {
+    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder') => {
         if (!worktreeMachineId || !worktreeBranch || !worktreePath) return;
         const prUrl = selectedRepo?.prUrl;
         if (!prUrl) return;
@@ -825,6 +853,10 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             {
                 label: 'Gemini',
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('gemini'); },
+            },
+            {
+                label: 'Qoder',
+                onPress: () => { setReviewMenuVisible(false); doRequestReview('qoder'); },
             },
     ], [doRequestReview]);
 
@@ -955,6 +987,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                             onPress={handleCopyGeminiSessionId}
                         />
                     )}
+                    {session.metadata?.qoderSessionId && (
+                        <Item
+                            title={t('sessionInfo.qoderSessionId')}
+                            subtitle={`${session.metadata.qoderSessionId.substring(0, 8)}...${session.metadata.qoderSessionId.substring(session.metadata.qoderSessionId.length - 8)}`}
+                            icon={<Ionicons name="code-outline" size={29} color="#9C27B0" />}
+                            onPress={handleCopyQoderSessionId}
+                        />
+                    )}
                     <Item
                         title={t('sessionInfo.connectionStatus')}
                         detail={sessionStatus.isConnected ? t('status.online') : t('status.offline')}
@@ -1045,7 +1085,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                                 onPress={() => router.push(`/machine/${session.metadata?.machineId}`)}
                             />
                         )}
-                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId) && session.metadata?.machineId && session.metadata?.path && (
+                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId) && session.metadata?.machineId && session.metadata?.path && (
                             <Item
                                 title={session.active ? t('sessionInfo.copySession') : t('sessionInfo.resumeSession')}
                                 subtitle={session.active ? t('sessionInfo.copySessionSubtitle') : t('sessionInfo.resumeSessionSubtitle')}
@@ -1214,6 +1254,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                                 if (flavor === 'codex') return 'Codex';
                                 if (flavor === 'gpt' || flavor === 'openai') return 'Codex';
                                 if (flavor === 'gemini') return 'Gemini';
+                                if (flavor === 'qoder') return 'Qoder';
                                 return flavor;
                             })()}
                             icon={<Ionicons name="sparkles-outline" size={29} color="#5856D6" />}

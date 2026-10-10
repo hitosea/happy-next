@@ -19,6 +19,7 @@ import {
   type InitializeRequest,
   type NewSessionRequest,
   type NewSessionResponse,
+  type LoadSessionResponse,
   type PromptRequest,
   type ContentBlock,
 } from '@agentclientprotocol/sdk';
@@ -182,6 +183,19 @@ export interface AcpBackendOptions {
    * E.g., maps "change_title" → "mcp:happy:change_title"
    */
   normalizeToolName?: (rawName: string) => string;
+
+  /**
+   * Agent-native session id to restore with `session/load` instead of creating a
+   * new session. Falls back to a new session when the agent cannot load it;
+   * callers compare `getSessionId()` with this value to detect that.
+   */
+  resumeSessionId?: string;
+
+  /**
+   * Receives the history updates the agent replays during `session/load`. They are
+   * not forwarded as live output; this lets the caller rebuild the transcript.
+   */
+  onReplayedUpdate?: (update: SessionNotification['update']) => void;
 }
 
 /**
@@ -296,6 +310,8 @@ export class AcpBackend implements AgentBackend {
   private connection: ClientSideConnection | null = null;
   private acpSessionId: string | null = null;
   private disposed = false;
+  /** True while `session/load` replays history; replayed updates are not new output. */
+  private replayingHistory = false;
   /** Track active tool calls to prevent duplicate events */
   private activeToolCalls = new Set<string>();
   private toolCallTimeouts = new Map<string, NodeJS.Timeout>();
@@ -538,6 +554,10 @@ export class AcpBackend implements AgentBackend {
       // Create Client implementation
       const client: Client = {
         sessionUpdate: async (params: SessionNotification) => {
+          if (this.replayingHistory) {
+            this.options.onReplayedUpdate?.(params.update);
+            return;
+          }
           this.handleSessionUpdate(params);
         },
         requestPermission: async (params: RequestPermissionRequest): Promise<RequestPermissionResponse> => {
@@ -815,9 +835,37 @@ export class AcpBackend implements AgentBackend {
         mcpServers: mcpServers as unknown as NewSessionRequest['mcpServers'],
       };
 
-      logger.debug(`[AcpBackend] Creating new session...`);
+      const resumeSessionId = this.options.resumeSessionId;
+      let loadedSession: LoadSessionResponse | null = null;
+      if (resumeSessionId) {
+        logger.debug(`[AcpBackend] Loading session ${resumeSessionId}...`);
+        this.replayingHistory = true;
+        let timeoutHandle: NodeJS.Timeout | null = null;
+        try {
+          loadedSession = await Promise.race([
+            startupFailurePromise,
+            this.connection!.loadSession({ ...newSessionRequest, sessionId: resumeSessionId }),
+            new Promise<never>((_, reject) => {
+              timeoutHandle = setTimeout(() => {
+                reject(new Error(`Load session timeout after ${initTimeout}ms - ${this.transport.agentName} did not respond`));
+              }, initTimeout);
+            }),
+          ]);
+          // Replayed notifications are dispatched asynchronously by the SDK; let them
+          // drain before output is forwarded again.
+          await new Promise((resolve) => setImmediate(resolve));
+        } catch (error) {
+          if (error === startupFailure) throw error;
+          logger.debug(`[AcpBackend] Could not load session ${resumeSessionId}, starting a new one:`, error);
+        } finally {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          this.replayingHistory = false;
+        }
+      }
 
-      const sessionResponse = await withRetry(
+      logger.debug(loadedSession ? `[AcpBackend] Session loaded` : `[AcpBackend] Creating new session...`);
+
+      const sessionResponse: NewSessionResponse = loadedSession ? { ...loadedSession, sessionId: resumeSessionId! } : await withRetry(
         async () => {
           let timeoutHandle: NodeJS.Timeout | null = null;
           try {
@@ -1287,6 +1335,11 @@ export class AcpBackend implements AgentBackend {
       logger.debug('[AcpBackend] Resolving idle waiter');
       this.idleResolver();
     }
+  }
+
+  /** Agent-native session id, available once `startSession` resolves. */
+  getSessionId(): string | null {
+    return this.acpSessionId;
   }
 
   async cancel(sessionId: SessionId): Promise<boolean> {

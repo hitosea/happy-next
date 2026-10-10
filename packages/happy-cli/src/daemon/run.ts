@@ -6,6 +6,7 @@ import { ApiClient } from '@/api/api';
 import { startModelCatalogSync } from '@/api/modelCatalog';
 import { TrackedSession } from './types';
 import { getUnexpandedSessionAuthVariables } from './sessionAuth';
+import { QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -587,6 +588,9 @@ export async function startDaemon(): Promise<void> {
           extraEnv.HAPPY_GEMINI_RESUME_SESSION_ID = resumeSessionId;
           extraEnv.HAPPY_GEMINI_BACKFILL = '1';
         }
+        if (resumeSessionId && options.agent === 'qoder') {
+          extraEnv[QODER_RESUME_SESSION_ID_ENV] = resumeSessionId;
+        }
         if (resumeSessionId && options.agent === 'codex') {
           extraEnv.HAPPY_CODEX_RESUME_FILE = resumeSessionId;
           extraEnv.HAPPY_CODEX_BACKFILL = '1';
@@ -703,8 +707,8 @@ export async function startDaemon(): Promise<void> {
 
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
-          // Determine agent command - support claude, codex, and gemini
-          const agent = options.agent === 'gemini' ? 'gemini' : (options.agent === 'codex' ? 'codex' : 'claude');
+          // Determine agent command - support claude, codex, gemini and qoder
+          const agent = options.agent ?? 'claude';
           const forkFlag = skipForkSession ? '' : ' --fork-session';
           const resumeArgs = resumeSessionId && isClaudeAgent ? ` --resume ${resumeSessionId}${forkFlag}` : '';
           const fullCommand = `node --no-warnings --no-deprecation ${cliPath} ${agent} --happy-starting-mode remote --started-by daemon${resumeArgs}`;
@@ -802,6 +806,9 @@ export async function startDaemon(): Promise<void> {
               break;
             case 'gemini':
               agentCommand = 'gemini';
+              break;
+            case 'qoder':
+              agentCommand = 'qoder';
               break;
             default:
               return {

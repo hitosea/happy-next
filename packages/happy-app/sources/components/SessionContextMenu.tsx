@@ -24,6 +24,7 @@ import {
     machineForkClaudeSession,
     machineForkCodexSession,
     machineForkGeminiSession,
+    machineForkQoderSession,
     machineSpawnNewSession,
     sessionDelete,
     sessionArchive,
@@ -300,11 +301,12 @@ function useSessionQuickActions(session: Session) {
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
-        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId)) return;
+        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId)) return;
 
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : 'Claude';
+        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
         const confirmed = await Modal.confirm(
             session.active ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle'),
             session.active
@@ -319,7 +321,7 @@ function useSessionQuickActions(session: Session) {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -337,6 +339,14 @@ function useSessionQuickActions(session: Session) {
                 }
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
+            } else if (flavor === 'qoder' && qoderSessionId) {
+                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'qoder';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {

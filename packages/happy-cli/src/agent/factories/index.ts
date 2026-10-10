@@ -23,6 +23,13 @@ export {
   type CodexBackendResult,
 } from './codex';
 
+// Qoder factory
+export {
+  createQoderBackend,
+  registerQoderAgent,
+  type QoderBackendOptions,
+} from './qoder';
+
 // Future factories:
 // export { createClaudeBackend, registerClaudeAgent, type ClaudeBackendOptions } from './claude';
 // export { createOpenCodeBackend, registerOpenCodeAgent, type OpenCodeBackendOptions } from './opencode';

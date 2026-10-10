@@ -52,6 +52,7 @@ const flavorIconSources: Record<string, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 /** Build a map of taskId → unique flavor strings from all sessions linked to dootask tasks. */
@@ -88,7 +89,7 @@ const FlavorBadges = React.memo(({ flavors }: { flavors: string[] }) => {
         <View style={{ width: totalWidth, height: outerSize }}>
             {flavors.map((flavor, i) => {
                 // codex slightly smaller than others (matching Avatar.tsx convention)
-                const iconSize = flavor === 'codex' ? 10 : 12;
+                const iconSize = flavor === 'codex' ? 10 : (flavor === 'qoder' ? 11 : 12);
                 return (
                     <View
                         key={flavor}
@@ -113,7 +114,7 @@ const FlavorBadges = React.memo(({ flavors }: { flavors: string[] }) => {
                             source={flavorIconSources[flavor]}
                             style={{ width: iconSize, height: iconSize }}
                             contentFit="contain"
-                            tintColor={flavor === 'codex' ? theme.colors.text : undefined}
+                            tintColor={flavor === 'codex' || flavor === 'qoder' ? theme.colors.text : undefined}
                         />
                     </View>
                 );

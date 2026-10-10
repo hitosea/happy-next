@@ -792,6 +792,7 @@ export const zhHans: TranslationStructure = {
         resumeFailed: '恢复会话失败',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: '按名称或 ID 搜索',
     },
@@ -990,6 +991,8 @@ export const zhHans: TranslationStructure = {
         geminiSessionId: 'Gemini 会话 ID',
         geminiSessionIdCopied: 'Gemini 会话 ID 已复制到剪贴板',
         failedToCopyGeminiSessionId: '复制 Gemini 会话 ID 失败',
+        qoderSessionId: 'Qoder 会话 ID',
+        failedToCopyQoderSessionId: '复制 Qoder 会话 ID 失败',
         metadataCopied: '元数据已复制到剪贴板',
         failedToCopyMetadata: '复制元数据失败',
         failedToKillSession: '终止会话失败',
@@ -1151,6 +1154,7 @@ export const zhHans: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1164,7 +1168,6 @@ export const zhHans: TranslationStructure = {
             useCliDefaults: '使用档案/CLI 的默认设置',
         },
         codexPermissionMode: {
-            title: 'CODEX 权限模式',
             default: '默认权限',
             readOnly: '只读模式',
             onFailure: '自动审查',
@@ -1184,7 +1187,6 @@ export const zhHans: TranslationStructure = {
             gpt5High: 'GPT-5 High',
         },
         geminiPermissionMode: {
-            title: 'GEMINI 权限模式',
             default: '默认',
             autoEdit: '自动编辑',
             plan: '计划模式',
@@ -1192,6 +1194,17 @@ export const zhHans: TranslationStructure = {
             badgeAutoEdit: '自动编辑',
             badgePlan: '计划模式',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: '默认',
+            acceptEdits: '接受编辑',
+            auto: '自动模式',
+            dontAsk: '不询问',
+            yolo: '绕过权限',
+            badgeAcceptEdits: '接受编辑',
+            badgeAuto: '自动模式',
+            badgeDontAsk: '不询问',
+            badgeYolo: '绕过权限',
         },
         opencodePermissionMode: {
             title: 'OPENCODE 权限模式',

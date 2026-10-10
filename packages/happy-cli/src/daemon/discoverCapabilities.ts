@@ -13,7 +13,7 @@ import { discoverCodexSkills } from '@/codex/utils/skillDiscovery';
 import { addBuiltinSlashCommands } from '@/commands/builtinCommands';
 import { addOrchestratorSlashCommands } from '@/orchestrator/slashCommands';
 
-export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini';
+export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 export function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,
@@ -21,13 +21,14 @@ export function discoverCapabilities(
     homeDir = os.homedir(),
 ): SessionCapabilities {
     // Claude picks up the built-in and orchestrator commands from ~/.claude/commands, which the
-    // disk scan already covers; Codex and Gemini get them registered by their runners instead.
+    // disk scan already covers; Codex, Gemini and Qoder get them registered by their runners instead.
     const discoverers: Record<DiscoverCapabilitiesAgent, () => SessionCapabilities> = {
         claude: () => ({ slashCommandMetadata: discoverClaudeSlashCommandMetadata(directory, homeDir) }),
         codex: () => addBuiltinSlashCommands(addOrchestratorSlashCommands({
             skills: discoverCodexSkills(directory, homeDir),
         })),
         gemini: () => addBuiltinSlashCommands({}),
+        qoder: () => addBuiltinSlashCommands({}),
     };
     return discoverers[agent]();
 }

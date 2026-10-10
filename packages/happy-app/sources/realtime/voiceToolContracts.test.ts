@@ -17,6 +17,7 @@ describe('voice permission mode contracts', () => {
         expect(getVoicePermissionModesForAgent('claude')).toEqual(['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions']);
         expect(getVoicePermissionModesForAgent('codex')).toEqual(['default', 'read-only', 'on-failure', 'full-auto']);
         expect(getVoicePermissionModesForAgent('gemini')).toEqual(['default', 'auto_edit', 'plan', 'yolo']);
+        expect(getVoicePermissionModesForAgent('qoder')).toEqual(['default', 'acceptEdits', 'auto', 'dontAsk', 'yolo']);
     });
 
     it('validates modes against the active agent only', () => {
@@ -26,5 +27,7 @@ describe('voice permission mode contracts', () => {
         expect(isVoicePermissionModeForAgent('codex', 'acceptEdits')).toBe(false);
         expect(isVoicePermissionModeForAgent('gemini', 'auto_edit')).toBe(true);
         expect(isVoicePermissionModeForAgent('gemini', 'read-only')).toBe(false);
+        expect(isVoicePermissionModeForAgent('qoder', 'dontAsk')).toBe(true);
+        expect(isVoicePermissionModeForAgent('qoder', 'plan')).toBe(false);
     });
 });

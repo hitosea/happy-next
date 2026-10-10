@@ -133,6 +133,11 @@ export function useSessionStatus(session: Session): SessionStatus {
  * Extracts a display name from a session's metadata path.
  * Returns the last segment of the path, or 'unknown' if no path is available.
  */
+/** A model id as the agent names it: agents that list their own models (Qoder) give each code a name in metadata.models. */
+export function agentModelName(metadata: Session['metadata'], model: string | null | undefined): string | null | undefined {
+    return metadata?.models?.find((entry) => entry.code === model)?.value ?? model;
+}
+
 export function getSessionName(session: Session): string {
     if (session.metadata?.summary) {
         return session.metadata.summary.text;
@@ -349,7 +354,7 @@ export function copySessionModeSettings(
     newSessionId: string,
 ): void {
     const flavor = originalSession.metadata?.flavor;
-    const agentType: 'claude' | 'codex' | 'gemini' = (flavor === 'codex' || flavor === 'gemini') ? flavor : 'claude';
+    const agentType: 'claude' | 'codex' | 'gemini' | 'qoder' = (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') ? flavor : 'claude';
     sync.queueSessionModeConfigUpdate({
         sessionId: newSessionId,
         agentType,

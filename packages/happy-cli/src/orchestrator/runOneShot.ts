@@ -4,6 +4,7 @@ import { claudeCliPath } from '@/claude/claudeLocal';
 import { codexPackage } from '@/codex/package';
 import { codexFastModeArgs, resolveCodexRuntime } from '@/codex/codexRuntime';
 import { logger } from '@/ui/logger';
+import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
 import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseCodexModelMode, parseClaudeModelMode, splitFastModeSuffix } from 'happy-wire';
 import {
   ORCHESTRATOR_ENV_KEYS,
@@ -159,6 +160,23 @@ export function buildSpawnPlan(
         args: geminiArgs,
         cwd: workingDirectory,
         env: { ...process.env },
+      };
+    }
+    case 'qoder': {
+      // Like Claude: the scheduler assigns the session id up front and stdout is the plain answer.
+      const qoderArgs = ['--dangerously-skip-permissions'];
+      if (executionType === 'resume') {
+        qoderArgs.push('--resume', childSessionId!);
+      } else {
+        if (normalizedModelMode) qoderArgs.push('--model', normalizedModelMode);
+        if (childSessionId) qoderArgs.push('--session-id', childSessionId);
+      }
+      qoderArgs.push('-p', prompt);
+      return {
+        command: resolveQoderCommand(),
+        args: qoderArgs,
+        cwd: workingDirectory,
+        env: { ...process.env, ...QODER_SDK_ISOLATION_ENV },
       };
     }
     default:

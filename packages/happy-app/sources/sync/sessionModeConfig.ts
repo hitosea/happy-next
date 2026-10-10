@@ -1,6 +1,6 @@
 import type { PermissionMode } from '@/components/PermissionModeSelector';
 
-export type SessionModeAgentType = 'claude' | 'codex' | 'gemini';
+export type SessionModeAgentType = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 export const SESSION_MODE_CONFIG_KV_KEY = 'session-mode-config:v1';
 export const SESSION_MODE_CONFIG_SCHEMA_VERSION = 1 as const;
@@ -50,6 +50,7 @@ const PERMISSION_MODES = new Set<PermissionMode>([
     'full-auto',
     'auto_edit',
     'yolo',
+    'dontAsk',
 ]);
 
 function isPermissionMode(value: unknown): value is PermissionMode {
@@ -147,7 +148,7 @@ export function normalizeSessionModeConfig(input: unknown, now: number = Date.no
     const rawLastUsed = raw.lastUsedByAgent;
     const lastUsedByAgent: SessionModeConfigDocument['lastUsedByAgent'] = {};
     if (rawLastUsed && typeof rawLastUsed === 'object') {
-        (['claude', 'codex', 'gemini'] as const).forEach((agent) => {
+        (['claude', 'codex', 'gemini', 'qoder'] as const).forEach((agent) => {
             const entry = normalizeLastUsedEntry((rawLastUsed as Record<string, unknown>)[agent]);
             if (entry) {
                 lastUsedByAgent[agent] = entry;

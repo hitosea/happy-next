@@ -58,7 +58,10 @@ import {
     MODEL_MODE_DEFAULT,
     parseClaudeModelMode,
     parseCodexModelMode,
+    buildQoderModelMode,
+    parseQoderModelMode,
 } from 'happy-wire';
+import type { QoderPickerModel } from '@/hooks/useQoderModels';
 
 interface AgentInputProps {
     value: string;
@@ -91,6 +94,7 @@ interface AgentInputProps {
             claude: boolean | null;
             codex: boolean | null;
             gemini?: boolean | null;
+            qoder?: boolean | null;
         };
     };
     autocompletePrefixes: string[];
@@ -105,7 +109,10 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    // Models offered by the agent itself (Qoder lists them per account over ACP), as the machine reports
+    // them: with each model's efforts and Qoder's own description. A session's list still comes from metadata.models.
+    agentModels?: QoderPickerModel[];
     onAgentClick?: () => void;
     machineName?: string | null;
     onMachineClick?: () => void;
@@ -149,6 +156,7 @@ const agentFlavorIcons = {
     claude: require('@/assets/images/icon-claude.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
@@ -160,6 +168,7 @@ const agentMarkArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     claude: 12,
     codex: 10,
     gemini: 12,
+    qoder: 11,
 };
 
 const stylesheet = StyleSheet.create((theme, runtime) => ({
@@ -331,6 +340,15 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         color: theme.colors.textSecondary,
         ...Typography.default(),
     },
+    selectionContent: {
+        flex: 1,
+    },
+    selectionTrailing: {
+        marginLeft: 12,
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+        ...Typography.default(),
+    },
 
     // Status styles
     statusContainer: {
@@ -470,7 +488,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const renderRadioOptions = <T extends string>(
-        options: readonly { value: T; label: string; description?: string }[],
+        options: readonly { value: T; label: string; description?: string; trailing?: string }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
     ) => options.map(option => {
@@ -478,22 +496,30 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return (
             <Pressable key={option.value}
                 onPress={() => { hapticsLight(); onSelect(option.value); }}
-                style={({ pressed }) => [styles.selectionItem, pressed && styles.selectionItemPressed]}>
+                style={({ pressed, hovered }: any) => [styles.selectionItem, (pressed || hovered) && styles.selectionItemPressed]}>
                 <View style={[styles.radioButton, isSelected ? styles.radioButtonActive : styles.radioButtonInactive]}>
                     {isSelected && <View style={styles.radioButtonDot} />}
                 </View>
                 {option.description ? (
-                    <View>
+                    <View style={styles.selectionContent}>
                         <Text style={[styles.selectionLabel, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
                             {option.label}
                         </Text>
-                        <Text style={styles.selectionDescription}>{option.description}</Text>
+                        <Text
+                            style={styles.selectionDescription}
+                            numberOfLines={1}
+                            // react-native-web drops `title`, so the full text goes on the DOM node for the hover tooltip.
+                            ref={Platform.OS === 'web' ? (node: any) => node?.setAttribute?.('title', option.description) : undefined}
+                        >
+                            {option.description}
+                        </Text>
                     </View>
                 ) : (
-                    <Text style={[styles.selectionLabel, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
+                    <Text style={[styles.selectionLabel, styles.selectionContent, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
                         {option.label}
                     </Text>
                 )}
+                {option.trailing && <Text style={styles.selectionTrailing}>{option.trailing}</Text>}
             </Pressable>
         );
     });
@@ -508,15 +534,18 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Use metadata.flavor for existing sessions, agentType prop for new sessions
     const isCodex = props.metadata?.flavor === 'codex' || props.agentType === 'codex';
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
-    const isClaude = !isCodex && !isGemini;
+    const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
+    const isClaude = !isCodex && !isGemini && !isQoder;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
-    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : 'claude';
+    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : 'claude';
 
     const permissionModeOptions: PermissionMode[] = isCodex
         ? ['default', 'read-only', 'on-failure', 'full-auto']
         : isGemini
             ? ['default', 'auto_edit', 'plan', 'yolo']
-            : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
+            : isQoder
+                ? ['default', 'acceptEdits', 'auto', 'dontAsk', 'yolo']
+                : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
 
     const getPermissionModeLabel = React.useCallback((mode: PermissionMode | undefined, badge = false): string => {
         if (!mode) return '';
@@ -534,20 +563,63 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             if (mode === 'yolo') return badge ? t('agentInput.geminiPermissionMode.badgeYolo') : t('agentInput.geminiPermissionMode.yolo');
             return '';
         }
+        if (isQoder) {
+            if (mode === 'default') return t('agentInput.qoderPermissionMode.default');
+            if (mode === 'acceptEdits') return badge ? t('agentInput.qoderPermissionMode.badgeAcceptEdits') : t('agentInput.qoderPermissionMode.acceptEdits');
+            if (mode === 'auto') return badge ? t('agentInput.qoderPermissionMode.badgeAuto') : t('agentInput.qoderPermissionMode.auto');
+            if (mode === 'dontAsk') return badge ? t('agentInput.qoderPermissionMode.badgeDontAsk') : t('agentInput.qoderPermissionMode.dontAsk');
+            if (mode === 'yolo') return badge ? t('agentInput.qoderPermissionMode.badgeYolo') : t('agentInput.qoderPermissionMode.yolo');
+            return '';
+        }
         if (mode === 'default') return t('agentInput.permissionMode.default');
         if (mode === 'acceptEdits') return badge ? t('agentInput.permissionMode.badgeAcceptAllEdits') : t('agentInput.permissionMode.acceptEdits');
         if (mode === 'auto') return badge ? t('agentInput.permissionMode.badgeAuto') : t('agentInput.permissionMode.auto');
         if (mode === 'bypassPermissions') return badge ? t('agentInput.permissionMode.badgeBypassAllPermissions') : t('agentInput.permissionMode.bypassPermissions');
         if (mode === 'plan') return badge ? t('agentInput.permissionMode.badgePlanMode') : t('agentInput.permissionMode.plan');
         return '';
-    }, [isCodex, isGemini]);
+    }, [isCodex, isGemini, isQoder]);
 
-    const selectedModelMode: ModelMode = props.modelMode || 'default';
+    // Qoder has no "CLI default" entry (its own Auto plays that part), so a session still on `default` shows the model Qoder reports.
+    const qoderModels = React.useMemo<QoderPickerModel[]>(() => {
+        const machineModels = new Map((props.agentModels ?? []).map((model) => [model.code, model]));
+        return (props.metadata?.models ?? props.agentModels ?? []).map((model) => ({ ...machineModels.get(model.code), ...model }));
+    }, [props.metadata?.models, props.agentModels]);
+    const selectedModelMode: ModelMode = isQoder && (props.modelMode || 'default') === MODEL_MODE_DEFAULT
+        ? (props.metadata?.currentModelCode
+            ? buildQoderModelMode(props.metadata.currentModelCode, props.metadata.currentThoughtLevelCode)
+            : qoderModels[0]?.code ?? MODEL_MODE_DEFAULT)
+        : props.modelMode || 'default';
+    const qoderSelection = parseQoderModelMode(selectedModelMode);
+    const qoderSelectedModel = qoderModels.find((model) => model.code === qoderSelection.model);
+    // The machine lists every model's efforts; without it, the session knows those of the model it runs.
+    const qoderEffortLevels = qoderSelectedModel?.efforts
+        ?? (qoderSelection.model === props.metadata?.currentModelCode ? props.metadata?.thoughtLevels : undefined)
+        ?? [];
+    const qoderEffort = qoderSelection.effort
+        ?? qoderSelectedModel?.defaultEffort
+        ?? (qoderSelection.model === props.metadata?.currentModelCode ? props.metadata?.currentThoughtLevelCode : undefined)
+        ?? null;
+    // qodercli lists efforts in no particular order; like the other agents they read strongest first.
+    const qoderEffortRank = (code: string) => (['max', 'xhigh', 'high', 'medium', 'low', 'none'].indexOf(code) + 7) % 7;
+    const qoderEffortOptions = [...qoderEffortLevels]
+        .sort((a, b) => qoderEffortRank(a.code) - qoderEffortRank(b.code))
+        .map((level) => ({ value: level.code, label: formatReasoningEffortLabel(level.code) ?? level.value }));
+    // Like qodercli's own /model, a newly picked model starts on its own default effort.
+    const handleQoderModelChange = React.useCallback((code: string) => {
+        props.onModelModeChange?.(buildQoderModelMode(code, qoderModels.find((model) => model.code === code)?.defaultEffort));
+    }, [qoderModels, props.onModelModeChange]);
+    const handleQoderEffortChange = React.useCallback((effort: string) => {
+        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, effort));
+    }, [qoderSelection.model, props.onModelModeChange]);
     const modelCatalog = useModelCatalog();
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
         return parseCodexModelMode(selectedModelMode);
     }, [selectedModelMode, modelCatalog]);
-    const codexFamilyOptions = getModelFamilyOptions('codex');
+    // The catalog's "use the CLI's model" entry is English-only; every agent shows the translated one.
+    const localizeCliDefault = <T extends { value: string; label: string; description?: string }>(options: readonly T[]): T[] => options.map((option) => option.value === MODEL_MODE_DEFAULT
+        ? { ...option, label: t('agentInput.model.useCliConfigured'), description: t('agentInput.model.useCliDefaults') }
+        : option);
+    const codexFamilyOptions = React.useMemo(() => localizeCliDefault(getModelFamilyOptions('codex')), [modelCatalog]);
     const codexReasoningOptions = React.useMemo<Array<{ value: CodexReasoningEffort; label: string }>>(() => {
         const options = getCodexReasoningOptions(codexSelection.family);
         return options.map((value) => ({
@@ -579,7 +651,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const claudeIs1M = claudeSelection.family.includes('[1m]');
     const claudeShow1MToggle = claudeBase !== MODEL_MODE_DEFAULT && claudeHas1MOptIn(claudeBase);
     const claudeShow1MBadge = claudeAlways1M(claudeBase);
-    const claudeFamilyOptions = getModelFamilyOptions('claude');
+    const claudeFamilyOptions = React.useMemo(() => localizeCliDefault(getModelFamilyOptions('claude')), [modelCatalog]);
     const claudeReasoningOptions = React.useMemo<Array<{ value: ClaudeReasoningEffort; label: string }>>(() => {
         const options = getClaudeReasoningOptions(claudeSelection.family);
         return options.map((value) => ({
@@ -615,10 +687,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         // Canonicalize: always-1M families drop the redundant [1m] suffix.
         props.onModelModeChange(buildClaudeModelMode(claudeFamilyWith1M(claudeSelection.family, claudeIs1M), effort));
     }, [claudeSelection.family, claudeIs1M, props.onModelModeChange]);
-    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string }>>(() => {
-        if (isGemini) return [...getModelFamilyOptions('gemini')];
-        return [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') }];
-    }, [isGemini, modelCatalog]);
+    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
+        if (isGemini) return localizeCliDefault(getModelFamilyOptions('gemini'));
+        const cliDefault = { value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') };
+        if (isQoder) {
+            // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
+            // Qoder's own sentence replaces the tags when the machine could read it.
+            return qoderModels.map((model) => {
+                const credit = model.description?.match(/^(.*?)(?:\s*·\s*)?\b(\d+(?:\.\d+)?)x Credit\s*$/);
+                return {
+                    value: model.code,
+                    label: model.value,
+                    shortLabel: model.value,
+                    description: model.detail ?? (credit ? credit[1] : model.description ?? ''),
+                    trailing: credit ? `${Number(credit[2])}x` : undefined,
+                };
+            });
+        }
+        return [cliDefault];
+    }, [isGemini, isQoder, qoderModels, modelCatalog]);
 
     const currentModelLabel = React.useMemo(() => {
         if (isCodex) {
@@ -629,8 +716,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             const parts = [claudeIs1M ? '1M' : '', claudeReasoningOptions.find(o => o.value === claudeSelection.effort)?.label ?? ''].filter(Boolean);
             return base + (parts.length > 0 ? ` (${parts.join(', ')})` : '');
         }
+        if (isQoder) {
+            const effortLabel = qoderEffortOptions.find(o => o.value === qoderEffort)?.label;
+            return (modelOptions.find(o => o.value === qoderSelection.model)?.shortLabel ?? '') + (effortLabel ? ` (${effortLabel})` : '');
+        }
         return modelOptions.find(o => o.value === selectedModelMode)?.shortLabel ?? '';
-    }, [isCodex, isClaude, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode]);
+    }, [isCodex, isClaude, isQoder, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode, qoderSelection.model, qoderEffort, qoderEffortOptions]);
 
     // Calculate context warning
     // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window,
@@ -1205,6 +1296,28 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         codex
                                     </Text>
                                 </View>
+                                {props.connectionStatus.cliStatus.qoder !== undefined && (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                        <Text style={{
+                                            fontSize: 11,
+                                            color: props.connectionStatus.cliStatus.qoder
+                                                ? theme.colors.success
+                                                : theme.colors.textDestructive,
+                                            ...Typography.default()
+                                        }}>
+                                            {props.connectionStatus.cliStatus.qoder ? '✓' : '✗'}
+                                        </Text>
+                                        <Text style={{
+                                            fontSize: 11,
+                                            color: props.connectionStatus.cliStatus.qoder
+                                                ? theme.colors.success
+                                                : theme.colors.textDestructive,
+                                            ...Typography.default()
+                                        }}>
+                                            qoder
+                                        </Text>
+                                    </View>
+                                )}
                                 {props.connectionStatus.cliStatus.gemini !== undefined && (
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                         <Text style={{
@@ -1339,7 +1452,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     source={agentFlavorIcons[agentFlavorKey]}
                                     style={{ width: agentMarkArtworkSize[agentFlavorKey], height: agentMarkArtworkSize[agentFlavorKey] }}
                                     contentFit="contain"
-                                    tintColor={agentFlavorKey === 'codex' ? theme.colors.textSecondary : undefined}
+                                    tintColor={agentFlavorKey === 'codex' || agentFlavorKey === 'qoder' ? theme.colors.textSecondary : undefined}
                                 />
                             </View>
                             <Text style={{
@@ -1434,7 +1547,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             : currentModelLabel;
                                         const tabs = [
                                             { key: 'model' as const, label: t('agentInput.model.title'), subtitle: currentModelSubtitle },
-                                            { key: 'permission' as const, label: isCodex ? t('agentInput.codexPermissionMode.title') : isGemini ? t('agentInput.geminiPermissionMode.title') : t('agentInput.permissionMode.title'), subtitle: permissionLabel },
+                                            { key: 'permission' as const, label: t('agentInput.permissionMode.title'), subtitle: permissionLabel },
                                         ];
                                         return tabs.map((tab) => {
                                             const isActive = showSettings === tab.key;
@@ -1494,12 +1607,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             <Pressable
                                                 key={mode}
                                                 onPress={() => handleSettingsSelect(mode)}
-                                                style={({ pressed }) => ({
+                                                style={({ pressed, hovered }: any) => ({
                                                     flexDirection: 'row',
                                                     alignItems: 'center',
                                                     paddingHorizontal: 16,
                                                     paddingVertical: 8,
-                                                    backgroundColor: pressed ? theme.colors.surfacePressed : 'transparent'
+                                                    backgroundColor: pressed || hovered ? theme.colors.surfacePressed : 'transparent'
                                                 })}
                                             >
                                                 <View style={{
@@ -1656,6 +1769,39 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                     </>
                                                 )}
                                                 {oneMillionRow}
+                                            </>
+                                        );
+                                    })() : isQoder ? (() => {
+                                        const reasoningColumn = (
+                                            <>
+                                                <Text style={styles.overlaySectionTitle}>
+                                                    {t('agentInput.model.reasoningEffort')}
+                                                </Text>
+                                                {renderRadioOptions(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
+                                            </>
+                                        );
+                                        if (qoderEffortOptions.length > 0 && isWideModelLayout) {
+                                            return (
+                                                <View style={{ flexDirection: 'row' }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        {renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange)}
+                                                    </View>
+                                                    <View style={styles.overlayColumnDivider} />
+                                                    <View style={{ flex: 1 }}>
+                                                        {reasoningColumn}
+                                                    </View>
+                                                </View>
+                                            );
+                                        }
+                                        return (
+                                            <>
+                                                {renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange)}
+                                                {qoderEffortOptions.length > 0 && (
+                                                    <>
+                                                        <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                                        {reasoningColumn}
+                                                    </>
+                                                )}
                                             </>
                                         );
                                     })() : (
@@ -1888,19 +2034,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     >
                                         {(() => {
                                             const isCodex = props.agentType === 'codex';
-                                            const iconSize = isCodex ? 15 : 18;
+                                            const isQoder = props.agentType === 'qoder';
+                                            const iconSize = isCodex ? 15 : (isQoder ? 16 : 18);
                                             const iconStyle = {
                                                 width: iconSize,
                                                 height: iconSize,
-                                                marginLeft: isCodex ? 2 : 0,
-                                                marginRight: isCodex ? 1 : 0,
+                                                marginLeft: isCodex ? 2 : (isQoder ? 1 : 0),
+                                                marginRight: (isCodex || isQoder) ? 1 : 0,
                                             };
                                             return (
                                                 <Image
                                                     source={agentFlavorIcons[props.agentType as keyof typeof agentFlavorIcons] || agentFlavorIcons.claude}
                                                     style={iconStyle}
                                                     contentFit="contain"
-                                                    tintColor={isCodex ? theme.colors.button.secondary.tint : undefined}
+                                                    tintColor={isCodex || props.agentType === 'qoder' ? theme.colors.button.secondary.tint : undefined}
                                                 />
                                             );
                                         })()}
@@ -1910,7 +2057,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             fontWeight: '600',
                                             ...Typography.default('semiBold'),
                                         }}>
-                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : t('agentInput.agent.gemini')}
+                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : props.agentType === 'qoder' ? t('agentInput.agent.qoder') : t('agentInput.agent.gemini')}
                                         </Text>
                                     </Pressable>
                                 )}

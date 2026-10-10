@@ -792,6 +792,7 @@ export const ja: TranslationStructure = {
         resumeFailed: 'セッションの再開に失敗しました',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: '名前または ID で検索',
     },
@@ -990,6 +991,8 @@ export const ja: TranslationStructure = {
         geminiSessionId: 'Gemini Session ID',
         geminiSessionIdCopied: 'Gemini Session ID copied to clipboard',
         failedToCopyGeminiSessionId: 'Failed to copy Gemini Session ID',
+        qoderSessionId: 'Qoder セッション ID',
+        failedToCopyQoderSessionId: 'Qoder セッション ID のコピーに失敗しました',
         metadataCopied: 'メタデータがクリップボードにコピーされました',
         failedToCopyMetadata: 'メタデータのコピーに失敗しました',
         failedToKillSession: 'セッションの終了に失敗しました',
@@ -1151,6 +1154,7 @@ export const ja: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1164,7 +1168,6 @@ export const ja: TranslationStructure = {
             useCliDefaults: 'プロファイル/CLI の既定値を使用',
         },
         codexPermissionMode: {
-            title: 'CODEX PERMISSION MODE',
             default: 'Default Permissions',
             readOnly: 'Read Only',
             onFailure: 'Auto Review',
@@ -1184,7 +1187,6 @@ export const ja: TranslationStructure = {
             gpt5High: 'GPT-5 高',
         },
         geminiPermissionMode: {
-            title: 'GEMINI PERMISSION MODE',
             default: 'Default',
             autoEdit: 'Auto Edit',
             plan: 'Plan Mode',
@@ -1192,6 +1194,17 @@ export const ja: TranslationStructure = {
             badgeAutoEdit: 'Auto Edit',
             badgePlan: 'Plan Mode',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: 'デフォルト',
+            acceptEdits: '編集を許可',
+            auto: '自動モード',
+            dontAsk: '確認しない',
+            yolo: '権限をバイパス',
+            badgeAcceptEdits: '編集を許可',
+            badgeAuto: '自動モード',
+            badgeDontAsk: '確認しない',
+            badgeYolo: '権限をバイパス',
         },
         opencodePermissionMode: {
             title: 'OPENCODE 権限モード',

@@ -525,6 +525,20 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             }
         });
 
+        it('accepts acp messages from the qoder provider', () => {
+            const raw = {
+                role: 'agent',
+                content: { type: 'acp', provider: 'qoder', data: { type: 'message', message: 'Hello from Qoder' } },
+            } as const;
+
+            const normalized = normalizeRawMessage('msg-qoder', null, 789, raw as any);
+
+            expect(normalized?.role).toBe('agent');
+            if (normalized && normalized.role === 'agent') {
+                expect(normalized.content[0]).toMatchObject({ type: 'text', text: 'Hello from Qoder' });
+            }
+        });
+
         it('maps acp [Plan Update] message to TodoWrite tool call/result', () => {
             const planPayload = {
                 explanation: null,

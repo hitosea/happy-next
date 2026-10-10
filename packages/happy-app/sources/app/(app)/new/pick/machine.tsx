@@ -153,6 +153,7 @@ export default function MachinePickerScreen() {
                                         avail.claude && 'claude',
                                         avail.codex && 'codex',
                                         avail.gemini && 'gemini',
+                                        avail.qoder && 'qoder',
                                     ].filter(Boolean);
                                     if (installed.length === 0) return t('wizard.noClisDetected');
                                     return installed.join(', ');

@@ -1,0 +1,57 @@
+---
+title: "Qoder 模式"
+description: "将 Happy Next 与 Qoder CLI 配合使用，进行 AI 驱动的编程。"
+---
+
+使用以下命令启动 Qoder 会话：
+
+```bash
+happy qoder
+```
+
+## 前置条件
+
+安装 [Qoder CLI](https://qoder.com)。Qoder 提供同一 CLI 的两个版本，按所在地区安装其一：
+
+| 版本 | 命令 | 安装 |
+|------|------|------|
+| 国际版 | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
+| 中国版 | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
+
+然后在终端中登录一次：
+
+```bash
+qodercli login    # 或：qoderclicn login
+```
+
+Qoder 使用你的 Qoder 账号登录，因此没有 `happy connect qoder` 这一步。两个版本需要分别登录。
+
+Happy 会在 `PATH` 和 `~/.local/bin` 中查找可执行文件。如需指定某个二进制，设置 `HAPPY_QODER_PATH`：
+
+```bash
+HAPPY_QODER_PATH=/path/to/qodercli happy qoder
+```
+
+## 模型
+
+Qoder 的模型列表因账号而异，Happy 会向你机器上的 CLI 查询。在应用的模型选择器中选择模型；新会话默认使用 Qoder 的 **Auto**。支持推理控制的模型还会显示 **推理强度** 一栏，初始值为 Qoder 为该模型选定的强度。
+
+模型描述来自 Qoder 自身。Happy 先显示 `qodercli` 上次下载的文案（`~/.qoder/.auth/dynamic-texts.json`，`qoderclicn` 则为 `~/.qoder-cn/`），下载到 Qoder 的最新文案后再替换。两者都没有时显示模型标签。
+
+## 权限模式
+
+| 模式 | 行为 |
+|------|------|
+| **Default** | 需要审批的工具会先询问 |
+| **Accept Edits** | 自动批准文件编辑 |
+| **Auto** | 由 Qoder 的安全检查决定 |
+| **Don't Ask** | 不询问，直接拒绝 |
+| **Bypass Permissions** | 批准所有工具 |
+
+## 恢复会话
+
+Happy 会保存 Qoder 会话 ID（显示在会话信息页）。复制、恢复或升级 Qoder 会话时会在 Qoder 中分叉对话，新会话保留上下文，原会话不受影响。
+
+## 工作原理
+
+Happy 使用 Agent Client Protocol (ACP) 启动 `qodercli --acp` 并通过该协议通信。移动端控制、语音和编排任务均适用于 Qoder 会话。不支持图片附件。

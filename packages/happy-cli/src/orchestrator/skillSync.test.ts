@@ -6,6 +6,7 @@ import {
   ORCHESTRATOR_COMMAND_CLAUDE,
   ORCHESTRATOR_COMMAND_CODEX,
   ORCHESTRATOR_COMMAND_GEMINI,
+  ORCHESTRATOR_COMMAND_QODER,
   ORCHESTRATOR_SKILL_MD,
   buildOrchestratorCommandPrompt,
 } from './skillAssets';
@@ -66,6 +67,7 @@ describe('syncOrchestratorAssets', () => {
     expect(readFileSync(claudeCmd('claude'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_CLAUDE);
     expect(readFileSync(claudeCmd('codex'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_CODEX);
     expect(readFileSync(claudeCmd('gemini'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_GEMINI);
+    expect(readFileSync(claudeCmd('qoder'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODER);
     expect(existsSync(join(home, '.codex'))).toBe(false);
   });
 
@@ -121,7 +123,7 @@ describe('orchestrator skill frontmatter', () => {
   it('keeps the public skill name and inline description stable', () => {
     expect(frontmatter).toContain('name: orchestrator');
     expect(descriptionLine).toBe(
-      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini.",
+      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder.",
     );
     expect(descriptionLine).not.toMatch(/^description:\s*[>|]/);
   });
@@ -139,6 +141,7 @@ describe('orchestrator provider command behavior', () => {
     ['claude', ORCHESTRATOR_COMMAND_CLAUDE],
     ['codex', ORCHESTRATOR_COMMAND_CODEX],
     ['gemini', ORCHESTRATOR_COMMAND_GEMINI],
+    ['qoder', ORCHESTRATOR_COMMAND_QODER],
   ] as const;
 
   it.each(commands)('marks the %s provider command as user-invocable only', (_provider, command) => {

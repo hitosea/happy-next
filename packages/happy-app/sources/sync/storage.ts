@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from 'zustand/react/shallow'
-import { Session, SessionDraft, AskUserQuestionDraft, Machine, GitStatus, PendingMessage, SessionCapabilities } from "./storageTypes";
+import { Session, Metadata, SessionDraft, AskUserQuestionDraft, Machine, GitStatus, PendingMessage, SessionCapabilities } from "./storageTypes";
 import { AskUserQuestionDraftMap, writeAskUserQuestionDraft } from "./askUserQuestionDraft";
 import { createReducer, reducer, ReducerState } from "./reducer/reducer";
 import { Message } from "./typesMessage";
@@ -74,7 +74,7 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
 }
 
 function resolveSessionModeAgentType(flavor: string | null | undefined): SessionModeAgentType {
-    if (flavor === 'codex' || flavor === 'gemini') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') {
         return flavor;
     }
     return 'claude';
@@ -221,7 +221,7 @@ interface StorageState {
     setSessionMessagesFetching: (sessionId: string, fetching: boolean) => void;
     setSessionUpgrading: (sessionId: string, upgrading: boolean) => void;
     setSessionFastMode: (sessionId: string, fastMode: boolean) => void;
-    updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => void;
+    updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk') => void;
     updateSessionModelMode: (sessionId: string, mode: string) => void;
     // Artifact methods
     applyArtifacts: (artifacts: DecryptedArtifact[]) => void;
@@ -1573,13 +1573,13 @@ export const storage = create<StorageState>()((set, get) => {
                 applyLocalPatch: false,
             });
         },
-        updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => {
+        updateSessionPermissionMode: (sessionId: string, mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk') => {
             const s = get();
             const session = s.sessions[sessionId] ?? s.sharedSessions[sessionId];
             if (!session) return;
             const flavor = session.metadata?.flavor;
             const agentType = resolveSessionModeAgentType(flavor);
-            if (flavor === 'claude' || flavor === 'gemini') {
+            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder') {
                 void sync.changePermissionMode(sessionId, mode);
             }
             set((state) => {
@@ -2493,6 +2493,21 @@ export function useSessionAppearanceLoaded(): boolean {
 
 export function useSessionModeLastUsed(agentType: SessionModeAgentType) {
     return storage(useShallow((state) => state.sessionModeConfig.lastUsedByAgent[agentType] ?? null));
+}
+
+/**
+ * Qoder lists its models per account over ACP, so a new Qoder session offers the
+ * models the most recently updated Qoder session reported.
+ */
+export function useLatestQoderModels(): Metadata['models'] {
+    return storage((state) => {
+        let latest: Session | null = null;
+        for (const session of Object.values(state.sessions)) {
+            if (session.metadata?.flavor !== 'qoder' || !session.metadata.models?.length) continue;
+            if (!latest || session.updatedAt > latest.updatedAt) latest = session;
+        }
+        return latest?.metadata?.models;
+    });
 }
 
 export function useSettingMutable<K extends keyof Settings>(name: K): [Settings[K], (value: Settings[K]) => void] {

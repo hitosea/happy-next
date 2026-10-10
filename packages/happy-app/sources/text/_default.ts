@@ -798,6 +798,7 @@ export const en = {
         resumeFailed: 'Failed to resume session',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: 'Search by name or ID',
     },
@@ -997,6 +998,8 @@ export const en = {
         geminiSessionId: 'Gemini Session ID',
         geminiSessionIdCopied: 'Gemini Session ID copied to clipboard',
         failedToCopyGeminiSessionId: 'Failed to copy Gemini Session ID',
+        qoderSessionId: 'Qoder Session ID',
+        failedToCopyQoderSessionId: 'Failed to copy Qoder Session ID',
         metadataCopied: 'Metadata copied to clipboard',
         failedToCopyMetadata: 'Failed to copy metadata',
         failedToKillSession: 'Failed to kill session',
@@ -1161,6 +1164,7 @@ export const en = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1174,7 +1178,6 @@ export const en = {
             useCliDefaults: 'Use profile/CLI defaults',
         },
         codexPermissionMode: {
-            title: 'CODEX PERMISSION MODE',
             default: 'Default Permissions',
             readOnly: 'Read Only',
             onFailure: 'Auto Review',
@@ -1194,7 +1197,6 @@ export const en = {
             gpt5High: 'GPT-5 High',
         },
         geminiPermissionMode: {
-            title: 'GEMINI PERMISSION MODE',
             default: 'Default',
             autoEdit: 'Auto Edit',
             plan: 'Plan Mode',
@@ -1202,6 +1204,17 @@ export const en = {
             badgeAutoEdit: 'Auto Edit',
             badgePlan: 'Plan Mode',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: 'Default',
+            acceptEdits: 'Accept Edits',
+            auto: 'Auto Mode',
+            dontAsk: 'Don\'t Ask',
+            yolo: 'Bypass Permissions',
+            badgeAcceptEdits: 'Accept Edits',
+            badgeAuto: 'Auto Mode',
+            badgeDontAsk: 'Don\'t Ask',
+            badgeYolo: 'Bypass Permissions',
         },
         opencodePermissionMode: {
             title: 'OPENCODE PERMISSION MODE',

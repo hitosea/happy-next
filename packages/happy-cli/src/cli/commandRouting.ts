@@ -7,6 +7,7 @@ export const PUBLIC_HAPPY_COMMANDS = [
   'doctor',
   'gemini',
   'notify',
+  'qoder',
   'update',
 ] as const;
 

@@ -27,19 +27,21 @@ const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
 const SELECTED_AGENT_KEY = 'session-history-selected-agent';
 const OLDER_SESSIONS_PAGE_SIZE = 150;
 
-type AgentFilter = 'all' | 'claude' | 'gemini' | 'codex';
+type AgentFilter = 'all' | 'claude' | 'gemini' | 'codex' | 'qoder';
 
 const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'all', label: () => t('sessionHistory.allAgents') },
     { key: 'claude', label: () => t('agentHistory.tabClaude') },
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
+    { key: 'qoder', label: () => t('agentHistory.tabQoder') },
 ];
 
 const agentIcons: Record<string, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 interface SessionHistoryItem {
@@ -232,7 +234,7 @@ function SessionHistory() {
     }, [machineIdParam]);
     const [selectedAgent, setSelectedAgent] = React.useState<AgentFilter>(() => {
         const saved = mmkv.getString(SELECTED_AGENT_KEY);
-        if (saved === 'claude' || saved === 'gemini' || saved === 'codex') return saved;
+        if (saved === 'claude' || saved === 'gemini' || saved === 'codex' || saved === 'qoder') return saved;
         return 'all';
     });
     const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
@@ -489,7 +491,7 @@ function SessionHistory() {
                                 source={agentIcons[selectedAgent]}
                                 style={{ width: 16, height: 16, marginRight: 6 }}
                                 contentFit="contain"
-                                tintColor={selectedAgent === 'codex' ? theme.colors.text : undefined}
+                                tintColor={selectedAgent === 'codex' || selectedAgent === 'qoder' ? theme.colors.text : undefined}
                             />
                         ) : (
                             <Ionicons name="grid-outline" size={16} color={theme.colors.textSecondary} style={{ marginRight: 6 }} />

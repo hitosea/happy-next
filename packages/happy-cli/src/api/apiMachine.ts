@@ -16,6 +16,8 @@ import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProject
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
 import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, saveGeminiSessionCacheStats } from '@/gemini/utils/sessionReader';
 import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/sessionFork';
+import { forkQoderSession, listQoderModels } from '@/qoder/sessions';
+import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
 import { forkCodexSession, forkAndTruncateCodexSession } from '@/codex/utils/codexSessionFork';
 import { executeSessionArchive } from '@/daemon/executeSessionArchive';
@@ -140,7 +142,7 @@ type MachineRpcHandlers = {
         runId: string;
         taskId: string;
         dispatchToken: string;
-        provider: 'claude' | 'codex' | 'gemini';
+        provider: 'claude' | 'codex' | 'gemini' | 'qoder';
         executionType: 'initial' | 'resume';
         childSessionId?: string;
         model?: string;
@@ -379,7 +381,7 @@ export class ApiMachineClient {
             if (!provider || typeof provider !== 'string') {
                 throw new Error('provider is required');
             }
-            if (provider !== 'claude' && provider !== 'codex' && provider !== 'gemini') {
+            if (provider !== 'claude' && provider !== 'codex' && provider !== 'gemini' && provider !== 'qoder') {
                 throw new Error(`Unsupported provider: ${provider}`);
             }
             if (executionType !== 'initial' && executionType !== 'resume') {
@@ -450,7 +452,7 @@ export class ApiMachineClient {
             if (!directory || typeof directory !== 'string') {
                 throw new Error('directory is required');
             }
-            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini') {
+            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder') {
                 throw new Error(`Unsupported agent: ${agent}`);
             }
             return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory);
@@ -637,6 +639,45 @@ export class ApiMachineClient {
                 throw new Error('sessionId is required');
             }
             return await forkGeminiSession(sessionId);
+        });
+
+        // Copy a Qoder conversation into a new Qoder session
+        this.rpcHandlerManager.registerHandler('qoder-fork-session', async (params: any) => {
+            const { sessionId, directory } = params || {};
+            if (!sessionId || typeof sessionId !== 'string' || !directory || typeof directory !== 'string') {
+                throw new Error('sessionId and directory are required');
+            }
+            try {
+                return { success: true, newSessionId: await forkQoderSession(sessionId, directory) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Models the signed-in Qoder account offers, with their efforts, for the app's model picker
+        this.rpcHandlerManager.registerHandler('qoder-list-models', async (params: any) => {
+            const { directory } = params || {};
+            if (!directory || typeof directory !== 'string') {
+                throw new Error('directory is required');
+            }
+            try {
+                return { success: true, models: await listQoderModels(directory) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Qoder's descriptions for its models: `cache` answers at once from what qodercli
+        // last downloaded, `latest` downloads the current text bundle.
+        this.rpcHandlerManager.registerHandler('qoder-model-descriptions', async (params: any) => {
+            try {
+                const descriptions = params?.source === 'latest'
+                    ? await fetchLatestQoderModelDescriptions()
+                    : await readCachedQoderModelDescriptions();
+                return { success: !!descriptions, descriptions };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
         });
 
         // --- Codex session handlers ---

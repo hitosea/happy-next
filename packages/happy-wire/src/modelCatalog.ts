@@ -46,6 +46,7 @@ const REASONING_EFFORT_LABELS: Record<string, string> = {
     max: 'Max',
     xhigh: 'XHigh',
     ultra: 'Ultra',
+    none: 'None',
 };
 
 function toModelOption(model: ModelCatalogEntry): ModelOption {
@@ -110,6 +111,8 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         claude: [MODEL_MODE_DEFAULT, ...claudeFamilyModels.keys(), ...claudeModeToSelection.keys()],
         codex: [MODEL_MODE_DEFAULT, ...codexModeToSelection.keys()],
         gemini: [MODEL_MODE_DEFAULT, ...activeModels('gemini').map((model) => model.id)],
+        // Qoder models are per-account and come from the ACP session at runtime, not the catalog.
+        qoder: [MODEL_MODE_DEFAULT, ...activeModels('qoder').map((model) => model.id)],
     };
 
     // Claude options are base families only — the 1M context opt-in is a separate
@@ -118,6 +121,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         claude: [DEFAULT_MODEL_OPTION, ...activeModels('claude').map(toModelOption)],
         codex: [DEFAULT_MODEL_OPTION, ...activeModels('codex').map(toModelOption)],
         gemini: [DEFAULT_MODEL_OPTION, ...activeModels('gemini').map(toModelOption)],
+        qoder: [DEFAULT_MODEL_OPTION, ...activeModels('qoder').map(toModelOption)],
     };
 
     const codexModeOptions: readonly { value: ModelMode; label: string; description: string }[] = [
@@ -148,6 +152,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
             claude: new Set(modesByAgent.claude),
             codex: new Set(modesByAgent.codex),
             gemini: new Set(modesByAgent.gemini),
+            qoder: new Set(modesByAgent.qoder),
         } satisfies Record<AgentFlavor, Set<ModelMode>>,
         familyOptions,
         codexModeOptions,
@@ -284,6 +289,18 @@ export function buildCodexModelMode(
     return `${family}-${effort}`;
 }
 
+/** Qoder modes are a model code the account lists, optionally with `:effort` (`performance:high`). */
+const QODER_EFFORT_SEPARATOR = ':';
+
+export function buildQoderModelMode(model: string, effort: string | null | undefined): ModelMode {
+    return effort ? `${model}${QODER_EFFORT_SEPARATOR}${effort}` : model;
+}
+
+export function parseQoderModelMode(mode: ModelMode): { model: string; effort: string | null } {
+    const [model, effort] = mode.split(QODER_EFFORT_SEPARATOR);
+    return { model, effort: effort || null };
+}
+
 function modelDisplayName(model: string): string | undefined {
     return index.modelsById.get(model)?.displayName;
 }
@@ -295,6 +312,10 @@ export type ModelSelection = {
 
 export function resolveModelSelectionForFlavor(flavor: string | null | undefined, modelMode: string): ModelSelection {
     if (modelMode === MODEL_MODE_DEFAULT) return { model: null, reasoningEffort: null };
+    if (flavor === 'qoder') {
+        const { model, effort } = parseQoderModelMode(modelMode);
+        return { model, reasoningEffort: effort };
+    }
     if (!isModelMode(modelMode)) {
         const retired = flavor === 'codex' ? parseRetiredCodexMode(modelMode) : null;
         return retired ?? { model: modelMode, reasoningEffort: null };
@@ -316,7 +337,9 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
 export function resolveLocalModelDisplay(modelMode: string | null | undefined): ModelSelection {
     if (!modelMode || modelMode === MODEL_MODE_DEFAULT) return { model: null, reasoningEffort: null };
     if (!isModelMode(modelMode)) {
-        return parseRetiredCodexMode(modelMode) ?? { model: modelMode, reasoningEffort: null };
+        // Anything else outside the catalog is a Qoder account model, with or without an effort.
+        const qoder = parseQoderModelMode(modelMode);
+        return parseRetiredCodexMode(modelMode) ?? { model: qoder.model, reasoningEffort: qoder.effort };
     }
 
     const parsedCodex = parseCodexModelMode(modelMode);
@@ -383,6 +406,7 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 272_000,
     gemini: 1_000_000,
+    qoder: 200_000,
 };
 
 /**

@@ -751,6 +751,7 @@ export const ru: TranslationStructure = {
         resumeFailed: 'Failed to resume session',
         tabClaude: 'Claude',
         tabGemini: 'Gemini',
+        tabQoder: 'Qoder',
         tabCodex: 'Codex',
         searchPlaceholder: 'Поиск по названию или ID',
     },
@@ -801,6 +802,8 @@ export const ru: TranslationStructure = {
         geminiSessionId: 'Gemini Session ID',
         geminiSessionIdCopied: 'Gemini Session ID copied to clipboard',
         failedToCopyGeminiSessionId: 'Failed to copy Gemini Session ID',
+        qoderSessionId: 'ID сессии Qoder',
+        failedToCopyQoderSessionId: 'Не удалось скопировать ID сессии Qoder',
         metadataCopied: 'Метаданные скопированы в буфер обмена',
         failedToCopyMetadata: 'Не удалось скопировать метаданные',
         failedToKillSession: 'Не удалось завершить сессию',
@@ -1159,6 +1162,7 @@ export const ru: TranslationStructure = {
             claude: 'Claude',
             codex: 'Codex',
             gemini: 'Gemini',
+            qoder: 'Qoder',
             opencode: 'OpenCode',
         },
         model: {
@@ -1172,7 +1176,6 @@ export const ru: TranslationStructure = {
             useCliDefaults: 'Настройки профиля или CLI по умолчанию',
         },
         codexPermissionMode: {
-            title: 'CODEX PERMISSION MODE',
             default: 'Default Permissions',
             readOnly: 'Read Only',
             onFailure: 'Auto Review',
@@ -1192,7 +1195,6 @@ export const ru: TranslationStructure = {
             gpt5High: 'GPT-5 High',
         },
         geminiPermissionMode: {
-            title: 'GEMINI PERMISSION MODE',
             default: 'Default',
             autoEdit: 'Auto Edit',
             plan: 'Plan Mode',
@@ -1200,6 +1202,17 @@ export const ru: TranslationStructure = {
             badgeAutoEdit: 'Auto Edit',
             badgePlan: 'Plan Mode',
             badgeYolo: 'YOLO',
+        },
+        qoderPermissionMode: {
+            default: 'По умолчанию',
+            acceptEdits: 'Принимать правки',
+            auto: 'Авто',
+            dontAsk: 'Не спрашивать',
+            yolo: 'Обход разрешений',
+            badgeAcceptEdits: 'Принимать правки',
+            badgeAuto: 'Авто',
+            badgeDontAsk: 'Не спрашивать',
+            badgeYolo: 'Обход разрешений',
         },
         opencodePermissionMode: {
             title: 'OPENCODE РЕЖИМ РАЗРЕШЕНИЙ',

@@ -28,6 +28,7 @@ import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClau
 import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { useInputHistory } from '@/hooks/useInputHistory';
+import { useQoderModels } from '@/hooks/useQoderModels';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
@@ -354,6 +355,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Check if CLI version is outdated and not already acknowledged
     const cliVersion = session.metadata?.version;
     const machineId = session.metadata?.machineId;
+    const qoderModels = useQoderModels(machineId, session.metadata?.path ?? '', session.metadata?.flavor === 'qoder');
     const latestCliVersion = useLatestCliVersion();
     const isCliOutdated = cliVersion && latestCliVersion && !isVersionSupported(cliVersion, latestCliVersion);
     const isAcknowledged = machineId && acknowledgedCliVersions[machineId] === cliVersion;
@@ -593,7 +595,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     }, [machineId, cliVersion, acknowledgedCliVersions]);
 
     // Function to update permission mode
-    const updatePermissionMode = React.useCallback((mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo') => {
+    const updatePermissionMode = React.useCallback((mode: 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | 'read-only' | 'on-failure' | 'full-auto' | 'auto_edit' | 'yolo' | 'dontAsk') => {
         storage.getState().updateSessionPermissionMode(sessionId, mode);
     }, [sessionId]);
 
@@ -1293,6 +1295,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
+            agentModels={qoderModels}
             connectionStatus={inputConnectionStatus}
             onSend={async (textSnapshot) => {
                 // Block sending during CLI upgrade
