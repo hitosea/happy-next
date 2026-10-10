@@ -377,7 +377,7 @@ function NewSessionWizard() {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [imagePickerSheetVisible, setImagePickerSheetVisible] = React.useState(false);
 
-    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex';
+    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder';
     const isFocused = useIsFocused();
 
     const handleImageButtonPress = React.useCallback(() => {

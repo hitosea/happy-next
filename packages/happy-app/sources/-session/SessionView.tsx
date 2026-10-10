@@ -579,7 +579,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Check if the current session flavor supports images
     const supportsImages = React.useMemo(() => {
         const flavor = session?.metadata?.flavor;
-        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex';
+        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex' || flavor === 'qoder';
     }, [session?.metadata?.flavor]);
 
     // Handle dismissing CLI version warning
