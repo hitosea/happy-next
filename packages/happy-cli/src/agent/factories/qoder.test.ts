@@ -12,7 +12,7 @@ vi.mock('@/qoder/constants', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/qoder/constants')>()),
   resolveQoderCommand: () => '/opt/qoder/qodercli',
 }));
-import { createQoderBackend } from './qoder';
+import { QoderTransport, createQoderBackend, qoderMcpToolName } from './qoder';
 
 describe('createQoderBackend', () => {
   it('runs qodercli in ACP mode with SDK variables blanked and the resume session passed on', () => {
@@ -28,5 +28,26 @@ describe('createQoderBackend', () => {
       resumeSessionId: 'abc',
       onReplayedUpdate,
     }));
+  });
+});
+
+describe('QoderTransport', () => {
+  const transport = new QoderTransport('qoder');
+
+  it('reads an MCP tool name back from the permission title', () => {
+    expect(transport.determineToolName('Unknown tool', 'call_1', { title: 'Hi', description: 'change_title (happy)' })).toBe('mcp__happy__change_title');
+  });
+
+  it('keeps names it already has and titles that are not an MCP tool', () => {
+    expect(transport.determineToolName('execute', 'call_2', { description: 'git status (repo)' })).toBe('execute');
+    expect(transport.determineToolName('Unknown tool', 'call_3', { description: 'Run git status' })).toBe('Unknown tool');
+  });
+});
+
+describe('qoderMcpToolName', () => {
+  it('reads both title forms qodercli uses', () => {
+    expect(qoderMcpToolName('change_title (happy)')).toBe('mcp__happy__change_title');
+    expect(qoderMcpToolName('change_title (happy MCP Server)')).toBe('mcp__happy__change_title');
+    expect(qoderMcpToolName('Run tests')).toBeNull();
   });
 });

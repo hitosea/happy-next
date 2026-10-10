@@ -24,7 +24,25 @@ export interface QoderBackendOptions extends AgentFactoryOptions {
   onReplayedUpdate?: (update: SessionNotification['update']) => void;
 }
 
-const qoderTransport = new DefaultTransport('qoder');
+/**
+ * qodercli names an MCP tool only in a call's title, with a `call_…` id and kind
+ * `other`: "change_title (happy)" in permission requests and "change_title (happy
+ * MCP Server)" in session updates. Returns the name in qodercli's own form
+ * (`mcp__happy__change_title`), or null for any other title.
+ */
+export function qoderMcpToolName(title: unknown): string | null {
+  const match = String(title ?? '').match(/^(\S+) \((\S+?)(?: MCP Server)?\)$/);
+  return match ? `mcp__${match[2]}__${match[1]}` : null;
+}
+
+/** Names MCP tools in permission requests, so the permission handler and the app know which tool is asking. */
+export class QoderTransport extends DefaultTransport {
+  determineToolName(toolName: string, toolCallId: string, input: Record<string, unknown>): string {
+    return (toolName === 'Unknown tool' && qoderMcpToolName(input.description)) || toolName;
+  }
+}
+
+const qoderTransport = new QoderTransport('qoder');
 
 export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
   const command = resolveQoderCommand();

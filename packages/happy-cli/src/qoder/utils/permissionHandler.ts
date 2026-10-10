@@ -10,7 +10,8 @@
 import { logger } from '@/ui/logger';
 import { BasePermissionHandler, type PermissionResult } from '@/utils/BasePermissionHandler';
 
-const HAPPY_TOOLS_APPROVED_WITHOUT_ASKING = ['change_title', 'preview_html'];
+// Named as QoderTransport reads them back from qodercli's permission titles.
+export const HAPPY_TOOLS_APPROVED_WITHOUT_ASKING = ['mcp__happy__change_title', 'mcp__happy__preview_html'];
 
 export class QoderPermissionHandler extends BasePermissionHandler {
     protected getLogPrefix(): string {
@@ -22,8 +23,7 @@ export class QoderPermissionHandler extends BasePermissionHandler {
     }
 
     async handleToolCall(toolCallId: string, toolName: string, input: unknown): Promise<PermissionResult> {
-        const target = `${toolName} ${toolCallId}`.toLowerCase();
-        if (HAPPY_TOOLS_APPROVED_WITHOUT_ASKING.some((name) => target.includes(name))) {
+        if (HAPPY_TOOLS_APPROVED_WITHOUT_ASKING.includes(toolName)) {
             logger.debug(`${this.getLogPrefix()} Auto-approving ${toolName} (${toolCallId})`);
             return { decision: 'approved' };
         }

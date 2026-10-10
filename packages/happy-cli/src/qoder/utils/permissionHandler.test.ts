@@ -28,6 +28,12 @@ describe('QoderPermissionHandler', () => {
     expect(session.updateAgentState).not.toHaveBeenCalled();
   });
 
+  it('asks for a same-named tool from another MCP server', () => {
+    const handler = new QoderPermissionHandler(session, { sendToAllDevices: vi.fn() } as any);
+    void handler.handleToolCall('call-3', 'mcp__other__change_title', { title: 'x' });
+    expect(agentState.requests?.['call-3']).toMatchObject({ tool: 'mcp__other__change_title' });
+  });
+
   it('sends every other request to the app and resolves with its answer', async () => {
     const handler = new QoderPermissionHandler(session, { sendToAllDevices: vi.fn() } as any);
     const pending = handler.handleToolCall('call-2', 'Bash', { command: 'rm -rf build' });

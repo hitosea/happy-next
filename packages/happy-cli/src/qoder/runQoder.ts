@@ -36,13 +36,13 @@ import type { AcpBackend } from '@/agent/acp/AcpBackend';
 import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
 import { extractConfigOptionsFromPayload } from '@/agent/acp/sessionConfigMetadata';
-import { createQoderBackend } from '@/agent/factories/qoder';
+import { createQoderBackend, qoderMcpToolName } from '@/agent/factories/qoder';
 import { GeminiDisplay } from '@/ui/ink/GeminiDisplay';
 import type { ImageContent, PermissionMode } from '@/api/types';
 import { formatMessageForGemini } from '@/utils/formatImageMessage';
 import { getFirstTurnInstruction } from '@/orchestrator/firstTurnInstruction';
 import { parseOptionsFromText } from '@/gemini/utils/optionsParser';
-import { QoderPermissionHandler } from '@/qoder/utils/permissionHandler';
+import { HAPPY_TOOLS_APPROVED_WITHOUT_ASKING, QoderPermissionHandler } from '@/qoder/utils/permissionHandler';
 import { buildQoderBackfillMessages } from '@/qoder/utils/backfill';
 import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
 import {
@@ -284,9 +284,11 @@ export async function runQoder(opts: {
 
       case 'tool-call': {
         flushResponse();
-        const input = inlinePreviewHtmlFileArgs(msg.toolName, msg.args);
-        messageBuffer.addMessage(`Executing: ${msg.toolName} ${JSON.stringify(msg.args ?? {}).substring(0, 100)}`, 'tool');
-        session.sendAgentMessage('qoder', { type: 'tool-call', name: msg.toolName, callId: msg.callId, input, id: randomUUID() });
+        // MCP calls arrive as kind `other`; their real name lets the app show change_title as a title notice.
+        const toolName = (msg.toolName === 'other' && qoderMcpToolName(msg.args?.description)) || msg.toolName;
+        const input = inlinePreviewHtmlFileArgs(toolName, msg.args);
+        messageBuffer.addMessage(`Executing: ${toolName} ${JSON.stringify(msg.args ?? {}).substring(0, 100)}`, 'tool');
+        session.sendAgentMessage('qoder', { type: 'tool-call', name: toolName, callId: msg.callId, input, id: randomUUID() });
         break;
       }
 
@@ -308,6 +310,8 @@ export async function runQoder(opts: {
 
       case 'permission-request': {
         const payload = (msg.payload ?? {}) as { toolName?: string };
+        // Happy's own tools are approved without asking; their tool call alone is shown.
+        if (HAPPY_TOOLS_APPROVED_WITHOUT_ASKING.includes(payload.toolName ?? '')) break;
         session.sendAgentMessage('qoder', {
           type: 'permission-request',
           permissionId: msg.id,
@@ -447,12 +451,14 @@ export async function runQoder(opts: {
 
   //
   // Start qodercli up front so the app gets the account's models right away and a
-  // resumed session shows its history before the first new message.
+  // resumed session shows its history before the first new message. Only a resume
+  // reports thinking: the server queues messages sent meanwhile until its history is
+  // in. A new session takes the first message at once and the main loop waits here.
   //
 
   const resumeSessionId = process.env[QODER_RESUME_SESSION_ID_ENV]?.trim() || undefined;
   try {
-    setThinking(true);
+    setThinking(!!resumeSessionId);
     const replayed = await startBackend(resumeSessionId);
     const restored = !!resumeSessionId && qoderBackend!.getSessionId() === resumeSessionId;
     if (restored) {
