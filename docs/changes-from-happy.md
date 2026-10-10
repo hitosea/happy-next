@@ -381,6 +381,10 @@ Extensive improvements to the chat and session management experience.
 - **Jump to sessions that want a look**: double-tap the sessions tab, or tap the shown machine on the rail
 - **Whole replies**: copy, read aloud and long-press take a reply split across several blocks as one whole
 - **Translated wizard**: the new session wizard and the remaining English strings follow the app language
+- **Machine avatars**: give a machine a preset avatar (12 glyphs on 8 colors), shown wherever the machine appears
+- **Sidebar machine reordering**: reorder machines by dragging in the sidebar, from the rail's right-click menu; Escape takes back a drag, or the whole reordering
+- **Machine right-click menu and idle hiding**: right-click a machine for new session, open terminal and details, and hide idle machines from the rail and the switcher
+- **Machine page**: reordered rows with icons, a terminal in the machine's home directory, and recent sessions that link to that machine's full session history
 
 ## CLI Improvements
 
@@ -436,6 +440,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Happy CLI v0.11.0 with Codex v0.160.1**: Codex fast mode stays off unless a delegated task asks for it, and Claude, Codex and Gemini history lists count messages correctly
 
 - **Happy CLI v0.12.0 with Codex v0.162.0**: attached files are sent to the agent, session profiles stay separate per agent, and `sudo happy update` no longer misreports not-logged-in
+- **Codex v0.162.1**: new Codex sessions start on Codex v0.162.1
 
 ## Server
 

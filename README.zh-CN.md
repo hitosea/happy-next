@@ -296,6 +296,8 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 双击会话标签页，或点击侧栏中当前显示的机器，可跳到下一个需要查看的会话
 - 复制、朗读和长按会把拆成多个块的回复作为一个整体处理
 - 新建会话向导及其余仍为英文的界面文字跟随应用语言
+- 机器可设置预设头像，可在侧栏右键菜单中拖动排序，并可在机器栏和切换面板中隐藏空闲机器
+- 机器页面可在机器的主目录打开终端，最近会话可跳转到该机器的完整会话历史
 
 ### CLI
 - `happy update` 自更新、`happy --version` 显示所有 Agent 版本
@@ -326,6 +328,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Happy CLI v0.11.0 默认关闭 Codex 快速模式（委派任务可显式开启），并修正 Claude、Codex、Gemini 历史列表的消息计数；新建的 Codex 会话使用 Codex v0.160.1
 
 - Happy CLI v0.12.0 把附件交给 agent、按 agent 隔离会话配置，并修复 `sudo happy update` 误报未登录；新建的 Codex 会话使用 Codex v0.162.0
+- 新建的 Codex 会话使用 Codex v0.162.1
 
 ### Bug 修复和稳定性
 - 255+ Bug 修复：消息发送可靠性、会话生命周期、Markdown 渲染、导航、语音、DooTask、共享

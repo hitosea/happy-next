@@ -1,8 +1,8 @@
 # Changelog
 
-## Version 30 - 2026-10-09
+## Version 30 - 2026-10-10
 
-Happy Next v2.15.0 lets you attach files to messages and pin sessions to the top of the list, adds a hover card for sessions on the web, and flattens the all machines view so it is quicker to scan. Happy CLI is updated to v0.12.0, and new Codex sessions start on Codex v0.162.0.
+Happy Next v2.15.1 gives machines preset avatars, lets you reorder machines by dragging in the sidebar and hide idle ones, and reworks the machine page with a terminal and the full session history. It also includes the file attachments, pinned sessions, web session hover card and flatter all machines view introduced in v2.15.0. Happy CLI is updated to v0.12.0, and new Codex sessions start on Codex v0.162.1.
 
 - Composer: attach files to a message from the add menu; the agent reads them on the session's machine, and they show as cards with typed, colored file icons that open in the file viewer
 - Composer: reorder the add menu to camera, photos and schedule, with shorter labels
@@ -15,14 +15,18 @@ Happy Next v2.15.0 lets you attach files to messages and pin sessions to the top
 - Sessions: show a status dot on the sessions header title, and refresh sharing state as soon as a share changes
 - Sidebar: open the add menu on hover, enable search on native tablets, and enlarge the rail buttons
 - Conversation: copy, read aloud and long-press now take a reply split across several blocks as one whole
-- Machines: show the daemon's CLI version and start time on the machine page
+- Machines: give a machine a preset avatar (12 glyphs on 8 colors), shown in the sidebar rail, the machine switcher, settings, the machine page and the new session pickers
+- Machines: reorder machines by dragging in the sidebar, from the rail's right-click menu; Escape takes back a drag, or the whole reordering
+- Machines: right-click a machine in the sidebar for new session, open terminal and details, and hide idle machines from the rail and the machine switcher
+- Machines: the machine page is reordered with icons on its rows, opens a terminal in the machine's home directory, shows recent sessions as session history cards with a More link to that machine's full history, and shows the daemon's CLI version and start time
+- Appearance: remove the inline tool calls, expand todo lists and diff line number switches, which had no effect
 - iOS: a session row no longer opens when its context menu lifts, and the bottom tabs are updated for iOS 27
-- Desktop: lower the macOS title bar to a compact toolbar
+- Desktop: lower the macOS title bar to a compact toolbar, and keep the traffic lights working through full screen
 - Languages: translate the new session wizard and other strings that still showed in English
 - Orchestrator: report a resumed task to the session that sent the follow-up
 - Self-hosting: the server runs database migrations automatically on container start
 - CLI: Happy CLI v0.12.0 sends attached files to the agent, keeps session profiles separate per agent, and no longer misreports not-logged-in on sudo happy update
-- Codex: new Codex sessions start on Codex v0.162.0
+- Codex: new Codex sessions start on Codex v0.162.1
 
 ## Version 29 - 2026-10-07
 

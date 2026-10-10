@@ -294,6 +294,8 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Double-tap the sessions tab, or tap the shown machine on the rail, to jump to the next session that wants a look
 - Copy, read aloud and long-press take a reply split across several blocks as one whole
 - The new session wizard and the remaining English strings follow the app language
+- Machines get preset avatars, can be reordered by dragging in the sidebar from its right-click menu, and idle machines can be hidden from the rail and the switcher
+- The machine page opens a terminal in the machine's home directory, and its recent sessions link to that machine's full session history
 
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
@@ -324,6 +326,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.11.0 keeps Codex fast mode off unless a delegated task asks for it, and counts messages correctly in Claude, Codex and Gemini history lists; new Codex sessions start on Codex v0.160.1
 
 - Happy CLI v0.12.0 sends attached files to the agent, keeps session profiles separate per agent, and no longer misreports not-logged-in on `sudo happy update`; new Codex sessions start on Codex v0.162.0
+- New Codex sessions start on Codex v0.162.1
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing
