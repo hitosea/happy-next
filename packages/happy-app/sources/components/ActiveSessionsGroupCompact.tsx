@@ -24,6 +24,8 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
+import { SessionForkSpinner } from './SessionForkSpinner';
+import { useSessionForking } from '@/utils/sessionForkProgress';
 import { canArchiveSession } from '@/utils/sessionLifecycle';
 import { SessionRowFlash } from './SessionRowFlash';
 import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
@@ -498,6 +500,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
     const sessionStatus = useSessionStatus(session);
     const { theme } = useUnistyles();
     const hasDraft = useSessionHasDraft(session.id);
+    const forking = useSessionForking(session.id);
     const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const sessionName = getSessionName(session);
     const navigateToSession = useNavigateToSession();
@@ -663,6 +666,9 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
                         }
                         return null;
                     })()}
+                    {/* Being copied or resumed: after whatever mark the row has, so after the
+                        draft icon, and shown whatever state the session is in. */}
+                    {forking && <SessionForkSpinner size={14} style={styles.statusMark} />}
                 </View>
             </View>
             </Pressable>

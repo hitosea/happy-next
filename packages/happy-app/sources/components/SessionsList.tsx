@@ -39,6 +39,8 @@ import { HappyError } from '@/utils/errors';
 import { Modal } from '@/modal';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
+import { SessionForkSpinner } from './SessionForkSpinner';
+import { useSessionForking } from '@/utils/sessionForkProgress';
 import { SessionRowFlash, flashSessionRow } from './SessionRowFlash';
 import { getProjectHeader, getProjectHeaderFlashId, setSessionProjectLocator } from './sessionProjectLocate';
 import { SessionMarkerBar } from './SessionColorMarker';
@@ -206,14 +208,24 @@ const stylesheet = StyleSheet.create((theme) => ({
         width: 48,
         height: 48,
     },
-    draftIconContainer: {
+    // The marks on the avatar's lower corner, in a row so that a spinner for a copy in progress
+    // sits after the draft icon rather than on it.
+    avatarBadges: {
         position: 'absolute',
         bottom: -2,
         right: -2,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    draftIconContainer: {
         width: 18,
         height: 18,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    // A compact row has no avatar, so the spinner closes the title line instead.
+    titleForkSpinner: {
+        marginLeft: 8,
     },
     draftIconOverlay: {
         color: theme.colors.textSecondary,
@@ -1131,6 +1143,7 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
     const styles = stylesheet;
     const sessionStatus = useSessionStatus(session);
     const hasDraft = useSessionHasDraft(session.id);
+    const forking = useSessionForking(session.id);
     const sessionName = getSessionName(session);
     const sessionSubtitle = useSessionProjectLabel(session);
     const compactSessionView = useCompactSessionView();
@@ -1196,13 +1209,18 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
             {!compactSessionView && (
                 <View style={styles.avatarContainer}>
                     <Avatar id={avatarId} size={48} monochrome={!sessionStatus.isConnected} flavor={session.metadata?.flavor} sessionIcon={session.metadata?.sessionIcon} />
-                    {hasDraft && (
-                        <View style={styles.draftIconContainer}>
-                            <Ionicons
-                                name="create-outline"
-                                size={12}
-                                style={styles.draftIconOverlay}
-                            />
+                    {(hasDraft || forking) && (
+                        <View style={styles.avatarBadges}>
+                            {hasDraft && (
+                                <View style={styles.draftIconContainer}>
+                                    <Ionicons
+                                        name="create-outline"
+                                        size={12}
+                                        style={styles.draftIconOverlay}
+                                    />
+                                </View>
+                            )}
+                            {forking && <SessionForkSpinner size={12} style={{ margin: 3 }} />}
                         </View>
                     )}
                 </View>
@@ -1223,6 +1241,9 @@ const SessionItem = React.memo(({ session, selected, isFirst, isLast, isSingle, 
                     }}>
                         {sessionName}
                     </Text>
+                    {compactSessionView && forking && (
+                        <SessionForkSpinner size={14} style={styles.titleForkSpinner} />
+                    )}
                 </View>
 
                 {!compactSessionView && (

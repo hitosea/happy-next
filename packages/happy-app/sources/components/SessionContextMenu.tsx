@@ -16,6 +16,7 @@ import { t } from '@/text';
 import { Modal } from '@/modal';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
+import { beginSessionFork, endSessionFork, useSessionForking } from '@/utils/sessionForkProgress';
 import { storage } from '@/sync/storage';
 import { sync } from '@/sync/sync';
 import { leaveSharedSession } from '@/sync/apiSharing';
@@ -171,7 +172,7 @@ function useSessionQuickActions(session: Session) {
         && (!session.accessLevel || hasUnreadCompletionSince(session, 0));
     const canToggleRead = isUnread || canMarkUnread;
     const isPinned = useSessionPinned(session.id);
-    const [forkingSession, setForkingSession] = React.useState(false);
+    const forkingSession = useSessionForking(session.id);
     const [archiveMenuVisible, setArchiveMenuVisible] = React.useState(false);
     const [archiveMenuItems, setArchiveMenuItems] = React.useState<ActionMenuItem[]>([]);
 
@@ -296,7 +297,6 @@ function useSessionQuickActions(session: Session) {
     }, [performLeaveSharedSession]);
 
     const handleFork = React.useCallback(async () => {
-        if (forkingSession) return;
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
@@ -314,7 +314,7 @@ function useSessionQuickActions(session: Session) {
         );
         if (!confirmed) return;
 
-        setForkingSession(true);
+        if (!beginSessionFork(session.id)) return;
         try {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
@@ -371,9 +371,9 @@ function useSessionQuickActions(session: Session) {
             console.error('Failed to fork session', error);
             Modal.alert(t('common.error'), t('claudeHistory.resumeFailed'));
         } finally {
-            setForkingSession(false);
+            endSessionFork(session.id);
         }
-    }, [forkingSession, router, session]);
+    }, [router, session]);
 
     const handlers: Record<SessionQuickActionKind, () => void> = {
         details: () => router.push(`/session/${session.id}/info`),
@@ -459,7 +459,9 @@ function useSessionQuickActions(session: Session) {
         icon: icons[kind],
         sfSymbol: sfSymbols[kind],
         destructive: kind === 'leaveSharedSession' || kind === 'archiveSession' || kind === 'deleteSession',
-        disabled: (kind === 'forkSession' && forkingSession)
+        // Every action waits while the row is being forked: the row is busy and its menu is
+        // not worth reaching, least of all archive or delete on a session that is mid-copy.
+        disabled: forkingSession
             || (kind === 'toggleRead' && !canToggleRead),
         startsSection: sectionIndex > 0 && indexInSection === 0,
         onPress: handlers[kind],
@@ -528,6 +530,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
     const highlight = menuOpen
         ? <View pointerEvents="none" style={[styles.highlightOverlay, highlightShape]} />
         : null;
+    const forking = useSessionForking(session.id);
 
     const selectMarkerColor = React.useCallback((color: SessionMarkerColor | null) => {
         closeMenu();
@@ -694,6 +697,7 @@ export function SessionContextMenu({ session, children, highlightShape }: {
     }) => {
         event.preventDefault();
         event.stopPropagation();
+        if (forking) return;
         hoverCard.dismiss();
         setHoveredAction(null);
         setPosition({

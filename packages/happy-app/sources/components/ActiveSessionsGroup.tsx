@@ -26,6 +26,8 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import { ActionMenuItem } from '@/components/ActionMenu';
 import { sync } from '@/sync/sync';
 import { SessionContextMenu } from './SessionContextMenu';
+import { SessionForkSpinner } from './SessionForkSpinner';
+import { useSessionForking } from '@/utils/sessionForkProgress';
 import { canArchiveSession } from '@/utils/sessionLifecycle';
 import { SessionRowFlash } from './SessionRowFlash';
 import { getProjectHeaderFlashId, registerProjectHeader } from './sessionProjectLocate';
@@ -517,6 +519,7 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
             isCardLast ? styles.cardRowLast : undefined;
     const sessionStatus = useSessionStatus(session);
     const hasDraft = useSessionHasDraft(session.id);
+    const forking = useSessionForking(session.id);
     const sessionName = getSessionName(session);
     const runningTaskCount = useOrchestratorRunningTaskCount(session.id);
     const navigateToSession = useNavigateToSession();
@@ -671,6 +674,13 @@ const CompactSessionRow = React.memo(({ session, selected, showBorder, isCardFir
                                     size={10}
                                     color={styles.taskStatusText.color}
                                 />
+                            </View>
+                        )}
+
+                        {/* Being copied or resumed: after the draft icon, in the same chip */}
+                        {forking && (
+                            <View style={styles.taskStatusContainer}>
+                                <SessionForkSpinner size={10} />
                             </View>
                         )}
 
