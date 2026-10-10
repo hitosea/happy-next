@@ -108,6 +108,7 @@ function EditableTitle({ session, onEditingChange }: { session: Session; onEditi
     const [draft, setDraft] = React.useState<string | null>(null);
     // The title just saved, shown until the session catches up with it.
     const [saved, setSaved] = React.useState<string | null>(null);
+    const [hovered, setHovered] = React.useState(false);
     const editing = draft !== null;
     const shown = saved ?? name;
 
@@ -143,7 +144,9 @@ function EditableTitle({ session, onEditingChange }: { session: Session; onEditi
     };
 
     return (
-        <View>
+        <View {...(editable ? { onPointerEnter: () => setHovered(true), onPointerLeave: () => setHovered(false) } as any : null)}>
+            {/* A background under the title while hovered, so it reads as clickable. */}
+            {hovered && !editing && <View pointerEvents="none" style={styles.titleHover} />}
             {editing && <View pointerEvents="none" style={styles.titleField} />}
             <Text
                 style={[styles.title, editable && styles.titleEditable, editing && styles.titleHidden]}
@@ -359,6 +362,15 @@ const styles = StyleSheet.create((theme) => ({
         borderWidth: 1,
         borderColor: theme.colors.textLink,
         backgroundColor: theme.colors.input.background,
+    },
+    titleHover: {
+        position: 'absolute',
+        top: -4,
+        left: -6,
+        right: -6,
+        bottom: -4,
+        borderRadius: 6,
+        backgroundColor: theme.colors.surfacePressed,
     },
     titleHidden: {
         opacity: 0,
