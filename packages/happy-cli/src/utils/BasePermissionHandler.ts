@@ -9,7 +9,7 @@
 
 import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
-import { AgentState } from "@/api/types";
+import { AgentState, PermissionMode } from "@/api/types";
 import { PushNotificationClient } from "@/api/pushNotifications";
 
 /**
@@ -20,6 +20,8 @@ export interface PermissionResponse {
     approved: boolean;
     decision?: 'approved' | 'approved_for_session' | 'denied' | 'abort';
     answers?: Record<string, string>;
+    /** Mode the app switched the session to with this answer ("allow all edits") — kept so the app can show which button was used */
+    mode?: PermissionMode;
 }
 
 /**
@@ -122,7 +124,8 @@ export abstract class BasePermissionHandler {
                                 createdAt: request.createdAt,
                                 completedAt: Date.now(),
                                 status: response.approved ? 'approved' : 'denied',
-                                decision: result.decision
+                                decision: result.decision,
+                                ...(response.mode ? { mode: response.mode } : {})
                             }
                         }
                     } satisfies AgentState;

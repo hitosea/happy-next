@@ -6,6 +6,10 @@ import { useUnistyles } from 'react-native-unistyles';
 import { storage, getSession } from '@/sync/storage';
 import { t } from '@/text';
 
+// Tools that offer "allow all edits this session" instead of "don't ask again for this tool".
+// `edit` is the ACP edit tool (Gemini, Qoder).
+const ALLOW_ALL_EDITS_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit', 'exit_plan_mode', 'ExitPlanMode', 'edit']);
+
 interface PermissionFooterProps {
     permission: {
         id: string;
@@ -29,6 +33,9 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
     
     // Check if this is a Codex session - check both metadata.flavor and tool name prefix
     const isCodex = metadata?.flavor === 'codex' || toolName.startsWith('Codex');
+    // Gemini calls its accept-edits mode auto_edit; Claude and Qoder call it acceptEdits
+    const acceptEditsMode = metadata?.flavor === 'gemini' ? 'auto_edit' : 'acceptEdits';
+    const offersAllowAllEdits = ALLOW_ALL_EDITS_TOOLS.has(toolName);
     const getCurrentClaudeMode = (): 'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'plan' | undefined => {
         const mode = getSession(sessionId)?.permissionMode;
         if (mode === 'default' || mode === 'acceptEdits' || mode === 'auto' || mode === 'bypassPermissions' || mode === 'plan') {
@@ -58,9 +65,9 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
 
         setLoadingAllEdits(true);
         try {
-            await sessionAllow(sessionId, permission.id, 'acceptEdits');
-            // Update the session permission mode to 'acceptEdits' for future permissions
-            storage.getState().updateSessionPermissionMode(sessionId, 'acceptEdits');
+            await sessionAllow(sessionId, permission.id, acceptEditsMode);
+            // Switch the session to the agent's accept-edits mode for future permissions
+            storage.getState().updateSessionPermissionMode(sessionId, acceptEditsMode);
         } catch (error) {
             console.error('Failed to approve all edits:', error);
         } finally {
@@ -162,8 +169,8 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
     };
 
     // Detect which button was used based on mode (for Claude) or decision (for Codex)
-    const isApprovedViaAllow = isApproved && permission.mode !== 'acceptEdits' && !isToolAllowed(toolName, toolInput, permission.allowedTools);
-    const isApprovedViaAllEdits = isApproved && permission.mode === 'acceptEdits';
+    const isApprovedViaAllEdits = isApproved && (permission.mode === 'acceptEdits' || permission.mode === 'auto_edit');
+    const isApprovedViaAllow = isApproved && !isApprovedViaAllEdits && !isToolAllowed(toolName, toolInput, permission.allowedTools);
     const isApprovedForSession = isApproved && isToolAllowed(toolName, toolInput, permission.allowedTools);
     
     // Codex-specific status detection with fallback
@@ -395,8 +402,8 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
                     )}
                 </TouchableOpacity>
 
-                {/* Allow All Edits button - only show for Edit and MultiEdit tools */}
-                {(toolName === 'Edit' || toolName === 'MultiEdit' || toolName === 'Write' || toolName === 'NotebookEdit' || toolName === 'exit_plan_mode' || toolName === 'ExitPlanMode') && (
+                {/* Allow All Edits button - only show for file edit and exit-plan tools */}
+                {offersAllowAllEdits && (
                     <TouchableOpacity
                         style={[
                             styles.button,
@@ -427,7 +434,7 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
                 )}
 
                 {/* Allow for session button - only show for non-edit, non-exit-plan tools */}
-                {toolName && toolName !== 'Edit' && toolName !== 'MultiEdit' && toolName !== 'Write' && toolName !== 'NotebookEdit' && toolName !== 'exit_plan_mode' && toolName !== 'ExitPlanMode' && (
+                {toolName && !offersAllowAllEdits && (
                     <TouchableOpacity
                         style={[
                             styles.button,
