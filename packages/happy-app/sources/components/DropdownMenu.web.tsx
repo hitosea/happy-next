@@ -7,15 +7,18 @@ import type { DropdownMenuProps } from './DropdownMenu';
 
 const MENU_WIDTH = 180;
 const MENU_GAP = 4;
+// Beside the trigger the gap matches the session hover card's (`SessionHoverCard.tsx`).
+const SIDE_GAP = 8;
 const WINDOW_MARGIN = 8;
 
 type Anchor = { top: number; left: number };
 
 /**
- * The web's dropdown: a popover under the button, left-aligned with it and kept inside the window.
+ * The web's dropdown: a popover under the button (left-aligned with it) or beside it on the right
+ * (top-aligned with it), kept inside the window.
  * A click outside or Escape closes it; picking a row closes it, then runs the row.
  */
-export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hoveredStyle, openOnHover = false, children }: DropdownMenuProps) => {
+export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hoveredStyle, openOnHover = false, placement = 'bottom', children }: DropdownMenuProps) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const triggerRef = React.useRef<View | null>(null);
@@ -27,11 +30,13 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
         const element = triggerRef.current as unknown as HTMLElement | null;
         const rect = element?.getBoundingClientRect?.();
         if (!rect) return;
+        const left = placement === 'right' ? rect.right + SIDE_GAP : rect.left;
+        const top = placement === 'right' ? rect.top : rect.bottom + MENU_GAP;
         setAnchor({
-            top: rect.bottom + MENU_GAP,
-            left: Math.max(WINDOW_MARGIN, Math.min(rect.left, window.innerWidth - MENU_WIDTH - WINDOW_MARGIN)),
+            top,
+            left: Math.max(WINDOW_MARGIN, Math.min(left, window.innerWidth - MENU_WIDTH - WINDOW_MARGIN)),
         });
-    }, []);
+    }, [placement]);
     const close = React.useCallback(() => setAnchor(null), []);
 
     React.useEffect(() => {
@@ -54,7 +59,7 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
             if (event.pointerType !== 'mouse') return;
             const overMenu = [triggerRef.current, menuRef.current].some((ref) => {
                 const rect = (ref as unknown as HTMLElement | null)?.getBoundingClientRect?.();
-                return rect && event.clientX >= rect.left && event.clientX <= rect.right
+                return rect && event.clientX >= rect.left - SIDE_GAP && event.clientX <= rect.right + SIDE_GAP
                     && event.clientY >= rect.top - MENU_GAP && event.clientY <= rect.bottom + MENU_GAP;
             });
             if (overMenu) cancelClose();

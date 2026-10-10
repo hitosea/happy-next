@@ -45,6 +45,7 @@ export const SidebarSearchRow = React.memo(() => {
             </Pressable>
             <DropdownMenu
                 openOnHover
+                placement="right"
                 items={createItems}
                 accessibilityLabel={t('sessionScope.addMenu')}
                 style={styles.addButton}
