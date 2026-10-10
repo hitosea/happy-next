@@ -711,6 +711,10 @@ export const knownTools = {
             else if (typeof opts.tool.input?.path === 'string') {
                 filePath = opts.tool.input.path;
             }
+            // 6. Check file_path field
+            else if (typeof opts.tool.input?.file_path === 'string') {
+                filePath = opts.tool.input.file_path;
+            }
             
             if (filePath) {
                 return resolvePath(filePath, opts.metadata);
