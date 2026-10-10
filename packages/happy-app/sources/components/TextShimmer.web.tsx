@@ -1,21 +1,34 @@
 import * as React from 'react';
 import { Text, TextStyle } from 'react-native';
 
-const SWEEP_MS = 2200;
+/** One pass of the light, from just before the text to just past it. About the pace of 2200ms across the text alone. */
+const SWEEP_MS = 2800;
+/** How long the text rests, back to its dim colour, between the light leaving and the next pass. */
+const PAUSE_MS = 600;
 /**
- * The gradient is twice the text's width, so a window over it sees half of it at a time: walking
- * that window from 100% to 0% slides it right across the gradient — one clean pass, the band
- * entering at one end of the text and leaving at the other.
+ * The gradient is twice the text's width, so a window over it sees half of it at a time, and the
+ * band sits on the gradient's midpoint: at 100% the band's centre is on the text's left edge, at
+ * 0% on its right edge. Walking the window 15% past each of those puts the whole band outside the
+ * text at both ends, so the pass starts and ends with every glyph at its resting colour.
  *
- * It stops at the ends of the gradient on purpose. Past them there is no colour to paint the
- * glyphs with, and since the glyphs *are* the gradient, the text would simply vanish.
+ * Past the ends of the gradient there is nothing to paint the glyphs with but the background colour
+ * set under it — which is the resting colour, so the text holds steady rather than vanishing.
+ *
+ * The pause is the tail of the same animation rather than a delay between two: the pass takes the
+ * first part of the cycle and the window then holds where it ended, so the whole thing is still one
+ * compositor-driven animation.
  */
 const SWEEP_KEYFRAMES: Keyframe[] = [
-    { backgroundPosition: '100% 0' },
-    { backgroundPosition: '0% 0' },
+    { backgroundPosition: '115% 0', offset: 0 },
+    { backgroundPosition: '-15% 0', offset: SWEEP_MS / (SWEEP_MS + PAUSE_MS) },
+    { backgroundPosition: '-15% 0', offset: 1 },
 ];
-/** How far the text holds back between passes of the light. */
-const BASE_ALPHA = 0.32;
+/**
+ * How far the text holds back between passes of the light. It is all in the colour under the
+ * gradient, and the gradient adds nothing to it away from the band, so the text rests at the same
+ * strength wherever the window is — including where it has slid past the gradient's ends.
+ */
+const BASE_ALPHA = 0.54;
 
 /** The same colour, see-through, so the row behind it shows through and the glyphs read as dim. */
 function dimmed(hex: string, alpha: number): string {
@@ -60,7 +73,10 @@ export const TextShimmer = React.memo((props: {
         // strength. A band *brighter* than the text would have nowhere to go on a light theme, and
         // on a dark one the difference between the two is too small to read as a sweep at all.
         const base = dimmed(props.baseColor, BASE_ALPHA);
-        node.style.backgroundImage = `linear-gradient(90deg, ${base} 0%, ${base} 45%, ${props.highlightColor} 50%, ${base} 55%, ${base} 100%)`;
+        // The gradient is clear outside the band: were it the base colour too, it would stack on the
+        // colour beneath and read brighter than the stretches the window has slid past it to.
+        const clear = dimmed(props.baseColor, 0);
+        node.style.backgroundImage = `linear-gradient(90deg, ${clear} 0%, ${clear} 45%, ${props.highlightColor} 50%, ${clear} 55%, ${clear} 100%)`;
         // Underneath the gradient, so the text is never left with nothing to be painted with.
         node.style.backgroundColor = base;
         node.style.backgroundSize = '200% 100%';
@@ -73,7 +89,7 @@ export const TextShimmer = React.memo((props: {
         if (typeof window.matchMedia === 'function'
             && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         const animation = node.animate(SWEEP_KEYFRAMES, {
-            duration: SWEEP_MS,
+            duration: SWEEP_MS + PAUSE_MS,
             iterations: Infinity,
             easing: 'linear',
         });
