@@ -4,8 +4,6 @@ vi.mock('./apiSocket', () => ({ apiSocket: mocks }));
 vi.mock('./sync', () => ({ sync: {} }));
 vi.mock('./storage', () => ({ storage: {} }));
 import { machineSpawnNewSession } from './ops';
-import { getBuiltInProfile } from './profileUtils';
-import { getSessionProfileEnvironment, shouldInheritMachineConfig } from '@/utils/sessionProfile';
 
 const options = { machineId: 'machine-1', directory: '/repo', agent: 'codex' as const };
 const reason = 'ANTHROPIC_AUTH_TOKEN references ${DEEPSEEK_AUTH_TOKEN} which is not defined';
@@ -34,34 +32,11 @@ describe('spawn response handling', () => {
     });
 });
 
-
-describe('spawn machine configuration inheritance', () => {
-    it.each([true, false])('passes the explicit inheritance choice (%s) alongside GitHub variables', async inheritMachineConfig => {
+describe('spawn environment variables', () => {
+    it('passes GitHub variables through to the daemon', async () => {
         mocks.machineSpawnHTTP.mockResolvedValue({ type: 'success', sessionId: 'session-1' });
         const environmentVariables = { GITHUB_PERSONAL_ACCESS_TOKEN: 'github-token' };
-        await machineSpawnNewSession({ ...options, inheritMachineConfig, environmentVariables });
-        expect(mocks.machineSpawnHTTP).toHaveBeenLastCalledWith(options.machineId, expect.objectContaining({
-            inheritMachineConfig,
-            environmentVariables,
-        }));
-    });
-});
-
-
-describe('GitHub session creation with the existing profile selector', () => {
-    it.each(['claude', 'codex', 'gemini'] as const)('decides inheritance before adding GitHub variables for %s', async agent => {
-        const profileEnvironment = getSessionProfileEnvironment(getBuiltInProfile('deepseek')!, agent);
-        mocks.machineSpawnHTTP.mockResolvedValue({ type: 'success', sessionId: 'session-1' });
-        await machineSpawnNewSession({
-            ...options, agent,
-            inheritMachineConfig: shouldInheritMachineConfig(profileEnvironment),
-            environmentVariables: { ...profileEnvironment, GITHUB_PERSONAL_ACCESS_TOKEN: 'github-token' },
-        });
-        expect(mocks.machineSpawnHTTP).toHaveBeenLastCalledWith(options.machineId, expect.objectContaining({
-            inheritMachineConfig: agent !== 'claude',
-            environmentVariables: expect.objectContaining({ GITHUB_PERSONAL_ACCESS_TOKEN: 'github-token' }),
-        }));
-        const request = mocks.machineSpawnHTTP.mock.lastCall![1];
-        if (agent !== 'claude') expect(request.environmentVariables).toEqual({ GITHUB_PERSONAL_ACCESS_TOKEN: 'github-token' });
+        await machineSpawnNewSession({ ...options, environmentVariables });
+        expect(mocks.machineSpawnHTTP).toHaveBeenLastCalledWith(options.machineId, expect.objectContaining({ environmentVariables }));
     });
 });

@@ -295,7 +295,6 @@ export function buildCommandPaletteCommands(options: CommandPaletteCommandOption
         { id: 'settings-notifications', title: t('settings.notifications'), subtitle: t('settings.notificationsSubtitle'), icon: 'notifications-outline', path: '/settings/notifications', priority: 750 },
         { id: 'settings-features', title: t('settings.featuresTitle'), subtitle: t('settings.featuresSubtitle'), icon: 'flask-outline', path: '/settings/features', priority: 700 },
         { id: 'settings-language', title: t('settingsLanguage.title'), icon: 'language-outline', path: '/settings/language', priority: 675 },
-        { id: 'settings-profiles', title: t('settings.profiles'), subtitle: t('settings.profilesSubtitle'), icon: 'person-outline', path: '/settings/profiles', priority: 650 },
     ];
     if (options.experimentsEnabled) {
         settingsCommands.push({ id: 'settings-usage', title: t('settings.usage'), subtitle: t('settings.usageSubtitle'), icon: 'analytics-outline', path: '/settings/usage', priority: 600 });

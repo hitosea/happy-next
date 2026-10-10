@@ -6,7 +6,6 @@ import { ApiClient } from '@/api/api';
 import { startModelCatalogSync } from '@/api/modelCatalog';
 import { TrackedSession } from './types';
 import { getUnexpandedSessionAuthVariables } from './sessionAuth';
-import { resolveSessionProfileEnvironment } from './sessionProfiles';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -17,7 +16,7 @@ import packageJson from '../../package.json';
 import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 import { isDebug } from '@/utils/env';
-import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, getActiveProfile, getEnvironmentVariables } from '@/persistence';
+import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock } from '@/persistence';
 
 import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
 import { startDaemonControlServer } from './controlServer';
@@ -552,7 +551,7 @@ export async function startDaemon(): Promise<void> {
 
         // Build environment variables with explicit precedence layers:
         // Layer 1 (base): Authentication tokens - protected, cannot be overridden
-        // Layer 2 (middle): Profile environment variables - GUI profile OR CLI local profile
+        // Layer 2 (middle): Additional environment variables sent by the app (e.g. a GitHub token)
         // Layer 3 (top): Auth tokens again to ensure they're never overridden
 
         // Layer 1: Resolve authentication token if provided
@@ -573,11 +572,8 @@ export async function startDaemon(): Promise<void> {
           }
         }
 
-        // Layer 2: Load the selected profile, then merge any additional GUI variables.
-        const profileEnv = await resolveSessionProfileEnvironment(options);
-
-        // Final merge: Profile vars first, then auth (auth takes precedence to protect authentication)
-        let extraEnv = { ...profileEnv, ...authEnv };
+        // Final merge: app vars first, then auth (auth takes precedence to protect authentication)
+        let extraEnv = { ...options.environmentVariables, ...authEnv };
         if (resumeSessionId && isClaudeAgent) {
           extraEnv.HAPPY_CLAUDE_BACKFILL = '1';
           extraEnv.HAPPY_CLAUDE_BACKFILL_MAX_MESSAGES = '200';
@@ -685,7 +681,7 @@ export async function startDaemon(): Promise<void> {
         const tmuxAvailable = await isTmuxAvailable();
         let useTmux = tmuxAvailable;
 
-        // Get tmux session name from environment variables (now set by profile system)
+        // Get tmux session name from the spawn environment variables
         // Empty string means "use current/most recent session" (tmux default behavior)
         let tmuxSessionName: string | undefined = extraEnv.TMUX_SESSION_NAME;
 

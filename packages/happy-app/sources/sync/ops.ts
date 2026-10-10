@@ -187,19 +187,8 @@ export interface SpawnSessionOptions {
     resumeSessionId?: string;
     sessionTitle?: string;
     skipForkSession?: boolean;
-    // Environment variables from AI backend profile
-    // Accepts any environment variables - daemon will pass them to the agent process
-    // Common variables include:
-    // - ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN, ANTHROPIC_MODEL, ANTHROPIC_SMALL_FAST_MODEL
-    // - OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL, OPENAI_API_TIMEOUT_MS
-    // - AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_DEPLOYMENT_NAME
-    // - TOGETHER_API_KEY, TOGETHER_MODEL
-    // - TMUX_SESSION_NAME, TMUX_TMPDIR, TMUX_UPDATE_ENVIRONMENT
-    // - API_TIMEOUT_MS, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC
-    // - Custom variables (DEEPSEEK_*, Z_AI_*, etc.)
+    // Extra environment variables for the agent process (e.g. a GitHub token); the daemon adds them on top of its own environment
     environmentVariables?: Record<string, string>;
-    // Load the compatible local CLI profile before merging additional variables.
-    inheritMachineConfig?: boolean;
     // Worktree metadata - passed to CLI so it's included in initial metadata (avoids race condition)
     worktreeBasePath?: string;
     worktreeBranchName?: string;
@@ -286,12 +275,12 @@ export type SessionPreviewMessage = ClaudeSessionPreviewMessage;
  */
 export async function machineSpawnNewSession(options: SpawnSessionOptions): Promise<SpawnSessionResult> {
 
-    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, inheritMachineConfig, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
+    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
 
     try {
         const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult | { error: string }>(
             machineId,
-            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, inheritMachineConfig, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
+            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
         );
         if ('error' in result) {
             return { type: 'error', errorMessage: result.error };

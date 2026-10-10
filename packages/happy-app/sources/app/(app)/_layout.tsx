@@ -744,12 +744,6 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
-                name="new/pick/profile-edit"
-                options={{
-                    headerTitle: '',
-                }}
-            />
-            <Stack.Screen
                 name="new/index"
                 options={{
                     ...softHeaderOptions,

@@ -10,7 +10,6 @@ import { t } from '@/text';
 export default function FeaturesSettingsScreen() {
     const [experiments, setExperiments] = useSettingMutable('experiments');
     const [agentInputEnterToSend, setAgentInputEnterToSend] = useSettingMutable('agentInputEnterToSend');
-    const [useEnhancedSessionWizard, setUseEnhancedSessionWizard] = useSettingMutable('useEnhancedSessionWizard');
 
     return (
         <ItemList style={{ paddingTop: 0 }}>
@@ -27,20 +26,6 @@ export default function FeaturesSettingsScreen() {
                         <Switch
                             value={experiments}
                             onValueChange={setExperiments}
-                        />
-                    }
-                    showChevron={false}
-                />
-                <Item
-                    title={t('settingsFeatures.enhancedSessionWizard')}
-                    subtitle={useEnhancedSessionWizard
-                        ? t('settingsFeatures.enhancedSessionWizardEnabled')
-                        : t('settingsFeatures.enhancedSessionWizardDisabled')}
-                    icon={<Ionicons name="sparkles-outline" size={29} color="#AF52DE" />}
-                    rightElement={
-                        <Switch
-                            value={useEnhancedSessionWizard}
-                            onValueChange={setUseEnhancedSessionWizard}
                         />
                     }
                     showChevron={false}
