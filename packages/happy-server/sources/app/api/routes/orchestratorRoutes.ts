@@ -50,6 +50,7 @@ const CLI_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true" || echo "claude:false") && ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true" || echo "codex:false") && ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false") && ' +
+    '((command -v qodercli || command -v qoderclicn || test -x ~/.local/bin/qodercli || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qoder:true" || echo "qoder:false") && ' +     // Qoder's installer puts qodercli (or the China build qoderclicn) in ~/.local/bin, which the daemon's PATH may lack
     'echo "hostname:$(hostname 2>/dev/null || echo \'\')"';
 const CLI_DETECTION_TIMEOUT_MS = 20_000;
 const IDEMPOTENCY_RETRY_DELAY_MS = 10;

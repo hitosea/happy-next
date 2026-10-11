@@ -200,7 +200,7 @@ export const en = {
         developer: 'Developer',
         developerTools: 'Developer Tools',
         about: 'About',
-        aboutFooter: 'Happy Next is a Claude Code, Codex, and Gemini mobile client. It\'s fully end-to-end encrypted and your account is stored only on your device. Not affiliated with Anthropic or OpenAI.',
+        aboutFooter: 'Happy Next lets you pick up your AI coding agents from your phone, the web, or your desktop. Open source and end-to-end encrypted, with your account kept only on your device.',
         whatsNew: 'What\'s New',
         whatsNewSubtitle: 'See the latest updates and improvements',
         reportIssue: 'Report an Issue',
@@ -1460,7 +1460,7 @@ export const en = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1745,8 +1745,8 @@ export const en = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Client for Claude Code, Codex, and Gemini',
-        mobileTitle: 'Mobile client for Claude Code, Codex, and Gemini',
+        title: 'Client for Claude, Codex, Gemini, and Qoder',
+        mobileTitle: 'Mobile client for Claude, Codex, Gemini, and Qoder',
         subtitle: 'End-to-end encrypted and your account is stored only on your device.',
         createAccount: 'Create account',
         linkOrRestoreAccount: 'Link or restore account',
@@ -2245,6 +2245,7 @@ export const en = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'No data available for this provider yet',
     },

@@ -19,7 +19,7 @@ vi.mock('node:os', async (importOriginal) => {
 });
 
 // Env keys that influence the sync — cleared per test for determinism, restored afterward.
-const ENV_KEYS = ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'HAPPY_ORCH_ONESHOT', 'HAPPY_ORCH_EXECUTION_ID'] as const;
+const ENV_KEYS = ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'QODER_CONFIG_DIR', 'QODERCN_CONFIG_DIR', 'HAPPY_ORCH_ONESHOT', 'HAPPY_ORCH_EXECUTION_ID'] as const;
 
 describe('syncOrchestratorAssets', () => {
   let home: string;
@@ -28,6 +28,8 @@ describe('syncOrchestratorAssets', () => {
   const claudeSkill = () => join(home, '.claude', 'skills', 'orchestrator', 'SKILL.md');
   const claudeCmd = (provider: string) => join(home, '.claude', 'commands', 'orchestrator', `${provider}.md`);
   const codexSkill = () => join(home, '.codex', 'skills', 'orchestrator', 'SKILL.md');
+  const qoderSkill = (dir = '.qoder') => join(home, dir, 'skills', 'orchestrator', 'SKILL.md');
+  const qoderCmd = (provider: string, dir = '.qoder') => join(home, dir, 'commands', 'orchestrator', `${provider}.md`);
 
   // Fresh module each run so the once-per-process guard (didSync) is reset.
   async function runSync(): Promise<void> {
@@ -58,6 +60,8 @@ describe('syncOrchestratorAssets', () => {
     await runSync();
     expect(existsSync(join(home, '.claude'))).toBe(false);
     expect(existsSync(join(home, '.codex'))).toBe(false);
+    expect(existsSync(join(home, '.qoder'))).toBe(false);
+    expect(existsSync(join(home, '.qoder-cn'))).toBe(false);
   });
 
   it('populates ~/.claude and never creates ~/.codex when only ~/.claude exists', async () => {
@@ -86,6 +90,22 @@ describe('syncOrchestratorAssets', () => {
     expect(existsSync(codexSkill())).toBe(true);
   });
 
+  it('populates ~/.qoder and ~/.qoder-cn only when they exist', async () => {
+    mkdirSync(join(home, '.qoder'), { recursive: true });
+    await runSync();
+    expect(readFileSync(qoderSkill(), 'utf8')).toBe(ORCHESTRATOR_SKILL_MD);
+    expect(readFileSync(qoderCmd('claude'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_CLAUDE);
+    expect(readFileSync(qoderCmd('codex'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_CODEX);
+    expect(readFileSync(qoderCmd('gemini'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_GEMINI);
+    expect(readFileSync(qoderCmd('qoder'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODER);
+    expect(existsSync(join(home, '.qoder-cn'))).toBe(false);
+
+    mkdirSync(join(home, '.qoder-cn'), { recursive: true });
+    await runSync();
+    expect(readFileSync(qoderSkill('.qoder-cn'), 'utf8')).toBe(ORCHESTRATOR_SKILL_MD);
+    expect(readFileSync(qoderCmd('qoder', '.qoder-cn'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODER);
+  });
+
   it('writes nothing for a worker (oneshot) session even when config dirs exist', async () => {
     mkdirSync(join(home, '.claude'), { recursive: true });
     mkdirSync(join(home, '.codex'), { recursive: true });
@@ -93,6 +113,19 @@ describe('syncOrchestratorAssets', () => {
     await runSync();
     expect(existsSync(claudeSkill())).toBe(false);
     expect(existsSync(codexSkill())).toBe(false);
+  });
+
+  it('honors QODER_CONFIG_DIR and QODERCN_CONFIG_DIR for the qoder targets', async () => {
+    const customDir = join(home, 'custom-qoder');
+    const customCnDir = join(home, 'custom-qoder-cn');
+    mkdirSync(customDir, { recursive: true });
+    mkdirSync(customCnDir, { recursive: true });
+    process.env.QODER_CONFIG_DIR = customDir;
+    process.env.QODERCN_CONFIG_DIR = customCnDir;
+    await runSync();
+    expect(existsSync(join(customDir, 'skills', 'orchestrator', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(customCnDir, 'skills', 'orchestrator', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(home, '.qoder'))).toBe(false);
   });
 
   it('honors CODEX_HOME for the codex target', async () => {

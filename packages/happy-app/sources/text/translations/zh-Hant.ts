@@ -202,7 +202,7 @@ export const zhHant: TranslationStructure = {
         developer: '開發者',
         developerTools: '開發者工具',
         about: '關於',
-        aboutFooter: 'Happy Next 是一個 Claude Code、Codex 和 Gemini 行動用戶端。它採用端對端加密，您的帳戶僅儲存在本機裝置上。與 Anthropic 和 OpenAI 無關聯。',
+        aboutFooter: 'Happy Next 讓您在手機、網頁和電腦上隨時接管 AI 程式設計助理。專案開源，資料端對端加密，帳戶只儲存在您的裝置上。',
         whatsNew: '更新日誌',
         whatsNewSubtitle: '查看最新更新和改進',
         reportIssue: '回報問題',
@@ -1448,7 +1448,7 @@ export const zhHant: TranslationStructure = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1732,8 +1732,8 @@ export const zhHant: TranslationStructure = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Claude Code、Codex 和 Gemini 的用戶端',
-        mobileTitle: 'Claude Code、Codex 和 Gemini 的行動用戶端',
+        title: 'Claude、Codex、Gemini 和 Qoder 的用戶端',
+        mobileTitle: 'Claude、Codex、Gemini 和 Qoder 的行動用戶端',
         subtitle: '端對端加密，您的帳戶僅儲存在您的裝置上。',
         createAccount: '建立帳戶',
         linkOrRestoreAccount: '連結或恢復帳戶',
@@ -2231,6 +2231,7 @@ export const zhHant: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: '該服務暫無資料',
     },

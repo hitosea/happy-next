@@ -38,7 +38,7 @@ export const ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA = {
 } as const;
 
 export const ORCHESTRATOR_SUBMIT_TOOL_SCHEMA = {
-  description: 'Delegate one or more self-contained prompts to AI child tasks across claude/codex/gemini, in parallel or with dependsOn. Returns immediately; wait for <orchestrator-callback> before calling orchestrator_pend.',
+  description: 'Delegate one or more self-contained prompts to AI child tasks across claude/codex/gemini/qoder, in parallel or with dependsOn. Returns immediately; wait for <orchestrator-callback> before calling orchestrator_pend.',
   title: 'Orchestrator Submit',
   inputSchema: {
     title: z.string().min(1).max(256).describe('Run title'),

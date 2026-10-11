@@ -103,7 +103,7 @@ export const TOOL_DEFINITIONS: OpenAiTool[] = [
                 properties: {
                     mode: {
                         type: 'string',
-                        description: 'Permission mode for the active session agent. Claude: default, acceptEdits, plan, auto, bypassPermissions. Codex: default, read-only, on-failure, full-auto. Gemini: default, auto_edit, plan, yolo. On an invalid value the tool returns valid modes.',
+                        description: 'Permission mode for the active session agent. Claude: default, acceptEdits, plan, auto, bypassPermissions. Codex: default, read-only, on-failure, full-auto. Gemini: default, auto_edit, plan, yolo. Qoder: default, acceptEdits, auto, dontAsk, yolo. On an invalid value the tool returns valid modes.',
                     },
                 },
                 required: ['mode'],

@@ -201,7 +201,7 @@ export const pt: TranslationStructure = {
         developer: 'Desenvolvedor',
         developerTools: 'Ferramentas de desenvolvedor',
         about: 'Sobre',
-        aboutFooter: 'Happy Next é um cliente móvel para Claude Code, Codex e Gemini. É totalmente criptografado ponta a ponta e sua conta é armazenada apenas no seu dispositivo. Não é afiliado à Anthropic ou OpenAI.',
+        aboutFooter: 'Happy Next permite que você assuma o controle dos seus agentes de programação com IA pelo telefone, pela web ou pelo computador. De código aberto e criptografado ponta a ponta, com sua conta armazenada apenas no seu dispositivo.',
         whatsNew: 'Novidades',
         whatsNewSubtitle: 'Veja as atualizações e melhorias mais recentes',
         reportIssue: 'Relatar um problema',
@@ -1447,7 +1447,7 @@ export const pt: TranslationStructure = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1731,8 +1731,8 @@ export const pt: TranslationStructure = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Cliente Claude Code, Codex e Gemini',
-        mobileTitle: 'Cliente móvel Claude Code, Codex e Gemini',
+        title: 'Cliente Claude, Codex, Gemini e Qoder',
+        mobileTitle: 'Cliente móvel Claude, Codex, Gemini e Qoder',
         subtitle: 'Criptografado ponta a ponta e sua conta é armazenada apenas no seu dispositivo.',
         createAccount: 'Criar conta',
         linkOrRestoreAccount: 'Vincular ou restaurar conta',
@@ -2230,6 +2230,7 @@ export const pt: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'Ainda sem dados para este provedor',
     },

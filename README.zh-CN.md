@@ -1,11 +1,11 @@
 <div align="center"><img src="/.github/logotype-dark.png" width="400" title="Happy Next" alt="Happy Next"/></div>
 
 <h1 align="center">
-  Claude Code、Codex 和 Gemini 的移动端和 Web 客户端
+  Claude Code、Codex、Gemini 和 Qoder 的移动端和 Web 客户端
 </h1>
 
 <h4 align="center">
-随时随地使用 Claude Code、Codex 或 Gemini，端到端加密。
+随时随地使用 Claude Code、Codex、Gemini 或 Qoder，端到端加密。
 </h4>
 
 <div align="center">
@@ -37,7 +37,7 @@ npm i -g happy-next-cli
 ```
 
 <h3 align="center">
-第三步：用 `happy` 代替 `claude`、`codex` 或 `gemini`
+第三步：用 `happy` 代替 `claude`、`codex`、`gemini` 或 `qodercli`
 </h3>
 
 ```bash
@@ -55,18 +55,23 @@ happy codex
 # 现在用: happy gemini
 
 happy gemini
+
+# 原来用: qodercli
+# 现在用: happy qoder
+
+happy qoder
 ```
 
 运行 `happy` 会打印一个二维码用于设备配对。
 
 - 用第一步下载的应用扫描二维码（或在浏览器中打开 [app.happy-next.com](https://app.happy-next.com/)）。
-- 前提：安装你想要控制的供应商 CLI（`claude`、`codex` 和/或 `gemini`）。
+- 前提：安装你想要控制的供应商 CLI（`claude`、`codex`、`gemini` 和/或 `qodercli`）。
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
 
 ## 🔥 为什么选择 Happy Next？
 
-- 🎛️ **Claude、Codex 和 Gemini 的远程控制** — 三个 Agent 均为一等公民
+- 🎛️ **Claude、Codex、Gemini 和 Qoder 的远程控制** — 四个 Agent 均为一等公民
 - 🤖 **编排器** — 定义多 Agent 任务 DAG、自动调度执行，并查看关联的运行历史
 - ⚡ **即时设备切换** — 一键夺回控制权
 - 🔔 **推送通知** — 随时知道你的 Agent 需要关注
@@ -81,7 +86,7 @@ happy gemini
 
 ## 工作原理
 
-在电脑上运行 `happy` 代替 `claude`，`happy codex` 代替 `codex`，或 `happy gemini` 代替 `gemini`，通过我们的包装器启动你的 AI。当你想从手机上控制编码 Agent 时，它会以远程模式重启会话。要切换回电脑，只需按键盘上的任意键。
+在电脑上运行 `happy` 代替 `claude`，`happy codex` 代替 `codex`，`happy gemini` 代替 `gemini`，或 `happy qoder` 代替 `qodercli`，通过我们的包装器启动你的 AI。当你想从手机上控制编码 Agent 时，它会以远程模式重启会话。要切换回电脑，只需按键盘上的任意键。
 
 ## Happy Next 新特性
 
@@ -101,12 +106,12 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ### 编排器（Orchestrator）
 - 定义任务依赖图（DAG），支持按任务指定模型和工作目录
-- 跨 Claude、Codex 和 Gemini 自动调度执行
+- 跨 Claude、Codex、Gemini 和 Qoder 自动调度执行
 - 实时状态徽章、活动计数（含排队任务，而不仅是运行中的任务）和状态颜色进度条
 - 清晰的任务执行历史、更顺畅的运行导航，以及从编排器消息直达对应运行的链接
 - 通过会话恢复跟进已完成任务
 - MCP 工具集成，自动填充工作目录
-- Happy CLI 启动时自动安装编排器 skill 和 `/orchestrator` 斜杠命令——直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini agent
+- Happy CLI 启动时自动安装编排器 skill 和 `/orchestrator` 斜杠命令——直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder agent
 - 内置 `/preview-html` 斜杠命令——在 CLI 里生成自包含 HTML 文档并直接在 app 内预览
 - 编排运行和任务显示耗时，运行筛选简化为全部、进行中、已完成、失败、已取消；任务结果只保留 agent 的最终回复，运行中可实时跟进
 - 恢复的任务会回报给发送跟进消息的会话，该运行在两个会话中都会列出
@@ -368,7 +373,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 ## 项目组件
 
 - **[Happy App](packages/happy-app)** — Web UI + 移动客户端（Expo）
-- **[Happy CLI](packages/happy-cli)** — Claude Code、Codex 和 Gemini 的命令行界面
+- **[Happy CLI](packages/happy-cli)** — Claude Code、Codex、Gemini 和 Qoder 的命令行界面
 - **[Happy Server](packages/happy-server)** — 加密同步后端服务器
 - **[Happy Voice](packages/happy-voice)** — 语音网关（基于火山引擎/豆包）
 - **[Happy Wire](packages/happy-wire)** — 共享线路类型和 Schema

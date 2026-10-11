@@ -162,7 +162,7 @@ export const ru: TranslationStructure = {
         developer: 'Разработчик',
         developerTools: 'Инструменты разработчика',
         about: 'О программе',
-        aboutFooter: 'Happy Next — мобильное приложение для работы с Claude Code, Codex и Gemini. Использует сквозное шифрование, все данные аккаунта хранятся только на вашем устройстве. Не связано с Anthropic или OpenAI.',
+        aboutFooter: 'Happy Next позволяет в любой момент взять под контроль ваших ИИ-агентов для программирования — с телефона, в браузере или на компьютере. Открытый исходный код и сквозное шифрование, а ваш аккаунт хранится только на вашем устройстве.',
         whatsNew: 'Что нового',
         whatsNewSubtitle: 'Посмотреть последние обновления и улучшения',
         reportIssue: 'Сообщить о проблеме',
@@ -1457,7 +1457,7 @@ export const ru: TranslationStructure = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1729,8 +1729,8 @@ export const ru: TranslationStructure = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Клиент Claude Code, Codex и Gemini',
-        mobileTitle: 'Мобильный клиент Claude Code, Codex и Gemini',
+        title: 'Клиент Claude, Codex, Gemini и Qoder',
+        mobileTitle: 'Мобильный клиент Claude, Codex, Gemini и Qoder',
         subtitle: 'Сквозное шифрование, аккаунт хранится только на вашем устройстве.',
         createAccount: 'Создать аккаунт',
         linkOrRestoreAccount: 'Связать или восстановить аккаунт',
@@ -2253,6 +2253,7 @@ export const ru: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'Данные для этого провайдера пока недоступны',
     },

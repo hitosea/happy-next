@@ -14,14 +14,18 @@ import { t } from '@/text';
 
 type TimePeriod = 'today' | '7days' | '30days';
 
-type Provider = 'all' | 'claude' | 'codex' | 'gemini';
+type Provider = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder';
 
 const PROVIDER_KEYS: Record<Provider, string[] | undefined> = {
     all: undefined,
     claude: ['claude-session'],
     codex: ['codex-session'],
     gemini: ['gemini-session'],
+    qoder: ['qoder-session'],
 };
+
+// Gemini and Qoder sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
+const PROVIDERS_WITHOUT_USAGE: Provider[] = ['gemini', 'qoder'];
 
 const styles = StyleSheet.create((theme) => ({
     container: {
@@ -149,7 +153,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
             return;
         }
 
-        if (provider === 'gemini') {
+        if (PROVIDERS_WITHOUT_USAGE.includes(provider)) {
             return;
         }
 
@@ -222,7 +226,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
 
             {/* Provider Selector */}
             <View style={styles.providerSelector}>
-                {(['all', 'claude', 'codex', 'gemini'] as Provider[]).map((p) => (
+                {(['all', 'claude', 'codex', 'gemini', 'qoder'] as Provider[]).map((p) => (
                     <Pressable
                         key={p}
                         style={[styles.providerButton, provider === p && styles.providerButtonActive]}
@@ -235,7 +239,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
                 ))}
             </View>
 
-            {provider === 'gemini' ? (
+            {PROVIDERS_WITHOUT_USAGE.includes(provider) ? (
                 <View style={styles.loadingContainer}>
                     <Ionicons name="analytics-outline" size={48} color={theme.colors.textSecondary} />
                     <Text style={[styles.errorText, { color: theme.colors.textSecondary, marginTop: 12 }]}>

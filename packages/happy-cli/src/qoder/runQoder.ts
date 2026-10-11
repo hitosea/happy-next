@@ -32,6 +32,7 @@ import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
 import type { ApiSessionClient } from '@/api/apiSession';
 import { parseClear } from '@/parsers/specialCommands';
 import { addBuiltinSlashCommands, expandBuiltinSlashCommand, syncBuiltinCommands } from '@/commands/builtinCommands';
+import { syncOrchestratorAssets } from '@/orchestrator/skillSync';
 import type { AcpBackend } from '@/agent/acp/AcpBackend';
 import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
@@ -115,6 +116,7 @@ export async function runQoder(opts: {
     },
   });
   syncBuiltinCommands();
+  syncOrchestratorAssets();
   adoptSession(initialSession);
   session = initialSession;
 

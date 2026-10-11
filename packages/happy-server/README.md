@@ -1,6 +1,6 @@
 # Happy Next Server
 
-Minimal backend for open-source end-to-end encrypted AI coding agent clients (Claude Code, Codex, and Gemini).
+Minimal backend for open-source end-to-end encrypted AI coding agent clients (Claude Code, Codex, Gemini, and Qoder).
 
 ## What is Happy Next?
 

@@ -203,7 +203,7 @@ export const ja: TranslationStructure = {
         developer: '開発者',
         developerTools: '開発者ツール',
         about: 'このアプリについて',
-        aboutFooter: 'Happy NextはClaude Code、Codex、Geminiのモバイルクライアントです。完全なエンドツーエンド暗号化を採用し、アカウントはデバイスにのみ保存されます。AnthropicやOpenAIとは提携していません。',
+        aboutFooter: 'Happy Nextなら、スマートフォン、Web、パソコンからいつでもAIコーディングエージェントを操作できます。オープンソースでエンドツーエンド暗号化に対応し、アカウントはお使いのデバイスにのみ保存されます。',
         whatsNew: '新機能',
         whatsNewSubtitle: '最新のアップデートと改善を確認',
         reportIssue: '問題を報告',
@@ -1449,7 +1449,7 @@ export const ja: TranslationStructure = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1733,8 +1733,8 @@ export const ja: TranslationStructure = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Claude Code、Codex、Geminiのクライアント',
-        mobileTitle: 'Claude Code、Codex、Geminiのモバイルクライアント',
+        title: 'Claude、Codex、Gemini、Qoderのクライアント',
+        mobileTitle: 'Claude、Codex、Gemini、Qoderのモバイルクライアント',
         subtitle: 'エンドツーエンド暗号化され、アカウントはデバイスにのみ保存されます。',
         createAccount: 'アカウントを作成',
         linkOrRestoreAccount: 'アカウントをリンクまたは復元',
@@ -2233,6 +2233,7 @@ export const ja: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'このプロバイダーのデータはまだありません',
     },

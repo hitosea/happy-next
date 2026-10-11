@@ -1,11 +1,11 @@
 <div align="center"><img src="/.github/logotype-dark.png" width="400" title="Happy Next" alt="Happy Next"/></div>
 
 <h1 align="center">
-  Mobile and Web Client for Claude Code, Codex & Gemini
+  Mobile and Web Client for Claude Code, Codex, Gemini & Qoder
 </h1>
 
 <h4 align="center">
-Use Claude Code, Codex, or Gemini from anywhere with end-to-end encryption.
+Use Claude Code, Codex, Gemini, or Qoder from anywhere with end-to-end encryption.
 </h4>
 
 <div align="center">
@@ -35,7 +35,7 @@ npm i -g happy-next-cli
 ```
 
 <h3 align="center">
-Step 3: Start using `happy` instead of `claude`, `codex`, or `gemini`
+Step 3: Start using `happy` instead of `claude`, `codex`, `gemini`, or `qodercli`
 </h3>
 
 ```bash
@@ -53,18 +53,23 @@ happy codex
 # Use: happy gemini
 
 happy gemini
+
+# Instead of: qodercli
+# Use: happy qoder
+
+happy qoder
 ```
 
 Running `happy` prints a QR code for device pairing.
 
 - Scan the QR code with the app you downloaded in Step 1 (or open [app.happy-next.com](https://app.happy-next.com/) in a browser).
-- Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, and/or `gemini`).
+- Prerequisite: install the vendor CLI(s) you want to control (`claude`, `codex`, `gemini`, and/or `qodercli`).
 
 <div align="center"><img src="/.github/mascot.png" width="200" title="Happy Next" alt="Happy Next"/></div>
 
 ## 🔥 Why Happy Next?
 
-- 🎛️ **Remote control for Claude, Codex & Gemini** - All three agents as first-class citizens
+- 🎛️ **Remote control for Claude, Codex, Gemini & Qoder** - All four agents as first-class citizens
 - 🤖 **Orchestrator** - Define multi-agent task DAGs, auto-schedule execution, and inspect linked run history
 - ⚡ **Instant device handoff** - Take back control with a single keypress
 - 🔔 **Push notifications** - Know when your agent needs attention
@@ -79,7 +84,7 @@ Running `happy` prints a QR code for device pairing.
 
 ## How does it work?
 
-On your computer, run `happy` instead of `claude`, `happy codex` instead of `codex`, or `happy gemini` instead of `gemini` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
+On your computer, run `happy` instead of `claude`, `happy codex` instead of `codex`, `happy gemini` instead of `gemini`, or `happy qoder` instead of `qodercli` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
 
 ## What’s new in Happy Next
 
@@ -99,12 +104,12 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 ### Orchestrator
 - Define task dependency graphs (DAGs) with per-task model and working directory
-- Auto-schedule execution across Claude, Codex, and Gemini agents
+- Auto-schedule execution across Claude, Codex, Gemini, and Qoder agents
 - Real-time status badges, an activity count that includes queued (not just running) tasks, and status-colored progress bars
 - Clear task execution history, streamlined run navigation, and direct links from Orchestrator messages to their runs
 - Follow up on completed tasks via session resume
 - MCP tool integration with auto-filled working directory
-- Happy CLI auto-installs the orchestrator skill and `/orchestrator` slash commands on startup — fan a task out to parallel or dependency-ordered Claude / Codex / Gemini agents straight from the CLI
+- Happy CLI auto-installs the orchestrator skill and `/orchestrator` slash commands on startup — fan a task out to parallel or dependency-ordered Claude / Codex / Gemini / Qoder agents straight from the CLI
 - Built-in `/preview-html` slash command — generate a self-contained HTML document from the CLI and preview it directly in the app
 - Runs and tasks show how long they take, run filters are simplified to All, Active, Completed, Failed and Cancelled, and a task's result is just the agent's final message, followed live while it runs
 - A resumed task reports back to the session that sent the follow-up, and the run is listed in both sessions
@@ -365,7 +370,7 @@ Full changelog: [docs/changes-from-happy.md](docs/changes-from-happy.md)
 ## 📦 Project Components
 
 - **[Happy App](packages/happy-app)** - Web UI + mobile client (Expo)
-- **[Happy CLI](packages/happy-cli)** - Command-line interface for Claude Code, Codex, and Gemini
+- **[Happy CLI](packages/happy-cli)** - Command-line interface for Claude Code, Codex, Gemini, and Qoder
 - **[Happy Server](packages/happy-server)** - Backend server for encrypted sync
 - **[Happy Voice](packages/happy-voice)** - Voice gateway (Volcengine/Doubao-based)
 - **[Happy Wire](packages/happy-wire)** - Shared wire types and schemas

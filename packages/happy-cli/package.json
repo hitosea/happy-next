@@ -1,7 +1,7 @@
 {
   "name": "happy-next-cli",
   "version": "0.12.0",
-  "description": "Mobile and Web client for Claude Code, Codex, and Gemini",
+  "description": "Mobile and Web client for Claude Code, Codex, Gemini, and Qoder",
   "author": "Hitosea",
   "license": "MIT",
   "type": "module",

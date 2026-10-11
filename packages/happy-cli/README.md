@@ -37,6 +37,16 @@ Start a Gemini CLI session with remote control capabilities.
 happy connect gemini
 ```
 
+### Qoder
+
+```bash
+happy qoder
+```
+
+Start a Qoder CLI session with remote control capabilities.
+
+**First time setup:** install [Qoder CLI](https://qoder.com) and sign in once with `qodercli login` (or `qoderclicn login` for the China build). Qoder uses your Qoder account, so there is no `happy connect qoder` step.
+
 ## Commands
 
 ### Main Commands
@@ -46,6 +56,7 @@ happy connect gemini
 - `happy -- <args>` – Pass positional arguments directly to Claude
 - `happy gemini` – Start Gemini CLI session
 - `happy codex` – Start Codex mode
+- `happy qoder` – Start Qoder CLI session
 
 ### Utility Commands
 

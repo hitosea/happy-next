@@ -212,7 +212,7 @@ export const pl: TranslationStructure = {
         developer: 'Deweloper',
         developerTools: 'Narzędzia deweloperskie',
         about: 'O aplikacji',
-        aboutFooter: 'Happy Next to mobilny klient Claude Code, Codex i Gemini. Jest w pełni szyfrowany end-to-end, a Twoje konto jest przechowywane tylko na Twoim urządzeniu. Nie jest powiązany z Anthropic ani OpenAI.',
+        aboutFooter: 'Happy Next pozwala przejąć kontrolę nad agentami AI do programowania z telefonu, przeglądarki lub komputera. Projekt open source z szyfrowaniem end-to-end, a Twoje konto jest przechowywane wyłącznie na Twoim urządzeniu.',
         whatsNew: 'Co nowego',
         whatsNewSubtitle: 'Zobacz najnowsze aktualizacje i ulepszenia',
         reportIssue: 'Zgłoś problem',
@@ -1457,7 +1457,7 @@ export const pl: TranslationStructure = {
         emptyPullsTitle: 'No pull requests',
         emptyPullsSubtitle: 'Create a pull request to start reviewing changes.',
         emptySessionsTitle: 'No sessions yet',
-        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini or Codex.',
+        emptySessionsSubtitle: 'Start a session to work on this repo with Claude, Gemini, Codex or Qoder.',
         startNewSession: 'Start session',
         resumeOneActive: 'Resume active session',
         resumeMultipleActive: ({ count }: { count: number }) => `Resume ${count} active sessions`,
@@ -1741,8 +1741,8 @@ export const pl: TranslationStructure = {
 
     welcome: {
         // Main welcome screen for unauthenticated users
-        title: 'Klient Claude Code, Codex i Gemini',
-        mobileTitle: 'Mobilny klient Claude Code, Codex i Gemini',
+        title: 'Klient Claude, Codex, Gemini i Qoder',
+        mobileTitle: 'Mobilny klient Claude, Codex, Gemini i Qoder',
         subtitle: 'Szyfrowanie end-to-end, a Twoje konto jest przechowywane tylko na Twoim urządzeniu.',
         createAccount: 'Utwórz konto',
         linkOrRestoreAccount: 'Połącz lub przywróć konto',
@@ -2254,6 +2254,7 @@ export const pl: TranslationStructure = {
         claudeCode: 'Claude',
         codex: 'Codex',
         gemini: 'Gemini',
+        qoder: 'Qoder',
         opencode: 'OpenCode',
         providerNoData: 'Brak danych dla tego dostawcy',
     },

@@ -10,7 +10,7 @@ export const CHAT_TITLE_INSTRUCTION = trimIdent(`
 export const ORCHESTRATOR_TOOLS_INSTRUCTION = trimIdent(`
   # Orchestrator
 
-  Use orchestrator_* tools to delegate work to other AI agents (claude/codex/gemini) on this or other machines.
+  Use orchestrator_* tools to delegate work to other AI agents (claude/codex/gemini/qoder) on this or other machines.
 
   Workflow:
   1. Call orchestrator_get_context first to discover available providers, models, and machines.
@@ -57,7 +57,8 @@ export function getBaseSystemPrompt(
     return null;
   }
   // claude/codex discover the orchestrator via the synced skill, so their system prompt stays lean
-  // (chat title only). Gemini has no skill sync, so it opts in to keep orchestrator guidance here.
+  // (chat title only). Gemini has no skill sync, and Qoder's skill is only synced when ~/.qoder exists,
+  // so both opt in to keep orchestrator guidance here.
   if (!options.includeOrchestrator) {
     return CHAT_TITLE_INSTRUCTION;
   }
