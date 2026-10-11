@@ -38,6 +38,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { isRunningOnMac } from '@/utils/platform';
 import { NativeMenu } from './NativeMenu';
 import { DropdownMenu } from './DropdownMenu';
+import { ScrollToSelectedList, type ItemLayoutHandler } from './ScrollToSelectedList';
 import type { ActionMenuItem } from './ActionMenu';
 import {
     buildClaudeModelMode,
@@ -543,10 +544,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         options: readonly { value: T; label: string; description?: string; trailing?: string }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
+        onItemLayout?: ItemLayoutHandler,
     ) => options.map(option => {
         const isSelected = selectedValue === option.value;
         return (
             <Pressable key={option.value}
+                onLayout={onItemLayout ? (e) => onItemLayout(option.value, e.nativeEvent.layout.y, e.nativeEvent.layout.height) : undefined}
                 onPress={() => { hapticsLight(); onSelect(option.value); }}
                 style={({ pressed, hovered }: any) => [styles.selectionItem, (pressed || hovered) && styles.selectionItemPressed]}>
                 <View style={[styles.radioButton, isSelected ? styles.radioButtonActive : styles.radioButtonInactive]}>
@@ -576,11 +579,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         );
     });
     // The model tab's only scrolling part: the tab bar above and the rows below it stay put.
-    const renderScrollableList = (content: React.ReactNode) => (
-        <ScrollView style={styles.modelListScroll} contentContainerStyle={styles.modelListContent} keyboardShouldPersistTaps="always">
-            {content}
-        </ScrollView>
+    const renderScrollableList = <T extends string>(
+        options: readonly { value: T; label: string; description?: string; trailing?: string }[],
+        selectedValue: T | null,
+        onSelect: (value: T) => void,
+    ) => (
+        <ScrollToSelectedList
+            style={styles.modelListScroll}
+            contentContainerStyle={styles.modelListContent}
+            selectedValue={selectedValue}
+            renderItems={(onItemLayout) => renderRadioOptions(options, selectedValue, onSelect, onItemLayout)}
+        />
     );
+
     // Narrow layout: the effort is a dropdown row, so the model list keeps the height.
     const renderEffortDropdown = <T extends string>(
         options: readonly { value: T; label: string }[],
@@ -1745,7 +1756,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderScrollableList(renderRadioOptions(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange))}
+                                                {renderScrollableList(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange)}
                                             </>
                                         );
                                         const fastModeRow = (
@@ -1764,27 +1775,27 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 </View>
                                             </View>
                                         );
-                                        // Wide screens with a reasoning selection: show effort beside the model list.
-                                        if (hasEffort && isWideModelLayout) {
+                                        // Wide screens: effort sits beside the model list. The list keeps its place in the tree
+                                        // whether or not the effort column exists, so it is not rebuilt (and its scroll position
+                                        // lost) when the picked model changes between having effort and not.
+                                        if (isWideModelLayout) {
                                             return (
                                                 <>
                                                     <View style={styles.modelColumns}>
                                                         <View style={styles.modelColumn}>
-                                                            {renderScrollableList(renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange))}
+                                                            {renderScrollableList(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
                                                         </View>
-                                                        <View style={styles.overlayColumnDivider} />
-                                                        <View style={styles.modelColumn}>
-                                                            {reasoningColumn}
-                                                        </View>
+                                                        {hasEffort && <View style={styles.overlayColumnDivider} />}
+                                                        {hasEffort && <View style={styles.modelColumn}>{reasoningColumn}</View>}
                                                     </View>
-                                                    <View style={styles.overlayDivider} />
-                                                    {fastModeRow}
+                                                    {hasEffort && <View style={styles.overlayDivider} />}
+                                                    {hasEffort && fastModeRow}
                                                 </>
                                             );
                                         }
                                         return (
                                             <>
-                                                {renderScrollableList(renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange))}
+                                                {renderScrollableList(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
                                                 {hasEffort && (
                                                     <>
                                                         <View style={styles.overlayDivider} />
@@ -1802,7 +1813,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderScrollableList(renderRadioOptions(claudeReasoningOptions, claudeSelection.effort, handleClaudeReasoningChange))}
+                                                {renderScrollableList(claudeReasoningOptions, claudeSelection.effort, handleClaudeReasoningChange)}
                                             </>
                                         );
                                         const oneMillionRow = claudeShow1MToggle ? (
@@ -1837,17 +1848,15 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 </View>
                                             </>
                                         ) : null;
-                                        if (hasEffort && isWideModelLayout) {
+                                        if (isWideModelLayout) {
                                             return (
                                                 <>
                                                     <View style={styles.modelColumns}>
                                                         <View style={styles.modelColumn}>
-                                                            {renderScrollableList(renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange))}
+                                                            {renderScrollableList(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange)}
                                                         </View>
-                                                        <View style={styles.overlayColumnDivider} />
-                                                        <View style={styles.modelColumn}>
-                                                            {reasoningColumn}
-                                                        </View>
+                                                        {hasEffort && <View style={styles.overlayColumnDivider} />}
+                                                        {hasEffort && <View style={styles.modelColumn}>{reasoningColumn}</View>}
                                                     </View>
                                                     {oneMillionRow}
                                                 </>
@@ -1855,7 +1864,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         }
                                         return (
                                             <>
-                                                {renderScrollableList(renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange))}
+                                                {renderScrollableList(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange)}
                                                 {hasEffort && (
                                                     <>
                                                         <View style={styles.overlayDivider} />
@@ -1871,26 +1880,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderScrollableList(renderRadioOptions(qoderEffortOptions, qoderEffort, handleQoderEffortChange))}
+                                                {renderScrollableList(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
                                             </>
                                         );
-                                        if (qoderEffortOptions.length > 0 && isWideModelLayout) {
+                                        const hasEffort = qoderEffortOptions.length > 0;
+                                        if (isWideModelLayout) {
                                             return (
                                                 <View style={styles.modelColumns}>
                                                     <View style={styles.modelColumn}>
-                                                        {renderScrollableList(renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange))}
+                                                        {renderScrollableList(modelOptions, qoderSelection.model, handleQoderModelChange)}
                                                     </View>
-                                                    <View style={styles.overlayColumnDivider} />
-                                                    <View style={styles.modelColumn}>
-                                                        {reasoningColumn}
-                                                    </View>
+                                                    {hasEffort && <View style={styles.overlayColumnDivider} />}
+                                                    {hasEffort && <View style={styles.modelColumn}>{reasoningColumn}</View>}
                                                 </View>
                                             );
                                         }
                                         return (
                                             <>
-                                                {renderScrollableList(renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange))}
-                                                {qoderEffortOptions.length > 0 && (
+                                                {renderScrollableList(modelOptions, qoderSelection.model, handleQoderModelChange)}
+                                                {hasEffort && (
                                                     <>
                                                         <View style={styles.overlayDivider} />
                                                         {renderEffortDropdown(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
@@ -1899,7 +1907,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             </>
                                         );
                                     })() : (
-                                        renderScrollableList(renderRadioOptions(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v)))
+                                        renderScrollableList(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v))
                                     )}
                                 </View>}
 
