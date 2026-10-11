@@ -1,6 +1,7 @@
-import Fuse from 'fuse.js';
 import { getSession, storage } from './storage';
 import type { SessionCapabilities } from './storageTypes';
+import { getRecentSuggestions } from './recentSuggestions';
+import { rankSuggestions } from './suggestionRanking';
 
 export type SkillScope = 'REPO' | 'USER' | 'ADMIN' | 'SYSTEM';
 
@@ -18,7 +19,7 @@ interface SearchOptions {
     threshold?: number;
 }
 
-function getSkillsFromSession(sessionId: string): SkillItem[] {
+export function getSkillsFromSession(sessionId: string): SkillItem[] {
     const capabilities = storage.getState().sessionCapabilities[sessionId]?.capabilities;
     if (capabilities?.skills) {
         return capabilities.skills;
@@ -37,42 +38,37 @@ export function searchSkills(
     query: string,
     options: SearchOptions = {}
 ): SkillItem[] {
-    return searchSkillItems(getSkillsFromSession(sessionId), query, options);
+    return searchSkillItems(getSkillsFromSession(sessionId), query, getSession(sessionId)?.metadata?.flavor ?? 'claude', options);
 }
 
 // Searches the skills discovered for a session that has not started yet
 export function searchCapabilitySkills(
     capabilities: SessionCapabilities,
+    agent: string,
     query: string,
     options: SearchOptions = {}
 ): SkillItem[] {
-    return searchSkillItems(capabilities.skills ?? [], query, options);
+    return searchSkillItems(capabilities.skills ?? [], query, agent, options);
 }
 
 function searchSkillItems(
     skills: SkillItem[],
     query: string,
+    agent: string,
     options: SearchOptions
 ): SkillItem[] {
-    const { limit, threshold = 0.35 } = options;
-
-    if (!query || query.trim().length === 0) {
-        return limit ? skills.slice(0, limit) : skills;
-    }
-
-    const fuse = new Fuse(skills, {
-        keys: [
+    return rankSuggestions(skills, query, {
+        name: (skill) => skill.name,
+        recentKey: (skill) => `$${skill.name}`,
+        otherText: (skill) => [skill.displayName, skill.description, skill.shortDescription],
+        fuzzyKeys: [
             { name: 'name', weight: 0.45 },
             { name: 'displayName', weight: 0.25 },
             { name: 'description', weight: 0.2 },
             { name: 'shortDescription', weight: 0.1 },
         ],
-        threshold,
-        includeScore: true,
-        shouldSort: true,
-        minMatchCharLength: 1,
-        ignoreLocation: true,
+        recent: getRecentSuggestions(agent),
+        threshold: options.threshold ?? 0.35,
+        limit: options.limit,
     });
-
-    return fuse.search(query, limit ? { limit } : undefined).map(result => result.item);
 }

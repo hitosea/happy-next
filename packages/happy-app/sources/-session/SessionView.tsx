@@ -28,6 +28,7 @@ import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClau
 import { storage, useIsDataReady, useLocalSetting, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
 import { useSession } from '@/sync/storage';
 import { useInputHistory } from '@/hooks/useInputHistory';
+import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useQoderModels } from '@/hooks/useQoderModels';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -1324,6 +1325,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
                     // Remembered before the send resolves so a failed message can still be recalled.
                     rememberSentInput(messageToSend);
+                    rememberSentSuggestions(session.metadata?.flavor ?? 'claude', messageToSend);
 
                     const imagesToSend = images.length > 0 ? [...images] : undefined;
                     const contentForRetry = messageToSend + JSON.stringify(imagesToSend || []) + JSON.stringify(attachments);

@@ -171,6 +171,29 @@ export function saveInputHistory(history: string[]) {
     }
 }
 
+// Slash commands and `$` skills sent per agent (newest first), so autocomplete can offer them first.
+const RECENT_SUGGESTIONS_KEY = 'recent-suggestions-v1';
+
+export function loadRecentSuggestions(): Record<string, string[]> {
+    try {
+        const raw = mmkv.getString(RECENT_SUGGESTIONS_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (e) {
+        console.error('Failed to parse recent suggestions', e);
+        return {};
+    }
+}
+
+export function saveRecentSuggestions(recent: Record<string, string[]>) {
+    try {
+        mmkv.set(RECENT_SUGGESTIONS_KEY, JSON.stringify(recent));
+    } catch (e) {
+        console.error('Failed to save recent suggestions', e);
+    }
+}
+
 export function loadAskUserQuestionDrafts(now: number = Date.now()): AskUserQuestionDraftMap {
     try {
         const raw = mmkv.getString(ASK_USER_QUESTION_DRAFTS_KEY);

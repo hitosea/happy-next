@@ -3,9 +3,10 @@
  * Reads commands directly from session metadata storage
  */
 
-import Fuse from 'fuse.js';
 import { getSession, storage } from './storage';
 import type { SessionCapabilities } from './storageTypes';
+import { getRecentSuggestions } from './recentSuggestions';
+import { rankSuggestions } from './suggestionRanking';
 
 export type CommandScope = 'REPO' | 'USER' | 'PLUGIN' | 'SYSTEM';
 export type CommandKind = 'command' | 'skill';
@@ -201,19 +202,15 @@ export async function searchCommands(
         return limit ? filtered.slice(0, limit) : filtered;
     }
 
-    return fuzzySearchCommands(commands, query, { limit, threshold });
+    return rankCommands(commands, query, session?.metadata?.flavor ?? 'claude', { limit, threshold });
 }
 
 /**
- * Searches the commands discovered for a session that has not started yet. Only commands the agent
- * itself provides are included; Happy's session commands (clear, compact, duplicate, ...) need a
- * running session.
+ * The commands discovered for a session that has not started yet. Only commands the agent itself
+ * provides are included; Happy's session commands (clear, compact, duplicate, ...) need a running
+ * session.
  */
-export function searchCapabilityCommands(
-    capabilities: SessionCapabilities,
-    query: string,
-    options: SearchOptions = {}
-): CommandItem[] {
+export function getCapabilityCommands(capabilities: SessionCapabilities): CommandItem[] {
     const commands: CommandItem[] = [];
     for (const cmd of capabilities.slashCommandMetadata ?? []) {
         mergeCommand(commands, {
@@ -223,39 +220,22 @@ export function searchCapabilityCommands(
             kind: cmd.kind,
         });
     }
-    return fuzzySearchCommands(commands, query, options);
+    return commands;
 }
 
-function fuzzySearchCommands(
-    commands: CommandItem[],
-    query: string,
-    options: SearchOptions
-): CommandItem[] {
-    const { limit, threshold = 0.3 } = options;
-
-    if (!query || query.trim().length === 0) {
-        return limit ? commands.slice(0, limit) : commands;
-    }
-
-    const fuseOptions = {
-        keys: [
+function rankCommands(commands: CommandItem[], query: string, agent: string, options: SearchOptions): CommandItem[] {
+    return rankSuggestions(commands, query, {
+        name: (item) => item.command,
+        recentKey: (item) => `/${item.command}`,
+        otherText: (item) => [item.description],
+        fuzzyKeys: [
             { name: 'command', weight: 0.7 },
             { name: 'description', weight: 0.3 }
         ],
-        threshold,
-        includeScore: true,
-        shouldSort: true,
-        minMatchCharLength: 1,
-        ignoreLocation: true,
-        useExtendedSearch: true
-    };
-
-    const fuse = new Fuse(commands, fuseOptions);
-    const results = limit
-        ? fuse.search(query, { limit })
-        : fuse.search(query);
-
-    return results.map(result => result.item);
+        recent: getRecentSuggestions(agent),
+        threshold: options.threshold ?? 0.3,
+        limit: options.limit,
+    });
 }
 
 // Get all available commands for a session

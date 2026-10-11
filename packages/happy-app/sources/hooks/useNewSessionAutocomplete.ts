@@ -45,8 +45,8 @@ export function useNewSessionAutocomplete(
 
     const suggestions = React.useCallback(async (query: string) => {
         const capabilities = await load();
-        return capabilities ? getNewSessionSuggestions(capabilities, query) : [];
-    }, [load]);
+        return capabilities ? getNewSessionSuggestions(capabilities, agent, query) : [];
+    }, [load, agent]);
 
     const prefixes = React.useMemo(() => agent === 'codex' ? ['/', '$'] : ['/'], [agent]);
 

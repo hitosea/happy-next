@@ -39,6 +39,7 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { useFileAttachments } from '@/hooks/useFileAttachments';
 import { ScheduleMessageSheet } from '@/components/ScheduleMessageSheet';
 import { useInputHistory } from '@/hooks/useInputHistory';
+import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
@@ -752,6 +753,7 @@ function NewSessionWizard() {
 
         if (promptToSend) {
             rememberSentInput(promptToSend);
+            rememberSentSuggestions(agentType, promptToSend);
         }
 
         setIsCreating(true);

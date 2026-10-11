@@ -1,11 +1,13 @@
 import { CommandSuggestion, FileMentionSuggestion, SkillSuggestion } from '@/components/AgentInputSuggestionView';
 import * as React from 'react';
 import { searchFiles, FileItem } from '@/sync/suggestionFile';
-import { searchCommands, searchCapabilityCommands, CommandItem } from '@/sync/suggestionCommands';
-import { searchSkills, searchCapabilitySkills, SkillItem } from '@/sync/suggestionSkills';
+import { searchCommands, getAllCommands, getCapabilityCommands, CommandItem } from '@/sync/suggestionCommands';
+import { searchSkills, searchCapabilitySkills, getSkillsFromSession, SkillItem } from '@/sync/suggestionSkills';
+import { getRecentSuggestions } from '@/sync/recentSuggestions';
+import { rankSuggestions } from '@/sync/suggestionRanking';
 import type { SessionCapabilities } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
-import { storage } from '@/sync/storage';
+import { getSession, storage } from '@/sync/storage';
 
 
 const capabilitiesFetches = new Map<string, Promise<void>>();
@@ -63,6 +65,47 @@ function toSkillSuggestions(skills: SkillItem[], options: { showSkillCategory?: 
             showSkillCategory: options.showSkillCategory,
         })
     }));
+}
+
+type SlashEntry = {
+    name: string;
+    recentKey: string;
+    otherText: (string | undefined)[];
+    suggestion: Suggestion;
+};
+
+/**
+ * What `/` offers: commands and skills ranked together as one list, so neither kind is pushed
+ * below the other wholesale and recently sent ones of either kind can lead.
+ */
+function rankSlashSuggestions(commands: CommandItem[], skills: SkillItem[], agent: string, searchTerm: string): Suggestion[] {
+    const commandSuggestions = toCommandSuggestions(commands);
+    const skillSuggestions = toSkillSuggestions(skills, { showSkillCategory: true });
+    const entries: SlashEntry[] = [
+        ...commands.map((cmd, i) => ({
+            name: cmd.command,
+            recentKey: `/${cmd.command}`,
+            otherText: [cmd.description],
+            suggestion: commandSuggestions[i],
+        })),
+        ...skills.map((skill, i) => ({
+            name: skill.name,
+            recentKey: `$${skill.name}`,
+            otherText: [skill.displayName, skill.shortDescription, skill.description],
+            suggestion: skillSuggestions[i],
+        })),
+    ];
+    return rankSuggestions(entries, searchTerm, {
+        name: (entry) => entry.name,
+        recentKey: (entry) => entry.recentKey,
+        otherText: (entry) => entry.otherText,
+        fuzzyKeys: [
+            { name: 'name', weight: 0.7 },
+            { name: 'otherText', weight: 0.3 },
+        ],
+        recent: getRecentSuggestions(agent),
+        threshold: 0.3,
+    }).map((entry) => entry.suggestion);
 }
 
 export async function getCommandSuggestions(sessionId: string, query: string): Promise<{
@@ -136,17 +179,21 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
     }
 
     if (query.startsWith('/')) {
-        const commands = await getCommandSuggestions(sessionId, query);
-
         // Once a root command has been followed by whitespace, command search owns
         // the rest of the query: it may return that command's subcommands, or no
         // suggestions when the command only accepts free-form arguments.
         if (/\s/.test(query)) {
-            return commands;
+            return getCommandSuggestions(sessionId, query);
         }
 
-        const skills = await getSkillSuggestions(sessionId, query, { showSkillCategory: true });
-        return [...commands, ...skills];
+        try {
+            await ensureSessionCapabilities(sessionId);
+            const agent = getSession(sessionId)?.metadata?.flavor ?? 'claude';
+            return rankSlashSuggestions(getAllCommands(sessionId), getSkillsFromSession(sessionId), agent, query.slice(1));
+        } catch (error) {
+            console.error('Error fetching slash suggestions:', error);
+            return [];
+        }
     }
 
     if (query.startsWith('$')) {
@@ -164,7 +211,7 @@ export async function getSuggestions(sessionId: string, query: string): Promise<
  * Suggestions for the new-session screen, where no session exists yet: commands and skills come
  * from capabilities the daemon discovered for the chosen directory and agent.
  */
-export function getNewSessionSuggestions(capabilities: SessionCapabilities, query: string): Suggestion[] {
+export function getNewSessionSuggestions(capabilities: SessionCapabilities, agent: string, query: string): Suggestion[] {
     const searchTerm = query.slice(1);
 
     if (query.startsWith('/')) {
@@ -172,14 +219,11 @@ export function getNewSessionSuggestions(capabilities: SessionCapabilities, quer
         if (/\s/.test(query)) {
             return [];
         }
-        return [
-            ...toCommandSuggestions(searchCapabilityCommands(capabilities, searchTerm)),
-            ...toSkillSuggestions(searchCapabilitySkills(capabilities, searchTerm), { showSkillCategory: true }),
-        ];
+        return rankSlashSuggestions(getCapabilityCommands(capabilities), capabilities.skills ?? [], agent, searchTerm);
     }
 
     if (query.startsWith('$')) {
-        return toSkillSuggestions(searchCapabilitySkills(capabilities, searchTerm), {});
+        return toSkillSuggestions(searchCapabilitySkills(capabilities, agent, searchTerm), {});
     }
 
     return [];
