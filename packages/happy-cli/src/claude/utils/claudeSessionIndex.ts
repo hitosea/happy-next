@@ -62,17 +62,37 @@ interface ClaudeSessionMetadataCacheEntry {
 }
 
 const CLAUDE_SESSION_METADATA_CACHE_VERSION = 2;
-const CLAUDE_SESSION_METADATA_CACHE_FILENAME = 'claude-session-metadata-cache.json';
 const CONTINUATION_PREFIX = 'This session is being continued';
 const IDE_MESSAGE_PREFIX = '<ide_';
 
-export async function saveClaudeSessionCacheStats(sessionCache: SessionCacheRuntimeStats): Promise<void> {
-    const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+/**
+ * A directory of Claude Code-format transcripts, `projects/<projectId>/<sessionId>.jsonl`.
+ * qodercli writes the same format under its own config directory.
+ */
+export interface TranscriptStore {
+    configDir: string;
+    cacheFileName: string;
+    /** Strips what a client appended to a user message before the text is shown */
+    cleanUserText: (text: string) => string;
+}
+
+export function claudeTranscriptStore(): TranscriptStore {
+    return {
+        configDir: process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'),
+        cacheFileName: 'claude-session-metadata-cache.json',
+        cleanUserText: (text) => text,
+    };
+}
+
+export async function saveClaudeSessionCacheStats(
+    sessionCache: SessionCacheRuntimeStats,
+    store: TranscriptStore = claudeTranscriptStore(),
+): Promise<void> {
     await updateSessionMetadataCacheDiagnostics({
-        cacheFileName: CLAUDE_SESSION_METADATA_CACHE_FILENAME,
+        cacheFileName: store.cacheFileName,
         cacheVersion: CLAUDE_SESSION_METADATA_CACHE_VERSION,
         scopeKey: 'claudeConfigDir',
-        scopeValue: claudeConfigDir,
+        scopeValue: store.configDir,
         sessionCache
     });
 }
@@ -156,9 +176,9 @@ function extractGitBranch(entry: any): string | null {
     return null;
 }
 
-function extractTextFromUserContent(content: unknown, skipContinuation: boolean): string | null {
+function extractTextFromUserContent(content: unknown, skipContinuation: boolean, cleanUserText: TranscriptStore['cleanUserText']): string | null {
     const sanitize = (raw: string): string | null => {
-        const text = raw.trim();
+        const text = cleanUserText(raw).trim();
         if (!text) return null;
         if (text.startsWith(IDE_MESSAGE_PREFIX)) return null;
         if (skipContinuation && text.startsWith(CONTINUATION_PREFIX)) return null;
@@ -212,12 +232,12 @@ function isSidechainBranch(nodes: Map<string, ClaudeConversationNode>, leafUuid:
     return false;
 }
 
-function getFirstMeaningfulUserMessage(transcript: ClaudeConversationNode[]): string | null {
+function getFirstMeaningfulUserMessage(transcript: ClaudeConversationNode[], cleanUserText: TranscriptStore['cleanUserText']): string | null {
     for (const node of transcript) {
         if (node.type !== 'user' || node.isMeta) continue;
-        const strictText = extractTextFromUserContent(node.userContent, true);
+        const strictText = extractTextFromUserContent(node.userContent, true, cleanUserText);
         if (strictText) return normalizeSessionTitle(strictText);
-        const fallbackText = extractTextFromUserContent(node.userContent, false);
+        const fallbackText = extractTextFromUserContent(node.userContent, false, cleanUserText);
         if (fallbackText) return normalizeSessionTitle(fallbackText);
     }
     return null;
@@ -226,7 +246,8 @@ function getFirstMeaningfulUserMessage(transcript: ClaudeConversationNode[]): st
 function pickConversationTitleFromGraph(
     nodes: Map<string, ClaudeConversationNode>,
     parentUuids: Set<string>,
-    summariesByLeaf: Map<string, string>
+    summariesByLeaf: Map<string, string>,
+    cleanUserText: TranscriptStore['cleanUserText']
 ): string | null {
     const leafUuids: string[] = [];
     for (const uuid of nodes.keys()) {
@@ -249,7 +270,7 @@ function pickConversationTitleFromGraph(
     }
 
     const transcript = getTranscript(nodes, latestLeafUuid);
-    return getFirstMeaningfulUserMessage(transcript);
+    return getFirstMeaningfulUserMessage(transcript, cleanUserText);
 }
 
 function isConversationNodeType(value: unknown): value is ClaudeConversationNodeType {
@@ -292,7 +313,7 @@ async function findFirstCwdInJsonls(projectDir: string, filenames: string[]): Pr
     return null;
 }
 
-async function parseClaudeSessionFileMetadata(jsonlPath: string): Promise<ClaudeParsedSessionFileMetadata> {
+async function parseClaudeSessionFileMetadata(jsonlPath: string, cleanUserText: TranscriptStore['cleanUserText']): Promise<ClaudeParsedSessionFileMetadata> {
     const fileStream = createReadStream(jsonlPath, { encoding: 'utf8' });
     const rl = createInterface({
         input: fileStream,
@@ -370,7 +391,7 @@ async function parseClaudeSessionFileMetadata(jsonlPath: string): Promise<Claude
         fileStream.destroy();
     }
 
-    const title = pickConversationTitleFromGraph(nodes, parentUuids, summariesByLeaf);
+    const title = pickConversationTitleFromGraph(nodes, parentUuids, summariesByLeaf, cleanUserText);
     return {
         title,
         messageCount,
@@ -452,9 +473,8 @@ function extractSessionsFromIndex(data: any): ParsedSession[] {
     return [];
 }
 
-export async function listClaudeSessionsFromIndex(): Promise<ClaudeSessionIndexEntry[]> {
-    const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-    const projectsDir = join(claudeConfigDir, 'projects');
+export async function listClaudeSessionsFromIndex(store: TranscriptStore = claudeTranscriptStore()): Promise<ClaudeSessionIndexEntry[]> {
+    const projectsDir = join(store.configDir, 'projects');
     const startedAt = new Date().toISOString();
     const startedAtMs = Date.now();
 
@@ -466,10 +486,10 @@ export async function listClaudeSessionsFromIndex(): Promise<ClaudeSessionIndexE
     }
 
     const existingCacheEntries = await loadSessionMetadataCache<ClaudeSessionMetadataCacheEntry>({
-        cacheFileName: CLAUDE_SESSION_METADATA_CACHE_FILENAME,
+        cacheFileName: store.cacheFileName,
         cacheVersion: CLAUDE_SESSION_METADATA_CACHE_VERSION,
         scopeKey: 'claudeConfigDir',
-        scopeValue: claudeConfigDir
+        scopeValue: store.configDir
     });
     const nextCacheEntries: Record<string, ClaudeSessionMetadataCacheEntry> = { ...existingCacheEntries };
     const seenCacheKeys = new Set<string>();
@@ -560,7 +580,7 @@ export async function listClaudeSessionsFromIndex(): Promise<ClaudeSessionIndexE
                 if (shouldParseFile && stats) {
                     filesReparsed++;
                     cacheMissCount++;
-                    const parsedMetadata = await parseClaudeSessionFileMetadata(filePath);
+                    const parsedMetadata = await parseClaudeSessionFileMetadata(filePath, store.cleanUserText);
                     cached = {
                         fileMtimeMs: stats.mtimeMs,
                         fileSize: stats.size,
@@ -660,10 +680,10 @@ export async function listClaudeSessionsFromIndex(): Promise<ClaudeSessionIndexE
 
     if (cacheDirty) {
         await saveSessionMetadataCache({
-            cacheFileName: CLAUDE_SESSION_METADATA_CACHE_FILENAME,
+            cacheFileName: store.cacheFileName,
             cacheVersion: CLAUDE_SESSION_METADATA_CACHE_VERSION,
             scopeKey: 'claudeConfigDir',
-            scopeValue: claudeConfigDir,
+            scopeValue: store.configDir,
             entries: nextCacheEntries,
             lastRun: {
                 startedAt,
@@ -738,10 +758,10 @@ function extractTextContent(message: any): string {
 export async function getClaudeSessionPreview(
     projectId: string,
     sessionId: string,
-    limit: number = 10
+    limit: number = 10,
+    store: TranscriptStore = claudeTranscriptStore()
 ): Promise<ClaudeSessionPreviewMessage[]> {
-    const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-    const jsonlPath = join(claudeConfigDir, 'projects', projectId, `${sessionId}.jsonl`);
+    const jsonlPath = join(store.configDir, 'projects', projectId, `${sessionId}.jsonl`);
 
     try {
         // Read the file line by line
@@ -761,7 +781,7 @@ export async function getClaudeSessionPreview(
 
                 // Only extract user and assistant messages
                 if (entry.type === 'user' && entry.message?.role === 'user') {
-                    const text = extractTextContent(entry.message);
+                    const text = store.cleanUserText(extractTextContent(entry.message));
                     if (text) {
                         allMessages.push({
                             role: 'user',
@@ -807,9 +827,8 @@ export interface ClaudeUserMessageWithUuid {
  * Find the project ID for a given session ID by scanning the projects directory
  * Returns null if the session is not found
  */
-export async function findClaudeProjectId(sessionId: string): Promise<string | null> {
-    const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-    const projectsDir = join(claudeConfigDir, 'projects');
+export async function findClaudeProjectId(sessionId: string, store: TranscriptStore = claudeTranscriptStore()): Promise<string | null> {
+    const projectsDir = join(store.configDir, 'projects');
 
     let dirents: Dirent[];
     try {
@@ -853,9 +872,9 @@ export async function getClaudeSessionUserMessages(
 export async function readAllClaudeSessionUserMessages(
     projectId: string,
     sessionId: string,
+    store: TranscriptStore = claudeTranscriptStore(),
 ): Promise<ClaudeUserMessageWithUuid[]> {
-    const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-    const jsonlPath = join(claudeConfigDir, 'projects', projectId, `${sessionId}.jsonl`);
+    const jsonlPath = join(store.configDir, 'projects', projectId, `${sessionId}.jsonl`);
 
     try {
         const fileStream = createReadStream(jsonlPath, { encoding: 'utf8' });
@@ -882,7 +901,7 @@ export async function readAllClaudeSessionUserMessages(
                     }
                     seenUuids.add(entry.uuid);
 
-                    const text = extractTextContent(entry.message);
+                    const text = store.cleanUserText(extractTextContent(entry.message));
                     if (text) {
                         allUserMessages.push({
                             uuid: entry.uuid,

@@ -52,6 +52,8 @@ Model descriptions are Qoder's own. Happy shows the copy `qodercli` last downloa
 
 Happy stores the Qoder session ID, shown on the session info screen. Copying, resuming, or upgrading a Qoder session forks the conversation in Qoder, so the new session keeps the context and the original stays untouched.
 
+The **Qoder** tab of the session history lists the conversations saved on the machine (`~/.qoder/projects`, or `~/.qoder-cn/` for `qoderclicn`), including ones started outside Happy. `/duplicate` or the fork button on a message starts a new session from an earlier point of the conversation.
+
 ## How it works
 
 Happy spawns `qodercli --acp` and communicates through the Agent Client Protocol (ACP). Mobile control, voice, image attachments, and orchestrator tasks work with Qoder sessions.

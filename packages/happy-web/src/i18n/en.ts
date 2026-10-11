@@ -1,6 +1,6 @@
 export default {
   meta: {
-    title: 'Happy Next — Mobile & Web Client for Claude Code, Codex & Gemini',
+    title: 'Happy Next — Mobile & Web Client for Claude Code, Codex, Gemini & Qoder',
     description: 'Control AI coding agents from your phone. Free, open source, end-to-end encrypted.',
   },
   nav: {
@@ -10,7 +10,7 @@ export default {
   },
   hero: {
     title: 'Control AI Coding Agents\nFrom Anywhere',
-    subtitle: 'Mobile and web client for Claude Code, Codex & Gemini.\nEnd-to-end encrypted. Open source. Self-hostable.',
+    subtitle: 'Mobile and web client for Claude Code, Codex, Gemini & Qoder.\nEnd-to-end encrypted. Open source. Self-hostable.',
     cta: 'Get Started',
     ctaSecondary: 'View on GitHub',
   },
@@ -38,7 +38,7 @@ export default {
     items: [
       {
         title: 'Multi-Agent Control',
-        description: 'Claude Code, Codex, and Gemini as first-class agents — session resume, model selection, and cost tracking.',
+        description: 'Claude Code, Codex, Gemini, and Qoder as first-class agents — session resume, model selection, and cost tracking.',
       },
       {
         title: 'Orchestrator',
@@ -71,11 +71,12 @@ export default {
     ],
   },
   multiAgent: {
-    title: 'Three Agents. One App.',
-    subtitle: 'Happy Next treats Claude Code, Codex, and Gemini as equal first-class agents.',
+    title: 'Four Agents. One App.',
+    subtitle: 'Happy Next treats Claude Code, Codex, Gemini, and Qoder as equal first-class agents.',
     claude: { name: 'Claude Code', description: 'Anthropic\'s coding agent with deep reasoning.' },
     codex: { name: 'Codex', description: 'OpenAI\'s CLI agent for code generation.' },
     gemini: { name: 'Gemini CLI', description: 'Google\'s AI agent for the terminal.' },
+    qoder: { name: 'Qoder CLI', description: 'Qoder\'s agentic coding assistant for the terminal.' },
   },
   download: {
     title: 'Get the App',

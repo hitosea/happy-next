@@ -1,6 +1,6 @@
 export default {
   meta: {
-    title: 'Happy Next — Claude Code、Codex 和 Gemini 的移动端与网页客户端',
+    title: 'Happy Next — Claude Code、Codex、Gemini 和 Qoder 的移动端与网页客户端',
     description: '用手机控制 AI 编程助手，免费、开源、端到端加密。',
   },
   nav: {
@@ -10,7 +10,7 @@ export default {
   },
   hero: {
     title: '随时随地控制\nAI 编程助手',
-    subtitle: 'Claude Code、Codex 和 Gemini 的移动端与网页客户端。\n端到端加密，开源，支持私有化部署。',
+    subtitle: 'Claude Code、Codex、Gemini 和 Qoder 的移动端与网页客户端。\n端到端加密，开源，支持私有化部署。',
     cta: '快速开始',
     ctaSecondary: '查看源码',
   },
@@ -38,7 +38,7 @@ export default {
     items: [
       {
         title: '多 Agent 控制',
-        description: 'Claude Code、Codex 和 Gemini 三大 Agent 一等公民 — 会话恢复、模型选择、费用追踪。',
+        description: 'Claude Code、Codex、Gemini 和 Qoder 四大 Agent 一等公民 — 会话恢复、模型选择、费用追踪。',
       },
       {
         title: '编排器',
@@ -71,11 +71,12 @@ export default {
     ],
   },
   multiAgent: {
-    title: '三大 Agent，一个应用',
-    subtitle: 'Happy Next 将 Claude Code、Codex 和 Gemini 视为同等的一等公民。',
+    title: '四大 Agent，一个应用',
+    subtitle: 'Happy Next 将 Claude Code、Codex、Gemini 和 Qoder 视为同等的一等公民。',
     claude: { name: 'Claude Code', description: 'Anthropic 深度推理编程助手。' },
     codex: { name: 'Codex', description: 'OpenAI 命令行代码生成助手。' },
     gemini: { name: 'Gemini CLI', description: 'Google AI 终端助手。' },
+    qoder: { name: 'Qoder CLI', description: 'Qoder 的终端智能编程助手。' },
   },
   download: {
     title: '获取应用',

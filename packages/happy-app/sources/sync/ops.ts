@@ -256,7 +256,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 /** Unified session entry type for multi-agent history browser */
 export interface AgentSessionIndexEntry {
     sessionId: string;
-    agent: 'claude' | 'gemini' | 'codex';
+    agent: 'claude' | 'gemini' | 'codex' | 'qoder';
     originalPath: string | null;
     title?: string | null;
     updatedAt?: number;
@@ -1473,6 +1473,86 @@ export async function machineForkQoderSession(
             errorMessage: error instanceof Error ? error.message : 'Unknown RPC error'
         };
     }
+}
+
+/**
+ * Duplicate a Qoder conversation up to, not including, the user message `truncateBeforeUuid`
+ */
+export async function machineDuplicateQoderSession(
+    machineId: string,
+    sessionId: string,
+    directory: string,
+    truncateBeforeUuid: string
+): Promise<{ success: boolean; newSessionId?: string; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string; truncateBeforeUuid: string }>(
+            machineId, 'qoder-duplicate-session', { sessionId, directory, truncateBeforeUuid }, 60000
+        );
+        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
+        if (result.error) return { success: false, errorMessage: result.error };
+        return { success: result.success ?? false, newSessionId: result.newSessionId, errorMessage: result.errorMessage };
+    } catch (error) {
+        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
+    }
+}
+
+export async function machineGetQoderSessionUserMessages(
+    machineId: string,
+    sessionId: string,
+    options?: { limit?: number; beforeIndex?: number }
+): Promise<UserMessagePage> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; limit: number; beforeIndex?: number; preview: boolean }>(
+        machineId, 'qoder-session-user-messages', { sessionId, limit: options?.limit ?? 100, beforeIndex: options?.beforeIndex, preview: true }, 15000
+    );
+    if (!result) throw new Error('RPC returned empty response');
+    if (result.error) throw new Error(result.error);
+    return {
+        messages: Array.isArray(result.messages) ? result.messages : [],
+        hasMore: result.hasMore === true,
+        nextBeforeIndex: typeof result.nextBeforeIndex === 'number' ? result.nextBeforeIndex : null,
+    };
+}
+
+export async function machineResolveQoderForkTarget(machineId: string, sessionId: string, text: string, createdAt: number): Promise<ResolvedForkTarget | null> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; text: string; createdAt: number }>(machineId, 'qoder-resolve-fork-target', { sessionId, text, createdAt });
+    if (result?.error) throw new Error(result.error);
+    return result?.message ?? null;
+}
+
+export async function machineGetQoderSessionUserMessage(machineId: string, sessionId: string, uuid: string): Promise<UserMessageWithUuid | null> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; uuid: string }>(machineId, 'qoder-session-user-message', { sessionId, uuid });
+    if (result?.error) throw new Error(result.error);
+    return result?.message ?? null;
+}
+
+/**
+ * List the Qoder conversations saved on a machine
+ */
+export async function machineListQoderSessions(
+    machineId: string,
+    options?: { offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }
+): Promise<{ sessions: AgentSessionIndexEntry[]; total: number; fromCache?: boolean }> {
+    const result = await apiSocket.machineRPC<any, { offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }>(
+        machineId, 'qoder-list-sessions', { offset: options?.offset, limit: options?.limit, query: options?.query, waitForRefresh: options?.waitForRefresh }, 30000
+    );
+    if (!result) throw new Error('RPC returned empty response');
+    if (result.error) throw new Error(result.error);
+    if (!Array.isArray(result.sessions)) return { sessions: [], total: 0 };
+    const sessions: AgentSessionIndexEntry[] = result.sessions.map((s: any) => ({ ...s, agent: 'qoder' as const }));
+    return { sessions, total: typeof result.total === 'number' ? result.total : sessions.length, fromCache: result.fromCache };
+}
+
+export async function machineGetQoderSessionPreview(
+    machineId: string,
+    sessionId: string,
+    options?: { limit?: number }
+): Promise<{ messages: SessionPreviewMessage[] }> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; limit: number }>(
+        machineId, 'qoder-session-preview', { sessionId, limit: options?.limit ?? 10 }, 10000
+    );
+    if (!result) throw new Error('RPC returned empty response');
+    if (result.error) throw new Error(result.error);
+    return { messages: Array.isArray(result.messages) ? result.messages : [] };
 }
 
 /**

@@ -220,7 +220,7 @@ export const en = {
         history: 'History',
         sessionHistorySubtitle: 'View past Happy sessions',
         claudeSessionsSubtitle: 'Browse Claude CLI sessions on this device',
-        agentHistorySubtitle: 'Browse Claude, Codex, and Gemini session history',
+        agentHistorySubtitle: 'Browse Claude, Codex, Gemini, and Qoder session history',
         orchestratorRuns: 'Orchestrator Runs',
         orchestratorRunsSubtitle: 'View multi-session orchestration progress and results',
         orchestratorRunDetails: 'Run Details',

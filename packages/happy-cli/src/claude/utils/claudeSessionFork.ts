@@ -109,7 +109,7 @@ export async function forkAndTruncateSession(
  * Truncate a session JSONL file by removing all lines from a specific UUID onwards
  * The line with the UUID and all subsequent lines are removed
  */
-async function truncateSessionFile(
+export async function truncateSessionFile(
     jsonlPath: string,
     truncateBeforeUuid: string
 ): Promise<{ success: boolean; errorMessage?: string }> {

@@ -221,7 +221,7 @@ export const pt: TranslationStructure = {
         history: 'History',
         sessionHistorySubtitle: 'View past Happy sessions',
         claudeSessionsSubtitle: 'Browse Claude CLI sessions on this device',
-        agentHistorySubtitle: 'Browse Claude, Codex, and Gemini session history',
+        agentHistorySubtitle: 'Browse Claude, Codex, Gemini, and Qoder session history',
         orchestratorRuns: 'Orquestrador',
         orchestratorRunsSubtitle: 'Ver o progresso e os resultados da orquestração multissessão',
         orchestratorRunDetails: 'Detalhes da execução',

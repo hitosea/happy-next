@@ -17,6 +17,7 @@ import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessio
 import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, saveGeminiSessionCacheStats } from '@/gemini/utils/sessionReader';
 import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/sessionFork';
 import { forkQoderSession, listQoderModels } from '@/qoder/sessions';
+import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
 import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
 import { forkCodexSession, forkAndTruncateCodexSession } from '@/codex/utils/codexSessionFork';
@@ -191,6 +192,13 @@ export class ApiMachineClient {
         onStatsChanged: createSessionCacheStatsReporter(saveCodexSessionCacheStats, 'codex'),
     });
 
+    private qoderCache = new SessionCache({
+        loader: () => listClaudeSessionsFromIndex(qoderTranscriptStore()),
+        staleTTL: 30_000,
+        matchFn: (s, q) => matchFields(q, [s.sessionId, s.title, s.originalPath]),
+        onStatsChanged: createSessionCacheStatsReporter((stats) => saveClaudeSessionCacheStats(stats, qoderTranscriptStore()), 'qoder'),
+    });
+
     private codexArchiveLock = new AsyncLock();
 
     constructor(
@@ -256,6 +264,7 @@ export class ApiMachineClient {
                     this.claudeCache.invalidate();
                     this.geminiCache.invalidate();
                     this.codexCache.invalidate();
+                    this.qoderCache.invalidate();
                     logger.debug(`[API MACHINE] Spawned session ${result.sessionId}`);
                     return { type: 'success', sessionId: result.sessionId };
 
@@ -344,6 +353,7 @@ export class ApiMachineClient {
             this.claudeCache.invalidate();
             this.geminiCache.invalidate();
             this.codexCache.invalidate();
+            this.qoderCache.invalidate();
 
             logger.debug(`[API MACHINE] Stopped session ${sessionId}`);
             return { message: 'Session stopped' };
@@ -652,6 +662,72 @@ export class ApiMachineClient {
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }
+        });
+
+        // Copy a Qoder conversation up to a user message, for the duplicate feature
+        this.rpcHandlerManager.registerHandler('qoder-duplicate-session', async (params: any) => {
+            const { sessionId, directory, truncateBeforeUuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string' || !directory || typeof directory !== 'string') {
+                throw new Error('sessionId and directory are required');
+            }
+            if (!truncateBeforeUuid || typeof truncateBeforeUuid !== 'string') {
+                throw new Error('truncateBeforeUuid is required');
+            }
+            try {
+                return { success: true, newSessionId: await duplicateQoderSession(sessionId, directory, truncateBeforeUuid) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            } finally {
+                this.qoderCache.invalidate();
+            }
+        });
+
+        // Qoder keeps Claude Code's transcript format, so Claude's readers serve it from Qoder's directory
+        this.rpcHandlerManager.registerHandler('qoder-list-sessions', async (params: any) => {
+            const offset = typeof params?.offset === 'number' && params.offset >= 0 ? Math.floor(params.offset) : 0;
+            const limit = typeof params?.limit === 'number' && params.limit > 0 ? Math.floor(params.limit) : 50;
+            const query = typeof params?.query === 'string' ? params.query : undefined;
+            const waitForRefresh = params?.waitForRefresh === true;
+            return this.qoderCache.list({ offset, limit, query, waitForRefresh });
+        });
+
+        this.rpcHandlerManager.registerHandler('qoder-session-preview', async (params: any) => {
+            const { sessionId, limit = 10 } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') {
+                throw new Error('sessionId is required');
+            }
+            const store = qoderTranscriptStore();
+            const projectId = await findClaudeProjectId(sessionId, store);
+            if (!projectId) {
+                return { messages: [] };
+            }
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 50) : 10;
+            return { messages: await getClaudeSessionPreview(projectId, sessionId, messageLimit, store) };
+        });
+
+        this.rpcHandlerManager.registerHandler('qoder-session-user-messages', async (params: any) => {
+            const { sessionId, limit = 100, beforeIndex, preview } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') {
+                throw new Error('sessionId is required');
+            }
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 100) : 100;
+            return paginateSessionUserMessages(await readAllQoderSessionUserMessages(sessionId), messageLimit, beforeIndex, preview === true);
+        });
+
+        this.rpcHandlerManager.registerHandler('qoder-resolve-fork-target', async (params: any) => {
+            const { sessionId, text, createdAt } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (typeof text !== 'string') throw new Error('text is required');
+            const message = resolveSessionUserMessage(await readAllQoderSessionUserMessages(sessionId), { text, createdAt });
+            return { message: message ? { uuid: message.uuid, timestamp: message.timestamp, index: message.index } : null };
+        });
+
+        this.rpcHandlerManager.registerHandler('qoder-session-user-message', async (params: any) => {
+            const { sessionId, uuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (!uuid || typeof uuid !== 'string') throw new Error('uuid is required');
+            const messages = await readAllQoderSessionUserMessages(sessionId);
+            return { message: messages.find((message) => message.uuid === uuid) ?? null };
         });
 
         // Models the signed-in Qoder account offers, with their efforts, for the app's model picker

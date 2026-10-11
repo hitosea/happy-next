@@ -220,7 +220,7 @@ export const it: TranslationStructure = {
         history: 'History',
         sessionHistorySubtitle: 'View past Happy sessions',
         claudeSessionsSubtitle: 'Browse Claude CLI sessions on this device',
-        agentHistorySubtitle: 'Browse Claude, Codex, and Gemini session history',
+        agentHistorySubtitle: 'Browse Claude, Codex, Gemini, and Qoder session history',
         orchestratorRuns: 'Orchestratore',
         orchestratorRunsSubtitle: 'Visualizza lo stato e i risultati dell\'orchestrazione multisessione',
         orchestratorRunDetails: 'Dettagli esecuzione',

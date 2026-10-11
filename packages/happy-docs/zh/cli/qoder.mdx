@@ -52,6 +52,8 @@ Qoder 的模型列表因账号而异，Happy 会向你机器上的 CLI 查询。
 
 Happy 会保存 Qoder 会话 ID（显示在会话信息页）。复制、恢复或升级 Qoder 会话时会在 Qoder 中分叉对话，新会话保留上下文，原会话不受影响。
 
+会话历史的 **Qoder** 标签列出机器上保存的对话（`~/.qoder/projects`，`qoderclicn` 为 `~/.qoder-cn/`），包括不是通过 Happy 启动的对话。`/duplicate` 或消息上的分叉按钮可以从对话中较早的位置开始新会话。
+
 ## 工作原理
 
 Happy 使用 Agent Client Protocol (ACP) 启动 `qodercli --acp` 并通过该协议通信。移动端控制、语音、图片附件和编排任务均适用于 Qoder 会话。
