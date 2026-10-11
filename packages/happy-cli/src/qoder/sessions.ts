@@ -1,5 +1,5 @@
 /**
- * Qoder session operations for the app's copy flow and new-session model picker.
+ * Qoder session operations for the app's copy flow and new-session pickers.
  *
  * qodercli has no plain command for these, so each call starts a short-lived
  * `qodercli --acp`, uses the ACP method and exits.
@@ -7,7 +7,7 @@
 
 import { spawn } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
-import { ClientSideConnection, ndJsonStream } from '@agentclientprotocol/sdk';
+import { ClientSideConnection, ndJsonStream, type AvailableCommand, type SessionNotification } from '@agentclientprotocol/sdk';
 import { logger } from '@/ui/logger';
 import type { Metadata } from '@/api/types';
 import { mergeAcpSessionConfigIntoMetadata } from '@/agent/acp/sessionConfigMetadata';
@@ -15,7 +15,11 @@ import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants'
 
 const QODER_SESSION_OP_TIMEOUT_MS = 30_000;
 
-async function withQoderConnection<T>(cwd: string, run: (connection: ClientSideConnection) => Promise<T>): Promise<T> {
+async function withQoderConnection<T>(
+  cwd: string,
+  run: (connection: ClientSideConnection) => Promise<T>,
+  onSessionUpdate: (notification: SessionNotification) => void = () => {},
+): Promise<T> {
   const child = spawn(resolveQoderCommand(), ['--acp'], {
     cwd,
     env: { ...process.env, ...QODER_SDK_ISOLATION_ENV },
@@ -30,7 +34,7 @@ async function withQoderConnection<T>(cwd: string, run: (connection: ClientSideC
 
   const connection = new ClientSideConnection(
     () => ({
-      sessionUpdate: async () => {},
+      sessionUpdate: async (notification) => onSessionUpdate(notification),
       requestPermission: async () => ({ outcome: { outcome: 'cancelled' } }),
     }),
     ndJsonStream(
@@ -85,4 +89,22 @@ export async function listQoderModels(cwd: string): Promise<QoderModel[]> {
     }
     return result;
   });
+}
+
+/**
+ * Lists the slash commands and skills qodercli offers in `cwd`. qodercli keeps
+ * them nowhere Happy can read and only announces them once a session exists,
+ * so a throwaway session is opened and its first announcement returned.
+ */
+export async function listQoderCommands(cwd: string): Promise<AvailableCommand[]> {
+  let announced: (commands: AvailableCommand[]) => void = () => {};
+  const commands = new Promise<AvailableCommand[]>((resolve) => { announced = resolve; });
+  return withQoderConnection(
+    cwd,
+    async (connection) => {
+      await connection.newSession({ cwd, mcpServers: [] });
+      return commands;
+    },
+    ({ update }) => update.sessionUpdate === 'available_commands_update' && announced(update.availableCommands),
+  );
 }

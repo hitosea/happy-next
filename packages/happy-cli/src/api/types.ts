@@ -324,7 +324,7 @@ export const SessionCapabilitiesSchema = z.object({
     name: z.string(),
     description: z.string().optional(),
     kind: z.enum(['command', 'skill']),
-    scope: z.enum(['REPO', 'USER', 'PLUGIN', 'SYSTEM']),
+    scope: z.enum(['REPO', 'USER', 'PLUGIN', 'SYSTEM']).optional(),
   })).optional(),
   skills: z.array(z.object({
     name: z.string(),
@@ -380,7 +380,7 @@ export type Metadata = {
     name: string,
     description?: string,
     kind: 'command' | 'skill',
-    scope: 'REPO' | 'USER' | 'PLUGIN' | 'SYSTEM',
+    scope?: 'REPO' | 'USER' | 'PLUGIN' | 'SYSTEM',
   }>,
   skills?: Array<{
     name: string,

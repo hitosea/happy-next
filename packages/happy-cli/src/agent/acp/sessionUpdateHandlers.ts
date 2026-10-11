@@ -622,7 +622,16 @@ export function handleConfigMetadataEvent(
         if (Array.isArray(commands)) {
             const slashCommands = commands.map(c => c.name);
             if (updateCapabilities) {
-                updateCapabilities((c) => ({ ...c, slashCommands }));
+                // ACP doesn't say where a command comes from, so these carry no scope. Entries with a
+                // scope are Happy's own built-ins, which stay; the agent's previous list is replaced.
+                updateCapabilities((c) => ({
+                    ...c,
+                    slashCommands,
+                    slashCommandMetadata: [
+                        ...(c.slashCommandMetadata ?? []).filter((command: { scope?: string }) => command.scope),
+                        ...commands.map(({ name, description }) => ({ name, description, kind: 'command' as const })),
+                    ],
+                }));
             } else {
                 updateMetadata((m) => ({ ...m, slashCommands }));
             }

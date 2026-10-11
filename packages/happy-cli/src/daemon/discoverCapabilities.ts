@@ -12,23 +12,34 @@ import { discoverClaudeSlashCommandMetadata } from '@/claude/utils/slashCommandM
 import { discoverCodexSkills } from '@/codex/utils/skillDiscovery';
 import { addBuiltinSlashCommands } from '@/commands/builtinCommands';
 import { addOrchestratorSlashCommands } from '@/orchestrator/slashCommands';
+import { listQoderCommands } from '@/qoder/sessions';
+import { logger } from '@/ui/logger';
 
 export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder';
 
-export function discoverCapabilities(
+export async function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,
     directory: string,
     homeDir = os.homedir(),
-): SessionCapabilities {
+): Promise<SessionCapabilities> {
     // Claude picks up the built-in and orchestrator commands from ~/.claude/commands, which the
     // disk scan already covers; Codex, Gemini and Qoder get them registered by their runners instead.
-    const discoverers: Record<DiscoverCapabilitiesAgent, () => SessionCapabilities> = {
+    // Qoder's own commands and skills are only reported over ACP, so qodercli is asked for them.
+    const discoverers: Record<DiscoverCapabilitiesAgent, () => SessionCapabilities | Promise<SessionCapabilities>> = {
         claude: () => ({ slashCommandMetadata: discoverClaudeSlashCommandMetadata(directory, homeDir) }),
         codex: () => addBuiltinSlashCommands(addOrchestratorSlashCommands({
             skills: discoverCodexSkills(directory, homeDir),
         })),
         gemini: () => addBuiltinSlashCommands({}),
-        qoder: () => addBuiltinSlashCommands({}),
+        qoder: async () => {
+            const commands = await listQoderCommands(directory).catch((error) => {
+                logger.debug('[Qoder] Could not list commands', error);
+                return [];
+            });
+            return addBuiltinSlashCommands({
+                slashCommandMetadata: commands.map(({ name, description }) => ({ name, description, kind: 'command' as const })),
+            });
+        },
     };
     return discoverers[agent]();
 }
