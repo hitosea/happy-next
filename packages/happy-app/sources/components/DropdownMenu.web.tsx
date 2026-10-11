@@ -19,10 +19,17 @@ type Anchor = { top?: number; bottom?: number; left: number };
  * (top-aligned with it), kept inside the window.
  * A click outside or Escape closes it; picking a row closes it, then runs the row.
  */
-export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hoveredStyle, openOnHover = false, placement = 'bottom', children }: DropdownMenuProps) => {
+export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hoveredStyle, openOnHover = false, onPress, placement = 'bottom', children }: DropdownMenuProps) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
     const triggerRef = React.useRef<View | null>(null);
+    // While the hover menu is open its backdrop covers the trigger, so a click on the trigger lands
+    // on the backdrop; this remembers whether the pointer is over the trigger to forward it.
+    const pointerOverTriggerRef = React.useRef(false);
+    // After a click the pointer is still over the trigger and closing the menu makes it hover again;
+    // the hover menu stays shut until the pointer has left the trigger.
+    const hoverSuppressedRef = React.useRef(false);
+    const stopSuppressingRef = React.useRef<(() => void) | null>(null);
     const [anchor, setAnchor] = React.useState<Anchor | null>(null);
     const menuRef = React.useRef<View | null>(null);
     const progress = React.useRef(new Animated.Value(0)).current;
@@ -44,6 +51,27 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
         });
     }, [placement]);
     const close = React.useCallback(() => setAnchor(null), []);
+    const press = React.useCallback(() => {
+        if (!onPress) return;
+        close();
+        onPress();
+        if (!openOnHover) return;
+        hoverSuppressedRef.current = true;
+        stopSuppressingRef.current?.();
+        const onPointerMove = (event: PointerEvent) => {
+            const rect = (triggerRef.current as unknown as HTMLElement | null)?.getBoundingClientRect?.();
+            const over = !!rect && event.clientX >= rect.left && event.clientX <= rect.right
+                && event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!over) stopSuppressingRef.current?.();
+        };
+        document.addEventListener('pointermove', onPointerMove);
+        stopSuppressingRef.current = () => {
+            document.removeEventListener('pointermove', onPointerMove);
+            stopSuppressingRef.current = null;
+            hoverSuppressedRef.current = false;
+        };
+    }, [onPress, openOnHover, close]);
+    React.useEffect(() => () => stopSuppressingRef.current?.(), []);
 
     React.useEffect(() => {
         if (!anchor || !openOnHover) return;
@@ -55,6 +83,8 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
 
     React.useEffect(() => {
         if (!anchor || !openOnHover) return;
+        // The menu opened because the pointer entered the trigger.
+        pointerOverTriggerRef.current = true;
         let closeTimer: ReturnType<typeof setTimeout> | undefined;
         const cancelClose = () => {
             clearTimeout(closeTimer);
@@ -63,6 +93,10 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
         // The modal covers the trigger, so use screen coordinates to keep both hover regions active.
         const onPointerMove = (event: PointerEvent) => {
             if (event.pointerType !== 'mouse') return;
+            const triggerRect = (triggerRef.current as unknown as HTMLElement | null)?.getBoundingClientRect?.();
+            pointerOverTriggerRef.current = !!triggerRect
+                && event.clientX >= triggerRect.left && event.clientX <= triggerRect.right
+                && event.clientY >= triggerRect.top && event.clientY <= triggerRect.bottom;
             const overMenu = [triggerRef.current, menuRef.current].some((ref) => {
                 const rect = (ref as unknown as HTMLElement | null)?.getBoundingClientRect?.();
                 return rect && event.clientX >= rect.left - SIDE_GAP && event.clientX <= rect.right + SIDE_GAP
@@ -88,14 +122,21 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
                 accessibilityRole="button"
                 accessibilityLabel={accessibilityLabel}
                 accessibilityState={{ expanded: anchor !== null }}
-                onPress={open}
-                onHoverIn={openOnHover ? open : undefined}
+                onPress={onPress ? press : open}
+                onHoverIn={openOnHover ? () => { if (!hoverSuppressedRef.current) open(); } : undefined}
                 style={({ hovered, pressed }: any) => [style, (hovered || pressed || anchor !== null) && hoveredStyle]}
             >
                 {children}
             </Pressable>
             <Modal visible={anchor !== null} transparent animationType="none" onRequestClose={close}>
-                <Pressable style={styles.backdrop} onPress={close} accessibilityLabel={accessibilityLabel} />
+                <Pressable
+                    style={styles.backdrop}
+                    onPress={() => {
+                        if (onPress && pointerOverTriggerRef.current) press();
+                        else close();
+                    }}
+                    accessibilityLabel={accessibilityLabel}
+                />
                 {anchor && (
                     <Animated.View ref={menuRef} accessibilityRole="menu" style={[
                         styles.menu,

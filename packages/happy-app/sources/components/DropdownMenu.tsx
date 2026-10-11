@@ -13,6 +13,8 @@ export type DropdownMenuProps = {
     hoveredStyle?: StyleProp<ViewStyle>;
     /** Open on mouse hover and animate the popover (web). */
     openOnHover?: boolean;
+    /** Runs when the trigger itself is clicked, instead of opening the menu (web). The hover menu still shows. */
+    onPress?: () => void;
     /** Where the popover sits relative to the trigger: under it (default), above it and centred on it, or beside it on the right (web). */
     placement?: 'bottom' | 'topCenter' | 'right';
     children: React.ReactNode;

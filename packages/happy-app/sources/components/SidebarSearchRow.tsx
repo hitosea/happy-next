@@ -28,6 +28,8 @@ export const SidebarSearchRow = React.memo(() => {
     const scope = useSessionListScope();
     const addMachine = useAddMachine();
     const createItems = useSessionsCreateItems(scope, addMachine);
+    // Clicking the "+" itself starts a new session (the first create item); the hover menu keeps both choices.
+    const newSession = createItems[0];
     const shortcut = React.useMemo(getSearchShortcutLabel, []);
     const openCommandPalette = useOpenCommandPalette();
 
@@ -47,6 +49,7 @@ export const SidebarSearchRow = React.memo(() => {
                 openOnHover
                 placement="right"
                 items={createItems}
+                onPress={() => { if (!newSession.disabled) newSession.onPress(); }}
                 accessibilityLabel={t('sessionScope.addMenu')}
                 style={styles.addButton}
                 hoveredStyle={styles.fieldHovered}
