@@ -27,13 +27,13 @@ const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
 const SELECTED_AGENT_KEY = 'session-history-selected-agent';
 const OLDER_SESSIONS_PAGE_SIZE = 150;
 
-type AgentFilter = 'all' | 'claude' | 'gemini' | 'codex' | 'qoder';
+type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder';
 
 const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'all', label: () => t('sessionHistory.allAgents') },
     { key: 'claude', label: () => t('agentHistory.tabClaude') },
-    { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
+    { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'qoder', label: () => t('agentHistory.tabQoder') },
 ];
 
