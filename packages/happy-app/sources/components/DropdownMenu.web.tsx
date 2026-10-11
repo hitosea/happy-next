@@ -11,10 +11,11 @@ const MENU_GAP = 4;
 const SIDE_GAP = 8;
 const WINDOW_MARGIN = 8;
 
-type Anchor = { top: number; left: number };
+// `bottom` is the distance from the window's bottom edge, for a popover that opens upward.
+type Anchor = { top?: number; bottom?: number; left: number };
 
 /**
- * The web's dropdown: a popover under the button (left-aligned with it) or beside it on the right
+ * The web's dropdown: a popover under the button (left-aligned with it), above it (centred on it) or beside it on the right
  * (top-aligned with it), kept inside the window.
  * A click outside or Escape closes it; picking a row closes it, then runs the row.
  */
@@ -30,10 +31,15 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
         const element = triggerRef.current as unknown as HTMLElement | null;
         const rect = element?.getBoundingClientRect?.();
         if (!rect) return;
-        const left = placement === 'right' ? rect.right + SIDE_GAP : rect.left;
-        const top = placement === 'right' ? rect.top : rect.bottom + MENU_GAP;
+        const left = placement === 'right'
+            ? rect.right + SIDE_GAP
+            : placement === 'topCenter'
+                ? rect.left + (rect.width - MENU_WIDTH) / 2
+                : rect.left;
         setAnchor({
-            top,
+            ...(placement === 'topCenter'
+                ? { bottom: window.innerHeight - rect.top + MENU_GAP }
+                : { top: placement === 'right' ? rect.top : rect.bottom + MENU_GAP }),
             left: Math.max(WINDOW_MARGIN, Math.min(left, window.innerWidth - MENU_WIDTH - WINDOW_MARGIN)),
         });
     }, [placement]);
@@ -93,7 +99,7 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
                 {anchor && (
                     <Animated.View ref={menuRef} accessibilityRole="menu" style={[
                         styles.menu,
-                        { top: anchor.top, left: anchor.left },
+                        { top: anchor.top, bottom: anchor.bottom, left: anchor.left },
                         openOnHover && {
                             opacity: progress,
                             transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [-4, 0] }) }],

@@ -23,6 +23,11 @@ interface FloatingOverlayProps {
     children: React.ReactNode;
     maxHeight?: number;
     showScrollIndicator?: boolean;
+    /**
+     * Defaults to true. When false the overlay is only the clamped, rounded surface and does not scroll:
+     * the children manage their own scrolling, so fixed rows (tabs, footers) stay in place.
+     */
+    scrollable?: boolean;
     keyboardShouldPersistTaps?: boolean | 'always' | 'never' | 'handled';
     /**
      * When provided (together with `itemHeight`), the overlay keeps the item at
@@ -40,6 +45,7 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
         children,
         maxHeight = 240,
         showScrollIndicator = false,
+        scrollable = true,
         keyboardShouldPersistTaps = 'handled',
         selectedIndex,
         itemHeight,
@@ -63,6 +69,14 @@ export const FloatingOverlay = React.memo((props: FloatingOverlayProps) => {
             scrollRef.current?.scrollTo({ y: nextY, animated: true });
         }
     }, [selectedIndex, itemHeight, maxHeight]);
+
+    if (!scrollable) {
+        return (
+            <Animated.View style={[styles.container, { maxHeight }]}>
+                {children}
+            </Animated.View>
+        );
+    }
 
     return (
         <Animated.View style={[styles.container, { maxHeight }]}>

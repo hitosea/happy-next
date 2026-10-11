@@ -1,6 +1,6 @@
 import { Ionicons, Octicons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
 import * as React from 'react';
-import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard, Modal as RNModal } from 'react-native';
+import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard, Modal as RNModal, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { layout } from './layout';
 import { MultiTextInput, KeyPressEvent } from './MultiTextInput';
@@ -37,6 +37,7 @@ import { useModelCatalog } from '@/hooks/useModelCatalog';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { isRunningOnMac } from '@/utils/platform';
 import { NativeMenu } from './NativeMenu';
+import { DropdownMenu } from './DropdownMenu';
 import type { ActionMenuItem } from './ActionMenu';
 import {
     buildClaudeModelMode,
@@ -259,7 +260,49 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         zIndex: 999,
     },
     overlaySection: {
+        paddingTop: 12,
+        paddingBottom: 8,
+    },
+    // The flexShrink/minHeight chain lets the lists inside shrink to the overlay's maxHeight and scroll.
+    modelSection: {
+        flexShrink: 1,
+        minHeight: 0,
+    },
+    modelColumns: {
+        flexDirection: 'row',
+        flexShrink: 1,
+        minHeight: 0,
+    },
+    modelColumn: {
+        flex: 1,
+        minHeight: 0,
+    },
+    // The scroll container touches the tab bar and the dividers; the breathing room is inside it.
+    modelListScroll: {
+        flexShrink: 1,
+        minHeight: 0,
+    },
+    modelListContent: {
         paddingVertical: 8,
+    },
+    modelColumnTitle: {
+        paddingTop: 8,
+    },
+    effortDropdown: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+    },
+    effortDropdownValue: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    effortDropdownValueText: {
+        fontSize: 14,
+        color: theme.colors.text,
+        ...Typography.default(),
     },
     overlaySectionTitle: {
         fontSize: 12,
@@ -269,22 +312,26 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         paddingBottom: 4,
         ...Typography.default('semiBold'),
     },
+    // In the app the lines match the overlay's own hairline border; the web keeps its 1px divider.
     overlayDivider: {
-        height: 1,
-        backgroundColor: theme.colors.divider,
+        height: Platform.OS === 'web' ? 1 : StyleSheet.hairlineWidth,
+        backgroundColor: Platform.OS === 'web' ? theme.colors.divider : theme.colors.modal.border,
         marginHorizontal: 16,
     },
     overlayColumnDivider: {
-        width: 1,
-        backgroundColor: theme.colors.divider,
+        width: Platform.OS === 'web' ? 1 : StyleSheet.hairlineWidth,
+        backgroundColor: Platform.OS === 'web' ? theme.colors.divider : theme.colors.modal.border,
         marginVertical: 8,
+    },
+    // A native switch can be taller than the row; centring it in a slot keeps it level with the label.
+    fastModeSwitchSlot: {
+        justifyContent: 'center',
     },
     fastModeRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingVertical: 8,
     },
     fastModeLabel: {
         fontSize: 12,
@@ -457,6 +504,11 @@ const CONTEXT_DETAILS_TOOLTIP_WIDTH = 160;
 const CONTEXT_DETAILS_TOOLTIP_HEIGHT = 76;
 const CONTEXT_DETAILS_TOOLTIP_GAP = 20;
 const CONTEXT_DETAILS_SCREEN_MARGIN = 8;
+// The settings overlay opens above the composer: up to 414 tall, shrinking on short screens but never under 200.
+const SETTINGS_OVERLAY_MAX_HEIGHT = 414;
+const SETTINGS_OVERLAY_MIN_HEIGHT = 200;
+// Rough height taken by the header, status bar, composer and safe area, which the overlay must leave visible.
+const SETTINGS_OVERLAY_RESERVED_HEIGHT = 320;
 
 const getContextWarning = (contextSize: number, maxContextSize: number, alwaysShow: boolean = false, theme: Theme) => {
     if (!maxContextSize || maxContextSize <= 0) {
@@ -523,12 +575,45 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             </Pressable>
         );
     });
+    // The model tab's only scrolling part: the tab bar above and the rows below it stay put.
+    const renderScrollableList = (content: React.ReactNode) => (
+        <ScrollView style={styles.modelListScroll} contentContainerStyle={styles.modelListContent} keyboardShouldPersistTaps="always">
+            {content}
+        </ScrollView>
+    );
+    // Narrow layout: the effort is a dropdown row, so the model list keeps the height.
+    const renderEffortDropdown = <T extends string>(
+        options: readonly { value: T; label: string }[],
+        selectedValue: T | null,
+        onSelect: (value: T) => void,
+    ) => (
+        <DropdownMenu
+            accessibilityLabel={t('agentInput.model.reasoningEffort')}
+            placement="topCenter"
+            style={[styles.effortDropdown, { height: modelFooterRowHeight }]}
+            items={options.map(option => ({
+                label: option.label,
+                selected: option.value === selectedValue,
+                onPress: () => { hapticsLight(); onSelect(option.value); },
+            }))}
+        >
+            <Text style={styles.fastModeLabel}>{t('agentInput.model.reasoningEffort')}</Text>
+            <View style={styles.effortDropdownValue}>
+                <Text style={styles.effortDropdownValueText}>
+                    {options.find(option => option.value === selectedValue)?.label ?? ''}
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={theme.colors.textSecondary} />
+            </View>
+        </DropdownMenu>
+    );
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     // Keep the settings and autocomplete overlays aligned with the panel in both new and existing sessions.
     const panelHorizontalInset = props.panelSideMargin ? 8 : 0;
     const useGlassPanel = !!props.glassPanel && Platform.OS === 'ios' && isLiquidGlassAvailable();
     // Wide layout: show the reasoning-effort column beside the model list instead of below it.
     const isWideModelLayout = screenWidth > 700;
+    // Height of the rows under the model lists (effort dropdown, Fast mode, 1M context).
+    const modelFooterRowHeight = isWideModelLayout ? 44 : 40;
 
     // Check if this is a Codex or Gemini session
     // Use metadata.flavor for existing sessions, agentType prop for new sessions
@@ -740,6 +825,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const contextDetailsAnchorRef = React.useRef<View>(null);
     const composerKeyboardOffset = React.useContext(ComposerKeyboardOffsetContext);
     const keyboardHeight = useKeyboardState((state) => state.height);
+    const settingsOverlayMaxHeight = Math.min(
+        SETTINGS_OVERLAY_MAX_HEIGHT,
+        Math.max(SETTINGS_OVERLAY_MIN_HEIGHT, screenHeight - keyboardHeight - SETTINGS_OVERLAY_RESERVED_HEIGHT),
+    );
     // measureInWindow reads layout, which the keyboard lift of the composer never touches — see
     // ComposerKeyboardOffsetContext. Read at press time so the keyboard is already settled.
     const composerKeyboardLiftRef = React.useRef(0);
@@ -1529,7 +1618,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             styles.settingsOverlay,
                             { paddingHorizontal: panelHorizontalInset }
                         ]}>
-                            <FloatingOverlay maxHeight={400} keyboardShouldPersistTaps="always">
+                            <FloatingOverlay maxHeight={settingsOverlayMaxHeight} scrollable={false} keyboardShouldPersistTaps="always">
                                 {/* Tab bar - segmented control style */}
                                 <View style={{
                                     flexDirection: 'row',
@@ -1538,7 +1627,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     padding: 2,
                                     backgroundColor: theme.colors.surfaceHighest,
                                     margin: 8,
-                                    marginBottom: 4,
+                                    marginBottom: 0,
                                 }}>
                                     {(() => {
                                         const permissionLabel = getPermissionModeLabel(props.permissionMode);
@@ -1646,58 +1735,61 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     })}
                                 </View>}
 
-                                {/* Model Section */}
-                                {showSettings === 'model' && <View style={{ paddingVertical: 8 }}>
+                                {/* Model Section: wide screens scroll the model and effort columns on their own;
+                                    narrow ones scroll only the model list, with the effort as a dropdown row below it. */}
+                                {showSettings === 'model' && <View style={styles.modelSection}>
                                     {isCodex ? (() => {
                                         const hasEffort = codexSelection.family !== 'default';
                                         const reasoningColumn = (
                                             <>
-                                                <Text style={styles.overlaySectionTitle}>
+                                                <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderRadioOptions(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange)}
+                                                {renderScrollableList(renderRadioOptions(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange))}
                                             </>
                                         );
                                         const fastModeRow = (
-                                            <View style={styles.fastModeRow}>
+                                            <View style={[styles.fastModeRow, { height: modelFooterRowHeight }]}>
                                                 <Text style={styles.fastModeLabel}>
                                                     {t('agentInput.model.fastMode')}
                                                 </Text>
-                                                <Switch
-                                                    value={!!props.fastMode}
-                                                    onValueChange={(value) => {
-                                                        hapticsLight();
-                                                        props.onFastModeChange?.(value);
-                                                    }}
-                                                />
+                                                <View style={[styles.fastModeSwitchSlot, { height: modelFooterRowHeight }]}>
+                                                    <Switch
+                                                        value={!!props.fastMode}
+                                                        onValueChange={(value) => {
+                                                            hapticsLight();
+                                                            props.onFastModeChange?.(value);
+                                                        }}
+                                                    />
+                                                </View>
                                             </View>
                                         );
                                         // Wide screens with a reasoning selection: show effort beside the model list.
                                         if (hasEffort && isWideModelLayout) {
                                             return (
                                                 <>
-                                                    <View style={{ flexDirection: 'row' }}>
-                                                        <View style={{ flex: 1 }}>
-                                                            {renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
+                                                    <View style={styles.modelColumns}>
+                                                        <View style={styles.modelColumn}>
+                                                            {renderScrollableList(renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange))}
                                                         </View>
                                                         <View style={styles.overlayColumnDivider} />
-                                                        <View style={{ flex: 1 }}>
+                                                        <View style={styles.modelColumn}>
                                                             {reasoningColumn}
                                                         </View>
                                                     </View>
-                                                    <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                                    <View style={styles.overlayDivider} />
                                                     {fastModeRow}
                                                 </>
                                             );
                                         }
                                         return (
                                             <>
-                                                {renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
+                                                {renderScrollableList(renderRadioOptions(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange))}
                                                 {hasEffort && (
                                                     <>
-                                                        <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
-                                                        {reasoningColumn}
-                                                        <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
+                                                        <View style={styles.overlayDivider} />
+                                                        {renderEffortDropdown(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange)}
+                                                        <View style={styles.overlayDivider} />
                                                         {fastModeRow}
                                                     </>
                                                 )}
@@ -1707,33 +1799,35 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         const hasEffort = claudeSelection.family !== 'default' && claudeReasoningOptions.length > 0;
                                         const reasoningColumn = (
                                             <>
-                                                <Text style={styles.overlaySectionTitle}>
+                                                <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderRadioOptions(claudeReasoningOptions, claudeSelection.effort, handleClaudeReasoningChange)}
+                                                {renderScrollableList(renderRadioOptions(claudeReasoningOptions, claudeSelection.effort, handleClaudeReasoningChange))}
                                             </>
                                         );
                                         const oneMillionRow = claudeShow1MToggle ? (
                                             <>
-                                                <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
-                                                <View style={styles.fastModeRow}>
+                                                <View style={styles.overlayDivider} />
+                                                <View style={[styles.fastModeRow, { height: modelFooterRowHeight }]}>
                                                     <Text style={styles.fastModeLabel}>
                                                         {t('agentInput.model.context1m')}
                                                     </Text>
-                                                    <Switch
-                                                        value={claudeIs1M}
-                                                        onValueChange={(value) => {
-                                                            hapticsLight();
-                                                            handleClaude1MToggle(value);
-                                                        }}
-                                                    />
+                                                    <View style={[styles.fastModeSwitchSlot, { height: modelFooterRowHeight }]}>
+                                                        <Switch
+                                                            value={claudeIs1M}
+                                                            onValueChange={(value) => {
+                                                                hapticsLight();
+                                                                handleClaude1MToggle(value);
+                                                            }}
+                                                        />
+                                                    </View>
                                                 </View>
                                             </>
                                         ) : claudeShow1MBadge ? (
                                             // Always-1M family (no 200K tier): informational row, no switch.
                                             <>
-                                                <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
-                                                <View style={styles.fastModeRow}>
+                                                <View style={styles.overlayDivider} />
+                                                <View style={[styles.fastModeRow, { height: modelFooterRowHeight }]}>
                                                     <Text style={styles.fastModeLabel}>
                                                         {t('agentInput.model.context1m')}
                                                     </Text>
@@ -1746,12 +1840,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         if (hasEffort && isWideModelLayout) {
                                             return (
                                                 <>
-                                                    <View style={{ flexDirection: 'row' }}>
-                                                        <View style={{ flex: 1 }}>
-                                                            {renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange)}
+                                                    <View style={styles.modelColumns}>
+                                                        <View style={styles.modelColumn}>
+                                                            {renderScrollableList(renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange))}
                                                         </View>
                                                         <View style={styles.overlayColumnDivider} />
-                                                        <View style={{ flex: 1 }}>
+                                                        <View style={styles.modelColumn}>
                                                             {reasoningColumn}
                                                         </View>
                                                     </View>
@@ -1761,11 +1855,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         }
                                         return (
                                             <>
-                                                {renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange)}
+                                                {renderScrollableList(renderRadioOptions(claudeFamilyOptions, claudeBase, handleClaudeFamilyChange))}
                                                 {hasEffort && (
                                                     <>
-                                                        <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
-                                                        {reasoningColumn}
+                                                        <View style={styles.overlayDivider} />
+                                                        {renderEffortDropdown(claudeReasoningOptions, claudeSelection.effort, handleClaudeReasoningChange)}
                                                     </>
                                                 )}
                                                 {oneMillionRow}
@@ -1774,20 +1868,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     })() : isQoder ? (() => {
                                         const reasoningColumn = (
                                             <>
-                                                <Text style={styles.overlaySectionTitle}>
+                                                <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
                                                     {t('agentInput.model.reasoningEffort')}
                                                 </Text>
-                                                {renderRadioOptions(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
+                                                {renderScrollableList(renderRadioOptions(qoderEffortOptions, qoderEffort, handleQoderEffortChange))}
                                             </>
                                         );
                                         if (qoderEffortOptions.length > 0 && isWideModelLayout) {
                                             return (
-                                                <View style={{ flexDirection: 'row' }}>
-                                                    <View style={{ flex: 1 }}>
-                                                        {renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange)}
+                                                <View style={styles.modelColumns}>
+                                                    <View style={styles.modelColumn}>
+                                                        {renderScrollableList(renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange))}
                                                     </View>
                                                     <View style={styles.overlayColumnDivider} />
-                                                    <View style={{ flex: 1 }}>
+                                                    <View style={styles.modelColumn}>
                                                         {reasoningColumn}
                                                     </View>
                                                 </View>
@@ -1795,17 +1889,17 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                         }
                                         return (
                                             <>
-                                                {renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange)}
+                                                {renderScrollableList(renderRadioOptions(modelOptions, qoderSelection.model, handleQoderModelChange))}
                                                 {qoderEffortOptions.length > 0 && (
                                                     <>
-                                                        <View style={[styles.overlayDivider, { marginTop: 4, marginBottom: 6 }]} />
-                                                        {reasoningColumn}
+                                                        <View style={styles.overlayDivider} />
+                                                        {renderEffortDropdown(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
                                                     </>
                                                 )}
                                             </>
                                         );
                                     })() : (
-                                        renderRadioOptions(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v))
+                                        renderScrollableList(renderRadioOptions(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v)))
                                     )}
                                 </View>}
 
