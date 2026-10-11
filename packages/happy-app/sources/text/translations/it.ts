@@ -825,6 +825,7 @@ export const it: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: i file devono essere di ${limit} MB o meno.`,
             stillUploading: 'I file sono ancora in caricamento. Invia quando hanno finito.',
             removeFailed: 'Alcuni file non sono stati caricati. Riprova o rimuovili prima.',
+            notSent: ({ names }: { names: string }) => `Impossibile caricare: ${names}. La sessione è stata creata senza questi file.`,
         },
         addMenuTitle: 'Aggiungi',
         scheduleMessage: 'Pianifica messaggio',

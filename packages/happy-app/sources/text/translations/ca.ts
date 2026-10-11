@@ -826,6 +826,7 @@ export const ca: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: els fitxers han d'ocupar ${limit} MB o menys.`,
             stillUploading: 'Els fitxers encara s\'estan pujant. Envia quan acabin.',
             removeFailed: 'Alguns fitxers no s\'han pujat. Torna-ho a provar o elimina\'ls primer.',
+            notSent: ({ names }: { names: string }) => `No s'ha pogut pujar: ${names}. La sessió s'ha creat sense aquests fitxers.`,
         },
         addMenuTitle: 'Afegeix',
         scheduleMessage: 'Programa un missatge',

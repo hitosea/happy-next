@@ -828,6 +828,7 @@ export const zhHans: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：文件不能超过 ${limit} MB。`,
             stillUploading: '文件仍在上传，请等待完成后再发送。',
             removeFailed: '有文件上传失败，请先重试或移除。',
+            notSent: ({ names }: { names: string }) => `以下文件上传失败：${names}。会话已创建，但未带上这些文件。`,
         },
         addMenuTitle: '添加',
         scheduleMessage: '定时消息',

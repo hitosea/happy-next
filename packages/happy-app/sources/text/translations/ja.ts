@@ -828,6 +828,7 @@ export const ja: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：ファイルは ${limit} MB 以下にしてください。`,
             stillUploading: 'ファイルをアップロード中です。完了してから送信してください。',
             removeFailed: 'アップロードに失敗したファイルがあります。再試行するか削除してください。',
+            notSent: ({ names }: { names: string }) => `アップロードできませんでした：${names}。これらのファイルなしでセッションを作成しました。`,
         },
         addMenuTitle: '追加',
         scheduleMessage: 'メッセージを予約',

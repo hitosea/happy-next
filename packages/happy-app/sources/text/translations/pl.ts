@@ -837,6 +837,7 @@ export const pl: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: pliki mogą mieć najwyżej ${limit} MB.`,
             stillUploading: 'Pliki wciąż się przesyłają. Wyślij po zakończeniu.',
             removeFailed: 'Nie udało się przesłać niektórych plików. Ponów lub najpierw je usuń.',
+            notSent: ({ names }: { names: string }) => `Nie udało się przesłać: ${names}. Sesja została utworzona bez tych plików.`,
         },
         addMenuTitle: 'Dodaj',
         scheduleMessage: 'Zaplanuj wiadomość',

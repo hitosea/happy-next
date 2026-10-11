@@ -36,11 +36,13 @@ import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
 import { clearNewSessionDraft, loadNewSessionDraft, saveNewSessionDraft } from '@/sync/persistence';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useFileAttachments } from '@/hooks/useFileAttachments';
+import { ScheduleMessageSheet } from '@/components/ScheduleMessageSheet';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { useWebImageDrop } from '@/hooks/useWebImageDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseQoderModelMode } from 'happy-wire';
+import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseQoderModelMode, type MessageAttachment } from 'happy-wire';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleImagePasteEvent } from '@/utils/imagePaste';
@@ -367,6 +369,11 @@ function NewSessionWizard() {
         canAddMore,
     } = useImagePicker({ maxImages: 4 });
 
+    // Files are only staged here; they upload to the new session's machine once it exists
+    const fileAttachments = useFileAttachments(null);
+    const { uploadStaged, pickFiles } = fileAttachments;
+    const [scheduleSheetVisible, setScheduleSheetVisible] = React.useState(false);
+
     // Restore images from persisted draft on mount
     React.useEffect(() => {
         if (persistedDraft?.images && persistedDraft.images.length > 0) {
@@ -381,17 +388,21 @@ function NewSessionWizard() {
     const isFocused = useIsFocused();
 
     const handleImageButtonPress = React.useCallback(() => {
-        if (Platform.OS === 'web') {
-            fileInputRef.current?.click();
-        } else {
-            setImagePickerSheetVisible(true);
-        }
+        setImagePickerSheetVisible(true);
     }, []);
 
+    // Add (+) menu, same as in a session. Image rows are disabled (not hidden) when the AI has no
+    // image support. Web has no camera and opens the file picker for the library.
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
-        { label: t('session.takePhoto'), onPress: pickFromCamera, disabled: !supportsImages },
-        { label: t('session.chooseFromLibrary'), onPress: pickFromGallery, disabled: !supportsImages },
-    ], [pickFromCamera, pickFromGallery, supportsImages]);
+        ...(Platform.OS === 'web' ? [] : [{ label: t('session.takePhoto'), onPress: pickFromCamera, disabled: !supportsImages }]),
+        {
+            label: t('session.chooseFromLibrary'),
+            onPress: Platform.OS === 'web' ? () => fileInputRef.current?.click() : pickFromGallery,
+            disabled: !supportsImages,
+        },
+        { label: t('session.files.menu'), onPress: () => void pickFiles() },
+        { label: t('session.scheduleMessage'), onPress: () => setScheduleSheetVisible(true) },
+    ], [pickFromCamera, pickFromGallery, supportsImages, pickFiles]);
 
     const handleFileInputChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -728,7 +739,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, selectedPath, router]);
 
     // Session creation
-    const handleCreateSession = React.useCallback(async (promptSnapshot?: string) => {
+    const handleCreateSession = React.useCallback(async (promptSnapshot?: string, deliverAt?: number) => {
         const promptToSend = (promptSnapshot ?? sessionPrompt).trim();
         if (!selectedMachineId) {
             Modal.alert(t('common.error'), t('newSession.noMachineSelected'));
@@ -885,9 +896,21 @@ function NewSessionWizard() {
                 // Send initial message if provided. Use sendOrQueueMessage (the /send
                 // path) so the first message gets the same hedged-retry resilience and
                 // the optimistic "processing…" status as a normal send.
-                if (promptToSend || images.length > 0) {
-                    await sync.sendOrQueueMessage(result.sessionId, promptToSend, undefined, images.length > 0 ? images : undefined);
+                let attachments: MessageAttachment[] = [];
+                if (fileAttachments.files.length > 0) {
+                    const uploaded = await uploadStaged(result.sessionId);
+                    attachments = uploaded.attachments;
+                    if (uploaded.failedNames.length > 0) {
+                        Modal.alert(t('common.error'), t('session.files.notSent', { names: uploaded.failedNames.join(', ') }));
+                    }
+                }
+                if (promptToSend || images.length > 0 || attachments.length > 0) {
+                    await sync.sendOrQueueMessage(
+                        result.sessionId, promptToSend, undefined, images.length > 0 ? images : undefined,
+                        undefined, undefined, deliverAt, attachments.length > 0 ? attachments : undefined,
+                    );
                     clearImages();
+                    fileAttachments.clearFiles();
                 }
 
                 router.replace(`/session/${result.sessionId}`, {
@@ -907,7 +930,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, permissionMode, modelMode, fastMode, recentMachinePaths, router, images, clearImages, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, permissionMode, modelMode, fastMode, recentMachinePaths, router, images, clearImages, fileAttachments.files.length, fileAttachments.clearFiles, uploadStaged, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -1092,9 +1115,11 @@ function NewSessionWizard() {
                             });
                         }}
                         onImageButtonPress={handleImageButtonPress}
-                        imageButtonIcon="image-outline"
                         imageMenuItems={imagePickerMenuItems}
                         supportsImages={supportsImages}
+                        files={fileAttachments.files}
+                        onRemoveFile={fileAttachments.removeFile}
+                        onRetryFile={fileAttachments.retryFile}
                     />
                 </View>
                 </Animated.View>
@@ -1118,6 +1143,20 @@ function NewSessionWizard() {
                 items={imagePickerMenuItems}
                 onClose={() => setImagePickerSheetVisible(false)}
                 deferItemPress
+            />
+
+            <ScheduleMessageSheet
+                visible={scheduleSheetVisible}
+                mode="create"
+                initialText={sessionPrompt}
+                imageCount={images.length}
+                fileCount={fileAttachments.files.length}
+                autoFocus={Platform.OS === 'web'}
+                onClose={() => setScheduleSheetVisible(false)}
+                onSubmit={async (text, deliverAt) => {
+                    await handleCreateSession(text, deliverAt);
+                    setScheduleSheetVisible(false);
+                }}
             />
 
             {/* Branch picker for Add Directory flow */}

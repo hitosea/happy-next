@@ -1019,6 +1019,7 @@ export const ru: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: размер файла не должен превышать ${limit} МБ.`,
             stillUploading: 'Файлы ещё загружаются. Отправьте после завершения.',
             removeFailed: 'Некоторые файлы не загрузились. Повторите или сначала удалите их.',
+            notSent: ({ names }: { names: string }) => `Не удалось загрузить: ${names}. Сессия создана без этих файлов.`,
         },
         addMenuTitle: 'Добавить',
         scheduleMessage: 'Отложенное сообщение',

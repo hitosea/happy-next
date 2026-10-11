@@ -835,6 +835,7 @@ export const en = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}: files must be ${limit} MB or smaller.`,
             stillUploading: 'Files are still uploading. Send once they finish.',
             removeFailed: 'Some files failed to upload. Retry or remove them first.',
+            notSent: ({ names }: { names: string }) => `Could not upload: ${names}. The session was created without these files.`,
         },
         addMenuTitle: 'Add',
         scheduleMessage: 'Schedule Message',

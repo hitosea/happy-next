@@ -827,6 +827,7 @@ export const zhHant: TranslationStructure = {
             tooLarge: ({ names, limit }: { names: string; limit: number }) => `${names}：檔案不能超過 ${limit} MB。`,
             stillUploading: '檔案仍在上傳，請等待完成後再傳送。',
             removeFailed: '有檔案上傳失敗，請先重試或移除。',
+            notSent: ({ names }: { names: string }) => `以下檔案上傳失敗：${names}。工作階段已建立，但未附上這些檔案。`,
         },
         addMenuTitle: '新增',
         scheduleMessage: '定時訊息',

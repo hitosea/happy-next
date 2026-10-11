@@ -16,12 +16,15 @@ import {
 
 export const MAX_FILE_ATTACHMENTS = 10;
 
-/** A file in the composer: uploading to the session's machine, ready to send, or failed. */
+/**
+ * A file in the composer: staged until a session exists to receive it (new-session screen),
+ * uploading to the session's machine, ready to send, or failed.
+ */
 export type ComposerFile = {
     id: string;
     name: string;
     size: number;
-    status: 'uploading' | 'ready' | 'failed';
+    status: 'staged' | 'uploading' | 'ready' | 'failed';
     /** Bytes written so far while uploading. */
     sent: number;
     attachment?: MessageAttachment;
@@ -68,8 +71,10 @@ function discardCopy(picked: Pick<Picked, 'uri' | 'file'> | undefined) {
 /**
  * Files attached in the composer. Each one starts uploading to the session's machine as soon as
  * it is picked, one at a time, so by the time the message is sent only its paths travel with it.
+ * Without a session yet (`sessionId` null) they are only staged, and `uploadStaged` sends them
+ * once the session has been created.
  */
-export function useFileAttachments(sessionId: string) {
+export function useFileAttachments(sessionId: string | null) {
     const [files, setFiles] = React.useState<ComposerFile[]>([]);
     const filesRef = React.useRef(files);
     filesRef.current = files;
@@ -81,30 +86,35 @@ export function useFileAttachments(sessionId: string) {
         setFiles((current) => current.map((file) => file.id === id ? { ...file, ...patch } : file));
     }, []);
 
-    const enqueue = React.useCallback((id: string) => {
+    const enqueue = React.useCallback((id: string, targetSessionId: string): Promise<MessageAttachment | null> => {
         const controller = new AbortController();
         controllers.current.set(id, controller);
-        queue.current = queue.current.then(async () => {
+        const run = queue.current.then(async (): Promise<MessageAttachment | null> => {
             const item = picked.current.get(id);
-            if (!item || controller.signal.aborted) return;
+            if (!item || controller.signal.aborted) return null;
             const { source, close } = openSource(item);
             try {
-                const attachment = await uploadSessionFile(source, sessionFileUploadRpc(sessionId), controller.signal, (sent) => {
+                const attachment = await uploadSessionFile(source, sessionFileUploadRpc(targetSessionId), controller.signal, (sent) => {
                     if (!controller.signal.aborted) update(id, { sent });
                 });
-                if (!controller.signal.aborted) update(id, { status: 'ready', sent: item.size, attachment });
+                if (controller.signal.aborted) return null;
+                update(id, { status: 'ready', sent: item.size, attachment });
+                return attachment;
             } catch (error) {
-                if (controller.signal.aborted) return;
+                if (controller.signal.aborted) return null;
                 const kind = error instanceof FileUploadError ? error.kind : 'failed';
                 console.error('[FileAttachments] Upload failed:', error);
                 update(id, { status: 'failed', error: kind });
                 if (kind === 'unsupported') Modal.alert(t('common.error'), t('session.files.cliTooOld'));
+                return null;
             } finally {
                 close();
                 if (controllers.current.get(id) === controller) controllers.current.delete(id);
             }
         });
-    }, [sessionId, update]);
+        queue.current = run.then(() => {});
+        return run;
+    }, [update]);
 
     const pickFiles = React.useCallback(async () => {
         const room = MAX_FILE_ATTACHMENTS - filesRef.current.length;
@@ -140,7 +150,7 @@ export function useFileAttachments(sessionId: string) {
             }
             const id = randomUUID();
             picked.current.set(id, { name: asset.name, size, mimeType: asset.mimeType, uri: asset.uri, file: asset.file });
-            added.push({ id, name: asset.name, size, status: 'uploading', sent: 0 });
+            added.push({ id, name: asset.name, size, status: sessionId ? 'uploading' : 'staged', sent: 0 });
         }
         if (tooLarge.length) {
             Modal.alert(t('common.error'), t('session.files.tooLarge', { names: tooLarge.join(', '), limit: FILE_UPLOAD_LIMIT / 1024 / 1024 }));
@@ -149,13 +159,24 @@ export function useFileAttachments(sessionId: string) {
         }
         if (!added.length) return;
         setFiles((current) => [...current, ...added]);
-        for (const file of added) enqueue(file.id);
-    }, [enqueue]);
+        if (sessionId) for (const file of added) void enqueue(file.id, sessionId);
+    }, [enqueue, sessionId]);
 
     const retryFile = React.useCallback((id: string) => {
         if (!picked.current.has(id)) return;
+        if (!sessionId) return;
         update(id, { status: 'uploading', sent: 0, error: undefined });
-        enqueue(id);
+        void enqueue(id, sessionId);
+    }, [enqueue, sessionId, update]);
+
+    /** Uploads the staged files (and retries failed ones) to a session that now exists. */
+    const uploadStaged = React.useCallback(async (targetSessionId: string): Promise<{ attachments: MessageAttachment[]; failedNames: string[] }> => {
+        const pending = filesRef.current.filter((file) => file.status === 'staged' || file.status === 'failed');
+        const ready = filesRef.current.flatMap((file) => file.status === 'ready' && file.attachment ? [file.attachment] : []);
+        for (const file of pending) update(file.id, { status: 'uploading', sent: 0, error: undefined });
+        const results = await Promise.all(pending.map((file) => enqueue(file.id, targetSessionId)));
+        const failedNames = pending.filter((_, index) => !results[index]).map((file) => file.name);
+        return { attachments: [...ready, ...results.flatMap((attachment) => attachment ? [attachment] : [])], failedNames };
     }, [enqueue, update]);
 
     const forget = React.useCallback((id: string) => {
@@ -190,6 +211,7 @@ export function useFileAttachments(sessionId: string) {
         isUploading: files.some((file) => file.status === 'uploading'),
         hasFailed: files.some((file) => file.status === 'failed'),
         pickFiles,
+        uploadStaged,
         retryFile,
         removeFile,
         clearFiles,
