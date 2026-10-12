@@ -1,0 +1,40 @@
+diff --git a/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift b/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
+index 5a2f8b9..400bc1c 100644
+--- a/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
++++ b/node_modules/expo-dev-launcher/ios/DevLauncherNetworkInterceptor.swift
+@@ -40,8 +40,13 @@ public final class DevLauncherNetworkInterceptor: NSObject, ExpoRequestCdpInterc
+ 
+   private static func createNetworkInspectorUrl(bundleUrl: URL) -> URL {
+     let host = bundleUrl.host ?? "localhost"
+-    let port = bundleUrl.port ?? 8081
+-    let scheme = bundleUrl.scheme == "https" ? "wss" : "ws"
++    // A tunneling dev server keeps its port in the hostname and terminates TLS
++    // on 443, so the bundle URL carries no port to inherit. Defaulting to 8081
++    // then targets a port nothing listens on, and the inspector retries against
++    // it forever - which is what makes a remote tunnel drain the battery.
++    let isSecure = bundleUrl.scheme == "https"
++    let port = bundleUrl.port ?? (isSecure ? 443 : 8081)
++    let scheme = isSecure ? "wss" : "ws"
+     let urlString = "\(scheme)://\(host):\(port)/inspector/network"
+     guard let url = URL(string: urlString) else {
+       fatalError("Invalid network inspector URL: \(urlString)")
+diff --git a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
+index abb3258..41ecfc1 100644
+--- a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
++++ b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
+@@ -17,9 +17,13 @@
+ static RCTReconnectingWebSocket *createSocketForURL(NSURL * url)
+ {
+   NSURLComponents *const components = [NSURLComponents new];
++  // The bundle URL may leave the port out (a tunneling dev server keeps it in
++  // the hostname and serves TLS on 443). Falling back to the scheme's own
++  // default keeps this socket pointed at the server the app was loaded from.
++  BOOL isSecure = [[url scheme] isEqualToString:@"https"];
+   components.host = [url host];
+-  components.scheme = @"http";
+-  components.port =  [url port];
++  components.scheme = isSecure ? @"wss" : @"ws";
++  components.port = [url port] ?: (isSecure ? @443 : @8081);
+   components.path = @"/message";
+   components.queryItems = @[[NSURLQueryItem queryItemWithName:@"role" value:@"ios"]];
+   static dispatch_queue_t queue;

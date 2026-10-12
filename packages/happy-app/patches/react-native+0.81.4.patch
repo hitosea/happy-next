@@ -1,0 +1,46 @@
+diff --git a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm b/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
+index a9aedca..cb96361 100644
+--- a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
++++ b/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
+@@ -20,9 +20,20 @@
+ 
+ static NSString *const kDebuggerMsgDisable = @"{ \"id\":1,\"method\":\"Debugger.disable\" }";
+ 
++// The debug server may be reached over TLS (a tunneling dev server puts its
++// port in the hostname and serves 443), so the scheme has to come from the
++// bundle URL as well - a plaintext request to that server never arrives.
++static NSString *getServerScheme(NSURL *bundleURL)
++{
++  return [[bundleURL scheme] isEqualToString:@"https"] ? @"https" : @"http";
++}
++
+ static NSString *getServerHost(NSURL *bundleURL)
+ {
+-  NSNumber *port = @8081;
++  // The default port follows the bundle URL's scheme for the same reason: an
++  // https bundle URL usually carries no port, and falling back to 8081 there
++  // points the inspector at a port nothing listens on.
++  NSNumber *port = [[bundleURL scheme] isEqualToString:@"https"] ? @443 : @8081;
+   NSString *portStr = [[[NSProcessInfo processInfo] environment] objectForKey:@"RCT_METRO_PORT"];
+   if (portStr && [portStr length] > 0) {
+     port = [NSNumber numberWithInt:[portStr intValue]];
+@@ -112,7 +123,8 @@
+       stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
+ 
+   return [NSURL
+-      URLWithString:[NSString stringWithFormat:@"http://%@/inspector/device?name=%@&app=%@&device=%@&profiling=%@",
++      URLWithString:[NSString stringWithFormat:@"%@://%@/inspector/device?name=%@&app=%@&device=%@&profiling=%@",
++                                               getServerScheme(bundleURL),
+                                                getServerHost(bundleURL),
+                                                escapedDeviceName,
+                                                escapedAppName,
+@@ -149,7 +161,8 @@ + (void)openDebugger:(NSURL *)bundleURL withErrorMessage:(NSString *)errorMessag
+   NSString *escapedInspectorDeviceId = [getInspectorDeviceId()
+       stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
+ 
+-  NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"http://%@/open-debugger?device=%@",
++  NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@://%@/open-debugger?device=%@",
++                                                               getServerScheme(bundleURL),
+                                                                getServerHost(bundleURL),
+                                                                escapedInspectorDeviceId]];
+   NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
