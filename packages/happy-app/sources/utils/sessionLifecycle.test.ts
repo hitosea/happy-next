@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MetadataSchema, type Session } from '@/sync/storageTypes';
-import { canArchiveSession, canEditSession, canForkSession } from './sessionLifecycle';
+import { canArchiveSession, canEditSession, canForkSession, DISCONNECTED_SESSION_MAX_AGE_MS, isSessionDisconnected } from './sessionLifecycle';
 
 function session(flavor: string, lifecycleState?: string): Session {
     return {
@@ -69,13 +69,13 @@ describe('session lifecycle permissions', () => {
         expect(canEditSession({ ...session('claude', 'running'), active, accessLevel: 'view' })).toBe(false);
     });
 
-    it('offers native archive for stopped Codex sessions until explicitly archived', () => {
-        const current = session('codex');
+    it.each(['claude', 'codex', 'gemini'])('offers archive for stopped %s sessions until explicitly archived', flavor => {
+        const current = session(flavor);
+        expect(canArchiveSession(current, true)).toBe(true);
+        expect(canArchiveSession(current, false)).toBe(false);
         current.active = false;
         expect(canArchiveSession(current, false)).toBe(true);
         expect(canArchiveSession({ ...current, accessLevel: 'admin' }, false)).toBe(false);
-        current.metadata = { ...current.metadata!, machineId: undefined };
-        expect(canArchiveSession(current, false)).toBe(false);
     });
 
     it.each(['claude', 'codex', 'gemini'])('does not offer archive again for archived %s sessions', flavor => {
@@ -85,11 +85,29 @@ describe('session lifecycle permissions', () => {
             }
         }
     });
+});
 
-    it.each(['claude', 'gemini'])('does not add offline archive actions for %s', flavor => {
-        const current = session(flavor);
-        expect(canArchiveSession(current, true)).toBe(true);
-        current.active = false;
-        expect(canArchiveSession(current, false)).toBe(false);
+describe('isSessionDisconnected', () => {
+    const now = 1_000_000_000_000;
+    function stopped(lifecycleState?: string, activeAt = now - 60_000): Session {
+        return { ...session('claude', lifecycleState), active: false, activeAt };
+    }
+
+    it('keeps sessions that stopped without being archived', () => {
+        expect(isSessionDisconnected(stopped('running'), now)).toBe(true);
+        expect(isSessionDisconnected(stopped(), now)).toBe(true);
+    });
+
+    it('drops live, archived and machineless sessions', () => {
+        expect(isSessionDisconnected({ ...stopped('running'), active: true }, now)).toBe(false);
+        expect(isSessionDisconnected(stopped('archived'), now)).toBe(false);
+        const machineless = stopped('running');
+        machineless.metadata = { ...machineless.metadata!, machineId: undefined };
+        expect(isSessionDisconnected(machineless, now)).toBe(false);
+    });
+
+    it('drops leftovers older than the cutoff', () => {
+        expect(isSessionDisconnected(stopped('running', now - DISCONNECTED_SESSION_MAX_AGE_MS), now)).toBe(true);
+        expect(isSessionDisconnected(stopped('running', now - DISCONNECTED_SESSION_MAX_AGE_MS - 1), now)).toBe(false);
     });
 });

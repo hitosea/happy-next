@@ -55,6 +55,28 @@ describe('stop-based archive with Codex native synchronization', () => {
         expect(mocks.emitWithAck).not.toHaveBeenCalled();
     });
 
+    it.each(['claude', 'gemini', 'qoder'])('archives a disconnected %s session without its process', async flavor => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { active: false, metadataVersion: 2, metadata: { flavor } } } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 2,
+            metadata: JSON.stringify({ flavor, lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
+    });
+
+    it('archives a disconnected Codex session in Happy when its machine is unreachable too', async () => {
+        const s1 = { ...mocks.getState().sessions.s1, active: false };
+        mocks.getState.mockReturnValue({ sessions: { s1 } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        mocks.machineRPC.mockRejectedValue(new Error('RPC method not available'));
+        expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'daemon-rpc-unavailable' });
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 4,
+            metadata: JSON.stringify({ ...s1.metadata, lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
+    });
+
     it('does not add native side effects to ordinary stop operations', async () => {
         await sessionKill('s1');
         expect(mocks.machineRPC).not.toHaveBeenCalled();

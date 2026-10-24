@@ -1034,9 +1034,17 @@ async function persistArchivedLifecycle(sessionId: string): Promise<void> {
 
 /** Keep Happy's stop-based archive behavior, then synchronize Codex's native history. */
 export async function sessionArchive(sessionId: string): Promise<{ success: boolean; message?: string; nativeArchiveError?: string }> {
-    const metadata = storage.getState().sessions[sessionId]?.metadata;
+    const session = storage.getState().sessions[sessionId];
+    const metadata = session?.metadata;
     const stopped = await sessionKill(sessionId);
+    // A disconnected session has no process left to stop (its machine dropped or it was killed),
+    // so archiving it is only the lifecycle mark.
+    const processGone = !stopped.success && session?.active === false && /RPC method not available/i.test(stopped.message ?? '');
     if (metadata?.flavor !== 'codex') {
+        if (processGone) {
+            await persistArchivedLifecycle(sessionId);
+            return { success: true };
+        }
         // The stop already succeeded; a lost write only leaves the session looking stopped, not archived.
         if (stopped.success) await persistArchivedLifecycle(sessionId).catch(error => console.warn('Failed to persist archived lifecycle', error));
         return stopped;
@@ -1072,6 +1080,11 @@ export async function sessionArchive(sessionId: string): Promise<{ success: bool
         const rawMessage = error instanceof Error ? error.message : 'native-archive-failed';
         // Archive callers tolerate missing session RPCs, but not an unavailable daemon.
         const message = !stopped.success && /RPC method not available/i.test(rawMessage) ? 'daemon-rpc-unavailable' : rawMessage;
+        if (processGone) {
+            // Its machine is unreachable too: archive it in Happy now; native history stays where it is.
+            await persistArchivedLifecycle(sessionId);
+            return { success: true, nativeArchiveError: message };
+        }
         return stopped.success ? { success: true, nativeArchiveError: message } : { success: false, message };
     }
 }
