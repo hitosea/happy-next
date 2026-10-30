@@ -12,10 +12,8 @@ import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { Modal } from '@/modal';
-import { sessionArchive } from '@/sync/ops';
-import { storage } from '@/sync/storage';
+import { archiveSessionFromApp } from '@/sync/archiveSessionFromApp';
 import type { Session } from '@/sync/storageTypes';
-import { sync } from '@/sync/sync';
 import { t } from '@/text';
 import { HappyError } from '@/utils/errors';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
@@ -34,22 +32,8 @@ export function useSessionArchive(session: Session | null | undefined, options: 
         const { session, options } = latestRef.current;
         if (!session) return;
         options.beforeArchive?.();
-        const previousActive = storage.getState().sessions[session.id]?.active ?? session.active;
-        storage.getState().updateSessionActivity(session.id, false);
-        const result = await sessionArchive(session.id);
-        const errorMessage = result.message || t('sessionInfo.failedToArchiveSession');
-        // Archiving is idempotent: if RPC target is gone, session is effectively already archived.
-        if (!result.success && /RPC method not available/i.test(errorMessage)) {
-            await sync.clearSessionMessageCache(session.id);
-            options.onArchived?.();
-            return;
-        }
-        if (!result.success) {
-            storage.getState().updateSessionActivity(session.id, previousActive);
-            throw new HappyError(errorMessage, false);
-        }
-        await sync.clearSessionMessageCache(session.id);
-        if (result.nativeArchiveError) throw new HappyError(t('sessionInfo.codexArchiveFailed') + ': ' + result.nativeArchiveError, false);
+        const { nativeArchiveError } = await archiveSessionFromApp(session);
+        if (nativeArchiveError) throw new HappyError(t('sessionInfo.codexArchiveFailed') + ': ' + nativeArchiveError, false);
         options.onArchived?.();
     }, []);
     const [archiving, performArchive] = useHappyAction(runArchive);

@@ -29,6 +29,7 @@ import {
     sessionDelete,
 } from '@/sync/ops';
 import { ActionMenuModal } from './ActionMenuModal';
+import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { ActionMenuItem } from './ActionMenu';
 import { getSessionQuickActionKinds, getSessionQuickActionSections, SessionQuickActionKind } from './sessionQuickActions';
 import { useOpenTerminal } from '@/hooks/useOpenTerminal';
@@ -306,6 +307,12 @@ function useSessionQuickActions(session: Session) {
             await sync.refreshSessions();
             await copySessionMetadata(session, result.sessionId).catch(error => console.warn('copySessionMetadata failed:', error));
             copySessionModeSettings(session, result.sessionId);
+            // A resume takes the original's place, which is archived, so back leads to the list
+            // rather than to the original; a copy keeps its original behind.
+            if (!session.active) {
+                archiveAfterResume(session);
+                dismissToHome();
+            }
             router.push(`/session/${result.sessionId}`);
         } catch (error) {
             console.error('Failed to fork session', error);
@@ -313,7 +320,7 @@ function useSessionQuickActions(session: Session) {
         } finally {
             endSessionFork(session.id);
         }
-    }, [router, session]);
+    }, [router, session, dismissToHome]);
 
     const handlers: Record<SessionQuickActionKind, () => void> = {
         details: () => router.push(`/session/${session.id}/info`),

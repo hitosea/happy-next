@@ -338,6 +338,11 @@ export type MachineUpdateCliResult = {
     latestVersion?: string;
 };
 
+/** The target has no handler for the RPC: the session process or daemon is gone, or predates it. */
+export function isRpcMethodNotAvailable(message: string | undefined): boolean {
+    return /RPC method not available/i.test(message ?? '');
+}
+
 /**
  * Install the latest CLI on a machine; its daemon restarts on it by itself
  */
@@ -354,7 +359,7 @@ export async function machineCheckCliUpdate(machineId: string, maxAgeMs: number)
     try {
         return await apiSocket.machineRPC<{ latestVersion: string | null; checkedAt?: number }, { maxAgeMs: number }>(machineId, 'check-cli-update', { maxAgeMs }, 60000);
     } catch (error) {
-        if (error instanceof Error && /RPC method not available/i.test(error.message)) return null;
+        if (error instanceof Error && isRpcMethodNotAvailable(error.message)) return null;
         throw error;
     }
 }
@@ -379,7 +384,7 @@ export async function machineCliUpdatePreflight(machineId: string): Promise<CliU
     try {
         return await apiSocket.machineRPC<CliUpdatePreflight, {}>(machineId, 'cli-update-preflight', {}, 60000);
     } catch (error) {
-        if (error instanceof Error && /RPC method not available/i.test(error.message)) return null;
+        if (error instanceof Error && isRpcMethodNotAvailable(error.message)) return null;
         throw error;
     }
 }
@@ -789,7 +794,7 @@ export async function sessionUpdateMetadataFields(
     updates: Partial<Metadata>,
     expectedVersion: number,
     maxRetries: number = 3
-): Promise<{ version: number }> {
+): Promise<{ version: number; metadata: Metadata }> {
     let currentVersion = expectedVersion;
 
     const sessionEncryption = sync.encryption.getSessionEncryption(sessionId);
@@ -814,7 +819,7 @@ export async function sessionUpdateMetadataFields(
         });
 
         if (result.result === 'success') {
-            return { version: result.version! };
+            return { version: result.version!, metadata: metadataToSend };
         } else if (result.result === 'version-mismatch') {
             currentVersion = result.version!;
             const latestMetadata = await sessionEncryption.decryptRaw(result.metadata!) as Metadata;
@@ -1029,19 +1034,50 @@ export async function sessionKill(sessionId: string): Promise<SessionKillRespons
 async function persistArchivedLifecycle(sessionId: string): Promise<void> {
     const session = storage.getState().sessions[sessionId];
     if (!session?.metadata) throw new Error('session-metadata-unavailable');
-    await sessionUpdateMetadataFields(sessionId, session.metadata, { lifecycleState: 'archived', lifecycleStateSince: Date.now() }, session.metadataVersion);
+    const written = await sessionUpdateMetadataFields(sessionId, session.metadata, { lifecycleState: 'archived', lifecycleStateSince: Date.now() }, session.metadataVersion);
+    // Apply it now rather than on the server's echo, so the session never lingers as disconnected.
+    const latest = storage.getState().sessions[sessionId];
+    if (latest) storage.getState().applySessions([{ ...latest, metadata: written.metadata, metadataVersion: written.version }]);
 }
 
-/** Keep Happy's stop-based archive behavior, then synchronize Codex's native history. */
-export async function sessionArchive(sessionId: string): Promise<{ success: boolean; message?: string; nativeArchiveError?: string }> {
-    const metadata = storage.getState().sessions[sessionId]?.metadata;
+/**
+ * Keep Happy's stop-based archive behavior, then synchronize Codex's native history.
+ * `wasActive` is the session's activity before any optimistic flip, which would hide a live one.
+ */
+export async function sessionArchive(
+    sessionId: string,
+    opts?: { wasActive?: boolean },
+): Promise<{ success: boolean; message?: string; nativeArchiveError?: string; archiveMetadataError?: string }> {
+    const session = storage.getState().sessions[sessionId];
+    const metadata = session?.metadata;
+    const wasActive = opts?.wasActive ?? session?.active;
     const stopped = await sessionKill(sessionId);
+    const rpcMissing = !stopped.success && isRpcMethodNotAvailable(stopped.message);
+    // A disconnected session has no process left to stop (its machine dropped or it was killed),
+    // so archiving it is only the lifecycle mark.
+    const processGone = rpcMissing && wasActive === false;
+    // With no stop to fall back on, a lost write is the archive failing.
+    const archiveWithoutProcess = async (nativeArchiveError?: string) => {
+        try {
+            await persistArchivedLifecycle(sessionId);
+        } catch (error) {
+            return { success: false, message: error instanceof Error ? error.message : 'archive-metadata-update-failed' };
+        }
+        return nativeArchiveError ? { success: true, nativeArchiveError } : { success: true };
+    };
     if (metadata?.flavor !== 'codex') {
-        // The stop already succeeded; a lost write only leaves the session looking stopped, not archived.
-        if (stopped.success) await persistArchivedLifecycle(sessionId).catch(error => console.warn('Failed to persist archived lifecycle', error));
+        if (processGone) return archiveWithoutProcess();
+        if (!stopped.success) return stopped;
+        // The stop already succeeded, but a lost write leaves the session listed as disconnected:
+        // report it so the archive is retried, without restoring the stopped session as live.
+        try {
+            await persistArchivedLifecycle(sessionId);
+        } catch (error) {
+            return { success: true, archiveMetadataError: error instanceof Error ? error.message : 'unknown-error' };
+        }
         return stopped;
     }
-    if (!stopped.success && !/RPC method not available/i.test(stopped.message ?? '')) return stopped;
+    if (!stopped.success && !rpcMissing) return stopped;
 
     // Native failures must not roll back Happy's stop or be mistaken for a missing session RPC.
     try {
@@ -1050,6 +1086,9 @@ export async function sessionArchive(sessionId: string): Promise<{ success: bool
             metadata.machineId, 'codex-archive-session',
             { sessionId, nativeSessionId: metadata.codexSessionId ?? undefined }, 120_000,
         );
+        // Its process is already gone, so there is no stop to confirm: archive it in Happy whatever
+        // became of its native history, or it stays listed as disconnected (a resumed original, say).
+        if (processGone) return archiveWithoutProcess(result?.success ? undefined : result?.error ?? 'native-archive-failed');
         // Missing native identity prevents daemon archival, not an acknowledged session stop.
         if (stopped.success && !result?.success && [
             'session-identity-unavailable', 'session-provider-mismatch', 'native-session-id-unavailable',
@@ -1071,7 +1110,9 @@ export async function sessionArchive(sessionId: string): Promise<{ success: bool
     } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'native-archive-failed';
         // Archive callers tolerate missing session RPCs, but not an unavailable daemon.
-        const message = !stopped.success && /RPC method not available/i.test(rawMessage) ? 'daemon-rpc-unavailable' : rawMessage;
+        const message = rpcMissing && isRpcMethodNotAvailable(rawMessage) ? 'daemon-rpc-unavailable' : rawMessage;
+        // Its machine is unreachable too: archive it in Happy now; native history stays where it is.
+        if (processGone) return archiveWithoutProcess(message);
         return stopped.success ? { success: true, nativeArchiveError: message } : { success: false, message };
     }
 }

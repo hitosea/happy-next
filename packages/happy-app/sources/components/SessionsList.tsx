@@ -13,6 +13,7 @@ import { ProjectLabelText } from './ProjectLabelText';
 import { Avatar } from './Avatar';
 import { ActiveSessionsGroup } from './ActiveSessionsGroup';
 import { ActiveSessionsGroupCompact } from './ActiveSessionsGroupCompact';
+import { DisconnectedSessionsHeader } from './DisconnectedSessionsHeader';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSessionListScope, collectListSessions } from '@/hooks/useSessionListScope';
 import { isSharingSelection, type SessionListSelection, type SessionMachineGroup } from './sessionListScope';
@@ -350,10 +351,74 @@ function machineSection(group: SessionMachineGroup): SessionSection {
 type ListItem = (
     | SessionListViewItem
     | { type: 'machine-header'; section: SessionSection }
-    | { type: 'machine-sessions'; section: SessionSection }
+    // The section's sessions split ahead of rendering, so each block keeps a stable array.
+    | { type: 'machine-sessions'; section: SessionSection; live: Session[]; disconnected: Session[] }
     | { type: 'shared-sessions'; sessions: Session[] }
     | { type: 'pinned-sessions'; sessions: Session[] }
+    // Offline but not ended, under their own header: see isSessionDisconnected.
+    | { type: 'disconnected-sessions'; sessions: Session[] }
 ) & { selected?: boolean };
+
+// A machine's sessions split into the live ones and those its going offline cut off.
+function splitDisconnected(sessions: Session[]): { live: Session[]; disconnected: Session[] } {
+    const live: Session[] = [];
+    const disconnected: Session[] = [];
+    for (const session of sessions) (session.active ? live : disconnected).push(session);
+    return { live, disconnected };
+}
+
+// A list block: the live sessions, then the disconnected ones under their header.
+function sessionBlocks(sessions: Session[]): ListItem[] {
+    const { live, disconnected } = splitDisconnected(sessions);
+    const blocks: ListItem[] = [];
+    if (live.length > 0) blocks.push({ type: 'active-sessions', sessions: live });
+    if (disconnected.length > 0) blocks.push({ type: 'disconnected-sessions', sessions: disconnected });
+    return blocks;
+}
+
+// The sessions a row lays out in foldable project groups; null for rows that list them plainly.
+function projectGroupedSessions(item: ListItem): Session[] | null {
+    switch (item.type) {
+        case 'active-sessions':
+        case 'shared-sessions':
+        case 'disconnected-sessions':
+            return item.sessions;
+        case 'machine-sessions':
+            return item.section.sessions;
+        default:
+            return null;
+    }
+}
+
+// The sessions a row lists under the Disconnected header, whose projects fold on their own.
+function disconnectedBlockSessions(item: ListItem): Session[] {
+    if (item.type === 'disconnected-sessions') return item.sessions;
+    if (item.type === 'machine-sessions') return item.disconnected;
+    return [];
+}
+
+// The sessions a row lays out in project groups outside the Disconnected header.
+function liveBlockSessions(item: ListItem): Session[] {
+    if (item.type === 'active-sessions' || item.type === 'shared-sessions') return item.sessions;
+    if (item.type === 'machine-sessions') return item.live;
+    return [];
+}
+
+// The keys a project's group can fold under: by path and machine, or by path alone when it spans
+// machines.
+function projectCollapseKeys(path: string, machineId: string | undefined, disconnected: boolean): string[] {
+    return [
+        ...(machineId ? [getSessionProjectCollapseKey(path, machineId, disconnected)] : []),
+        getSessionProjectCollapseKey(path, undefined, disconnected),
+    ];
+}
+
+// Every session a row shows.
+function listItemSessions(item: ListItem): Session[] {
+    if (item.type === 'session') return [item.session];
+    if (item.type === 'pinned-sessions') return item.sessions;
+    return projectGroupedSessions(item) ?? [];
+}
 
 function getSessionIdFromPathname(pathname: string): string | null {
     if (!pathname.startsWith('/session/')) return null;
@@ -489,6 +554,7 @@ export function SessionsList() {
         selection: activeTab,
         setSelection: setActiveTab,
         activeSessions: allActiveSessions,
+        disconnectedSessions,
         sharedSessions,
         sharedByMeSessions,
     } = scope;
@@ -598,8 +664,7 @@ export function SessionsList() {
             : items;
         if (activeTab !== 'all') {
             if (!selectedGroup) return data;
-            const rest = unpinned(selectedGroup.sessions);
-            return withPinned(rest.length > 0 ? [{ type: 'active-sessions', sessions: rest }] : []);
+            return withPinned(sessionBlocks(unpinned(selectedGroup.sessions)));
         }
         if (!data) return data;
         if (!groupByMachine) {
@@ -615,6 +680,8 @@ export function SessionsList() {
                 const rest = unpinned(item.sessions);
                 if (rest.length > 0) items.push({ type: 'active-sessions', sessions: rest });
             }
+            const disconnected = unpinned(disconnectedSessions);
+            if (disconnected.length > 0) items.push({ type: 'disconnected-sessions', sessions: disconnected });
             if (sharedAt >= 0 && sharedSection) {
                 const rest = unpinned(sharedSection.sessions);
                 if (rest.length > 0) items.push({ type: 'shared-sessions', sessions: rest });
@@ -628,20 +695,21 @@ export function SessionsList() {
             const section = { ...original, sessions: unpinned(original.sessions) };
             return section.sessions.length > 0 ? [
                 { type: 'machine-header', section },
-                { type: 'machine-sessions', section },
+                { type: 'machine-sessions', section, ...splitDisconnected(section.sessions) },
             ] : [];
         }));
-    }, [activeTab, sharedData, sharedByMeData, data, selectedGroup, groupByMachine, sections, sharedSection, pins]);
-    const tabSessions = React.useMemo(() => (tabData ?? []).flatMap(item =>
-        item.type === 'session' ? [item.session]
-            : item.type === 'active-sessions' || item.type === 'shared-sessions' || item.type === 'pinned-sessions' ? item.sessions
-                : item.type === 'machine-sessions' ? item.section.sessions
-                    : []), [tabData]);
+    }, [activeTab, sharedData, sharedByMeData, data, selectedGroup, groupByMachine, sections, sharedSection, disconnectedSessions, pins]);
+    const tabSessions = React.useMemo(() => (tabData ?? []).flatMap(listItemSessions), [tabData]);
     const projectLabel = useSessionProjectLabels(tabSessions);
 
+    // Disconnected sessions are listed on their machine too, so a jump to one goes there as well.
     const pendingActiveSession = React.useMemo(
-        () => pendingSessionNavigationId ? allActiveSessions.find(session => session.id === pendingSessionNavigationId) : undefined,
-        [allActiveSessions, pendingSessionNavigationId],
+        () => {
+            if (!pendingSessionNavigationId) return undefined;
+            const isPending = (session: Session) => session.id === pendingSessionNavigationId;
+            return allActiveSessions.find(isPending) ?? disconnectedSessions.find(isPending);
+        },
+        [allActiveSessions, disconnectedSessions, pendingSessionNavigationId],
     );
     const pendingSessionTargetTab = React.useMemo<SessionTab | null>(() => {
         if (!pendingSessionNavigationId) return null;
@@ -659,11 +727,12 @@ export function SessionsList() {
     }, [pendingSessionNavigationId, pendingActiveSession, switchable, machineGroups, sharedSessions, sharedByMeSessions, data]);
     const activeTabContainsPendingSession = React.useMemo(() => {
         if (!pendingSessionNavigationId) return false;
-        if (activeTab === 'all') return collectListSessions(data).some(session => session.id === pendingSessionNavigationId);
+        if (activeTab === 'all') return collectListSessions(data).some(session => session.id === pendingSessionNavigationId)
+            || disconnectedSessions.some(session => session.id === pendingSessionNavigationId);
         if (activeTab === 'shared') return sharedSessions.some(session => session.id === pendingSessionNavigationId);
         if (activeTab === 'sharedByMe') return sharedByMeSessions.some(session => session.id === pendingSessionNavigationId);
         return selectedGroup?.sessions.some(session => session.id === pendingSessionNavigationId) ?? false;
-    }, [pendingSessionNavigationId, activeTab, data, sharedSessions, sharedByMeSessions, selectedGroup]);
+    }, [pendingSessionNavigationId, activeTab, data, disconnectedSessions, sharedSessions, sharedByMeSessions, selectedGroup]);
 
     const selectable = isTablet;
     const dataWithSelected = React.useMemo(() => {
@@ -798,11 +867,7 @@ export function SessionsList() {
             if (reveal()) return;
 
             const topLevelIndex = dataWithSelected?.findIndex(item =>
-                item.type === 'session'
-                    ? item.session.id === sessionId
-                    : item.type === 'active-sessions' || item.type === 'shared-sessions' || item.type === 'pinned-sessions'
-                        ? item.sessions.some(session => session.id === sessionId)
-                        : item.type === 'machine-sessions' && item.section.sessions.some(session => session.id === sessionId)
+                listItemSessions(item).some(session => session.id === sessionId)
             ) ?? -1;
             if (topLevelIndex < 0) return;
 
@@ -865,14 +930,13 @@ export function SessionsList() {
         }
         // Sessions in the grouped blocks sit in foldable project groups; plain rows do not.
         const inProjectGroup = (tabData ?? []).some(item =>
-            (item.type === 'active-sessions' || item.type === 'shared-sessions') ? item.sessions.some(session => session.id === nextId)
-                : item.type === 'machine-sessions' && item.section.sessions.some(session => session.id === nextId));
+            projectGroupedSessions(item)?.some(session => session.id === nextId));
         // Its group folds by path and machine, or by path alone when it spans machines: unfold either.
         const metadata = tabSessions.find(session => session.id === nextId)?.metadata;
-        const collapseKeys = [
-            getSessionProjectCollapseKey(metadata?.path || ''),
-            ...(metadata?.machineId ? [getSessionProjectCollapseKey(metadata.path || '', metadata.machineId)] : []),
-        ].filter(key => collapsedProjectGroups[key]);
+        const disconnected = (tabData ?? []).some(item =>
+            disconnectedBlockSessions(item).some(session => session.id === nextId));
+        const collapseKeys = projectCollapseKeys(metadata?.path || '', metadata?.machineId, disconnected)
+            .filter(key => collapsedProjectGroups[key]);
         if (inProjectGroup && collapseKeys.length > 0) {
             const next = { ...collapsedProjectGroups };
             for (const key of collapseKeys) delete next[key];
@@ -891,17 +955,15 @@ export function SessionsList() {
         if (!metadata?.path) return null;
         const sameProject = (session: Session) => session.metadata?.path === metadata.path
             && session.metadata?.machineId === metadata.machineId;
-        const index = (tabData ?? []).findIndex(item =>
-            (item.type === 'active-sessions' || item.type === 'shared-sessions') ? item.sessions.some(sameProject)
-                : item.type === 'machine-sessions' && item.section.sessions.some(sameProject));
-        if (index < 0) return null;
-        return {
-            index,
-            collapseKeys: [
-                ...(metadata.machineId ? [getSessionProjectCollapseKey(metadata.path, metadata.machineId)] : []),
-                getSessionProjectCollapseKey(metadata.path),
-            ],
-        };
+        // A project can sit in both the live and the disconnected block: prefer the one the pinned
+        // session itself would be in.
+        const pinnedDisconnected = tabSessions.find(session => session.id === sessionId)?.active === false;
+        for (const disconnected of [pinnedDisconnected, !pinnedDisconnected]) {
+            const blockSessions = disconnected ? disconnectedBlockSessions : liveBlockSessions;
+            const index = (tabData ?? []).findIndex(item => blockSessions(item).some(sameProject));
+            if (index >= 0) return { index, collapseKeys: projectCollapseKeys(metadata.path, metadata.machineId, disconnected) };
+        }
+        return null;
     }, [pins, activeTab, tabSessions, tabData]);
     const locatePinnedSessionProject = React.useCallback((sessionId: string) => {
         const target = findPinnedSessionProject(sessionId);
@@ -977,6 +1039,7 @@ export function SessionsList() {
             case 'active-sessions': return 'active-sessions';
             case 'shared-sessions': return 'shared-sessions';
             case 'pinned-sessions': return 'pinned-sessions';
+            case 'disconnected-sessions': return 'disconnected-sessions';
             case 'project-group': return `project-group-${item.machine.id}-${item.displayPath}-${index}`;
             case 'session': return `session-${item.session.id}`;
             case 'machine-header': return `machine-header-${item.section.id}`;
@@ -987,6 +1050,20 @@ export function SessionsList() {
     const renderItem = React.useCallback(({ item, index }: { item: ListItem, index: number }) => {
         const ActiveComponent = compactSessionView ? ActiveSessionsGroupCompact : ActiveSessionsGroup;
         const selectedId = isTablet && selectedSessionId ? selectedSessionId : undefined;
+        // byMachine follows the live block beside it: set in the merged list only, as a machine
+        // section holds one machine already.
+        const disconnectedBlock = (sessions: Session[], byMachine?: boolean) => (
+            <>
+                <DisconnectedSessionsHeader sessions={sessions} />
+                <ActiveComponent
+                    sessions={sessions}
+                    selectedSessionId={selectedId}
+                    registerSessionRowRef={registerSessionRowRef}
+                    byMachine={byMachine}
+                    disconnected
+                />
+            </>
+        );
         switch (item.type) {
             case 'header':
                 return (
@@ -1040,13 +1117,19 @@ export function SessionsList() {
                 if (collapsedMachineSections[item.section.id]) return <View style={styles.machineSessionsCollapsed} />;
                 return (
                     <View style={styles.machineSessions}>
-                        <ActiveComponent
-                            sessions={item.section.sessions}
-                            selectedSessionId={selectedId}
-                            registerSessionRowRef={registerSessionRowRef}
-                        />
+                        {item.live.length > 0 && (
+                            <ActiveComponent
+                                sessions={item.live}
+                                selectedSessionId={selectedId}
+                                registerSessionRowRef={registerSessionRowRef}
+                            />
+                        )}
+                        {item.disconnected.length > 0 && disconnectedBlock(item.disconnected)}
                     </View>
                 );
+
+            case 'disconnected-sessions':
+                return <View>{disconnectedBlock(item.sessions, projectsByMachine)}</View>;
 
             case 'project-group':
                 return (

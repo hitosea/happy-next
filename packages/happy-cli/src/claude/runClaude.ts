@@ -650,6 +650,16 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Note: currentSession is set by onSessionReady callback during loop()
     (currentSession as Session | null)?.cleanup();
 
+    // Claude exited on its own (/exit, Ctrl-D): the session ended, so the app must not list it as
+    // disconnected and waiting to be resumed.
+    session.updateMetadata((currentMetadata) => ({
+        ...currentMetadata,
+        lifecycleState: 'archived',
+        lifecycleStateSince: Date.now(),
+        archivedBy: 'cli',
+        archiveReason: 'Session ended'
+    }));
+
     // Send session death message
     session.sendSessionDeath();
 

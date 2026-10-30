@@ -3,6 +3,7 @@ import { Modal } from '@/modal';
 import type { Session } from '@/sync/storageTypes';
 import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession } from '@/sync/ops';
 import { sync } from '@/sync/sync';
+import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { t } from '@/text';
 import { copySessionMetadata, copySessionModeSettings, generateCopyTitle, getSessionName } from '@/utils/sessionUtils';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
@@ -118,6 +119,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
             await sync.refreshSessions();
             await copySessionMetadata(session, result.sessionId).catch(e => console.warn('copySessionMetadata failed:', e));
             copySessionModeSettings(session, result.sessionId);
+            if (mode === 'resume') archiveAfterResume(session);
             navigateToSession(result.sessionId);
         }
     } catch (error) {

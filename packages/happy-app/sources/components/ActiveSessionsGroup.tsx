@@ -284,6 +284,8 @@ interface ActiveSessionsGroupProps {
     pinned?: boolean;
     // The phone's "All machines" view: a project on each machine is a group of its own, naming it.
     byMachine?: boolean;
+    // Sessions cut off by their machine: their projects fold apart from the same live ones.
+    disconnected?: boolean;
 }
 
 function PinnedSessionsHeader() {
@@ -439,10 +441,10 @@ function ProjectSectionHeader({
 }
 
 
-export function ActiveSessionsGroup({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned, byMachine }: ActiveSessionsGroupProps) {
+export function ActiveSessionsGroup({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned, byMachine, disconnected }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
     const router = useRouter();
-    const projectGroups = useSessionProjectGroups(sessions, { byMachine });
+    const projectGroups = useSessionProjectGroups(sessions, { byMachine, disconnected });
     const { collapsedGroups, toggleGroup } = useCollapsedSessionProjectGroups(projectGroups, selectedSessionId);
 
     if (pinned) {

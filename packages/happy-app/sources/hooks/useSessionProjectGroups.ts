@@ -21,14 +21,19 @@ export type SessionProjectGroup = {
 };
 
 // A project on a single machine folds on its own: the same path on another machine is another
-// project. One that spans machines (the phone's merged list) folds by its path alone.
-export function getSessionProjectCollapseKey(projectPath: string, machineId?: string): string {
+// project. One that spans machines (the phone's merged list) folds by its path alone. Its
+// disconnected sessions sit in a block of their own, which folds apart from the live one.
+export function getSessionProjectCollapseKey(projectPath: string, machineId?: string, disconnected = false): string {
     const path = `path:${encodeURIComponent(projectPath)}`;
-    return machineId ? `machine:${encodeURIComponent(machineId)}:${path}` : path;
+    const key = machineId ? `machine:${encodeURIComponent(machineId)}:${path}` : path;
+    return disconnected ? `disconnected:${key}` : key;
 }
 
 // By machine (the phone's "All machines" view), the same path on two machines is two projects.
-export function useSessionProjectGroups(sessions: Session[], { byMachine = false }: { byMachine?: boolean } = {}): SessionProjectGroup[] {
+export function useSessionProjectGroups(
+    sessions: Session[],
+    { byMachine = false, disconnected = false }: { byMachine?: boolean; disconnected?: boolean } = {},
+): SessionProjectGroup[] {
     const machines = useAllMachines();
     const machinesMap = React.useMemo(() => {
         const map: Record<string, Machine> = {};
@@ -54,7 +59,7 @@ export function useSessionProjectGroups(sessions: Session[], { byMachine = false
             if (!projectGroup) {
                 projectGroup = {
                     path: projectPath,
-                    collapseKey: getSessionProjectCollapseKey(projectPath),
+                    collapseKey: getSessionProjectCollapseKey(projectPath, undefined, disconnected),
                     label: projectLabel(session),
                     machines: new Map(),
                     sessions: [],
@@ -75,7 +80,7 @@ export function useSessionProjectGroups(sessions: Session[], { byMachine = false
         for (const projectGroup of groups.values()) {
             const machineIds = Array.from(projectGroup.machines.keys());
             if (machineIds.length === 1 && machineIds[0] !== unknownText) {
-                projectGroup.collapseKey = getSessionProjectCollapseKey(projectGroup.path, machineIds[0]);
+                projectGroup.collapseKey = getSessionProjectCollapseKey(projectGroup.path, machineIds[0], disconnected);
             }
             for (const machineGroup of projectGroup.machines.values()) {
                 machineGroup.sessions.sort(compareSessionsByLastMessage);
@@ -90,7 +95,7 @@ export function useSessionProjectGroups(sessions: Session[], { byMachine = false
         return Array.from(groups.values()).sort((a, b) => names.get(a.path)!.name
             .localeCompare(names.get(b.path)!.name, undefined, { sensitivity: 'base' }) || a.path.localeCompare(b.path)
             || machineName(a).localeCompare(machineName(b)));
-    }, [sessions, machinesMap, projectLabel, byMachine]);
+    }, [sessions, machinesMap, projectLabel, byMachine, disconnected]);
 }
 
 export function useCollapsedSessionProjectGroups(

@@ -630,7 +630,7 @@ export const MainView = React.memo(({ variant }: MainViewProps) => {
         }
 
         // Empty state — unless there are machines to switch between, which the list's rail shows
-        if (sessionListViewData.length === 0 && !sessionScope.switchable) {
+        if (sessionListViewData.length === 0 && sessionScope.disconnectedSessions.length === 0 && !sessionScope.switchable) {
             return (
                 <View style={styles.sidebarContentContainer}>
                     <View style={styles.emptyStateContainer}>

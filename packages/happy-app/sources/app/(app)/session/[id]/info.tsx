@@ -18,6 +18,8 @@ import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
 import { sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
 import { leaveSharedSession } from '@/sync/apiSharing';
+import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
+import { useDismissToHome } from '@/hooks/useDismissToHome';
 import { pushWorktreeBranch, mergeWorktreeBranch, createWorktreePR, cleanupWorktree, cleanupWorkspace, getLocalBranches, getCurrentBranch } from '@/utils/worktreeOps';
 import { getWorkspaceRepos } from '@/utils/workspaceRepos';
 import { RepoSelector } from '@/components/RepoSelector';
@@ -43,6 +45,7 @@ import { StatusDot } from '@/components/StatusDot';
 function SessionInfoContent({ session, leavingRef }: { session: Session; leavingRef: React.MutableRefObject<boolean> }) {
     const { theme } = useUnistyles();
     const router = useRouter();
+    const dismissToHome = useDismissToHome();
     const devModeEnabled = __DEV__;
     const sessionName = getSessionName(session);
     const sessionStatus = useSessionStatus(session);
@@ -336,6 +339,12 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 await sync.refreshSessions();
                 await copySessionMetadata(session, result.sessionId).catch(e => console.warn('copySessionMetadata failed:', e));
                 copySessionModeSettings(session, result.sessionId);
+                // A resume takes the original's place, which is archived, so back leads to the list
+                // rather than through the original's info and chat; a copy keeps its original behind.
+                if (!isOnline) {
+                    archiveAfterResume(session);
+                    dismissToHome();
+                }
                 router.push(`/session/${result.sessionId}`);
             }
         } catch (error) {
@@ -344,7 +353,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         } finally {
             setForkingSession(false);
         }
-    }, [session, forkingSession, router]);
+    }, [session, forkingSession, router, dismissToHome]);
 
     const formatDate = useCallback((timestamp: number) => {
         return new Date(timestamp).toLocaleString();

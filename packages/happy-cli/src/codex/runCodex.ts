@@ -45,7 +45,7 @@ import type { ImageContent } from '@/api/types';
 import type { SendPromptOptions } from '@/agent/core';
 import type { AgentMessage } from '@/agent/core';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
-import { findCodexSessionFile } from './utils/codexSessionReader';
+import { findCodexSessionFile, readCodexSessionIdFromFile } from './utils/codexSessionReader';
 import { summarizeBashToolOutput } from '@/modules/common/loadableToolOutput';
 import { cleanupStdinAfterInk } from '@/utils/terminalStdinCleanup';
 
@@ -217,6 +217,11 @@ export async function runCodex(opts: {
         startedBy: opts.startedBy,
         historyBackfill: !!initialResumeFile && shouldBackfillResume,
     });
+    // The backend starts with the first message, and only then reports the conversation id. A
+    // resumed session cut off before that would have nothing to resume it by, so take it from the
+    // rollout file up front.
+    const resumedCodexSessionId = initialResumeFile ? await readCodexSessionIdFromFile(initialResumeFile) : null;
+    if (resumedCodexSessionId) metadata.codexSessionId = resumedCodexSessionId;
     const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
 
     // Handle server unreachable case - create offline stub with hot reconnection
@@ -1474,6 +1479,15 @@ Tokens used: ${goal.tokensUsed}${goal.tokenBudget ? ` / ${goal.tokenBudget}` : '
         }
 
         try {
+            // The loop ended on its own (exit from the UI): the session ended, so the app must not
+            // list it as disconnected and waiting to be resumed.
+            session.updateMetadata((currentMetadata) => ({
+                ...currentMetadata,
+                lifecycleState: 'archived',
+                lifecycleStateSince: Date.now(),
+                archivedBy: 'cli',
+                archiveReason: 'Session ended'
+            }));
             logger.debug('[codex]: sendSessionDeath');
             session.sendSessionDeath();
             logger.debug('[codex]: flush begin');

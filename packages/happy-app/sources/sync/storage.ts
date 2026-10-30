@@ -45,6 +45,7 @@ import {
     upsertPendingMessageInQueue,
 } from "./pendingQueue";
 import { compareSessionsByLastMessage, sessionLastMessageAt, updateSessionDisplayOrder } from '@/utils/sessionLastMessageAt';
+import { isSessionDisconnected } from '@/utils/sessionLifecycle';
 
 // Debounce timer for realtimeMode changes
 let realtimeModeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2566,6 +2567,27 @@ export function useMachine(machineId: string): Machine | null {
 
 export function useSessionListViewData(): SessionListViewItem[] | null {
     return storage((state) => state.isDataReady ? state.sessionListViewData : null);
+}
+
+// Derived once per sessions change for every subscriber, and stable in between.
+let disconnectedSessionsCache: { sessions: Record<string, Session>; result: Session[] } | null = null;
+function selectDisconnectedSessions(state: { sessions: Record<string, Session> }): Session[] {
+    if (disconnectedSessionsCache?.sessions !== state.sessions) {
+        const result = Object.values(state.sessions)
+            .filter(session => isSessionDisconnected(session))
+            .sort((a, b) => b.activeAt - a.activeAt);
+        // Most sessions changes touch live sessions only (a streamed batch's usage, say): keep the
+        // previous array then, so subscribers don't re-render.
+        const previous = disconnectedSessionsCache?.result;
+        const unchanged = previous?.length === result.length && result.every((session, i) => session === previous[i]);
+        disconnectedSessionsCache = { sessions: state.sessions, result: unchanged && previous ? previous : result };
+    }
+    return disconnectedSessionsCache.result;
+}
+
+// My sessions cut off by their machine dropping, newest first: see isSessionDisconnected.
+export function useDisconnectedSessions(): Session[] {
+    return storage(selectDisconnectedSessions);
 }
 
 export function useAllSessions(): Session[] {

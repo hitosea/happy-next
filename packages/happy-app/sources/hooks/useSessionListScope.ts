@@ -3,9 +3,10 @@
 // consumer reads and writes the same value and stays in step without prop drilling.
 import * as React from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { storage, useLocalSettingMutable, useSetting, type SessionListViewItem } from '@/sync/storage';
+import { storage, useDisconnectedSessions, useLocalSettingMutable, useSetting, type SessionListViewItem } from '@/sync/storage';
 import type { Session } from '@/sync/storageTypes';
 import { useIsTablet } from '@/utils/responsive';
+import { useArchivingSessionIds } from '@/sync/archiveSessionFromApp';
 import { useVisibleSessionListViewData, useSharedSessionListViewData, useSharedByMeSessionListViewData } from '@/hooks/useVisibleSessionListViewData';
 import {
     buildSessionMachineGroups,
@@ -33,6 +34,9 @@ export type SessionListScope = {
     sharedByMeData: SessionListViewItem[] | null;
     // Active sessions of my own, across every machine.
     activeSessions: Session[];
+    // My sessions cut off by their machine, still waiting to be resumed or archived.
+    disconnectedSessions: Session[];
+    // Each machine's sessions: the active ones, then the disconnected ones.
     groups: SessionMachineGroup[];
     sharedSessions: Session[];
     sharedByMeSessions: Session[];
@@ -60,12 +64,25 @@ export function useSessionListScope(): SessionListScope {
         const item = data?.find(i => i.type === 'active-sessions');
         return item && item.type === 'active-sessions' ? item.sessions : [];
     }, [data]);
+    // Sessions cut off by their machine dropping stay on it, shown offline, until resumed or archived.
+    // Filtered here rather than in a selector, which would rescan on every store change.
+    // One being archived stays out, or a live one would pass through here on its way out.
+    const allDisconnected = useDisconnectedSessions();
+    const archivingIds = useArchivingSessionIds();
+    const disconnectedSessions = React.useMemo(
+        () => allDisconnected.filter(session => !archivingIds[session.id]),
+        [allDisconnected, archivingIds],
+    );
+    const machineSessions = React.useMemo(
+        () => [...activeSessions, ...disconnectedSessions],
+        [activeSessions, disconnectedSessions],
+    );
     const groups = React.useMemo(
-        () => buildSessionMachineGroups(activeSessions, machines, nameCache, machineOrder, {
+        () => buildSessionMachineGroups(machineSessions, machines, nameCache, machineOrder, {
             hideIdle: hideIdleMachines,
             keepMachineId: persisted,
         }),
-        [activeSessions, machines, nameCache, machineOrder, hideIdleMachines, persisted],
+        [machineSessions, machines, nameCache, machineOrder, hideIdleMachines, persisted],
     );
     const sharedSessions = React.useMemo(() => collectListSessions(sharedData), [sharedData]);
     const sharedByMeSessions = React.useMemo(() => collectListSessions(sharedByMeData), [sharedByMeData]);
@@ -97,6 +114,7 @@ export function useSessionListScope(): SessionListScope {
         sharedData,
         sharedByMeData,
         activeSessions,
+        disconnectedSessions,
         groups,
         sharedSessions,
         sharedByMeSessions,
