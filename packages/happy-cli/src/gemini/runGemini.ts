@@ -366,7 +366,7 @@ export async function runGemini(opts: {
       originalUserMessage, // Store original message separately
       images: images.length > 0 ? images : undefined, // Include images if present
     };
-    messageQueue.push(fullPrompt, mode);
+    messageQueue.push(fullPrompt, mode, session.queueOptionsFor(message));
     
     // Record user message in conversation history for context preservation
     conversationHistory.addUserMessage(originalUserMessage);

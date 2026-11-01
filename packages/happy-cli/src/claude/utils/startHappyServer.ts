@@ -77,6 +77,14 @@ function compactTasksResponse(response: any, taskId?: string) {
     return { ...response, data: { ...response.data, tasks: compacted } };
 }
 
+/**
+ * Whether an exec, transfer or pend response holds a finished run's results for every task, so
+ * its <orchestrator-callback> would tell the agent nothing new. A summary-only pend does not.
+ */
+function hasAllTerminalResults(response: any): boolean {
+    return response?.data?.terminal === true && Array.isArray(response.data.tasks);
+}
+
 // Factory function to create MCP server with tools
 function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: boolean; enableOrchestratorTools: boolean }): McpServer {
     const mcp = new McpServer({
@@ -283,6 +291,9 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
+                if (hasAllTerminalResults(response)) {
+                    client.markOrchestratorRunResultsReceived(response.data.runId);
+                }
                 return toToolSuccess(compactTasksResponse(response));
             } catch (error) {
                 return toToolError('Failed to run the command', describeRequestError(error));
@@ -310,6 +321,9 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
+                if (hasAllTerminalResults(response)) {
+                    client.markOrchestratorRunResultsReceived(response.data.runId);
+                }
                 return toToolSuccess(response);
             } catch (error) {
                 return toToolError('Failed to transfer', describeRequestError(error));
@@ -319,6 +333,13 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
         mcp.registerTool('orchestrator_pend', ORCHESTRATOR_PEND_TOOL_SCHEMA, async (args) => {
             // A single task's output is only in the per-task details
             const include = args.taskId ? 'all_tasks' : args.include;
+            // With taskId the agent sees one task, which is all the results only for a one-task run
+            const respond = (response: any) => {
+                if (hasAllTerminalResults(response) && (!args.taskId || response.data.tasks.length === 1)) {
+                    client.markOrchestratorRunResultsReceived(args.runId);
+                }
+                return toToolSuccess(compactTasksResponse(response, args.taskId));
+            };
             const startedAt = Date.now();
             const totalTimeoutMs = args.timeoutMs ?? 10 * 60 * 1000;
             let cursor = args.cursor;
@@ -334,7 +355,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         timeoutMs: Math.min(remaining, 60_000),
                         include,
                     });
-                    return toToolSuccess(compactTasksResponse(response, args.taskId));
+                    return respond(response);
                 } catch (error: any) {
                     const status = error?.response?.status;
                     if (status === 504 && remaining > 1000) {
@@ -353,7 +374,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     timeoutMs: 0,
                     include,
                 });
-                return toToolSuccess(compactTasksResponse(response, args.taskId));
+                return respond(response);
             } catch (error) {
                 return toToolError('Failed to pend orchestrator run', error instanceof Error ? error.message : String(error));
             }

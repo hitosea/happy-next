@@ -5,6 +5,15 @@ interface QueueItem<T, M> {
     mode: T;
     modeHash: string;
     isolate?: boolean; // If true, this message must be processed alone
+    discardIf?: () => boolean; // Checked at delivery: true drops the message unsent
+}
+
+export interface PushOptions {
+    /**
+     * Asked when the message is about to be delivered; true drops it. For a message that may
+     * be outdated by then, such as a run's terminal callback whose results were already fetched.
+     */
+    discardIf?: () => boolean;
 }
 
 /**
@@ -40,7 +49,7 @@ export class MessageQueue2<T, M = string> {
     /**
      * Push a message to the queue with a mode.
      */
-    push(message: M, mode: T): void {
+    push(message: M, mode: T, options?: PushOptions): void {
         if (this.closed) {
             throw new Error('Cannot push to closed queue');
         }
@@ -52,7 +61,8 @@ export class MessageQueue2<T, M = string> {
             message,
             mode,
             modeHash,
-            isolate: false
+            isolate: false,
+            discardIf: options?.discardIf
         });
 
         // Trigger message handler if set
@@ -223,7 +233,17 @@ export class MessageQueue2<T, M = string> {
      * Get the current queue size
      */
     size(): number {
+        this.dropDiscarded();
         return this.queue.length;
+    }
+
+    // Drops the messages whose discardIf now says they are outdated
+    private dropDiscarded(): void {
+        const before = this.queue.length;
+        this.queue = this.queue.filter((item) => !item.discardIf?.());
+        if (this.queue.length < before) {
+            logger.debug(`[MessageQueue2] Discarded ${before - this.queue.length} outdated message(s)`);
+        }
     }
 
     /**
@@ -233,24 +253,28 @@ export class MessageQueue2<T, M = string> {
      * Returns { message: M, mode: T } or null if aborted/closed
      */
     async waitForMessagesAndGetAsString(abortSignal?: AbortSignal): Promise<{ message: M, mode: T, isolate: boolean, hash: string } | null> {
-        // If we have messages, return them immediately
-        if (this.queue.length > 0) {
-            return this.collectBatch();
+        while (true) {
+            // Messages outdated while they waited are dropped, and only they: if nothing is
+            // left, keep waiting rather than return an empty batch
+            this.dropDiscarded();
+
+            // If we have messages, return them immediately
+            if (this.queue.length > 0) {
+                return this.collectBatch();
+            }
+
+            // If closed or already aborted, return null
+            if (this.closed || abortSignal?.aborted) {
+                return null;
+            }
+
+            // Wait for messages to arrive
+            const hasMessages = await this.waitForMessages(abortSignal);
+
+            if (!hasMessages) {
+                return null;
+            }
         }
-
-        // If closed or already aborted, return null
-        if (this.closed || abortSignal?.aborted) {
-            return null;
-        }
-
-        // Wait for messages to arrive
-        const hasMessages = await this.waitForMessages(abortSignal);
-
-        if (!hasMessages) {
-            return null;
-        }
-
-        return this.collectBatch();
     }
 
     /**

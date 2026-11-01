@@ -9,6 +9,7 @@ import { configuration } from '@/configuration';
 import { RawJSONLines } from '@/claude/types';
 import { randomUUID } from 'node:crypto';
 import { AsyncLock } from '@/utils/lock';
+import type { PushOptions } from '@/utils/MessageQueue2';
 import { InvalidateSync } from '@/utils/sync';
 import axios from 'axios';
 import { trimToolUseResult, trimToolResultContent, trimToolUseInput } from './trimToolUseResult';
@@ -175,6 +176,10 @@ export class ApiSessionClient extends EventEmitter {
     private socket: Socket<ServerToClientEvents, ClientToServerEvents>;
     private pendingMessages: UserMessage[] = [];
     private pendingMessageCallback: ((message: UserMessage) => void) | null = null;
+    /** The synthetic <orchestrator-callback> messages, each with its run */
+    private orchestratorCallbackRuns = new WeakMap<UserMessage, string>();
+    /** Runs whose complete terminal results a tool already returned to the agent in this session */
+    private orchestratorRunsWithResults = new Set<string>();
     readonly rpcHandlerManager: RpcHandlerManager;
     private agentStateLock = new AsyncLock();
     private metadataLock = new AsyncLock();
@@ -305,6 +310,7 @@ export class ApiSessionClient extends EventEmitter {
                     content: { type: 'text' as const, text },
                     meta: {},
                 };
+                this.orchestratorCallbackRuns.set(syntheticMessage as UserMessage, payload.runId);
                 if (this.pendingMessageCallback) {
                     this.pendingMessageCallback(syntheticMessage as any);
                 } else {
@@ -680,6 +686,24 @@ export class ApiSessionClient extends EventEmitter {
             }
         );
         return response.data;
+    }
+
+    /**
+     * The agent got a run's complete terminal results from a tool (exec, transfer, or pend
+     * with every task), so a callback for that run still queued has nothing more to tell it.
+     */
+    markOrchestratorRunResultsReceived(runId: string) {
+        this.orchestratorRunsWithResults.add(runId);
+    }
+
+    /**
+     * Push options for a message entering an agent's queue: a run's callback is dropped at
+     * delivery if the run's results were fetched while it waited for the agent's turn to end.
+     * Only checked then, as the agent may fetch them in the very turn the callback arrived in.
+     */
+    queueOptionsFor(message: UserMessage): PushOptions | undefined {
+        const runId = this.orchestratorCallbackRuns.get(message);
+        return runId === undefined ? undefined : { discardIf: () => this.orchestratorRunsWithResults.has(runId) };
     }
 
     onUserMessage(callback: (data: UserMessage) => void) {

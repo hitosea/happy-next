@@ -1,10 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionNotification } from '@agentclientprotocol/sdk';
 import { buildQoderBackfillMessages } from './backfill';
 
 const text = (sessionUpdate: string, value: string) => ({ sessionUpdate, content: { type: 'text', text: value } }) as SessionNotification['update'];
 
 describe('buildQoderBackfillMessages', () => {
+  // A session copied from another has these set, which adds a notice of where it came from
+  beforeEach(() => {
+    vi.stubEnv('HAPPY_FORKED_FROM_SESSION_ID', '');
+    vi.stubEnv('HAPPY_FORKED_FROM_TITLE', '');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('keeps each prompt and the text its turn ended on, dropping thoughts, tool calls and session guidance', () => {
     const messages = buildQoderBackfillMessages([
       text('user_message_chunk', 'Hello\n\n<happy-session-instructions>\nSet a title\n</happy-session-instructions>'),

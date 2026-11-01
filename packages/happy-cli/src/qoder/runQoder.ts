@@ -178,7 +178,7 @@ export async function runQoder(opts: {
       effort: desiredEffort,
       originalUserMessage,
       images: images.length > 0 ? images : undefined,
-    });
+    }, session.queueOptionsFor(message));
   });
 
   //

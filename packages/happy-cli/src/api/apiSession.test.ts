@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiSessionClient } from './apiSession';
+import { MessageQueue2 } from '@/utils/MessageQueue2';
 import * as trimToolUseResultModule from './trimToolUseResult';
 import * as toolOutputStoreModule from '../modules/common/toolOutputStore';
 import * as encryptionModule from './encryption';
@@ -663,5 +664,69 @@ describe('ApiSessionClient keepAlive', () => {
         expect(resumed).not.toBe(first);
         expect(resumedEnd).toBe(resumed);
         expect(next).not.toBe(resumed);
+    });
+});
+
+describe('ApiSessionClient orchestrator callbacks', () => {
+    let mockSocket: any;
+
+    beforeEach(() => {
+        mockSocket = { connect: vi.fn(), on: vi.fn(), off: vi.fn(), close: vi.fn(), disconnect: vi.fn(), emit: vi.fn(), connected: true };
+        mockIo.mockReturnValue(mockSocket);
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    // A client whose user messages go into a queue the way the runners put them there
+    function setup() {
+        const client = new ApiSessionClient('fake-token', {
+            id: 'test-session-id',
+            seq: 0,
+            metadata: { path: '/tmp', host: 'localhost', homeDir: '/home/user', happyHomeDir: '/home/user/.happy-next', happyLibDir: '/home/user/.happy/lib', happyToolsDir: '/home/user/.happy/tools' },
+            metadataVersion: 0,
+            agentState: null,
+            agentStateVersion: 0,
+            encryptionKey: new Uint8Array(32),
+            encryptionVariant: 'legacy' as const,
+        } as any, async () => new Uint8Array(32));
+        vi.spyOn(client as any, 'loadOrchestratorKey').mockRejectedValue(new Error('no key'));
+        const queue = new MessageQueue2<string>((mode) => mode);
+        client.onUserMessage((message) => queue.push(message.content.text, 'default', client.queueOptionsFor(message)));
+        const ephemeral = mockSocket.on.mock.calls.find((args: any[]) => args[0] === 'ephemeral')[1];
+        const callback = (runId: string) => ephemeral({ type: 'orchestrator-run-terminal', runId, status: 'completed', title: 'x' });
+        return { client, queue, callback };
+    }
+
+    it('drops a queued callback once the run\'s results were fetched in the same turn', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        client.markOrchestratorRunResultsReceived('run-1');
+        queue.push('next user message', 'default');
+
+        const batch = await queue.waitForMessagesAndGetAsString();
+        expect(batch?.message).toBe('next user message');
+    });
+
+    it('delivers the callback when only another run\'s results, or none, were fetched', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        client.markOrchestratorRunResultsReceived('run-2');
+
+        const batch = await queue.waitForMessagesAndGetAsString();
+        expect(batch?.message).toContain('<orchestrator-callback>');
+        expect(batch?.message).toContain('(run-1)');
+    });
+
+    it('drops a callback arriving after the results were already fetched', async () => {
+        const { client, queue, callback } = setup();
+        client.markOrchestratorRunResultsReceived('run-1');
+        await callback('run-1');
+        await callback('run-2');
+
+        const batch = await queue.waitForMessagesAndGetAsString();
+        expect(batch?.message).toContain('(run-2)');
+        expect(batch?.message).not.toContain('(run-1)');
     });
 });

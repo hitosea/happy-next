@@ -548,7 +548,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         if (message.content.type === 'mixed') {
             messageQueue.push(message.content, enhancedMode);
         } else {
-            messageQueue.push(message.content.text, enhancedMode);
+            messageQueue.push(message.content.text, enhancedMode, session.queueOptionsFor(message));
         }
         logger.debugLargeJson('User message pushed to queue:', message)
     });
