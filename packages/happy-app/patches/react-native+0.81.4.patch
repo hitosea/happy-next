@@ -83,6 +83,19 @@ index a9aedca..c61df89 100644
                                                                 getServerHost(bundleURL),
                                                                 escapedInspectorDeviceId]];
    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
+index 9fb3400..409ce82 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
+@@ -56,6 +56,8 @@ using namespace facebook::react;
+     self.opaque = NO;
+     _textView = [RCTParagraphTextView new];
+     _textView.backgroundColor = UIColor.clearColor;
++    // Redraw on any size change: a draw forced before layout otherwise leaves a stale bitmap stretched to the new bounds.
++    _textView.contentMode = UIViewContentModeRedraw;
+     self.contentView = _textView;
+   }
+ 
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 index 577bebe..9cba2e6 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
