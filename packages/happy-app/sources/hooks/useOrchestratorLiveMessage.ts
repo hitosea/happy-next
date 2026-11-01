@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { pickLatestAssistantMessage } from '@/components/orchestrator/display';
 import type { OrchestratorProvider } from '@/sync/apiOrchestrator';
-import { machineGetClaudeSessionPreview, machineGetCodexSessionPreview, machineGetGeminiSessionPreview, type SessionPreviewMessage } from '@/sync/ops';
+import { machineGetClaudeSessionPreview, machineGetCodexSessionPreview, machineGetGeminiSessionPreview, machineGetQoderSessionPreview, type SessionPreviewMessage } from '@/sync/ops';
 
 const LIVE_MESSAGE_POLL_INTERVAL_MS = 3000;
 // Only the tail of the conversation is needed to find the latest assistant message.
@@ -21,8 +21,7 @@ async function fetchPreviewMessages(machineId: string, provider: Provider, child
         case 'gemini':
             return (await machineGetGeminiSessionPreview(machineId, childSessionId, options)).messages;
         case 'qoder':
-            // Qoder has no session-preview RPC, so its tasks show their output once they finish
-            return [];
+            return (await machineGetQoderSessionPreview(machineId, childSessionId, options)).messages;
     }
 }
 
