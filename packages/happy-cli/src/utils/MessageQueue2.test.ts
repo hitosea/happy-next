@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MessageQueue2 } from './MessageQueue2';
 import { hashObject } from './deterministicJson';
 
@@ -471,6 +471,33 @@ describe('MessageQueue2', () => {
         const batch3 = await queue.waitForMessagesAndGetAsString();
         expect(batch3?.message).toBe('after-isolated');
         expect(batch3?.mode.type).toBe('B');
+    });
+
+    describe('onCollected', () => {
+        it('is called once the message leaves the queue, not while it waits', async () => {
+            const queue = new MessageQueue2<string>((mode) => mode);
+            const onCollected = vi.fn();
+
+            queue.push('callback', 'local', { onCollected });
+            expect(queue.size()).toBe(1);
+            expect(onCollected).not.toHaveBeenCalled();
+
+            await queue.waitForMessagesAndGetAsString();
+            expect(onCollected).toHaveBeenCalledTimes(1);
+        });
+
+        it('is not called for a dropped or cleared message', async () => {
+            const queue = new MessageQueue2<string>((mode) => mode);
+            const onCollected = vi.fn();
+
+            queue.push('outdated', 'local', { discardIf: () => true, onCollected });
+            queue.push('next', 'local');
+            await queue.waitForMessagesAndGetAsString();
+            queue.push('cleared', 'local', { onCollected });
+            queue.reset();
+
+            expect(onCollected).not.toHaveBeenCalled();
+        });
     });
 
     describe('discardIf', () => {

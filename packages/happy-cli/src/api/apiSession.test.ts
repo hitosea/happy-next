@@ -5,6 +5,9 @@ import * as trimToolUseResultModule from './trimToolUseResult';
 import * as toolOutputStoreModule from '../modules/common/toolOutputStore';
 import * as encryptionModule from './encryption';
 import * as toolImageStoreModule from '../modules/common/toolImageStore';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { startHappyServer } from '@/claude/utils/startHappyServer';
 
 // Use vi.hoisted to ensure mock function is available when vi.mock factory runs
 const { mockIo } = vi.hoisted(() => ({
@@ -699,34 +702,114 @@ describe('ApiSessionClient orchestrator callbacks', () => {
         return { client, queue, callback };
     }
 
-    it('drops a queued callback once the run\'s results were fetched in the same turn', async () => {
+    it('drops a queued callback once the agent knows the run ended', async () => {
         const { client, queue, callback } = setup();
         await callback('run-1');
-        client.markOrchestratorRunResultsReceived('run-1');
+        client.markOrchestratorRunEndKnown('run-1');
         queue.push('next user message', 'default');
 
         const batch = await queue.waitForMessagesAndGetAsString();
         expect(batch?.message).toBe('next user message');
     });
 
-    it('delivers the callback when only another run\'s results, or none, were fetched', async () => {
+    it('delivers the callback when the agent knows only of another run', async () => {
         const { client, queue, callback } = setup();
         await callback('run-1');
-        client.markOrchestratorRunResultsReceived('run-2');
+        client.markOrchestratorRunEndKnown('run-2');
 
         const batch = await queue.waitForMessagesAndGetAsString();
         expect(batch?.message).toContain('<orchestrator-callback>');
         expect(batch?.message).toContain('(run-1)');
     });
 
-    it('drops a callback arriving after the results were already fetched', async () => {
+    it('never queues a callback arriving after the agent knows, which would switch a local session', async () => {
         const { client, queue, callback } = setup();
-        client.markOrchestratorRunResultsReceived('run-1');
+        const onMessage = vi.fn();
+        queue.setOnMessage(onMessage);
+        client.markOrchestratorRunEndKnown('run-1');
         await callback('run-1');
-        await callback('run-2');
+        expect(onMessage).not.toHaveBeenCalled();
 
+        await callback('run-2');
         const batch = await queue.waitForMessagesAndGetAsString();
         expect(batch?.message).toContain('(run-2)');
         expect(batch?.message).not.toContain('(run-1)');
+    });
+
+    it('gives a waiting callback to a tool result once, and drops it from the queue', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        await callback('run-2');
+
+        const callbacks = client.takeUndeliveredOrchestratorCallbacks();
+        expect(callbacks).toHaveLength(2);
+        expect(callbacks[0]).toContain('(run-1)');
+        expect(callbacks[0]).toContain('<orchestrator-callback>');
+        expect(callbacks[1]).toContain('(run-2)');
+        expect(client.takeUndeliveredOrchestratorCallbacks()).toEqual([]);
+
+        expect(queue.size()).toBe(0);
+        await callback('run-1');
+        expect(queue.size()).toBe(0);
+    });
+
+    it('gives no tool result a callback the agent got from the queue, or already knows of', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        await queue.waitForMessagesAndGetAsString();
+        await callback('run-2');
+        client.markOrchestratorRunEndKnown('run-2');
+
+        expect(client.takeUndeliveredOrchestratorCallbacks()).toEqual([]);
+    });
+
+    it('still gives a callback whose queue was cleared to the next tool result', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        queue.reset();
+
+        expect(client.takeUndeliveredOrchestratorCallbacks()).toHaveLength(1);
+    });
+
+    it('delivers the callback of a follow-up to a run whose earlier end the agent knew', async () => {
+        const { client, queue, callback } = setup();
+        client.markOrchestratorRunEndKnown('run-1');
+        client.markOrchestratorRunReopened('run-1');
+        await callback('run-1');
+
+        const batch = await queue.waitForMessagesAndGetAsString();
+        expect(batch?.message).toContain('(run-1)');
+    });
+
+    it('closes the loop through the real MCP server: told once, by the first tool result', async () => {
+        const { client, queue, callback } = setup();
+        vi.spyOn(client, 'orchestratorListRuns').mockResolvedValue({ ok: true, data: { runs: [] } });
+        const server = await startHappyServer(client);
+        const mcpClient = new Client({ name: 'test', version: '1.0.0' });
+        await mcpClient.connect(new StreamableHTTPClientTransport(new URL(server.url)));
+        const list = async () => JSON.parse((await mcpClient.callTool({ name: 'orchestrator_list', arguments: {} }) as any).content[0].text);
+
+        await callback('run-1');
+        const first = await list();
+        const second = await list();
+        await mcpClient.close();
+        await server.stop();
+
+        expect(first.orchestratorCallbacks).toHaveLength(1);
+        expect(first.orchestratorCallbacks[0]).toContain('(run-1)');
+        expect(second).not.toHaveProperty('orchestratorCallbacks');
+        expect(queue.size()).toBe(0);
+    });
+
+    it('drops the queued callback of the round a follow-up continues, but not the next one', async () => {
+        const { client, queue, callback } = setup();
+        await callback('run-1');
+        client.markOrchestratorRunReopened('run-1');
+        expect(queue.size()).toBe(0);
+
+        await callback('run-1');
+        expect(queue.size()).toBe(1);
+        const batch = await queue.waitForMessagesAndGetAsString();
+        expect(batch?.message.match(/<orchestrator-callback>/g)).toHaveLength(1);
     });
 });
