@@ -1,4 +1,20 @@
+const { execFileSync } = require('child_process');
 const { createDooPushConfig } = require('./doopush.config');
+
+// The release tag this code is at or after. Only CI and Docker builds set APP_VERSION; `yarn ota
+// publish` and the Mac mini's builds run from a checkout, and an OTA update's version replaces the
+// one in the build it reaches, so these need one too. The Docker build has no .git.
+function latestReleaseTag() {
+    try {
+        return execFileSync('git', ['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*'], {
+            cwd: __dirname,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim();
+    } catch {
+        return undefined;
+    }
+}
 
 const variant = process.env.APP_ENV || 'development';
 const dooPushConfig = createDooPushConfig({ env: process.env, variant });
@@ -28,7 +44,7 @@ export default {
     expo: {
         name,
         slug: "happy",
-        version: (process.env.APP_VERSION || "2.0.0").replace(/^v/, ''),
+        version: (process.env.APP_VERSION || latestReleaseTag() || "2.0.0").replace(/^v/, ''),
         // The native fingerprint (see fingerprint.config.js), so an OTA update only reaches builds
         // whose native side it was made against. Not for the dev client, which runs Metro's JS and
         // gets no updates: Metro would work the fingerprint out for each manifest request it
