@@ -2,12 +2,14 @@ import { db } from "@/storage/db";
 import { inTx } from "@/storage/inTx";
 import { Context } from "@/context";
 import { orchestratorRunCallbackSessionIds } from "./sessions";
+import { orchestratorCallbackRecipients, orchestratorSessionConnections } from "./callbacks";
 import { addTaskCount, createEmptySummaryInternal, isRunTerminal, toPublicSummary } from "./state";
 
 /**
  * Requests holding a run open to return its result themselves (`/exec` with `waitMs`), by run id.
- * While one waits, the run's terminal callback goes to it instead of the sessions: the caller is
- * still in the tool call that started the run, so a callback would tell it what it already knows.
+ * While one waits, the run's end is not announced to the sessions: the caller is still in the tool
+ * call that started the run, and its CLI settles the callback once the agent has the result. A
+ * callback the agent never got (the call was aborted) is still in the ledger for the next pull.
  */
 const runTerminalWaiters = new Map<string, () => void>();
 
@@ -50,21 +52,22 @@ export async function awaitOrchestratorRunTerminal(
 
 /**
  * Tell whoever is waiting on a run that it has finished. Called once, after the transaction that
- * made the run terminal commits. A request waiting on the run gets it; otherwise each session of
- * the run's current round gets an `orchestrator-run-terminal` ephemeral, and if none of them is
- * connected, the user gets a notice in their feed.
+ * made the run terminal (and wrote its callbacks, see callbacks.ts) commits. A request waiting on
+ * the run gets it. Otherwise each session owed the callback gets an `orchestrator-run-terminal`
+ * ephemeral, which prompts its CLI to pull it — as does each session continuing one that is
+ * offline — and if none of them is connected, the user gets a notice in their feed.
+ *
+ * A CLI older than the ledger takes the callback from the ephemeral or the waiting request and
+ * never acks it, so its session's callback is settled here.
  */
 export async function notifyOrchestratorRunTerminal(userId: string, runId: string): Promise<void> {
     const waiter = runTerminalWaiters.get(runId);
-    if (waiter) {
-        runTerminalWaiters.delete(runId);
-        waiter();
-        return;
-    }
+    runTerminalWaiters.delete(runId);
+    waiter?.();
 
     const run = await db.orchestratorRun.findUnique({
         where: { id: runId },
-        select: { id: true, title: true, status: true, controllerSessionId: true, reopenedAt: true },
+        select: { id: true, title: true, status: true, controllerSessionId: true, reopenedAt: true, cancelledBySessionId: true },
     });
     if (!run || !isRunTerminal(run.status)) {
         return;
@@ -73,10 +76,22 @@ export async function notifyOrchestratorRunTerminal(userId: string, runId: strin
     if (callbackSessionIds.length === 0) {
         return;
     }
+    const online = await orchestratorSessionConnections(userId);
+    await db.orchestratorRunCallback.deleteMany({
+        where: {
+            runId,
+            sessionId: {
+                in: callbackSessionIds.filter((id) => online.get(id)?.some((connection) => !connection.supportsCallbackLedger)),
+            },
+        },
+    });
+    if (waiter) {
+        return;
+    }
 
     const { eventRouter, buildOrchestratorRunTerminalEphemeral } = await import("@/app/events/eventRouter");
     let delivered = 0;
-    for (const sessionId of callbackSessionIds) {
+    for (const sessionId of await orchestratorCallbackRecipients(userId, callbackSessionIds, online)) {
         const delivery = eventRouter.emitEphemeral({
             userId,
             payload: buildOrchestratorRunTerminalEphemeral(run.id, run.status, run.title),

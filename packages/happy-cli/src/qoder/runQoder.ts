@@ -154,7 +154,7 @@ export async function runQoder(opts: {
   let isFirstMessage = true;
   const firstTurnInstruction = getFirstTurnInstruction(process.env, { includeOrchestrator: true });
 
-  session.onUserMessage((message) => {
+  session.onUserMessage((message, hooks) => {
     const requestedMode = message.meta?.permissionMode;
     if (requestedMode && isPermissionModeForAgent('qoder', requestedMode)) {
       desiredPermissionMode = requestedMode;
@@ -178,7 +178,7 @@ export async function runQoder(opts: {
       effort: desiredEffort,
       originalUserMessage,
       images: images.length > 0 ? images : undefined,
-    });
+    }, hooks);
   });
 
   //

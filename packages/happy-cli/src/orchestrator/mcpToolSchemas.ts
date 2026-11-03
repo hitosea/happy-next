@@ -99,18 +99,12 @@ export const ORCHESTRATOR_TRANSFER_TOOL_SCHEMA = {
 } as const;
 
 export const ORCHESTRATOR_PEND_TOOL_SCHEMA = {
-  description: 'Fetch dispatch status/results. Do not poll after submit; wait for <orchestrator-callback>, then call once with include="all_tasks" and timeoutMs=0. Call earlier only on resume, missing callback, or user-requested progress.',
+  description: 'Fetch a run\'s status and every task\'s status and result, as they are now; it never waits. Call it after <orchestrator-callback>, or when the user asks for progress. Do not poll: a run that has not finished delivers <orchestrator-callback> when it does.',
   title: 'Orchestrator Pend',
   inputSchema: {
     runId: z.string().describe('Run ID'),
-    cursor: z.string().optional(),
-    waitFor: z.enum(['change', 'terminal']).optional(),
-    timeoutMs: z.number().int().min(0).max(3_600_000).optional()
-      .describe('Total wait timeout in ms. Defaults to 10 minutes when omitted.'),
-    include: z.enum(['summary', 'all_tasks']).optional()
-      .describe('"summary" returns run-level status only; "all_tasks" includes per-task details.'),
     taskId: z.string().optional()
-      .describe('Return only this task; implies include="all_tasks". Results covering several shell tasks show less of each one\'s output.'),
+      .describe('Return only this task. Results covering several shell tasks show less of each one\'s output.'),
   },
 } as const;
 

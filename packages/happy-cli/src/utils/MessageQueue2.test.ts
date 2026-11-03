@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MessageQueue2 } from './MessageQueue2';
 import { hashObject } from './deterministicJson';
 
@@ -471,5 +471,36 @@ describe('MessageQueue2', () => {
         const batch3 = await queue.waitForMessagesAndGetAsString();
         expect(batch3?.message).toBe('after-isolated');
         expect(batch3?.mode.type).toBe('B');
+    });
+
+    it('tells each message\'s sender when the agent is handed it, batched or not', async () => {
+        const queue = new MessageQueue2<string>(mode => mode);
+        const first = { taken: vi.fn(), dropped: vi.fn() };
+        const second = { taken: vi.fn(), dropped: vi.fn() };
+        const other = { taken: vi.fn(), dropped: vi.fn() };
+        queue.push('first', 'local', first);
+        queue.push('second', 'local', second);
+        queue.push('other', 'remote', other);
+
+        expect((await queue.waitForMessagesAndGetAsString())?.message).toBe('first\nsecond');
+        expect(first.taken).toHaveBeenCalledTimes(1);
+        expect(second.taken).toHaveBeenCalledTimes(1);
+        expect(other.taken).not.toHaveBeenCalled();
+        expect(first.dropped).not.toHaveBeenCalled();
+    });
+
+    it('tells the sender of each message cleared unread that it was dropped', () => {
+        const queue = new MessageQueue2<string>(mode => mode);
+        const reset = { taken: vi.fn(), dropped: vi.fn() };
+        const isolated = { taken: vi.fn(), dropped: vi.fn() };
+        queue.push('cleared by reset', 'local', reset);
+        queue.reset();
+        queue.push('cleared by an isolated message', 'local', isolated);
+        queue.pushIsolateAndClear('/clear', 'local');
+
+        expect(reset.dropped).toHaveBeenCalledTimes(1);
+        expect(isolated.dropped).toHaveBeenCalledTimes(1);
+        expect(reset.taken).not.toHaveBeenCalled();
+        expect(isolated.taken).not.toHaveBeenCalled();
     });
 });

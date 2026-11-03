@@ -190,7 +190,8 @@ describe("sessionUpdateHandler message-receipt", () => {
         socket,
         userId: "user-1",
         sessionId: "session-1",
-        supportsMessageReceipt: true
+        supportsMessageReceipt: true,
+        supportsCallbackLedger: true
     });
 
     it("removes waiting issue when receipt ok=true", async () => {
@@ -284,7 +285,8 @@ describe("sessionUpdateHandler session-alive auto-dispatch", () => {
         socket,
         userId: "user-1",
         sessionId: "session-1",
-        supportsMessageReceipt: true
+        supportsMessageReceipt: true,
+        supportsCallbackLedger: true
     });
 
     it("dispatches once on thinking true->false and ignores repeated idle heartbeats", async () => {

@@ -40,6 +40,7 @@ export function startSocket(app: Fastify) {
         const sessionId = socket.handshake.auth.sessionId as string | undefined;
         const machineId = socket.handshake.auth.machineId as string | undefined;
         const supportsMessageReceipt = socket.handshake.auth.supportsMessageReceipt === true;
+        const supportsCallbackLedger = socket.handshake.auth.supportsCallbackLedger === true;
 
         if (!token) {
             log({ module: 'websocket' }, `No token provided`);
@@ -84,7 +85,8 @@ export function startSocket(app: Fastify) {
                 socket,
                 userId,
                 sessionId,
-                supportsMessageReceipt
+                supportsMessageReceipt,
+                supportsCallbackLedger
             };
         } else if (metadata.clientType === 'machine-scoped' && machineId) {
             connection = {

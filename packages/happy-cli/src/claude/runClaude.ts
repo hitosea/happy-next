@@ -436,7 +436,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
     let currentAllowedTools: string[] | undefined = undefined; // Track current allowed tools
     let currentDisallowedTools: string[] | undefined = undefined; // Track current disallowed tools
-    session.onUserMessage((message) => {
+    session.onUserMessage((message, hooks) => {
 
         // Resolve permission mode from meta - pass through as-is, mapping happens at SDK boundary
         let messagePermissionMode: PermissionMode | undefined = currentPermissionMode;
@@ -546,9 +546,9 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
 
         // Pass full content object for mixed messages (with images), otherwise just text
         if (message.content.type === 'mixed') {
-            messageQueue.push(message.content, enhancedMode);
+            messageQueue.push(message.content, enhancedMode, hooks);
         } else {
-            messageQueue.push(message.content.text, enhancedMode);
+            messageQueue.push(message.content.text, enhancedMode, hooks);
         }
         logger.debugLargeJson('User message pushed to queue:', message)
     });

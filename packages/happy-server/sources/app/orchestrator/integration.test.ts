@@ -25,6 +25,7 @@ type RunRecord = {
     updatedAt: Date;
     completedAt: Date | null;
     cancelRequestedAt: Date | null;
+    cancelledBySessionId: string | null;
     reopenedAt: Date | null;
 };
 
@@ -113,7 +114,9 @@ const {
         tasks: [] as TaskRecord[],
         executions: [] as ExecutionRecord[],
         machines: [] as MachineRecord[],
-        sessions: [] as Array<{ id: string; accountId: string }>,
+        sessions: [] as Array<{ id: string; accountId: string; predecessorSessionId?: string | null }>,
+        callbacks: [] as Array<{ runId: string; sessionId: string; endedAt: Date }>,
+        sessionConnections: [] as Array<{ sessionId: string; supportsCallbackLedger: boolean }>,
         accessKeys: [] as Array<{ accountId: string; machineId: string; sessionId: string; updatedAt: Date }>,
         onlineMachineIds: new Set<string>(),
         dispatchReadyMachineIds: new Set<string>(),
@@ -145,6 +148,8 @@ const {
         state.sessions = [
             { id: 'controller-session-1', accountId: 'user-1' },
         ];
+        state.callbacks = [];
+        state.sessionConnections = [];
         state.accessKeys = [
             { accountId: 'user-1', machineId: 'machine-1', sessionId: 'controller-session-1', updatedAt: new Date('2026-03-16T00:00:00.000Z') },
         ];
@@ -324,8 +329,9 @@ const {
         return true;
     };
 
+    // A field set to undefined is left as it is
     const updateRun = (run: RunRecord, data: any) => {
-        Object.assign(run, data, { updatedAt: nextDate() });
+        Object.assign(run, Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)), { updatedAt: nextDate() });
         return run;
     };
 
@@ -412,6 +418,7 @@ const {
                 updatedAt: now,
                 completedAt: null,
                 cancelRequestedAt: null,
+                cancelledBySessionId: null,
                 reopenedAt: null,
             };
             state.runs.push(run);
@@ -799,6 +806,61 @@ const {
             }
             return { ...row };
         }),
+        findMany: vi.fn(async (args: any) => state.sessions
+            .filter((item) => (
+                item.accountId === args?.where?.accountId &&
+                args?.where?.predecessorSessionId?.in?.includes(item.predecessorSessionId)
+            ))
+            .map((item) => ({ id: item.id }))),
+        updateMany: vi.fn(async (args: any) => {
+            const rows = state.sessions.filter((item) => (
+                item.id === args?.where?.id &&
+                item.accountId === args?.where?.accountId &&
+                !item.predecessorSessionId
+            ));
+            for (const row of rows) {
+                Object.assign(row, args.data);
+            }
+            return { count: rows.length };
+        }),
+    };
+
+    const callbackRunMatches = (runId: string, where: any) => {
+        const run = state.runs.find((item) => item.id === runId)!;
+        return matchesRun(run, where);
+    };
+    const callbackMatches = (row: { runId: string; sessionId: string; endedAt: Date }, where: any) => (
+        (!where?.runId || row.runId === where.runId) &&
+        (!where?.sessionId?.in || where.sessionId.in.includes(row.sessionId)) &&
+        (!where?.run || callbackRunMatches(row.runId, where.run)) &&
+        (!where?.OR || where.OR.some((clause: any) => (
+            row.runId === clause.runId && row.endedAt.getTime() <= clause.endedAt.lte.getTime()
+        )))
+    );
+    const callbackApi = {
+        upsert: vi.fn(async (args: any) => {
+            const { runId, sessionId } = args.where.runId_sessionId;
+            const row = state.callbacks.find((item) => item.runId === runId && item.sessionId === sessionId);
+            if (row) {
+                Object.assign(row, args.update);
+                return { ...row };
+            }
+            state.callbacks.push({ ...args.create });
+            return { ...args.create };
+        }),
+        findMany: vi.fn(async (args: any) => state.callbacks
+            .filter((row) => callbackMatches(row, args?.where))
+            .sort((a, b) => a.endedAt.getTime() - b.endedAt.getTime())
+            .slice(0, args?.take ?? Infinity)
+            .map((row) => {
+                const run = state.runs.find((item) => item.id === row.runId)!;
+                return { ...row, run: { title: run.title, status: run.status } };
+            })),
+        deleteMany: vi.fn(async (args: any) => {
+            const before = state.callbacks.length;
+            state.callbacks = state.callbacks.filter((row) => !callbackMatches(row, args?.where));
+            return { count: before - state.callbacks.length };
+        }),
     };
 
     const accessKeyApi = {
@@ -831,6 +893,7 @@ const {
         machine: machineApi,
         session: sessionApi,
         accessKey: accessKeyApi,
+        orchestratorRunCallback: callbackApi,
     };
 
     const dbMock = {
@@ -840,6 +903,7 @@ const {
         machine: machineApi,
         session: sessionApi,
         accessKey: accessKeyApi,
+        orchestratorRunCallback: callbackApi,
         $transaction: vi.fn(async (fn: any) => fn(tx)),
     };
 
@@ -865,6 +929,9 @@ const {
                         connected: true,
                     },
                 });
+            }
+            for (const connection of state.sessionConnections) {
+                connections.add({ connectionType: 'session-scoped', ...connection });
             }
             return connections;
         }),
@@ -2643,6 +2710,193 @@ describe('orchestrator integration paths', () => {
         await app.close();
     });
 
+    describe('callback ledger', () => {
+        const headers = { 'x-user-id': 'user-1' };
+        const pull = async (app: Fastify, sessionId: string, predecessorSessionId?: string) => (await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/sessions/${sessionId}/callbacks`,
+            headers,
+            payload: predecessorSessionId ? { predecessorSessionId } : {},
+        })).json().data.callbacks;
+        const ack = (app: Fastify, sessionId: string, runId: string, knownAt: string, userId = 'user-1') => app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/sessions/${sessionId}/callbacks/ack`,
+            headers: { 'x-user-id': userId },
+            payload: { runs: [{ runId, knownAt }] },
+        });
+        const terminalNotices = () => eventRouterMock.emitEphemeral.mock.calls
+            .map(([event]) => event)
+            .filter((event: any) => event.payload.type === 'orchestrator-run-terminal')
+            .map((event: any) => event.recipientFilter.sessionId);
+        const finishLatestExecution = async (app: Fastify, runId: string) => {
+            await orchestratorSchedulerTick(new Date(state.nowMs));
+            const execution = state.executions.filter((item) => item.runId === runId).at(-1)!;
+            await app.inject({
+                method: 'POST',
+                url: `/v1/orchestrator/executions/${execution.id}/finish`,
+                headers,
+                payload: { dispatchToken: execution.dispatchToken, status: 'completed', childSessionId: 'child-session-1' },
+            });
+        };
+        const runToEnd = async (app: Fastify) => {
+            const submit = await app.inject({
+                method: 'POST',
+                url: '/v1/orchestrator/submit',
+                headers,
+                payload: {
+                    title: sealed('ledger-run'),
+                    controllerSessionId: 'controller-session-1',
+                    tasks: [{ provider: 'codex', prompt: sealed('work') }],
+                },
+            });
+            const runId = submit.json().data.runId as string;
+            await finishLatestExecution(app, runId);
+            return runId;
+        };
+
+        it('owes the session a callback for a run that ends, until its CLI acks it', async () => {
+            const app = await createApp();
+            const runId = await runToEnd(app);
+            const endedAt = state.runs[0].updatedAt.toISOString();
+            expect(state.callbacks).toEqual([{ runId, sessionId: 'controller-session-1', endedAt: state.runs[0].updatedAt }]);
+            expect(terminalNotices()).toEqual(['controller-session-1']);
+
+            expect(await pull(app, 'controller-session-1')).toEqual([{ runId, title: sealed('ledger-run'), status: 'completed', endedAt }]);
+            expect(await pull(app, 'controller-session-1')).toHaveLength(1);
+            // Knowing the run as of before it ended, or acking for another account, settles nothing
+            await ack(app, 'controller-session-1', runId, new Date(Date.parse(endedAt) - 1).toISOString());
+            await ack(app, 'controller-session-1', runId, endedAt, 'user-2');
+            expect(await pull(app, 'controller-session-1')).toHaveLength(1);
+
+            await ack(app, 'controller-session-1', runId, endedAt);
+            expect(await pull(app, 'controller-session-1')).toEqual([]);
+            expect((await ack(app, 'controller-session-1', runId, endedAt)).statusCode).toBe(200);
+            await app.close();
+        });
+
+        it('holds back a reopened run until it ends again, then owes it once', async () => {
+            const app = await createApp();
+            const runId = await runToEnd(app);
+            const firstEndedAt = state.runs[0].updatedAt.toISOString();
+
+            await app.inject({
+                method: 'POST',
+                url: `/v1/orchestrator/tasks/${state.tasks[0].id}/send-message`,
+                headers,
+                payload: { message: sealed('follow up'), controllerSessionId: 'controller-session-1' },
+            });
+            expect(state.runs[0].status).toBe('running');
+            expect(await pull(app, 'controller-session-1')).toEqual([]);
+
+            await finishLatestExecution(app, runId);
+            const secondEndedAt = state.runs[0].updatedAt.toISOString();
+            expect(await pull(app, 'controller-session-1')).toEqual([expect.objectContaining({ runId, endedAt: secondEndedAt })]);
+            await ack(app, 'controller-session-1', runId, firstEndedAt);
+            expect(await pull(app, 'controller-session-1')).toHaveLength(1);
+            await app.close();
+        });
+
+        it('lets a session continuing an offline one take its callbacks, but not an online one', async () => {
+            const app = await createApp();
+            state.sessions.push({ id: 'controller-session-2', accountId: 'user-1' });
+            const runId = await runToEnd(app);
+
+            state.sessionConnections = [{ sessionId: 'controller-session-1', supportsCallbackLedger: true }];
+            expect(await pull(app, 'controller-session-2', 'controller-session-1')).toEqual([]);
+            expect(state.sessions[1].predecessorSessionId).toBe('controller-session-1');
+
+            state.sessionConnections = [];
+            const callbacks = await pull(app, 'controller-session-2');
+            expect(callbacks).toEqual([expect.objectContaining({ runId })]);
+            await ack(app, 'controller-session-2', runId, callbacks[0].endedAt);
+            expect(state.callbacks).toEqual([]);
+            await app.close();
+        });
+
+        it('prompts the sessions continuing an offline one when its run ends', async () => {
+            const app = await createApp();
+            state.sessions.push(
+                { id: 'controller-session-2', accountId: 'user-1', predecessorSessionId: 'controller-session-1' },
+                { id: 'controller-session-3', accountId: 'user-1', predecessorSessionId: 'controller-session-2' },
+            );
+            state.sessionConnections = [{ sessionId: 'controller-session-3', supportsCallbackLedger: true }];
+            await runToEnd(app);
+            expect(terminalNotices()).toEqual(['controller-session-1', 'controller-session-2', 'controller-session-3']);
+
+            // An online session in the chain takes them itself
+            eventRouterMock.emitEphemeral.mockClear();
+            state.sessionConnections = [{ sessionId: 'controller-session-2', supportsCallbackLedger: true }];
+            await runToEnd(app);
+            expect(terminalNotices()).toEqual(['controller-session-1', 'controller-session-2']);
+            await app.close();
+        });
+
+        it('settles the callback of a CLI older than the ledger, which takes it from the notice', async () => {
+            const app = await createApp();
+            state.sessionConnections = [{ sessionId: 'controller-session-1', supportsCallbackLedger: false }];
+            await runToEnd(app);
+            expect(terminalNotices()).toEqual(['controller-session-1']);
+            expect(state.callbacks).toEqual([]);
+            await app.close();
+        });
+
+        const submitRun = async (app: Fastify) => (await app.inject({
+            method: 'POST',
+            url: '/v1/orchestrator/submit',
+            headers,
+            payload: {
+                title: sealed('ledger-run'),
+                controllerSessionId: 'controller-session-1',
+                tasks: [{ provider: 'codex', prompt: sealed('work') }],
+            },
+        })).json().data.runId as string;
+        const cancel = async (app: Fastify, runId: string, payload: Record<string, string> = {}) => (await app.inject({
+            method: 'POST',
+            url: `/v1/orchestrator/runs/${runId}/cancel`,
+            headers,
+            payload,
+        })).json().data;
+
+        it('owes and announces a run a cancel from the app ends', async () => {
+            const app = await createApp();
+            const runId = await submitRun(app);
+
+            expect(await cancel(app, runId)).toEqual({ runId, status: 'cancelled', accepted: true });
+            expect(state.callbacks).toEqual([{ runId, sessionId: 'controller-session-1', endedAt: state.runs[0].updatedAt }]);
+            await vi.waitFor(() => expect(terminalNotices()).toEqual(['controller-session-1']));
+
+            // Cancelling it again ends nothing
+            await cancel(app, runId);
+            await ack(app, 'controller-session-1', runId, state.runs[0].updatedAt.toISOString());
+            expect(state.callbacks).toEqual([]);
+            expect(terminalNotices()).toEqual(['controller-session-1']);
+            await app.close();
+        });
+
+        it('owes no callback to the session whose agent cancelled the run, until a follow-up reopens it', async () => {
+            const app = await createApp();
+            const runId = await submitRun(app);
+            await orchestratorSchedulerTick(new Date(state.nowMs));
+
+            expect((await cancel(app, runId, { controllerSessionId: 'controller-session-1' })).status).toBe('canceling');
+            await finishLatestExecution(app, runId);
+            expect(['completed', 'cancelled']).toContain(state.runs[0].status);
+            expect(state.callbacks).toEqual([]);
+            expect(terminalNotices()).toEqual([]);
+
+            await app.inject({
+                method: 'POST',
+                url: `/v1/orchestrator/tasks/${state.tasks[0].id}/send-message`,
+                headers,
+                payload: { message: sealed('follow up'), controllerSessionId: 'controller-session-1' },
+            });
+            expect(state.runs[0].cancelledBySessionId).toBeNull();
+            await finishLatestExecution(app, runId);
+            expect(state.callbacks).toEqual([expect.objectContaining({ runId, sessionId: 'controller-session-1' })]);
+            await app.close();
+        });
+    });
+
     describe('shell tasks', () => {
         const terminalCallbacks = () => eventRouterMock.emitEphemeral.mock.calls
             .map(([event]) => event)
@@ -2765,6 +3019,11 @@ describe('orchestrator integration paths', () => {
                 sealedResult: sealed('host-1'),
             })]);
             expect(terminalCallbacks()).toHaveLength(0);
+            // Owed until the CLI acks what the result showed, in case the agent never got it
+            expect(state.callbacks).toEqual([expect.objectContaining({
+                sessionId: 'controller-session-1',
+                endedAt: new Date(data.run.updatedAt),
+            })]);
             await app.close();
         });
 

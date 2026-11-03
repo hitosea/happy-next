@@ -188,6 +188,19 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
     });
 
     if (options.enableOrchestratorTools) {
+        /**
+         * A tool result showing a run ended with every one of its tasks tells the agent all its
+         * callback would, so that callback is settled — unless the call was aborted and the agent
+         * never sees the result.
+         */
+        const settleShownRun = (result: any, signal: AbortSignal) => {
+            const data = result?.data;
+            const shown = data?.terminal === true && !signal.aborted && data.tasks?.length === data.run?.summary?.total;
+            if (shown) {
+                void client.orchestratorCallbacksAck([{ runId: data.runId, knownAt: data.run.updatedAt }]);
+            }
+        };
+
         mcp.registerTool('orchestrator_get_context', ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA, async () => {
             try {
                 const metadata = client.getMetadataSnapshot();
@@ -267,7 +280,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
             }
         });
 
-        mcp.registerTool('orchestrator_exec', ORCHESTRATOR_EXEC_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_exec', ORCHESTRATOR_EXEC_TOOL_SCHEMA, async (args, extra) => {
             const machineIds = args.allOnline ? 'all_online' as const : args.machineIds;
             if (!machineIds) {
                 return toToolError('Pass machineIds, or allOnline: true');
@@ -283,13 +296,15 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
-                return toToolSuccess(compactTasksResponse(response));
+                const result = compactTasksResponse(response);
+                settleShownRun(result, extra.signal);
+                return toToolSuccess(result);
             } catch (error) {
                 return toToolError('Failed to run the command', describeRequestError(error));
             }
         });
 
-        mcp.registerTool('orchestrator_transfer', ORCHESTRATOR_TRANSFER_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_transfer', ORCHESTRATOR_TRANSFER_TOOL_SCHEMA, async (args, extra) => {
             const toMachineIds = args.allOnline ? 'all_online' as const : args.toMachineIds;
             if (!toMachineIds) {
                 return toToolError('Pass toMachineIds, or allOnline: true');
@@ -310,50 +325,25 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
+                settleShownRun(response, extra.signal);
                 return toToolSuccess(response);
             } catch (error) {
                 return toToolError('Failed to transfer', describeRequestError(error));
             }
         });
 
-        mcp.registerTool('orchestrator_pend', ORCHESTRATOR_PEND_TOOL_SCHEMA, async (args) => {
-            // A single task's output is only in the per-task details
-            const include = args.taskId ? 'all_tasks' : args.include;
-            const startedAt = Date.now();
-            const totalTimeoutMs = args.timeoutMs ?? 10 * 60 * 1000;
-            let cursor = args.cursor;
-            while (true) {
-                const elapsed = Date.now() - startedAt;
-                const remaining = totalTimeoutMs - elapsed;
-                if (remaining <= 0) break;
-
-                try {
-                    const response = await client.orchestratorPend(args.runId, {
-                        cursor,
-                        waitFor: args.waitFor,
-                        timeoutMs: Math.min(remaining, 60_000),
-                        include,
-                    });
-                    return toToolSuccess(compactTasksResponse(response, args.taskId));
-                } catch (error: any) {
-                    const status = error?.response?.status;
-                    if (status === 504 && remaining > 1000) {
-                        cursor = undefined; // Reset cursor on 504 and retry
-                        continue;
-                    }
-                    return toToolError('Failed to pend orchestrator run', error instanceof Error ? error.message : String(error));
-                }
-            }
-
-            // Timeout exhausted — do a final non-blocking fetch
+        mcp.registerTool('orchestrator_pend', ORCHESTRATOR_PEND_TOOL_SCHEMA, async (args, extra) => {
             try {
-                const response = await client.orchestratorPend(args.runId, {
-                    cursor,
-                    waitFor: args.waitFor,
-                    timeoutMs: 0,
-                    include,
-                });
-                return toToolSuccess(compactTasksResponse(response, args.taskId));
+                const { cursor: _cursor, changed: _changed, ...data } = (await client.orchestratorPend(args.runId)).data;
+                const result = compactTasksResponse({
+                    ok: true,
+                    data: {
+                        ...data,
+                        next: data.terminal ? undefined : { hint: 'Not finished. End your turn and await <orchestrator-callback>; do not poll.', runId: args.runId },
+                    },
+                }, args.taskId);
+                settleShownRun(result, extra.signal);
+                return toToolSuccess(result);
             } catch (error) {
                 return toToolError('Failed to pend orchestrator run', error instanceof Error ? error.message : String(error));
             }

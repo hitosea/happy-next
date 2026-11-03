@@ -7,6 +7,7 @@ import { shutdownSignal } from "@/utils/shutdown";
 import { randomUUID } from "node:crypto";
 import { emitOrchestratorRunActivity } from "./sessions";
 import { notifyOrchestratorRunTerminal } from "./terminal";
+import { orchestratorRunCallbacksRecordTx } from "./callbacks";
 import {
     addTaskCount,
     createEmptySummaryInternal,
@@ -84,13 +85,17 @@ export async function recomputeRunStatusTx(tx: any, runId: string, currentStatus
     const nextStatus = deriveRunStatus(currentStatus, internal);
     const shouldUpdateCompletedAt = isRunTerminal(nextStatus) && !completedAt;
     if (nextStatus !== currentStatus || shouldUpdateCompletedAt) {
-        await tx.orchestratorRun.update({
+        const updated = await tx.orchestratorRun.update({
             where: { id: runId },
             data: {
                 status: nextStatus,
                 completedAt: isRunTerminal(nextStatus) ? now : null,
             },
+            select: { updatedAt: true },
         });
+        if (isRunTerminal(nextStatus) && !isRunTerminal(currentStatus)) {
+            await orchestratorRunCallbacksRecordTx(tx, runId, updated.updatedAt);
+        }
     }
     return nextStatus;
 }
@@ -820,7 +825,7 @@ export async function orchestratorSchedulerTick(now: Date = new Date()): Promise
             await executeSchedulerActions(actions);
         }
         if (actions.length > 0 || finished) {
-            await emitOrchestratorRunActivity(run.accountId, run.id);
+            await emitOrchestratorRunActivity(run.accountId, run.id).catch(warn);
         }
         if (finished) {
             await notifyOrchestratorRunTerminal(run.accountId, run.id).catch(warn);

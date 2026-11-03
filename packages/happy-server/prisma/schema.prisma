@@ -131,10 +131,14 @@ model Session {
   controllerRuns    OrchestratorRun[]       @relation("ControllerRuns")
   resumedExecutions OrchestratorExecution[] @relation("ControllerExecutions")
   workerExecutions  OrchestratorExecution[] @relation("WorkerExecutions")
+  /// The session this one continues (a restart, resume or copy of it, named by its CLI). While
+  /// that session is offline, this one takes the orchestrator callbacks owed to it
+  predecessorSessionId String?
 
   @@unique([accountId, tag])
   @@index([accountId, updatedAt(sort: Desc)])
   @@index([accountId, updatedAt(sort: Desc), id(sort: Desc)])
+  @@index([predecessorSessionId])
 }
 
 model SessionDeletion {
@@ -164,6 +168,9 @@ model OrchestratorRun {
   idempotencyKey      String?
   metadata            Json?
   cancelRequestedAt   DateTime?
+  /// The session whose agent cancelled the run, if one did. It knows the run ended, so it is not
+  /// owed a callback for it. Cleared when a follow-up reopens the run.
+  cancelledBySessionId String?
   completedAt         DateTime?
   /// When a follow-up last reopened the run after it had finished. The executions created since
   /// then are the current round, and their sessions are the ones told when it finishes again.
@@ -172,6 +179,7 @@ model OrchestratorRun {
   updatedAt           DateTime                @updatedAt
   tasks               OrchestratorTask[]
   executions          OrchestratorExecution[]
+  callbacks           OrchestratorRunCallback[]
 
   @@unique([accountId, idempotencyKey])
   @@index([accountId, createdAt(sort: Desc)])
@@ -275,6 +283,21 @@ model OrchestratorExecution {
   @@index([machineId, status, createdAt])
   @@index([workerSessionId])
   @@index([controllerSessionId])
+}
+
+/// A finished run's callback that a session's agent has not been told yet: written in the
+/// transaction that ends the run, one for each session of its current round, and deleted once
+/// the session's CLI reports the agent has it. The session is a plain id, so the callback
+/// outlives it for a session that continues it
+model OrchestratorRunCallback {
+  runId     String
+  run       OrchestratorRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sessionId String
+  /// The run's updatedAt as it ended. An agent that saw the run at or after this has the round
+  endedAt   DateTime
+
+  @@id([runId, sessionId])
+  @@index([sessionId])
 }
 
 model SessionCapabilities {

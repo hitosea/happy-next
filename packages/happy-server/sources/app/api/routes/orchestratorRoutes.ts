@@ -35,6 +35,7 @@ import {
 } from "@/app/orchestrator/sessions";
 import { awaitOrchestratorRunTerminal, notifyOrchestratorRunTerminal } from "@/app/orchestrator/terminal";
 import { orchestratorMachineReconcile } from "@/app/orchestrator/reconcile";
+import { orchestratorCallbacksAck, orchestratorCallbacksPull, orchestratorRunCallbacksRecordTx } from "@/app/orchestrator/callbacks";
 
 const PROVIDERS = ['claude', 'codex', 'gemini', 'qoder'] as const;
 const RUN_STATUSES = ['queued', 'running', 'canceling', 'completed', 'failed', 'cancelled'] as const;
@@ -1704,6 +1705,7 @@ export function orchestratorRoutes(app: Fastify) {
                 data: {
                     status: 'running',
                     completedAt: null,
+                    cancelledBySessionId: null,
                     ...(isRunTerminal(task.run.status) ? { reopenedAt: execution.createdAt } : {}),
                 },
             });
@@ -2029,11 +2031,14 @@ export function orchestratorRoutes(app: Fastify) {
             }),
             body: z.object({
                 reason: z.string().max(512).optional(),
+                // The session whose agent cancels the run: it is not owed a callback when the run ends
+                controllerSessionId: z.string().min(1).max(128).optional(),
             }).optional(),
         },
     }, async (request, reply) => {
         const userId = request.userId;
         const { runId } = request.params;
+        const controllerSessionId = request.body?.controllerSessionId;
 
         const result = await db.$transaction(async (tx: Prisma.TransactionClient) => {
             const run = await tx.orchestratorRun.findFirst({
@@ -2045,15 +2050,16 @@ export function orchestratorRoutes(app: Fastify) {
             }
 
             if (isRunTerminal(run.status)) {
-                return { kind: 'ok' as const, status: run.status };
+                return { kind: 'ok' as const, status: run.status, ended: false };
             }
 
-            if (run.status !== 'canceling') {
+            if (run.status !== 'canceling' || controllerSessionId) {
                 await tx.orchestratorRun.update({
                     where: { id: runId },
                     data: {
                         status: 'canceling',
-                        cancelRequestedAt: new Date(),
+                        cancelRequestedAt: run.status === 'canceling' ? undefined : new Date(),
+                        cancelledBySessionId: controllerSessionId,
                     },
                 });
             }
@@ -2083,17 +2089,20 @@ export function orchestratorRoutes(app: Fastify) {
                 addTaskCount(internal, row.status, row._count._all);
             }
             const nextStatus = deriveRunStatus('canceling', internal);
-            if (nextStatus !== 'canceling') {
-                await tx.orchestratorRun.update({
-                    where: { id: runId },
-                    data: {
-                        status: nextStatus,
-                        completedAt: new Date(),
-                    },
-                });
+            if (nextStatus === 'canceling') {
+                return { kind: 'ok' as const, status: nextStatus, ended: false };
             }
+            const ended = await tx.orchestratorRun.update({
+                where: { id: runId },
+                data: {
+                    status: nextStatus,
+                    completedAt: new Date(),
+                },
+                select: { updatedAt: true },
+            });
+            await orchestratorRunCallbacksRecordTx(tx, runId, ended.updatedAt);
 
-            return { kind: 'ok' as const, status: nextStatus };
+            return { kind: 'ok' as const, status: nextStatus, ended: true };
         });
 
         if (result.kind === 'not_found') {
@@ -2101,6 +2110,10 @@ export function orchestratorRoutes(app: Fastify) {
         }
 
         void emitOrchestratorRunActivity(userId, runId).catch(warn);
+        // A cancel from the app, or from another session, ends the run without those agents knowing
+        if (result.ended) {
+            void notifyOrchestratorRunTerminal(userId, runId).catch(warn);
+        }
 
         return reply.send({
             ok: true,
@@ -2503,19 +2516,24 @@ export function orchestratorRoutes(app: Fastify) {
             }
 
             const nextRunStatus = deriveRunStatus(execution.run.status, internal);
-            await tx.orchestratorRun.update({
+            const updatedRun = await tx.orchestratorRun.update({
                 where: { id: execution.runId },
                 data: {
                     status: nextRunStatus,
                     completedAt: isRunTerminal(nextRunStatus) ? finishedAt : null,
                 },
+                select: { updatedAt: true },
             });
+            const finishedRun = !isRunTerminal(execution.run.status) && isRunTerminal(nextRunStatus);
+            if (finishedRun) {
+                await orchestratorRunCallbacksRecordTx(tx, execution.runId, updatedRun.updatedAt);
+            }
 
             return {
                 kind: 'ok' as const,
                 runId: execution.runId,
                 runStatus: nextRunStatus,
-                finishedRun: !isRunTerminal(execution.run.status) && isRunTerminal(nextRunStatus),
+                finishedRun,
             };
         });
 
@@ -2560,6 +2578,49 @@ export function orchestratorRoutes(app: Fastify) {
             request.params.machineId,
             request.body.liveExecutionIds,
             new Date(request.body.daemonStartedAt),
+        );
+        return reply.send({ ok: true });
+    });
+
+    // A session's CLI pulls the callbacks its agent is owed: on connecting, when its agent's turn
+    // ends, and when the server's terminal notice says one is waiting
+    app.post('/v1/orchestrator/sessions/:sessionId/callbacks', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                sessionId: z.string().min(1).max(128),
+            }),
+            body: z.object({
+                predecessorSessionId: z.string().min(1).max(128).optional(),
+            }).optional(),
+        },
+    }, async (request, reply) => {
+        const callbacks = await orchestratorCallbacksPull(
+            request.userId,
+            request.params.sessionId,
+            request.body?.predecessorSessionId,
+        );
+        return reply.send({ ok: true, data: { callbacks } });
+    });
+
+    app.post('/v1/orchestrator/sessions/:sessionId/callbacks/ack', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                sessionId: z.string().min(1).max(128),
+            }),
+            body: z.object({
+                runs: z.array(z.object({
+                    runId: z.string().min(1).max(128),
+                    knownAt: z.string().datetime(),
+                })).min(1).max(100),
+            }),
+        },
+    }, async (request, reply) => {
+        await orchestratorCallbacksAck(
+            request.userId,
+            request.params.sessionId,
+            request.body.runs.map((run) => ({ runId: run.runId, knownAt: new Date(run.knownAt) })),
         );
         return reply.send({ ok: true });
     });

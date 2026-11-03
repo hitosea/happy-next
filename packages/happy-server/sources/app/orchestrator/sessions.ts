@@ -147,10 +147,11 @@ export async function orchestratorRunSessionIds(client: Client, runId: string): 
 /**
  * The sessions waiting on a run that has just finished: those of the executions in its current
  * round, which is everything since a follow-up last reopened it, or the whole run if none has.
+ * A session whose agent cancelled the run is not waiting on it: it knows how it ends.
  */
 export async function orchestratorRunCallbackSessionIds(
     client: Client,
-    run: { id: string; controllerSessionId: string | null; reopenedAt: Date | null },
+    run: { id: string; controllerSessionId: string | null; reopenedAt: Date | null; cancelledBySessionId: string | null },
 ): Promise<string[]> {
     const executions = await client.orchestratorExecution.findMany({
         where: {
@@ -159,10 +160,10 @@ export async function orchestratorRunCallbackSessionIds(
         },
         select: { controllerSessionId: true },
     });
-    if (executions.length === 0) {
-        return uniqueSessionIds([run.controllerSessionId]);
-    }
-    return uniqueSessionIds(executions.map((row) => row.controllerSessionId ?? run.controllerSessionId));
+    const sessionIds = executions.length === 0
+        ? [run.controllerSessionId]
+        : executions.map((row) => row.controllerSessionId ?? run.controllerSessionId);
+    return uniqueSessionIds(sessionIds).filter((sessionId) => sessionId !== run.cancelledBySessionId);
 }
 
 /**

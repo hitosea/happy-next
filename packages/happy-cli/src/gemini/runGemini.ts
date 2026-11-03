@@ -279,7 +279,7 @@ export async function runGemini(opts: {
   let isFirstMessage = true;
   const firstTurnInstruction = getFirstTurnInstruction(process.env, { includeOrchestrator: true });
 
-  session.onUserMessage((message) => {
+  session.onUserMessage((message, hooks) => {
     // Resolve permission mode (validate) - same as Codex
     let messagePermissionMode = currentPermissionMode;
     if (message.meta?.permissionMode) {
@@ -366,7 +366,7 @@ export async function runGemini(opts: {
       originalUserMessage, // Store original message separately
       images: images.length > 0 ? images : undefined, // Include images if present
     };
-    messageQueue.push(fullPrompt, mode);
+    messageQueue.push(fullPrompt, mode, hooks);
     
     // Record user message in conversation history for context preservation
     conversationHistory.addUserMessage(originalUserMessage);

@@ -1,10 +1,17 @@
 import { logger } from "@/ui/logger";
 
+/** What a message's sender is told of it: the agent was handed it, or it was cleared unread */
+export type MessageQueueItemHooks = {
+    taken: () => void;
+    dropped: () => void;
+};
+
 interface QueueItem<T, M> {
     message: M;
     mode: T;
     modeHash: string;
     isolate?: boolean; // If true, this message must be processed alone
+    hooks?: MessageQueueItemHooks;
 }
 
 /**
@@ -40,7 +47,7 @@ export class MessageQueue2<T, M = string> {
     /**
      * Push a message to the queue with a mode.
      */
-    push(message: M, mode: T): void {
+    push(message: M, mode: T, hooks?: MessageQueueItemHooks): void {
         if (this.closed) {
             throw new Error('Cannot push to closed queue');
         }
@@ -52,7 +59,8 @@ export class MessageQueue2<T, M = string> {
             message,
             mode,
             modeHash,
-            isolate: false
+            isolate: false,
+            hooks
         });
 
         // Trigger message handler if set
@@ -120,7 +128,7 @@ export class MessageQueue2<T, M = string> {
         logger.debug(`[MessageQueue2] pushIsolateAndClear() called with mode hash: ${modeHash} - clearing ${this.queue.length} pending messages`);
 
         // Clear any pending messages to ensure this message is processed in complete isolation
-        this.queue = [];
+        this.drop();
 
         this.queue.push({
             message,
@@ -184,7 +192,7 @@ export class MessageQueue2<T, M = string> {
      */
     reset(): void {
         logger.debug(`[MessageQueue2] reset() called. Clearing ${this.queue.length} messages`);
-        this.queue = [];
+        this.drop();
         this.closed = false;
 
         // Wake an active consumer so it can observe the reset and decide
@@ -194,6 +202,15 @@ export class MessageQueue2<T, M = string> {
             const waiter = this.waiter;
             this.waiter = null;
             waiter(false);
+        }
+    }
+
+    /** Clear the queue, telling each message's sender it was dropped */
+    private drop(): void {
+        const dropped = this.queue;
+        this.queue = [];
+        for (const item of dropped) {
+            item.hooks?.dropped();
         }
     }
 
@@ -270,7 +287,7 @@ export class MessageQueue2<T, M = string> {
 
         // If the first message requires isolation, only process it alone
         if (firstItem.isolate) {
-            const item = this.queue.shift()!;
+            const item = this.take();
             logger.debug(`[MessageQueue2] Collected isolated message with mode hash: ${targetModeHash}`);
             return {
                 message: item.message,
@@ -282,7 +299,7 @@ export class MessageQueue2<T, M = string> {
 
         // If the first message is not a string, return it alone (no batching for objects)
         if (typeof firstItem.message !== 'string') {
-            const item = this.queue.shift()!;
+            const item = this.take();
             logger.debug(`[MessageQueue2] Collected single object message with mode hash: ${targetModeHash}`);
             return {
                 message: item.message,
@@ -298,7 +315,7 @@ export class MessageQueue2<T, M = string> {
             this.queue[0].modeHash === targetModeHash &&
             !this.queue[0].isolate &&
             typeof this.queue[0].message === 'string') {
-            const item = this.queue.shift()!;
+            const item = this.take();
             sameModeMessages.push(item.message as string);
         }
         logger.debug(`[MessageQueue2] Collected batch of ${sameModeMessages.length} messages with mode hash: ${targetModeHash}`);
@@ -312,6 +329,13 @@ export class MessageQueue2<T, M = string> {
             hash: targetModeHash,
             isolate
         };
+    }
+
+    /** Hand the agent the first message, telling its sender */
+    private take(): QueueItem<T, M> {
+        const item = this.queue.shift()!;
+        item.hooks?.taken();
+        return item;
     }
 
     /**

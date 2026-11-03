@@ -254,27 +254,24 @@ export async function startDaemon(): Promise<void> {
         const outputSummary = buildOutputSummary(normalizedStdout, execution.stderr);
         const normalizedChildSessionId = execution.detectedChildSessionId?.trim();
 
-        try {
-          await api.reportOrchestratorExecutionFinish({
-            executionId: execution.payload.executionId,
-            taskId: execution.payload.taskId,
-            dispatchToken: execution.payload.dispatchToken,
-            status: opts.status,
-            finishedAt: new Date().toISOString(),
-            exitCode: opts.exitCode,
-            signal: opts.signal,
-            outputSummary: outputSummary ?? undefined,
-            outputText: outputText || undefined,
-            childSessionId: normalizedChildSessionId ? normalizedChildSessionId : undefined,
-            errorCode: opts.errorCode,
-            errorMessage: opts.errorMessage,
-          });
-        } catch (error) {
-          logger.debug(`[ORCHESTRATOR] Failed to report finish for execution ${execution.payload.executionId}`, error);
-        } finally {
-          clearExecutionTimers(execution);
-          executionIdToManagedExecution.delete(execution.payload.executionId);
-        }
+        clearExecutionTimers(execution);
+        // Retried until the server has it (the execution counts as live for reconciling until
+        // then), so a run whose last task ends while the server is restarting still ends
+        await reportWithRetry(`finish of execution ${execution.payload.executionId}`, () => api.reportOrchestratorExecutionFinish({
+          executionId: execution.payload.executionId,
+          taskId: execution.payload.taskId,
+          dispatchToken: execution.payload.dispatchToken,
+          status: opts.status,
+          finishedAt: new Date().toISOString(),
+          exitCode: opts.exitCode,
+          signal: opts.signal,
+          outputSummary: outputSummary ?? undefined,
+          outputText: outputText || undefined,
+          childSessionId: normalizedChildSessionId ? normalizedChildSessionId : undefined,
+          errorCode: opts.errorCode,
+          errorMessage: opts.errorMessage,
+        }), Infinity);
+        executionIdToManagedExecution.delete(execution.payload.executionId);
       })();
       await execution.finishReportPromise;
     };

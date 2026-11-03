@@ -14,6 +14,8 @@ export interface SessionScopedConnection {
     userId: string;
     sessionId: string;
     supportsMessageReceipt: boolean;
+    /** A CLI that pulls its orchestrator callbacks from the server's ledger and acks them; older ones take each from the run's terminal notice */
+    supportsCallbackLedger: boolean;
 }
 
 export interface UserScopedConnection {

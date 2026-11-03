@@ -358,7 +358,7 @@ export async function runCodex(opts: {
         });
     };
 
-    session.onUserMessage((message) => {
+    session.onUserMessage((message, hooks) => {
         // Resolve permission mode
         let messagePermissionMode = currentPermissionMode;
         if (message.meta?.permissionMode) {
@@ -417,7 +417,7 @@ export async function runCodex(opts: {
             reasoningEffort: messageReasoningEffort,
             images: images.length > 0 ? images : undefined,
         };
-        messageQueue.push(messageText, enhancedMode);
+        messageQueue.push(messageText, enhancedMode, hooks);
     });
     let thinking = false;
     let isTerminating = false;

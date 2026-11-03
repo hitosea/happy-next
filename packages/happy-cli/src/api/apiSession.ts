@@ -23,6 +23,7 @@ import { isDebug } from '@/utils/env';
 import { MessageArchiveWriter } from '../modules/common/messageArchive';
 import { extractSearchableMessage, messageKind, type MessageKind, type MessageSearchRole } from 'happy-wire';
 import { openOrchestratorResponse, openOrchestratorTitle, sealOrchestrator, sealTitle, type OrchestratorResumeEnvelope, type OrchestratorTaskEnvelope } from '@/orchestrator/seal';
+import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
 
 
 function stripCapabilitiesFromMetadata(metadata: Metadata): Metadata {
@@ -117,13 +118,6 @@ type OrchestratorSubmitBody = {
     metadata?: Record<string, unknown>;
 };
 
-type OrchestratorPendQuery = {
-    cursor?: string;
-    waitFor?: 'change' | 'terminal';
-    timeoutMs?: number;
-    include?: 'summary' | 'all_tasks';
-};
-
 type OrchestratorListQuery = {
     status?: 'active' | 'terminal' | 'queued' | 'running' | 'canceling' | 'completed' | 'failed' | 'cancelled';
     limit?: number;
@@ -173,8 +167,8 @@ export class ApiSessionClient extends EventEmitter {
     private agentState: AgentState | null;
     private agentStateVersion: number;
     private socket: Socket<ServerToClientEvents, ClientToServerEvents>;
-    private pendingMessages: UserMessage[] = [];
-    private pendingMessageCallback: ((message: UserMessage) => void) | null = null;
+    private pendingMessages: Array<{ message: UserMessage; hooks?: MessageQueueItemHooks }> = [];
+    private pendingMessageCallback: ((message: UserMessage, hooks?: MessageQueueItemHooks) => void) | null = null;
     readonly rpcHandlerManager: RpcHandlerManager;
     private agentStateLock = new AsyncLock();
     private metadataLock = new AsyncLock();
@@ -195,6 +189,16 @@ export class ApiSessionClient extends EventEmitter {
     private initialTitleSet = false;
     /** Whether the app was last told the agent is thinking. */
     private reportedThinking = false;
+    /** Whether the agent is in a turn, as its launcher last said */
+    private thinking = false;
+    /**
+     * What the agent knows of the runs whose callbacks the server has not settled yet: run id → the
+     * time it knows the run as of (the endedAt of a callback handed to its queue, or the updatedAt
+     * of a tool result showing the run ended). A pull meanwhile hands over only rounds ending later.
+     */
+    private handedCallbacks = new Map<string, string>();
+    /** Pulls and acks of orchestrator callbacks, in order, so a pull comes after every ack before it */
+    private callbackSync: Promise<void> = Promise.resolve();
     /** The outbox drain a pending idle heartbeat waits on; null when none is pending. */
     private idleDrain: Promise<unknown> | null = null;
     /**
@@ -254,7 +258,8 @@ export class ApiSessionClient extends EventEmitter {
                 token: this.token,
                 clientType: 'session-scoped' as const,
                 sessionId: this.sessionId,
-                supportsMessageReceipt: true
+                supportsMessageReceipt: true,
+                supportsCallbackLedger: true
             },
             path: '/v1/updates',
             reconnection: true,
@@ -273,6 +278,8 @@ export class ApiSessionClient extends EventEmitter {
         this.socket.on('connect', () => {
             logger.debug('Socket connected successfully');
             this.rpcHandlerManager.onSocketConnect(this.socket);
+            // A run that ended while the session was offline, or before it started (a copy's)
+            this.pullOrchestratorCallbacks();
         })
 
         // Set up global RPC request handler
@@ -290,26 +297,10 @@ export class ApiSessionClient extends EventEmitter {
             this.rpcHandlerManager.onSocketDisconnect();
         })
 
-        this.socket.on('ephemeral', async (payload: any) => {
+        // The server's word that a run has ended: its callback is in the ledger
+        this.socket.on('ephemeral', (payload: any) => {
             if (payload?.type === 'orchestrator-run-terminal') {
-                const title = await this.loadOrchestratorKey()
-                    .then((key) => openOrchestratorTitle(payload.title, key))
-                    .catch(() => payload.runId);
-                const text = [
-                    '<orchestrator-callback>',
-                    `Run "${title}" (${payload.runId}) reached terminal state: ${payload.status}.`,
-                    'Use orchestrator_pend or orchestrator_list to fetch full results.',
-                    '</orchestrator-callback>',
-                ].join('\n');
-                const syntheticMessage = {
-                    content: { type: 'text' as const, text },
-                    meta: {},
-                };
-                if (this.pendingMessageCallback) {
-                    this.pendingMessageCallback(syntheticMessage as any);
-                } else {
-                    this.pendingMessages.push(syntheticMessage as any);
-                }
+                this.pullOrchestratorCallbacks();
             }
         });
 
@@ -373,7 +364,7 @@ export class ApiSessionClient extends EventEmitter {
                             });
                         } else {
                             this.maybeSetInitialTitleFromUserText(typedText);
-                            this.pendingMessages.push(userResult.data);
+                            this.pendingMessages.push({ message: userResult.data });
                             emitMessageReceipt({
                                 sid: data.body.sid,
                                 messageId: data.body.message.id,
@@ -634,14 +625,15 @@ export class ApiSessionClient extends EventEmitter {
         return openOrchestratorResponse(response.data, key);
     }
 
-    async orchestratorPend(runId: string, query: OrchestratorPendQuery = {}): Promise<any> {
+    /** A run's status and every one of its tasks, as they are now */
+    async orchestratorPend(runId: string): Promise<any> {
         const key = await this.loadOrchestratorKey();
         const response = await axios.get(
             `${configuration.serverUrl}/v1/orchestrator/runs/${encodeURIComponent(runId)}/pend`,
             {
                 headers: this.orchestratorHeaders(),
-                params: query,
-                timeout: Math.min(Math.max((query.timeoutMs ?? 30_000) + 10_000, 15_000), 130_000),
+                params: { include: 'all_tasks', timeoutMs: 0 },
+                timeout: 30_000,
             }
         );
         return openOrchestratorResponse(response.data, key);
@@ -670,10 +662,11 @@ export class ApiSessionClient extends EventEmitter {
         return openOrchestratorResponse(response.data, key);
     }
 
+    /** Cancel a run for the agent, which so knows how it ends: the server owes this session no callback for it */
     async orchestratorCancel(runId: string, body?: { reason?: string }): Promise<any> {
         const response = await axios.post(
             `${configuration.serverUrl}/v1/orchestrator/runs/${encodeURIComponent(runId)}/cancel`,
-            body ?? {},
+            { ...body, controllerSessionId: this.sessionId },
             {
                 headers: this.orchestratorHeaders(),
                 timeout: 30_000,
@@ -682,11 +675,86 @@ export class ApiSessionClient extends EventEmitter {
         return response.data;
     }
 
-    onUserMessage(callback: (data: UserMessage) => void) {
+    /**
+     * Where the session's user messages go: the app's, and the orchestrator callbacks the agent is
+     * owed, whose `hooks` the agent's queue calls when it hands the message over or drops it.
+     */
+    onUserMessage(callback: (data: UserMessage, hooks?: MessageQueueItemHooks) => void) {
         this.pendingMessageCallback = callback;
         while (this.pendingMessages.length > 0) {
-            callback(this.pendingMessages.shift()!);
+            const { message, hooks } = this.pendingMessages.shift()!;
+            callback(message, hooks);
         }
+    }
+
+    /**
+     * Hand the agent the orchestrator callbacks it is owed (the server's ledger keeps each until it
+     * is acked), while it is between turns: on connecting, when its turn ends, and when the server
+     * says a run has ended. One owed while the agent is busy waits for its turn to end. Each is
+     * acked once the agent's queue hands it over; one the queue drops (an abort) is pulled again.
+     */
+    private pullOrchestratorCallbacks() {
+        this.callbackSync = this.callbackSync.then(async () => {
+            const response = await axios.post(
+                `${configuration.serverUrl}/v1/orchestrator/sessions/${encodeURIComponent(this.sessionId)}/callbacks`,
+                // The session this one was copied or resumed from, whose callbacks it takes while that one is offline
+                { predecessorSessionId: process.env.HAPPY_FORKED_FROM_SESSION_ID?.trim() || undefined },
+                { headers: this.orchestratorHeaders(), timeout: 30_000 },
+            );
+            const callbacks: Array<{ runId: string; title: string; status: string; endedAt: string }> = response.data.data.callbacks;
+            const due = callbacks.filter((callback) => !this.thinking
+                && !(Date.parse(callback.endedAt) <= Date.parse(this.handedCallbacks.get(callback.runId) ?? '')));
+            const key = await this.loadOrchestratorKey();
+            for (const callback of due) {
+                const title = openOrchestratorTitle(callback.title, key);
+                const text = [
+                    '<orchestrator-callback>',
+                    `Run "${title}" (${callback.runId}) reached terminal state: ${callback.status}.`,
+                    'Use orchestrator_list or orchestrator_pend to fetch its results.',
+                    '</orchestrator-callback>',
+                ].join('\n');
+                const message = { role: 'user' as const, content: { type: 'text' as const, text }, meta: {} };
+                const hooks: MessageQueueItemHooks = {
+                    taken: () => void this.orchestratorCallbacksAck([{ runId: callback.runId, knownAt: callback.endedAt }]),
+                    dropped: () => {
+                        this.handedCallbacks.delete(callback.runId);
+                        this.pullOrchestratorCallbacks();
+                    },
+                };
+                this.handedCallbacks.set(callback.runId, callback.endedAt);
+                logger.debug(`[API] Handing the agent the callback of run ${callback.runId}`);
+                if (this.pendingMessageCallback) {
+                    this.pendingMessageCallback(message, hooks);
+                } else {
+                    this.pendingMessages.push({ message, hooks });
+                }
+            }
+        }).catch((error) => logger.debug('[API] Pulling orchestrator callbacks failed:', error));
+    }
+
+    /**
+     * Tell the server the agent knows these runs as of `knownAt` — the end of a callback it was
+     * handed, or a tool result that showed the run ended — settling the callbacks of rounds that
+     * ended by then. It counts at once here, so a pull already under way does not hand them over;
+     * one whose ack fails is not handed over again by this process.
+     */
+    orchestratorCallbacksAck(runs: Array<{ runId: string; knownAt: string }>): Promise<void> {
+        for (const { runId, knownAt } of runs) {
+            const known = this.handedCallbacks.get(runId) ?? knownAt;
+            this.handedCallbacks.set(runId, Date.parse(known) > Date.parse(knownAt) ? known : knownAt);
+        }
+        this.callbackSync = this.callbackSync.then(async () => {
+            await axios.post(
+                `${configuration.serverUrl}/v1/orchestrator/sessions/${encodeURIComponent(this.sessionId)}/callbacks/ack`,
+                { runs },
+                { headers: this.orchestratorHeaders(), timeout: 30_000 },
+            );
+            const settled = runs.filter(({ runId, knownAt }) => Date.parse(this.handedCallbacks.get(runId) ?? knownAt) <= Date.parse(knownAt));
+            for (const { runId } of settled) {
+                this.handedCallbacks.delete(runId);
+            }
+        }).catch((error) => logger.debug('[API] Acking orchestrator callbacks failed:', error));
+        return this.callbackSync;
     }
 
     isConnected(): boolean {
@@ -1227,8 +1295,15 @@ export class ApiSessionClient extends EventEmitter {
      * ahead of it. The held text goes out first, marked as ending the turn, which
      * the app settles on. Until the drain settles no heartbeat goes out, as a
      * thinking one would undo that; going busy again drops the pending idle.
+     *
+     * A turn's end is when an orchestrator callback owed meanwhile can be handed over.
      */
     keepAlive(thinking: boolean, mode: 'local' | 'remote') {
+        const turnEnded = this.thinking && !thinking;
+        this.thinking = thinking;
+        if (turnEnded) {
+            this.pullOrchestratorCallbacks();
+        }
         if (thinking || !this.reportedThinking) {
             this.idleDrain = null;
             this.reportedThinking = thinking;

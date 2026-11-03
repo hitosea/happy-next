@@ -46,6 +46,7 @@ const {
                         state.executionErrorMessage = args.data.errorMessage ?? null;
                         return { id: 'exec_1' };
                     }),
+                    findMany: vi.fn(async () => []),
                 },
                 orchestratorTask: {
                     findUnique: vi.fn(async () => ({
@@ -68,9 +69,16 @@ const {
                         id: 'run_1',
                         status: state.runStatus,
                     })),
+                    // A run with no controller session owes no callbacks
+                    findUniqueOrThrow: vi.fn(async () => ({
+                        id: 'run_1',
+                        controllerSessionId: null,
+                        reopenedAt: null,
+                        cancelledBySessionId: null,
+                    })),
                     update: vi.fn(async (args: any) => {
                         state.runStatus = args.data.status;
-                        return { id: 'run_1', status: state.runStatus };
+                        return { id: 'run_1', status: state.runStatus, updatedAt: new Date() };
                     }),
                 },
             };

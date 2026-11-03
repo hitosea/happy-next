@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import axios from 'axios';
 import { ApiSessionClient } from './apiSession';
+import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
 import * as trimToolUseResultModule from './trimToolUseResult';
 import * as toolOutputStoreModule from '../modules/common/toolOutputStore';
 import * as encryptionModule from './encryption';
@@ -546,6 +548,8 @@ describe('ApiSessionClient keepAlive', () => {
             () => new Promise<void>((resolve) => { releaseOutbox = resolve; }),
         );
         pushOutbox = vi.spyOn(client as any, 'pushOutbox').mockImplementation(() => {});
+        // A turn's end pulls the orchestrator callbacks owed
+        vi.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true, data: { callbacks: [] } } });
     });
 
     afterEach(() => {
@@ -663,5 +667,131 @@ describe('ApiSessionClient keepAlive', () => {
         expect(resumed).not.toBe(first);
         expect(resumedEnd).toBe(resumed);
         expect(next).not.toBe(resumed);
+    });
+});
+
+describe('ApiSessionClient orchestrator callbacks', () => {
+    type Callback = { runId: string; title: string; status: string; endedAt: string };
+    let handlers: Record<string, (...args: any[]) => void>;
+    let owed: Callback[];
+    let pullGate: Promise<void>;
+    let client: ApiSessionClient;
+    let delivered: Array<{ text: string; hooks: MessageQueueItemHooks }>;
+    const run1: Callback = { runId: 'run-1', title: 'build', status: 'completed', endedAt: '2026-11-03T00:00:01.000Z' };
+
+    beforeEach(() => {
+        handlers = {};
+        owed = [];
+        pullGate = Promise.resolve();
+        mockIo.mockReturnValue({
+            connect: vi.fn(), off: vi.fn(), close: vi.fn(), disconnect: vi.fn(), emit: vi.fn(),
+            on: vi.fn((event: string, handler: (...args: any[]) => void) => { handlers[event] = handler; }),
+            connected: true,
+            volatile: { emit: vi.fn() },
+        });
+        // The server's ledger: an ack settles the rounds that ended by the time it names
+        vi.spyOn(axios, 'post').mockImplementation(async (url: string, body: any) => {
+            if (url.endsWith('/callbacks/ack')) {
+                owed = owed.filter((callback) => !body.runs.some((run: any) => run.runId === callback.runId && Date.parse(callback.endedAt) <= Date.parse(run.knownAt)));
+                return { data: { ok: true } };
+            }
+            await pullGate;
+            return { data: { ok: true, data: { callbacks: owed } } };
+        });
+        client = new ApiSessionClient('fake-token', {
+            id: 'test-session-id',
+            seq: 0,
+            metadata: { path: '/tmp', host: 'localhost', homeDir: '/home/user', happyHomeDir: '/home/user/.happy-next', happyLibDir: '/home/user/.happy/lib', happyToolsDir: '/home/user/.happy/tools' },
+            metadataVersion: 0,
+            agentState: null,
+            agentStateVersion: 0,
+            encryptionKey: new Uint8Array(32),
+            encryptionVariant: 'legacy',
+        } as any, async () => new Uint8Array(32));
+        vi.spyOn((client as any).sendSync, 'invalidateAndAwait').mockResolvedValue(undefined);
+        vi.spyOn(client as any, 'pushOutbox').mockImplementation(() => {});
+        delivered = [];
+        client.onUserMessage((message, hooks) => delivered.push({ text: (message.content as any).text, hooks: hooks! }));
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    const settled = () => (client as any).callbackSync as Promise<void>;
+    const runEnded = () => handlers.ephemeral({ type: 'orchestrator-run-terminal', runId: 'run-1', status: 'completed' });
+
+    it('cancels a run as this session, which so is owed no callback for it', async () => {
+        await client.orchestratorCancel('run-1', { reason: 'not needed' });
+        expect(axios.post).toHaveBeenCalledWith(
+            expect.stringMatching(/\/v1\/orchestrator\/runs\/run-1\/cancel$/),
+            { reason: 'not needed', controllerSessionId: 'test-session-id' },
+            expect.anything(),
+        );
+    });
+
+    it('advertises the callback ledger in socket auth', () => {
+        expect(mockIo).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+            auth: expect.objectContaining({ supportsCallbackLedger: true }),
+        }));
+    });
+
+    it('hands the agent each callback it is owed on connecting, and acks it once its queue takes it', async () => {
+        owed = [run1];
+        handlers.connect();
+        await settled();
+        expect(delivered).toHaveLength(1);
+        expect(delivered[0].text).toContain('<orchestrator-callback>');
+        expect(delivered[0].text).toContain('Run "build" (run-1) reached terminal state: completed.');
+
+        delivered[0].hooks.taken();
+        await settled();
+        expect(owed).toEqual([]);
+    });
+
+    it('holds callbacks while the agent is in a turn, and hands them over when it ends', async () => {
+        client.keepAlive(true, 'remote');
+        owed = [run1];
+        runEnded();
+        await settled();
+        expect(delivered).toEqual([]);
+
+        client.keepAlive(false, 'remote');
+        await settled();
+        expect(delivered).toHaveLength(1);
+    });
+
+    it('hands a callback over once until it is acked, and again if the queue drops it unread', async () => {
+        owed = [run1];
+        handlers.connect();
+        await settled();
+        runEnded();
+        await settled();
+        expect(delivered).toHaveLength(1);
+
+        delivered[0].hooks.dropped();
+        await settled();
+        expect(delivered).toHaveLength(2);
+    });
+
+    it('does not hand over a run a tool result showed ended, even from a pull already under way', async () => {
+        let releasePull!: () => void;
+        pullGate = new Promise((resolve) => { releasePull = resolve; });
+        client.keepAlive(true, 'remote');
+        owed = [run1];
+        runEnded();
+        // The agent sees the run end in a tool result and ends its turn before that pull returns
+        void client.orchestratorCallbacksAck([{ runId: 'run-1', knownAt: run1.endedAt }]);
+        client.keepAlive(false, 'remote');
+        releasePull();
+        await settled();
+        expect(delivered).toEqual([]);
+        expect(owed).toEqual([]);
+
+        // A later round of the run is still owed
+        owed = [{ ...run1, endedAt: '2026-11-03T00:00:09.000Z' }];
+        runEnded();
+        await settled();
+        expect(delivered).toHaveLength(1);
     });
 });

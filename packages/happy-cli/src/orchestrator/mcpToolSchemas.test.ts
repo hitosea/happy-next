@@ -34,8 +34,9 @@ describe('orchestrator mcp tool schemas', () => {
 
     expect(ORCHESTRATOR_SUBMIT_TOOL_SCHEMA.description).toContain('Returns immediately');
     expect(ORCHESTRATOR_SUBMIT_TOOL_SCHEMA.description).toContain('self-contained');
-    expect(ORCHESTRATOR_PEND_TOOL_SCHEMA.description).toContain('Do not poll after submit');
-    expect(ORCHESTRATOR_PEND_TOOL_SCHEMA.description).toContain('include="all_tasks"');
+    expect(ORCHESTRATOR_PEND_TOOL_SCHEMA.description).toContain('never waits');
+    expect(ORCHESTRATOR_PEND_TOOL_SCHEMA.description).toContain('Do not poll');
+    expect(Object.keys(ORCHESTRATOR_PEND_TOOL_SCHEMA.inputSchema)).toEqual(['runId', 'taskId']);
     expect(ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA.description).toContain('child task session');
     expect(ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA.description).toContain('completed/failed');
     expect(ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA.description).toContain('childSessionId');
