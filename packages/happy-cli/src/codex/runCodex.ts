@@ -417,7 +417,7 @@ export async function runCodex(opts: {
             reasoningEffort: messageReasoningEffort,
             images: images.length > 0 ? images : undefined,
         };
-        messageQueue.push(messageText, enhancedMode, session.queueOptionsFor(message));
+        messageQueue.push(messageText, enhancedMode);
     });
     let thinking = false;
     let isTerminating = false;

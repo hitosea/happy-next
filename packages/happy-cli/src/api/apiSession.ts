@@ -9,7 +9,6 @@ import { configuration } from '@/configuration';
 import { RawJSONLines } from '@/claude/types';
 import { randomUUID } from 'node:crypto';
 import { AsyncLock } from '@/utils/lock';
-import type { PushOptions } from '@/utils/MessageQueue2';
 import { InvalidateSync } from '@/utils/sync';
 import axios from 'axios';
 import { trimToolUseResult, trimToolResultContent, trimToolUseInput } from './trimToolUseResult';
@@ -176,12 +175,6 @@ export class ApiSessionClient extends EventEmitter {
     private socket: Socket<ServerToClientEvents, ClientToServerEvents>;
     private pendingMessages: UserMessage[] = [];
     private pendingMessageCallback: ((message: UserMessage) => void) | null = null;
-    /** The synthetic <orchestrator-callback> messages, each with its run */
-    private orchestratorCallbackRuns = new WeakMap<UserMessage, string>();
-    /** Each run's callback the agent has not been given yet, from the queue or with a tool result */
-    private undeliveredOrchestratorCallbacks = new Map<string, UserMessage>();
-    /** Runs the agent knows have ended in their current round, so a callback has nothing to tell it */
-    private orchestratorRunsKnownEnded = new Set<string>();
     readonly rpcHandlerManager: RpcHandlerManager;
     private agentStateLock = new AsyncLock();
     private metadataLock = new AsyncLock();
@@ -302,10 +295,6 @@ export class ApiSessionClient extends EventEmitter {
                 const title = await this.loadOrchestratorKey()
                     .then((key) => openOrchestratorTitle(payload.title, key))
                     .catch(() => payload.runId);
-                // Before it reaches the queue, where it would pull a local Claude session into remote mode
-                if (this.orchestratorRunsKnownEnded.has(payload.runId)) {
-                    return;
-                }
                 const text = [
                     '<orchestrator-callback>',
                     `Run "${title}" (${payload.runId}) reached terminal state: ${payload.status}.`,
@@ -316,8 +305,6 @@ export class ApiSessionClient extends EventEmitter {
                     content: { type: 'text' as const, text },
                     meta: {},
                 };
-                this.orchestratorCallbackRuns.set(syntheticMessage as UserMessage, payload.runId);
-                this.undeliveredOrchestratorCallbacks.set(payload.runId, syntheticMessage as UserMessage);
                 if (this.pendingMessageCallback) {
                     this.pendingMessageCallback(syntheticMessage as any);
                 } else {
@@ -693,48 +680,6 @@ export class ApiSessionClient extends EventEmitter {
             }
         );
         return response.data;
-    }
-
-    /**
-     * A tool told the agent a run ended, or the agent cancelled it. That is all a callback says,
-     * so a queued one is dropped and a later one never queued.
-     */
-    markOrchestratorRunEndKnown(runId: string) {
-        this.orchestratorRunsKnownEnded.add(runId);
-        this.undeliveredOrchestratorCallbacks.delete(runId);
-    }
-
-    /**
-     * A follow-up started a new round of the run, which keeps its id: the end of this round is
-     * news again. A callback for the last round is not, as only a finished task takes a follow-up.
-     */
-    markOrchestratorRunReopened(runId: string) {
-        this.orchestratorRunsKnownEnded.delete(runId);
-        this.undeliveredOrchestratorCallbacks.delete(runId);
-    }
-
-    /**
-     * The callbacks waiting for the agent's turn to end, to give it with a tool result instead:
-     * it hears of the run sooner, and no turn has to start just to tell it.
-     */
-    takeUndeliveredOrchestratorCallbacks(): string[] {
-        const callbacks = [...this.undeliveredOrchestratorCallbacks];
-        this.undeliveredOrchestratorCallbacks.clear();
-        callbacks.forEach(([runId]) => this.orchestratorRunsKnownEnded.add(runId));
-        return callbacks.map(([, message]) => message.content.text);
-    }
-
-    /**
-     * Push options for a message entering an agent's queue: a run's callback stays there only
-     * while it is still the one to give the agent, which is decided at delivery, as the agent
-     * may learn of the run in the very turn the callback arrived in.
-     */
-    queueOptionsFor(message: UserMessage): PushOptions | undefined {
-        const runId = this.orchestratorCallbackRuns.get(message);
-        return runId === undefined ? undefined : {
-            discardIf: () => this.undeliveredOrchestratorCallbacks.get(runId) !== message,
-            onCollected: () => this.undeliveredOrchestratorCallbacks.delete(runId),
-        };
     }
 
     onUserMessage(callback: (data: UserMessage) => void) {

@@ -77,18 +77,6 @@ function compactTasksResponse(response: any, taskId?: string) {
     return { ...response, data: { ...response.data, tasks: compacted } };
 }
 
-/**
- * Puts callbacks in a tool result: inside its JSON, which the app parses, and first, so an agent
- * that cuts a long result still sees them.
- */
-function withOrchestratorCallbacks(result: ReturnType<typeof toToolSuccess>, callbacks: string[]) {
-    if (callbacks.length === 0) {
-        return result;
-    }
-    const text = JSON.stringify({ orchestratorCallbacks: callbacks, ...JSON.parse(result.content[0].text) }, null, 2);
-    return { ...result, content: [{ type: 'text' as const, text }] };
-}
-
 // Factory function to create MCP server with tools
 function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: boolean; enableOrchestratorTools: boolean }): McpServer {
     const mcp = new McpServer({
@@ -200,19 +188,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
     });
 
     if (options.enableOrchestratorTools) {
-        // Each result also gives the agent the callbacks of runs that ended while it was working;
-        // taken after the tool ran, so never the one for a run the tool just told it about
-        const registerOrchestratorTool: typeof mcp.registerTool = (name, config, handler: any) =>
-            mcp.registerTool(name, config, (async (...args: any[]) => withOrchestratorCallbacks(await handler(...args), client.takeUndeliveredOrchestratorCallbacks())) as any);
-
-        // `terminal` and the status beside it are the whole run's, all that a callback would say
-        const noteRunEnd = (response: any) => {
-            if (response?.data?.terminal === true) {
-                client.markOrchestratorRunEndKnown(response.data.runId);
-            }
-        };
-
-        registerOrchestratorTool('orchestrator_get_context', ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA, async () => {
+        mcp.registerTool('orchestrator_get_context', ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA, async () => {
             try {
                 const metadata = client.getMetadataSnapshot();
                 const fallback = {
@@ -266,7 +242,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
             }
         });
 
-        registerOrchestratorTool('orchestrator_submit', ORCHESTRATOR_SUBMIT_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_submit', ORCHESTRATOR_SUBMIT_TOOL_SCHEMA, async (args) => {
             try {
                 const metadata = client.getMetadataSnapshot();
                 const submitBody = {
@@ -291,7 +267,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
             }
         });
 
-        registerOrchestratorTool('orchestrator_exec', ORCHESTRATOR_EXEC_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_exec', ORCHESTRATOR_EXEC_TOOL_SCHEMA, async (args) => {
             const machineIds = args.allOnline ? 'all_online' as const : args.machineIds;
             if (!machineIds) {
                 return toToolError('Pass machineIds, or allOnline: true');
@@ -307,14 +283,13 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
-                noteRunEnd(response);
                 return toToolSuccess(compactTasksResponse(response));
             } catch (error) {
                 return toToolError('Failed to run the command', describeRequestError(error));
             }
         });
 
-        registerOrchestratorTool('orchestrator_transfer', ORCHESTRATOR_TRANSFER_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_transfer', ORCHESTRATOR_TRANSFER_TOOL_SCHEMA, async (args) => {
             const toMachineIds = args.allOnline ? 'all_online' as const : args.toMachineIds;
             if (!toMachineIds) {
                 return toToolError('Pass toMachineIds, or allOnline: true');
@@ -335,20 +310,15 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     title: args.title,
                     controllerSessionId: client.sessionId,
                 });
-                noteRunEnd(response);
                 return toToolSuccess(response);
             } catch (error) {
                 return toToolError('Failed to transfer', describeRequestError(error));
             }
         });
 
-        registerOrchestratorTool('orchestrator_pend', ORCHESTRATOR_PEND_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_pend', ORCHESTRATOR_PEND_TOOL_SCHEMA, async (args) => {
             // A single task's output is only in the per-task details
             const include = args.taskId ? 'all_tasks' : args.include;
-            const respond = (response: any) => {
-                noteRunEnd(response);
-                return toToolSuccess(compactTasksResponse(response, args.taskId));
-            };
             const startedAt = Date.now();
             const totalTimeoutMs = args.timeoutMs ?? 10 * 60 * 1000;
             let cursor = args.cursor;
@@ -364,7 +334,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         timeoutMs: Math.min(remaining, 60_000),
                         include,
                     });
-                    return respond(response);
+                    return toToolSuccess(compactTasksResponse(response, args.taskId));
                 } catch (error: any) {
                     const status = error?.response?.status;
                     if (status === 504 && remaining > 1000) {
@@ -383,13 +353,13 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     timeoutMs: 0,
                     include,
                 });
-                return respond(response);
+                return toToolSuccess(compactTasksResponse(response, args.taskId));
             } catch (error) {
                 return toToolError('Failed to pend orchestrator run', error instanceof Error ? error.message : String(error));
             }
         });
 
-        registerOrchestratorTool('orchestrator_list', ORCHESTRATOR_LIST_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_list', ORCHESTRATOR_LIST_TOOL_SCHEMA, async (args) => {
             try {
                 const response = await client.orchestratorListRuns({
                     status: args.status,
@@ -402,24 +372,22 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
             }
         });
 
-        registerOrchestratorTool('orchestrator_cancel', ORCHESTRATOR_CANCEL_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_cancel', ORCHESTRATOR_CANCEL_TOOL_SCHEMA, async (args) => {
             try {
                 const response = await client.orchestratorCancel(args.runId, { reason: args.reason });
-                client.markOrchestratorRunEndKnown(args.runId);
                 return toToolSuccess(response);
             } catch (error) {
                 return toToolError('Failed to cancel orchestrator run', error instanceof Error ? error.message : String(error));
             }
         });
 
-        registerOrchestratorTool('orchestrator_send_message', ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA, async (args) => {
+        mcp.registerTool('orchestrator_send_message', ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA, async (args) => {
             try {
                 const response = await client.orchestratorSendMessage({
                     taskId: args.taskId,
                     message: args.message,
                     controllerSessionId: args.controllerSessionId ?? client.sessionId,
                 });
-                client.markOrchestratorRunReopened(response?.data?.runId);
                 return toToolSuccess(response);
             } catch (error) {
                 return toToolError('Failed to send message to orchestrator task', error instanceof Error ? error.message : String(error));
