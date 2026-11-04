@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ getState: vi.fn(), sessionRPC: vi.fn(), machineRPC: vi.fn(), request: vi.fn(),
+const mocks = vi.hoisted(() => ({ getState: vi.fn(), applySessions: vi.fn(), sessionRPC: vi.fn(), machineRPC: vi.fn(), request: vi.fn(),
     emitWithAck: vi.fn(), encryptRaw: vi.fn(), decryptRaw: vi.fn(), getSessionEncryption: vi.fn() }));
 vi.mock('./apiSocket', () => ({ apiSocket: mocks }));
 vi.mock('./sync', () => ({ sync: { encryption: { getSessionEncryption: mocks.getSessionEncryption } } }));
-vi.mock('./storage', () => ({ storage: { getState: mocks.getState } }));
+vi.mock('./storage', () => ({ storage: { getState: () => ({ applySessions: mocks.applySessions, ...mocks.getState() }) } }));
 import { sessionArchive, sessionKill, machineForkCodexSession, machineDuplicateCodexSession } from './ops';
 import { getSessionQuickActionKinds } from '@/components/sessionQuickActions';
 import { canArchiveSession, canEditSession } from '@/utils/sessionLifecycle';
@@ -45,14 +45,74 @@ describe('stop-based archive with Codex native synchronization', () => {
         });
     });
 
-    it('keeps a successful non-Codex stop when persisting the archive fails, and skips it after a failed stop', async () => {
+    it('applies the archived lifecycle locally once the server takes it', async () => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { id: 's1', metadataVersion: 2, metadata: { flavor: 'claude' } } } });
+        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(mocks.applySessions).toHaveBeenCalledWith([{
+            id: 's1', metadataVersion: 5, metadata: { flavor: 'claude', lifecycleState: 'archived', lifecycleStateSince: 1_000 },
+        }]);
+    });
+
+    it('reports a successful non-Codex stop whose archive was not persisted, and skips it after a failed stop', async () => {
         mocks.getState.mockReturnValue({ sessions: { s1: { metadataVersion: 2, metadata: { flavor: 'claude' } } } });
         mocks.emitWithAck.mockRejectedValue(new Error('Disconnected'));
-        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(await sessionArchive('s1')).toEqual({ success: true, archiveMetadataError: 'Disconnected' });
         mocks.emitWithAck.mockClear();
         mocks.sessionRPC.mockResolvedValue({ success: false, message: 'offline' });
         expect(await sessionArchive('s1')).toEqual({ success: false, message: 'offline' });
         expect(mocks.emitWithAck).not.toHaveBeenCalled();
+    });
+
+    it.each(['claude', 'gemini', 'qoder'])('archives a disconnected %s session without its process', async flavor => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { active: false, metadataVersion: 2, metadata: { flavor } } } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 2,
+            metadata: JSON.stringify({ flavor, lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
+    });
+
+    it('does not mark a session archived without its process when it was live before the optimistic flip', async () => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { active: false, metadataVersion: 2, metadata: { flavor: 'claude' } } } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        expect(await sessionArchive('s1', { wasActive: true })).toMatchObject({ success: false });
+        expect(mocks.emitWithAck).not.toHaveBeenCalled();
+    });
+
+    it('fails the archive of a disconnected session when its archived mark is not written', async () => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { active: false, metadataVersion: 2, metadata: { flavor: 'claude' } } } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        mocks.emitWithAck.mockRejectedValue(new Error('version-mismatch'));
+        expect(await sessionArchive('s1')).toEqual({ success: false, message: 'version-mismatch' });
+    });
+
+    it('archives a disconnected Codex session in Happy when its machine is unreachable too', async () => {
+        const s1 = { ...mocks.getState().sessions.s1, active: false };
+        mocks.getState.mockReturnValue({ sessions: { s1 } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        mocks.machineRPC.mockRejectedValue(new Error('RPC method not available'));
+        expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'daemon-rpc-unavailable' });
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 4,
+            metadata: JSON.stringify({ ...s1.metadata, lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
+    });
+
+    it.each([
+        [{ success: false, stopped: false, error: 'session-identity-unavailable' }, { success: true, nativeArchiveError: 'session-identity-unavailable' }],
+        [{ success: false, stopped: true, error: 'native-archive-failed' }, { success: true, nativeArchiveError: 'native-archive-failed' }],
+        [{ success: true }, { success: true }],
+    ])('archives a disconnected Codex session in Happy whatever its daemon answers: %o', async (answer, expected) => {
+        const s1 = { ...mocks.getState().sessions.s1, active: false };
+        mocks.getState.mockReturnValue({ sessions: { s1 } });
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        mocks.machineRPC.mockResolvedValue(answer);
+        expect(await sessionArchive('s1')).toEqual(expected);
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 4,
+            metadata: JSON.stringify({ ...s1.metadata, lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
     });
 
     it('does not add native side effects to ordinary stop operations', async () => {

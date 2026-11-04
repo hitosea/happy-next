@@ -629,6 +629,15 @@ export async function runQoder(opts: {
     logger.debug('[Qoder] Final cleanup');
     reconnectionHandle?.cancel();
     try {
+      // The loop ended on its own (exit from the UI): the session ended, so the app must not list
+      // it as disconnected and waiting to be resumed.
+      session.updateMetadata((current) => ({
+        ...current,
+        lifecycleState: 'archived',
+        lifecycleStateSince: Date.now(),
+        archivedBy: 'cli',
+        archiveReason: 'Session ended',
+      }));
       session.sendSessionDeath();
       await session.flush();
       await session.close();

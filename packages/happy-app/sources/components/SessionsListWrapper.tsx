@@ -37,7 +37,7 @@ const stylesheet = StyleSheet.create((theme) => ({
 
 export const SessionsListWrapper = React.memo(() => {
     const { theme } = useUnistyles();
-    const { data: sessionListViewData, switchable } = useSessionListScope();
+    const { data: sessionListViewData, disconnectedSessions, switchable } = useSessionListScope();
     const styles = stylesheet;
 
     if (sessionListViewData === null) {
@@ -53,7 +53,8 @@ export const SessionsListWrapper = React.memo(() => {
     }
 
     // With machines to switch between the list stays, so the machine switcher's views remain reachable.
-    if (sessionListViewData.length === 0 && !switchable) {
+    // The list holds live sessions only: disconnected ones, listed below them, keep it too.
+    if (sessionListViewData.length === 0 && disconnectedSessions.length === 0 && !switchable) {
         return (
             <View style={styles.container}>
                 <View style={styles.emptyStateContainer}>
