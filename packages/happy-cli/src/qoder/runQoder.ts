@@ -51,6 +51,7 @@ import { HAPPY_TOOLS_APPROVED_WITHOUT_ASKING, QoderPermissionHandler } from '@/q
 import { buildQoderBackfillMessages } from '@/qoder/utils/backfill';
 import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
 import { qoderTranscriptStore } from '@/qoder/transcripts';
+import { QoderSteering } from '@/qoder/steering';
 import { readQoderContextUsage } from '@/qoder/contextUsage';
 import { QODER_ASK_USER_QUESTION, qoderAskUserQuestionCallId, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema, type QoderQuestion } from '@/qoder/askUserQuestion';
 import {
@@ -111,7 +112,7 @@ export async function runQoder(opts: {
   const adoptSession = (next: ApiSessionClient) => {
     session = next;
     permissionHandler?.updateSession(next);
-    next.updateCapabilities((capabilities) => addBuiltinSlashCommands(capabilities));
+    next.updateCapabilities((capabilities) => ({ ...addBuiltinSlashCommands(capabilities), canSteer: true }));
   };
 
   const { session: initialSession, reconnectionHandle } = setupOfflineReconnection({
@@ -487,6 +488,12 @@ export async function runQoder(opts: {
     logger.debug(`[Qoder] Set mode ${mode}: ${applied}`);
   };
 
+  const promptImages = async (text: string, images: ImageContent[] | undefined) => images
+    ? (await formatMessageForGemini(text, images)).parts.flatMap((part) => 'inlineData' in part && part.inlineData
+      ? [{ data: part.inlineData.data, mimeType: part.inlineData.mimeType }]
+      : [])
+    : undefined;
+
   const handleAbort = async () => {
     logger.debug('[Qoder] Abort requested');
     abortRequested = true;
@@ -521,6 +528,31 @@ export async function runQoder(opts: {
       process.exit(1);
     }
   };
+
+  // Queued messages steered into the turn: taken while its prompt runs, once it has been sent
+  let steerable = false;
+  const steering = new QoderSteering({
+    sessionId: () => qoderBackend?.getSessionId() ?? null,
+    report: (pendingId, outcome) => {
+      // On the wall after what Qoder wrote before taking it in
+      flushResponse();
+      session.reportPendingSteer(pendingId, outcome);
+    },
+    cancelled: () => abortRequested,
+  });
+  session.onPendingSteer(async (message, pendingId) => {
+    const text = message.content.text;
+    // Commands act on the session rather than talk to Qoder: they wait for their turn in the queue
+    if (text.trimStart().startsWith('/')) return { accepted: false, reason: 'command' };
+    const images = message.content.type === 'mixed' && 'images' in message.content ? message.content.images : undefined;
+    const promptImagesForSteer = await promptImages(text, images);
+    const backend = qoderBackend;
+    const sessionId = backend?.getSessionId();
+    if (!steerable || abortRequested || !backend || !sessionId) return { accepted: false, reason: 'not_running' };
+    await steering.add(pendingId, text, () => backend.sendPrompt(sessionId, text, { images: promptImagesForSteer }));
+    messageBuffer.addMessage(text, 'user');
+    return { accepted: true };
+  });
 
   session.rpcHandlerManager.registerHandler('abort', handleAbort);
   registerKillSessionHandler(session.rpcHandlerManager, handleKillSession);
@@ -645,11 +677,8 @@ export async function runQoder(opts: {
           logger.debug(`[Qoder] Set effort ${batch.mode.effort}: ${applied}`);
         }
 
-        const images = batch.mode.images
-          ? (await formatMessageForGemini(batch.message, batch.mode.images)).parts.flatMap((part) => 'inlineData' in part && part.inlineData
-            ? [{ data: part.inlineData.data, mimeType: part.inlineData.mimeType }]
-            : [])
-          : undefined;
+        const images = await promptImages(batch.message, batch.mode.images);
+        steerable = true;
         await backend.sendPrompt(backend.getSessionId()!, batch.message, { images });
         // The ACP SDK dispatches notifications without awaiting them, so the last
         // chunks of the turn can still be queued when the prompt response resolves.
@@ -659,6 +688,9 @@ export async function runQoder(opts: {
         flushResponse();
         if (!abortRequested) sendAgentText(describeError(error));
       } finally {
+        // Steered messages qodercli did not take into the turn run as turns of their own after it
+        await steering.settle();
+        steerable = false;
         flushResponse();
         permissionHandler.reset();
         await sendContextUsage();
