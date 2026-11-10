@@ -89,7 +89,10 @@ public final class HappyMenuButtonView: ExpoView {
     button.frame = bounds
     button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     button.showsMenuAsPrimaryAction = false
-    button.preferredMenuElementOrder = .fixed
+    // Before iOS 16 there is no choosing; the rows then go outward from the button.
+    if #available(iOS 16.0, *) {
+      button.preferredMenuElementOrder = .fixed
+    }
     button.addAction(UIAction { [weak self] _ in
       guard let self, !self.opensOnTap else { return }
       self.onPrimaryAction()
