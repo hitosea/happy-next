@@ -8,7 +8,7 @@ import {
 } from './modelCatalog';
 
 function withModel(patch: Partial<ModelCatalogEntry>) {
-    const base = BUNDLED_MODEL_CATALOG.models[0];
+    const base = BUNDLED_MODEL_CATALOG.models.find((m) => m.agent === 'claude' && !m.fastMode)!;
     return { ...catalogJson, models: [...catalogJson.models, { ...base, id: 'claude-test', ...patch }] };
 }
 
