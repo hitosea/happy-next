@@ -7,7 +7,7 @@ import { useHeaderHeight } from '@/utils/responsive';
 import { isRunningOnMac } from '@/utils/platform';
 import { Typography } from '@/constants/Typography';
 import { StatusDot } from './StatusDot';
-import { MachineRail, MACHINE_RAIL_WIDTH } from './MachineRail';
+import { MachineRail, MACHINE_RAIL_BUTTON_SIZE, MACHINE_RAIL_WIDTH } from './MachineRail';
 import { SidebarSearchRow } from './SidebarSearchRow';
 import { VoiceAssistantStatusBar } from './VoiceAssistantStatusBar';
 import { useRealtimeStatus, useSettingMutable } from '@/sync/storage';
@@ -46,6 +46,16 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         width: MACHINE_RAIL_WIDTH,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    // The logo sits in a tile the size, shape and resting color of the rail's buttons, so it reads
+    // as one of the rail's own rather than a loose glyph beside them.
+    railLogoTile: {
+        width: MACHINE_RAIL_BUTTON_SIZE,
+        height: MACHINE_RAIL_BUTTON_SIZE,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.dark ? theme.colors.surfaceHighest : theme.colors.surface,
     },
     header: {
         flexDirection: 'row',
@@ -362,11 +372,11 @@ export const SidebarView = React.memo((props: SidebarViewProps) => {
     const railHeader = isDesktop ? undefined : (
         <View style={[styles.railLogoCell, { height: headerHeight }]}>
             {!hasWindowControls && (
-                <Pressable accessibilityLabel={t('tabs.sessions')} onPress={handleGoHome} hitSlop={6}>
+                <Pressable accessibilityLabel={t('tabs.sessions')} onPress={handleGoHome} hitSlop={6} style={styles.railLogoTile}>
                     <Image
                         source={theme.dark ? require('@/assets/images/logo-white.svg') : require('@/assets/images/logo-black.svg')}
                         contentFit="contain"
-                        style={{ width: 26, height: 26 }}
+                        style={{ width: 22, height: 22 }}
                     />
                 </Pressable>
             )}

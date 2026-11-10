@@ -15,7 +15,8 @@ import { MACHINE_AVATAR_COLORS, MACHINE_AVATAR_ICONS, resolveMachineAvatar } fro
 import { useSetting } from '@/sync/storage';
 import { getMachineInitials, type SessionListSelection, type SessionMachineGroup, type SessionScopeDot as Dot } from './sessionListScope';
 
-const BUTTON_SIZE = 34;
+export const MACHINE_RAIL_BUTTON_SIZE = 34;
+const BUTTON_SIZE = MACHINE_RAIL_BUTTON_SIZE;
 // A machine button plus the gap under it: one place in the order while dragging.
 const MACHINE_PITCH = BUTTON_SIZE + 12;
 export const MACHINE_RAIL_WIDTH = 56;
