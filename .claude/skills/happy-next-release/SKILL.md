@@ -112,7 +112,7 @@ npm view @openai/codex version
 node -p "require('./packages/happy-wire/src/modelCatalog.json').codexCli.version"
 ```
 
-有新稳定版时写进计划，默认**不升级**，并说明：合并后会远程下发给所有 CLI，新启动的 Codex 会话都使用新版本（已有会话按其记录的版本恢复），需确认兼容性。`codexCli` 只在计划确认升级时修改。
+有新稳定版时写进计划，默认**升级**到该版本，并说明：合并后会远程下发给所有 CLI，新启动的 Codex 会话都使用新版本（已有会话按其记录的版本恢复）。查看该版本的发布说明，有已知破坏性变更或与现有集成不兼容时，改为不升级并写明原因；用户在调用时说明不升级的，按用户的意思。`codexCli` 在计划确认升级时修改。
 
 ## 4. 模型目录
 
@@ -210,7 +210,7 @@ gh release view "{tag}" 2>/dev/null || true
 - 推送本地未推送的提交（如有）
 - 合并哪些 PR
 - 模型目录改动（新增 / 修改 / 下线，附来源）和"待定"项
-- Codex 是否升级（默认否）
+- Codex 是否升级（有新稳定版时默认是）
 - CLI 版本、tag
 - 日志版本，changelog 和总览文档草稿
 - Docker `publish_latest`：目标是最高正式版本时 `true`，重建旧版本或补历史镜像时 `false`
