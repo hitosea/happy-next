@@ -14,6 +14,23 @@
     },
     "models": [
         {
+            "id": "claude-fable-5-2",
+            "agent": "claude",
+            "status": "active",
+            "label": "Fable 5.2",
+            "displayName": "Claude Fable 5.2",
+            "description": "Most capable for long-horizon agentic work",
+            "descriptionTranslations": {
+                "zh-Hans": "最强大，适合长时间运行的智能体任务",
+                "zh-Hant": "最強大，適合長時間執行的智慧體任務"
+            },
+            "efforts": ["max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1000000,
+            "fastMode": true,
+            "pricing": { "input": 8, "output": 40, "cacheWrite": 10, "cacheRead": 0.2 },
+            "fastPricing": { "input": 16, "output": 80, "cacheWrite": 20, "cacheRead": 0.4 }
+        },
+        {
             "id": "claude-fable-5-1",
             "agent": "claude",
             "status": "active",
