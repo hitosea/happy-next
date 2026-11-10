@@ -2466,6 +2466,11 @@ export function useSessionNextScheduledAt(sessionId: string): number | null {
     return storage((state) => state.scheduledSessions[sessionId] ?? null);
 }
 
+// Whether the session's agent can take a queued message into the running turn ("插话")
+export function useSessionCanSteer(sessionId: string): boolean {
+    return storage((state) => state.sessionCapabilities[sessionId]?.capabilities.canSteer === true);
+}
+
 export function useSessionPendingMessages(sessionId: string): PendingMessage[] {
     return storage(useShallow((state) => state.sessionPendingMessages[sessionId] ?? emptyPendingQueue));
 }

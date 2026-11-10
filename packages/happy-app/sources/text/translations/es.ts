@@ -1012,6 +1012,11 @@ export const es: TranslationStructure = {
         expand: 'Mostrar cola',
         collapse: 'Ocultar cola',
         moreActions: 'Más acciones',
+        steer: 'Añadir a este turno',
+        steering: 'Añadiendo',
+        steeringHint: 'Aparece en el chat cuando la IA lo lea',
+        queuedSection: 'En cola',
+        steerFailed: 'No se pudo añadir a este turno; sigue en la cola.',
     },
 
     commandPalette: {

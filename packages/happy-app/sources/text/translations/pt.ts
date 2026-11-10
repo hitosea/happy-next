@@ -1012,6 +1012,11 @@ export const pt: TranslationStructure = {
         expand: 'Mostrar fila',
         collapse: 'Ocultar fila',
         moreActions: 'Mais ações',
+        steer: 'Adicionar a este turno',
+        steering: 'Adicionando',
+        steeringHint: 'Aparece no chat quando a IA o ler',
+        queuedSection: 'Na fila',
+        steerFailed: 'Não foi possível adicionar a este turno; continua na fila.',
     },
 
     commandPalette: {

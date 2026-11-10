@@ -1011,6 +1011,11 @@ export const it: TranslationStructure = {
         expand: 'Mostra coda',
         collapse: 'Nascondi coda',
         moreActions: 'Altre azioni',
+        steer: 'Aggiungi a questo turno',
+        steering: 'In aggiunta',
+        steeringHint: 'Compare nella chat quando l\'IA lo legge',
+        queuedSection: 'In coda',
+        steerFailed: 'Impossibile aggiungerlo a questo turno; resta in coda.',
     },
 
     commandPalette: {

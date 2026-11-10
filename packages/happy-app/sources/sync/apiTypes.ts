@@ -52,6 +52,7 @@ export const ApiPendingMessageSchema = z.object({
     pinnedAt: z.number().nullable(),
     pausedAt: z.number().nullable().default(null),
     deliverAt: z.number().nullable().default(null),
+    steeringAt: z.number().nullable().default(null),
     createdAt: z.number(),
     updatedAt: z.number(),
 });

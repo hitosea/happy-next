@@ -1013,6 +1013,11 @@ export const zhHant: TranslationStructure = {
         expand: '展開佇列',
         collapse: '收合佇列',
         moreActions: '更多操作',
+        steer: '插話',
+        steering: '插話中',
+        steeringHint: 'AI 讀到後顯示在對話中',
+        queuedSection: '待傳送',
+        steerFailed: '沒能插入本輪，訊息仍在佇列中。',
     },
 
     commandPalette: {

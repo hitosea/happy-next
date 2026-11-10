@@ -20,12 +20,23 @@ function pending(input: Partial<PendingMessage> & Pick<PendingMessage, 'id' | 'l
     pinnedAt: input.pinnedAt ?? null,
     pausedAt: input.pausedAt ?? null,
     deliverAt: input.deliverAt ?? null,
+    steeringAt: input.steeringAt ?? null,
     createdAt: input.createdAt ?? 0,
     updatedAt: input.updatedAt ?? input.createdAt ?? 0,
   };
 }
 
 describe('pendingQueue', () => {
+  it('sortPendingQueue puts messages steering into the turn first, even ahead of pinned ones', () => {
+    const queue = sortPendingQueue([
+      pending({ id: 'p1', localId: 'p1', pinnedAt: 100, createdAt: 20 }),
+      pending({ id: 'n1', localId: 'n1', createdAt: 10 }),
+      pending({ id: 's1', localId: 's1', steeringAt: 50, createdAt: 30 }),
+    ]);
+
+    expect(queue.map((item) => item.id)).toEqual(['s1', 'p1', 'n1']);
+  });
+
   it('sortPendingQueue puts pinned first (latest pinned first), then unpinned by createdAt asc', () => {
     const queue = sortPendingQueue([
       pending({ id: 'n2', localId: 'n2', createdAt: 30 }),

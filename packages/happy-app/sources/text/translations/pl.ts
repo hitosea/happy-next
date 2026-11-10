@@ -1023,6 +1023,11 @@ export const pl: TranslationStructure = {
         expand: 'Pokaż kolejkę',
         collapse: 'Ukryj kolejkę',
         moreActions: 'Więcej akcji',
+        steer: 'Dodaj do tej tury',
+        steering: 'Dodawanie',
+        steeringHint: 'Pojawi się w czacie, gdy AI ją przeczyta',
+        queuedSection: 'W kolejce',
+        steerFailed: 'Nie udało się dodać do tej tury — wiadomość zostaje w kolejce.',
     },
 
     commandPalette: {

@@ -13,7 +13,7 @@ import { layout } from './layout';
 import { PendingMessageDetailSheet } from './PendingMessageDetailSheet';
 import { getPendingPreviewText, getPendingScheduleInfo, truncatePendingPreview } from './pendingQueuePanelUtils';
 
-type PendingActionType = 'send-now' | 'pin' | 'delete' | 'pause';
+type PendingActionType = 'send-now' | 'steer' | 'pin' | 'delete' | 'pause';
 
 type PendingQueuePanelProps = {
     sessionId: string;
@@ -24,6 +24,8 @@ type PendingQueuePanelProps = {
     /** The composer floats over the chat as Liquid Glass (iOS 26): the queue floats with it, as glass too. */
     glass: boolean;
     onSendNow: (pendingId: string) => Promise<void> | void;
+    /** Steers a message into the running turn ("插话"); set only when the session's agent can. */
+    onSteer?: (pendingId: string) => Promise<void> | void;
     onPin: (pendingId: string) => Promise<void> | void;
     onDelete: (pendingId: string) => Promise<void> | void;
     onPause: (pendingId: string) => Promise<void> | void;
@@ -48,9 +50,11 @@ const DELETE_ON_ROW = Platform.OS === 'web';
  * height animates while the two contents cross-fade); the glass itself never fades, as Liquid Glass
  * under a translucent parent renders wrong. Each row opens the full message on tap and keeps its
  * actions in a menu; its state (pinned, paused, scheduled, attachments) shows as small tags.
+ * Messages being steered into the running turn head the list in a section of their own, without
+ * actions: they cannot be changed until the agent reads them, and then they leave the queue.
  */
 export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((props) => {
-    const { sessionId, messages, canManage, isBusy, glass, onSendNow, onPin, onDelete, onPause, onSaveEdit, onReschedule } = props;
+    const { sessionId, messages, canManage, isBusy, glass, onSendNow, onSteer, onPin, onDelete, onPause, onSaveEdit, onReschedule } = props;
     const { theme } = useUnistyles();
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const [expanded, setExpanded] = React.useState(false);
@@ -144,15 +148,24 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
         return null;
     }
 
-    // What goes out next: the first message neither paused nor waiting for its time.
+    // What goes out next: the first message not steering, paused nor waiting for its time.
     const now = Date.now();
-    const next = messages.find((m) => m.pausedAt === null && (m.deliverAt === null || m.deliverAt <= now)) ?? null;
+    const next = messages.find((m) => m.steeringAt === null && m.pausedAt === null && (m.deliverAt === null || m.deliverAt <= now)) ?? null;
+    // Steering messages sort first (see pendingQueue.ts)
+    const steeringCount = messages.filter((m) => m.steeringAt !== null).length;
     const previewOf = (m: PendingMessage) => truncatePendingPreview(getPendingPreviewText(m.previewText, t('pendingQueue.empty')));
     const surfaceColor = theme.colors.input.background;
 
     const menuItems = (message: PendingMessage): ActionMenuItem[] => {
         const isPaused = message.pausedAt !== null;
         const items: ActionMenuItem[] = [];
+        // Only into a running turn, and only a message that would otherwise go out at the next turn
+        if (onSteer && isBusy && !isPaused && message.deliverAt === null) {
+            items.push({
+                label: t('pendingQueue.steer'),
+                onPress: () => void runAction(message.id, 'steer', onSteer),
+            });
+        }
         if (!isPaused) {
             items.push({
                 label: isBusy ? t('pendingQueue.sendNowInterrupt') : t('pendingQueue.sendNow'),
@@ -192,6 +205,14 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
     const renderTags = (message: PendingMessage) => {
         const schedule = getPendingScheduleInfo(message.deliverAt);
         const tags: React.ReactNode[] = [];
+        if (message.steeringAt !== null) {
+            tags.push(
+                <View key="steering" style={styles.tag}>
+                    <Ionicons name="return-down-forward" size={10} color={theme.colors.textLink} />
+                    <Text style={[styles.tagText, styles.tagTextAccent]}>{t('pendingQueue.steering')}</Text>
+                </View>
+            );
+        }
         if (message.pinnedAt !== null && message.pausedAt === null) {
             tags.push(
                 <View key="pin" style={styles.tag}>
@@ -238,7 +259,7 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
 
     // A row's actions. On the web Delete sits after the menu, and both are bare until hovered.
     const renderActions = (message: PendingMessage) => {
-        if (!canManage) return null;
+        if (!canManage || message.steeringAt !== null) return null;
         if (pendingAction?.pendingId === message.id) {
             return (
                 <View style={[styles.moreButton, DELETE_ON_ROW && styles.moreButtonHoverOnly]}>
@@ -305,7 +326,9 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
                     {t('pendingQueue.collapsedTitle', { count: messages.length })}
                 </Text>
                 <Text style={styles.barSubtitle} numberOfLines={1}>
-                    {next ? t('pendingQueue.nextUp', { text: previewOf(next) }) : t('pendingQueue.nothingDue')}
+                    {steeringCount > 0
+                        ? `${t('pendingQueue.steering')} · ${previewOf(messages[0])}`
+                        : next ? t('pendingQueue.nextUp', { text: previewOf(next) }) : t('pendingQueue.nothingDue')}
                 </Text>
             </View>
             <Ionicons name="chevron-up" size={16} color={theme.colors.textSecondary} />
@@ -332,10 +355,25 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
             >
                 {messages.map((message, index) => {
                     const isPaused = message.pausedAt !== null;
+                    const isSteering = message.steeringAt !== null;
+                    // With messages steering, they and the rest of the queue each get a heading
+                    const heading = steeringCount === 0 ? null
+                        : index === 0 ? { title: t('pendingQueue.steering'), hint: t('pendingQueue.steeringHint') }
+                        : index === steeringCount ? { title: t('pendingQueue.queuedSection'), hint: null }
+                        : null;
                     return (
-                        <View key={message.id} style={[styles.row, index > 0 && styles.rowDivider]}>
+                        <React.Fragment key={message.id}>
+                        {heading && (
+                            <View style={[styles.sectionHeader, index > 0 && styles.rowDivider]}>
+                                <Text style={styles.sectionTitle}>{heading.title}</Text>
+                                {heading.hint && <Text style={styles.sectionHint} numberOfLines={1}>{heading.hint}</Text>}
+                            </View>
+                        )}
+                        <View style={[styles.row, index > 0 && !heading && styles.rowDivider]}>
                             <View style={styles.rowIndex}>
-                                <Text style={styles.rowIndexText}>{index + 1}</Text>
+                                {isSteering
+                                    ? <ActivityIndicator size="small" color={theme.colors.textLink} style={styles.rowIndexSpinner} />
+                                    : <Text style={styles.rowIndexText}>{index + 1 - steeringCount}</Text>}
                             </View>
                             <Pressable
                                 style={styles.rowBody}
@@ -349,6 +387,7 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
                             </Pressable>
                             {renderActions(message)}
                         </View>
+                        </React.Fragment>
                     );
                 })}
             </ScrollView>
@@ -575,6 +614,27 @@ const styles = StyleSheet.create((theme) => ({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: theme.colors.surfaceRipple,
+    },
+    rowIndexSpinner: {
+        transform: [{ scale: 0.6 }],
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 6,
+        paddingTop: 8,
+        paddingBottom: 2,
+        paddingHorizontal: 6,
+    },
+    sectionTitle: {
+        color: theme.colors.textSecondary,
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    sectionHint: {
+        flex: 1,
+        color: theme.colors.textSecondary,
+        fontSize: 11,
     },
     rowIndexText: {
         color: theme.colors.textSecondary,

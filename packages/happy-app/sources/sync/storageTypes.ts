@@ -271,6 +271,8 @@ export interface PendingMessage {
     pinnedAt: number | null;
     pausedAt: number | null;
     deliverAt: number | null;
+    /** Set while the message is being steered into the running turn; it is not changeable then */
+    steeringAt: number | null;
     createdAt: number;
     updatedAt: number;
 }

@@ -1204,6 +1204,11 @@ export const ru: TranslationStructure = {
         expand: 'Показать очередь',
         collapse: 'Скрыть очередь',
         moreActions: 'Другие действия',
+        steer: 'Добавить в этот ход',
+        steering: 'Добавляется',
+        steeringHint: 'Появится в чате, когда ИИ его прочтёт',
+        queuedSection: 'В очереди',
+        steerFailed: 'Не удалось добавить в этот ход — сообщение осталось в очереди.',
     },
 
     commandPalette: {

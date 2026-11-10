@@ -1028,6 +1028,11 @@ export const en: TranslationStructure = {
         expand: 'Show queue',
         collapse: 'Hide queue',
         moreActions: 'More actions',
+        steer: 'Add to this turn',
+        steering: 'Steering in',
+        steeringHint: 'Shown in the chat once the AI reads it',
+        queuedSection: 'Queued',
+        steerFailed: 'Couldn\'t add it to this turn — it stays in the queue.',
     },
 
     commandPalette: {

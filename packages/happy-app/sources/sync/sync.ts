@@ -1006,6 +1006,7 @@ class Sync {
             pinnedAt: pending.pinnedAt,
             pausedAt: pending.pausedAt,
             deliverAt: pending.deliverAt,
+            steeringAt: pending.steeringAt,
             createdAt: pending.createdAt,
             updatedAt: pending.updatedAt,
         };
@@ -1310,6 +1311,46 @@ class Sync {
             const decrypted = await this.decryptPendingMessage(sessionId, pending.data);
             if (decrypted) {
                 storage.getState().upsertPendingMessage(sessionId, decrypted);
+            }
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    // Steer a queued message into the running turn ("插话"): the server hands it to the CLI and keeps
+    // it queued, marked as steering, until the agent reads it.
+    async steerPendingMessage(sessionId: string, pendingId: string): Promise<boolean> {
+        if (!this.credentials) {
+            return false;
+        }
+
+        try {
+            const API_ENDPOINT = getServerUrl();
+            const response = await fetch(
+                `${API_ENDPOINT}/v3/sessions/${sessionId}/pending-messages/${pendingId}/steer`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.credentials.token}`,
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    storage.getState().removePendingMessage(sessionId, pendingId);
+                }
+                return false;
+            }
+
+            const body = await response.json();
+            const pending = ApiPendingMessageSchema.safeParse(body?.message);
+            if (pending.success) {
+                const decrypted = await this.decryptPendingMessage(sessionId, pending.data);
+                if (decrypted) {
+                    storage.getState().upsertPendingMessage(sessionId, decrypted);
+                }
             }
             return true;
         } catch (error) {

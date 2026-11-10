@@ -1,8 +1,10 @@
 import type { PendingMessage } from './storageTypes';
 
-// Active messages first, then scheduled ones waiting for their time, then paused
-// drafts, so the list reads top-to-bottom as "what goes out next" -> "later" -> "parked".
+// Messages being steered into the running turn first, then active messages, then scheduled ones
+// waiting for their time, then paused drafts, so the list reads top-to-bottom as "going in now" ->
+// "what goes out next" -> "later" -> "parked".
 function queueRank(message: PendingMessage): number {
+    if (message.steeringAt !== null) return -1;
     if (message.pausedAt !== null) return 2;
     if (message.deliverAt !== null) return 1;
     return 0;

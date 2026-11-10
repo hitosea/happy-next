@@ -1014,6 +1014,11 @@ export const zhHans: TranslationStructure = {
         expand: '展开队列',
         collapse: '收起队列',
         moreActions: '更多操作',
+        steer: '插话',
+        steering: '插话中',
+        steeringHint: 'AI 读到后显示在对话里',
+        queuedSection: '待发送',
+        steerFailed: '没能插进本轮，消息仍在队列中。',
     },
 
     commandPalette: {

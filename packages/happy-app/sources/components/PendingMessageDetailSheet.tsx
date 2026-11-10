@@ -234,7 +234,11 @@ export function PendingMessageDetailSheet({
                             <SelectableTextView key={fullText} text={fullText} backgroundColor="transparent" onMeasure={setMeasuredText} />
                         </View>
                         <Action icon="copy-outline" label={t('pendingQueue.copyText')} onPress={() => void handleCopy()} />
-                        {canManage && (
+                        {/* Steering into the running turn, it cannot be changed until the agent reads it */}
+                        {m.steeringAt !== null && (
+                            <Text style={styles.steeringHint}>{t('pendingQueue.steering')} · {t('pendingQueue.steeringHint')}</Text>
+                        )}
+                        {canManage && m.steeringAt === null && (
                             <>
                                 <Action icon="create-outline" label={t('pendingQueue.edit')} onPress={() => void startEdit()} />
                                 {m.deliverAt !== null && onReschedule && (
@@ -285,6 +289,12 @@ function Action({ icon, label, onPress, destructive }: {
 }
 
 const styles = StyleSheet.create((theme) => ({
+    steeringHint: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',

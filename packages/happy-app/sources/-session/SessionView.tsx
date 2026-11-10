@@ -32,7 +32,7 @@ import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineForkClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineForkGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, machineForkCodexSession, machineResolveClaudeForkTarget, machineResolveGeminiForkTarget, machineResolveCodexForkTarget, machineGetClaudeSessionUserMessage, machineGetGeminiSessionUserMessage, machineGetCodexSessionUserMessage, machineGetQoderSessionUserMessages, machineGetQoderSessionUserMessage, machineResolveQoderForkTarget, machineDuplicateQoderSession, machineForkQoderSession, type UserMessageWithUuid, type UserMessagePage, type ResolvedForkTarget } from '@/sync/ops';
-import { storage, useIsDataReady, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
+import { storage, useIsDataReady, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionCanSteer, useSessionUsage, useSetting } from '@/sync/storage';
 import { useMachine, useRememberedModelMode, useSession } from '@/sync/storage';
 import type { SessionModeAgentType } from '@/sync/sessionModeConfig';
 import { useInputHistory } from '@/hooks/useInputHistory';
@@ -387,6 +387,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const { messages, isLoaded, fetchVersion } = useSessionMessages(sessionId);
     const messagesFetching = useSessionMessagesFetching(sessionId);
     const pendingMessages = useSessionPendingMessages(sessionId);
+    const canSteer = useSessionCanSteer(sessionId);
 
     const machineId = session.metadata?.machineId;
     const { models: qoderModels } = useQoderModels(machineId, session.metadata?.path ?? '', session.metadata?.flavor === 'qoder');
@@ -1371,6 +1372,15 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         }
     }, [sessionId]);
 
+    // The message stays queued, marked as steering, until the agent reads it; if the agent cannot
+    // take it now (the turn just ended, or is compacting), it simply stays in the queue.
+    const handleSteerPending = React.useCallback(async (pendingId: string) => {
+        const success = await sync.steerPendingMessage(sessionId, pendingId);
+        if (!success) {
+            Modal.alert(t('common.error'), t('pendingQueue.steerFailed'));
+        }
+    }, [sessionId]);
+
     const handlePinPending = React.useCallback(async (pendingId: string) => {
         const success = await sync.pinPendingMessage(sessionId, pendingId);
         if (!success) {
@@ -1408,6 +1418,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             // The web has no Liquid Glass; the queue is frosted glass there (see GlassSurface).
             glass={useFloatingComposer || Platform.OS === 'web'}
             onSendNow={handleSendNowPending}
+            onSteer={canSteer ? handleSteerPending : undefined}
             onPin={handlePinPending}
             onDelete={handleDeletePending}
             onPause={handlePausePending}
