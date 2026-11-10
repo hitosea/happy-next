@@ -8,7 +8,7 @@
  */
 
 import type { SessionNotification } from '@agentclientprotocol/sdk';
-import { AcpBackend, type AcpPermissionHandler } from '../acp/AcpBackend';
+import { AcpBackend, type AcpBackendOptions, type AcpPermissionHandler } from '../acp/AcpBackend';
 import type { AgentFactoryOptions, McpServerConfig } from '../core';
 import { agentRegistry } from '../core';
 import { DefaultTransport, type IdentifiableToolCall, type IdentifiedToolCall } from '../transport';
@@ -29,6 +29,11 @@ export interface QoderBackendOptions extends AgentFactoryOptions {
    * Both override what a restored session had.
    */
   launch?: QoderLaunch;
+  /**
+   * Answers AskUserQuestion, which qodercli offers only to a client that can answer
+   * form elicitations. Left out (orchestrator one-shot runs), the agent cannot ask.
+   */
+  onElicitation?: AcpBackendOptions['onElicitation'];
 }
 
 export type QoderLaunch = { model: string | null; contextWindow: number | null };
@@ -119,6 +124,7 @@ export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
     transportHandler: qoderTransport,
     resumeSessionId: options.resumeSessionId,
     onReplayedUpdate: options.onReplayedUpdate,
+    onElicitation: options.onElicitation,
   });
 }
 

@@ -37,7 +37,7 @@ import type { ApiSessionClient } from '@/api/apiSession';
 import { parseClear } from '@/parsers/specialCommands';
 import { addBuiltinSlashCommands, expandBuiltinSlashCommand, syncBuiltinCommands } from '@/commands/builtinCommands';
 import { syncOrchestratorAssets } from '@/orchestrator/skillSync';
-import type { AcpBackend } from '@/agent/acp/AcpBackend';
+import type { AcpBackend, AcpElicitationRequest, AcpElicitationResponse } from '@/agent/acp/AcpBackend';
 import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
 import { extractConfigOptionsFromPayload } from '@/agent/acp/sessionConfigMetadata';
@@ -52,6 +52,7 @@ import { buildQoderBackfillMessages } from '@/qoder/utils/backfill';
 import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
 import { qoderTranscriptStore } from '@/qoder/transcripts';
 import { readQoderContextUsage } from '@/qoder/contextUsage';
+import { QODER_ASK_USER_QUESTION, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema, type QoderQuestion } from '@/qoder/askUserQuestion';
 import {
   QODER_RESUME_SESSION_ID_ENV,
   isQoderAuthError,
@@ -247,6 +248,22 @@ export async function runQoder(opts: {
   };
   permissionHandler = new QoderPermissionHandler(session, api.push(), withPlan);
 
+  // AskUserQuestion: the questions of each call in flight, taken from its tool call, and the
+  // answers given, which its result carries to the app's question card (keyed by question text).
+  const askedQuestions = new Map<string, QoderQuestion[]>();
+  const givenAnswers = new Map<string, Record<string, string>>();
+  const answerQuestions = async (request: AcpElicitationRequest): Promise<AcpElicitationResponse> => {
+    const callId = request.toolCallId ?? randomUUID();
+    const questions = askedQuestions.get(callId) ?? qoderQuestionsFromSchema(request);
+    askedQuestions.delete(callId);
+    const result = await permissionHandler!.handleToolCall(callId, QODER_ASK_USER_QUESTION, { questions });
+    if (result.decision !== 'approved' && result.decision !== 'approved_for_session') {
+      return { action: result.decision === 'abort' ? 'cancel' : 'decline' };
+    }
+    givenAnswers.set(callId, result.answers ?? {});
+    return qoderElicitationAnswer(questions, result.answers ?? {});
+  };
+
   // Typed through a cast: TS would otherwise narrow it to null, since only closures assign it.
   let qoderBackend = null as AcpBackend | null;
   // Values qodercli last reported for its `mode`, `model` and effort config options.
@@ -350,6 +367,8 @@ export async function runQoder(opts: {
         const filePath = msg.args?.file_path;
         if (typeof filePath === 'string' && dirname(filePath) === plansDir) planFile = filePath;
         if (msg.toolName in PLAN_MODE_AFTER_TOOL) planToolCalls.set(msg.callId, PLAN_MODE_AFTER_TOOL[msg.toolName]);
+        const questions = msg.toolName === QODER_ASK_USER_QUESTION ? qoderQuestionsFromInput(msg.args) : null;
+        if (questions) askedQuestions.set(msg.callId, questions);
         const input = withPlan(msg.toolName, inlinePreviewHtmlFileArgs(msg.toolName, msg.args) ?? {});
         messageBuffer.addMessage(`Executing: ${msg.toolName} ${JSON.stringify(msg.args ?? {}).substring(0, 100)}`, 'tool');
         session.sendAgentMessage('qoder', { type: 'tool-call', name: msg.toolName, callId: msg.callId, input, id: randomUUID() });
@@ -359,7 +378,9 @@ export async function runQoder(opts: {
       case 'tool-result': {
         // ACP returns [{ type: 'content', content: {...} }]; the app reads { content: [...] }.
         const result = msg.result;
-        const output = Array.isArray(result) && result.length > 0 && result.every((item) => item?.type === 'content' && item?.content)
+        const answers = givenAnswers.get(msg.callId);
+        givenAnswers.delete(msg.callId);
+        const output = answers ? { answers } : Array.isArray(result) && result.length > 0 && result.every((item) => item?.type === 'content' && item?.content)
           ? { content: result.map((item) => item.content) }
           : result;
         messageBuffer.addMessage(`Result: ${JSON.stringify(result ?? '').substring(0, 200)}`, 'result');
@@ -437,6 +458,7 @@ export async function runQoder(opts: {
       resumeSessionId,
       launch,
       onReplayedUpdate: (update) => replayed.push(update),
+      onElicitation: answerQuestions,
     });
     backend.onMessage(handleBackendMessage);
     appliedMode = null;

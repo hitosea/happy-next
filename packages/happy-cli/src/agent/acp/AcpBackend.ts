@@ -22,6 +22,7 @@ import {
   type LoadSessionResponse,
   type PromptRequest,
   type ContentBlock,
+  RequestError,
 } from '@agentclientprotocol/sdk';
 import { randomUUID } from 'node:crypto';
 import type {
@@ -197,7 +198,46 @@ export interface AcpBackendOptions {
    * not forwarded as live output; this lets the caller rebuild the transcript.
    */
   onReplayedUpdate?: (update: SessionNotification['update']) => void;
+
+  /**
+   * Answers the agent's form elicitations (`elicitation/create`, mode `form`). Given, the
+   * client declares `elicitation.form`, which some agents require before they offer tools
+   * that ask the user (Qoder's AskUserQuestion); leave it out where nobody can answer.
+   */
+  onElicitation?: (request: AcpElicitationRequest) => Promise<AcpElicitationResponse>;
 }
+
+/** An ACP `elicitation/create` request in form mode: a flat JSON Schema for the answers. */
+export interface AcpElicitationRequest {
+  mode?: 'form' | 'url';
+  sessionId?: string;
+  toolCallId?: string;
+  message?: string;
+  requestedSchema?: {
+    type?: 'object';
+    title?: string;
+    properties?: Record<string, AcpElicitationField>;
+    required?: string[];
+  };
+  _meta?: Record<string, unknown>;
+}
+
+export interface AcpElicitationField {
+  type?: string;
+  title?: string;
+  description?: string;
+  /** Single choice: the allowed values */
+  oneOf?: { const: string; title?: string }[];
+  /** Multiple choice (`type: 'array'`): the allowed values */
+  items?: { anyOf?: { const: string; title?: string }[] };
+}
+
+export interface AcpElicitationResponse {
+  action: 'accept' | 'decline' | 'cancel';
+  content?: Record<string, string | number | boolean | string[]>;
+}
+
+const ELICITATION_CREATE = 'elicitation/create';
 
 /**
  * Convert Node.js streams to Web Streams for ACP SDK
@@ -746,6 +786,20 @@ export class AcpBackend implements AgentBackend {
           const defaultOptionId = proceedOnceOption?.optionId || (options.length > 0 && options[0].optionId ? options[0].optionId : 'proceed_once');
           return { outcome: { outcome: 'selected', optionId: defaultOptionId } };
         },
+        // The SDK routes requests it has no handler for (elicitation among them) here, unprefixed.
+        extMethod: async (method: string, params: Record<string, unknown>): Promise<Record<string, unknown>> => {
+          if (method === ELICITATION_CREATE && this.options.onElicitation) {
+            const request = params as AcpElicitationRequest;
+            if (request.mode && request.mode !== 'form') return { action: 'decline' };
+            try {
+              return { ...await this.options.onElicitation(request) };
+            } catch (error) {
+              logger.debug('[AcpBackend] Elicitation failed', error);
+              return { action: 'cancel' };
+            }
+          }
+          throw RequestError.methodNotFound(method);
+        },
       };
 
       // Create ClientSideConnection
@@ -762,6 +816,8 @@ export class AcpBackend implements AgentBackend {
             readTextFile: false,
             writeTextFile: false,
           },
+          // Not in this SDK's schema yet; agents that support it read `elicitation.form`.
+          ...(this.options.onElicitation ? { elicitation: { form: {} } } : {}),
         },
         clientInfo: {
           name: 'happy-cli',
