@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ sessionArchive: vi.fn(), updateSessionActivity: vi.fn(), clearSessionMessageCache: vi.fn() }));
-vi.mock('./ops', () => ({
-    sessionArchive: mocks.sessionArchive,
-    isRpcMethodNotAvailable: (message?: string) => /RPC method not available/i.test(message ?? ''),
-}));
+vi.mock('./ops', () => ({ sessionArchive: mocks.sessionArchive }));
 vi.mock('./storage', () => ({ storage: { getState: () => ({ sessions: {}, updateSessionActivity: mocks.updateSessionActivity }) } }));
 vi.mock('./sync', () => ({ sync: { clearSessionMessageCache: mocks.clearSessionMessageCache } }));
 vi.mock('@/text', () => ({ t: (key: string) => key }));
@@ -18,9 +15,10 @@ describe('archiveSessionFromApp', () => {
         vi.resetAllMocks();
     });
 
-    it('fails, and puts a live session back, when its process is unreachable before the server marks it offline', async () => {
-        mocks.sessionArchive.mockResolvedValue({ success: false, message: 'RPC method not available' });
-        await expect(archiveSessionFromApp(live)).rejects.toThrow('sessionInfo.archiveSessionUnreachable');
+    it('fails, and puts a live session back, when the archive cannot be recorded', async () => {
+        mocks.sessionArchive.mockResolvedValue({ success: false, message: 'archive-metadata-update-failed' });
+        await expect(archiveSessionFromApp(live)).rejects.toThrow('archive-metadata-update-failed');
+        expect(mocks.sessionArchive).toHaveBeenCalledWith('s1');
         expect(mocks.updateSessionActivity).toHaveBeenNthCalledWith(1, 's1', false);
         expect(mocks.updateSessionActivity).toHaveBeenNthCalledWith(2, 's1', true);
         expect(mocks.clearSessionMessageCache).not.toHaveBeenCalled();

@@ -1107,7 +1107,6 @@ export const ca: TranslationStructure = {
         failedToCopyMetadata: 'Ha fallat copiar les metadades',
         failedToKillSession: 'Ha fallat finalitzar la sessió',
         failedToArchiveSession: 'Ha fallat arxivar la sessió',
-        archiveSessionUnreachable: "La sessió no respon; potser la seva màquina s'acaba de desconnectar. Torna-ho a provar d'aquí a un moment.",
         codexArchiveFailed: 'Codex native archive failed. The session may already be stopped. Retry archiving',
         colorMarker: 'Marcador de color',
         clearColorMarker: 'Treu el marcador de color',

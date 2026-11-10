@@ -886,7 +886,6 @@ export const ru: TranslationStructure = {
         failedToCopyMetadata: 'Не удалось скопировать метаданные',
         failedToKillSession: 'Не удалось завершить сессию',
         failedToArchiveSession: 'Не удалось архивировать сессию',
-        archiveSessionUnreachable: 'Сессия не отвечает: возможно, её машина только что отключилась. Повторите попытку чуть позже.',
         codexArchiveFailed: 'Codex native archive failed. The session may already be stopped. Retry archiving',
         colorMarker: 'Цветовая метка',
         clearColorMarker: 'Удалить цветовую метку',

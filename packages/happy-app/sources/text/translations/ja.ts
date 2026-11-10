@@ -1109,7 +1109,6 @@ export const ja: TranslationStructure = {
         failedToCopyMetadata: 'メタデータのコピーに失敗しました',
         failedToKillSession: 'セッションの終了に失敗しました',
         failedToArchiveSession: 'セッションのアーカイブに失敗しました',
-        archiveSessionUnreachable: 'セッションが応答しません。マシンがオフラインになった直後の可能性があります。しばらくしてからもう一度お試しください。',
         codexArchiveFailed: 'Codex native archive failed. The session may already be stopped. Retry archiving',
         colorMarker: 'カラーマーカー',
         clearColorMarker: 'カラーマーカーを解除',

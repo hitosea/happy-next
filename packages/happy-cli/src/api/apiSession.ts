@@ -285,6 +285,8 @@ export class ApiSessionClient extends EventEmitter {
             this.rpcHandlerManager.onSocketConnect(this.socket);
             // A run that ended while the session was offline, or before it started (a copy's)
             this.pullOrchestratorCallbacks();
+            // An archive written while it was offline: the update that carried it is gone
+            void this.pullMetadata();
         })
 
         // Set up global RPC request handler
@@ -401,10 +403,8 @@ export class ApiSessionClient extends EventEmitter {
                         this.emit('message', body);
                     }
                 } else if (data.body.t === 'update-session') {
-                    if (data.body.metadata && data.body.metadata.version > this.metadataVersion) {
-                        this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.metadata.value));
-                        this.metadataVersion = data.body.metadata.version;
-                        this.syncedModel = this.metadata?.model?.trim() || null;
+                    if (data.body.metadata) {
+                        this.adoptServerMetadata(data.body.metadata.value, data.body.metadata.version);
                     }
                     if (data.body.agentState && data.body.agentState.version > this.agentStateVersion) {
                         this.agentState = data.body.agentState.value ? decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(data.body.agentState.value)) : null;
@@ -447,6 +447,41 @@ export class ApiSessionClient extends EventEmitter {
         //
 
         this.socket.connect();
+    }
+
+    /**
+     * Take metadata the server holds when it is newer than ours. Seeing it turn archived by someone
+     * else (the app archiving a session whose process it could not reach) emits 'archived' once,
+     * so the session stops as a kill would have stopped it. Our own archive (archivedBy 'cli') and
+     * one already in place when the session started are not a transition and stop nothing.
+     */
+    private adoptServerMetadata(value: string, version: number) {
+        if (version <= this.metadataVersion) return;
+        const wasArchived = this.metadata?.lifecycleState === 'archived';
+        this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(value));
+        this.metadataVersion = version;
+        this.syncedModel = this.metadata?.model?.trim() || null;
+        if (wasArchived || this.metadata?.lifecycleState !== 'archived' || this.metadata.archivedBy === 'cli') return;
+        logger.debug('[API] Session archived elsewhere, stopping');
+        this.emit('archived');
+    }
+
+    private async pullMetadata() {
+        try {
+            const response = await axios.get(
+                `${configuration.serverUrl}/v1/sessions/${encodeURIComponent(this.sessionId)}/metadata`,
+                { headers: this.orchestratorHeaders(), timeout: 30_000 }
+            );
+            const { metadata, metadataVersion } = response.data ?? {};
+            if (typeof metadata === 'string' && typeof metadataVersion === 'number') {
+                this.adoptServerMetadata(metadata, metadataVersion);
+            }
+        } catch (error: any) {
+            // A server without the endpoint (404) leaves it to the next update, as before
+            if (error?.response?.status !== 404) {
+                logger.debug('[API] Failed to pull session metadata', { error });
+            }
+        }
     }
 
     private orchestratorHeaders() {
@@ -703,6 +738,11 @@ export class ApiSessionClient extends EventEmitter {
      * Where queued messages go to be taken into the running turn ("插话"). The handler accepts one
      * only when the agent has it now, and then reports it through `reportPendingSteer`.
      */
+    /** Runs once when the session is archived by someone else: see adoptServerMetadata. */
+    onArchived(handler: () => void) {
+        this.once('archived', handler);
+    }
+
     onPendingSteer(handler: (message: UserMessage, pendingId: string) => Promise<PendingSteerAck>) {
         this.pendingSteerHandler = handler;
     }
@@ -1515,11 +1555,7 @@ export class ApiSessionClient extends EventEmitter {
                     this.metadataVersion = answer.version;
                     this.syncedModel = this.metadata?.model?.trim() || null;
                 } else if (answer.result === 'version-mismatch') {
-                    if (answer.version > this.metadataVersion) {
-                        this.metadataVersion = answer.version;
-                        this.metadata = decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(answer.metadata));
-                        this.syncedModel = this.metadata?.model?.trim() || null;
-                    }
+                    this.adoptServerMetadata(answer.metadata, answer.version);
                     throw new Error('Metadata version mismatch');
                 } else if (answer.result === 'error') {
                     // Hard error - ignore

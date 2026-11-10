@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { isRpcMethodNotAvailable, sessionArchive } from './ops';
+import { sessionArchive } from './ops';
 import { storage } from './storage';
 import { sync } from './sync';
 import type { Session } from './storageTypes';
@@ -25,8 +25,8 @@ function setArchiving(sessionId: string, archiving: boolean) {
 
 /**
  * Archive a session from the app: a live one leaves the live list at once and comes back if
- * archiving fails. Archiving is idempotent, so a session whose RPC target is gone counts as
- * archived already. Throws on failure, including a stop whose archived mark was lost; a native
+ * archiving fails. A session whose process does not answer is archived all the same (see
+ * sessionArchive). Throws on failure, including a stop whose archived mark was lost; a native
  * (Codex) archive error is returned for the caller.
  */
 export async function archiveSessionFromApp(session: Session): Promise<{ nativeArchiveError?: string }> {
@@ -36,14 +36,10 @@ export async function archiveSessionFromApp(session: Session): Promise<{ nativeA
         // Only a live session is flipped: marking a stopped one pending archive would keep a later
         // resume showing offline if this archive fails.
         if (wasActive) storage.getState().updateSessionActivity(session.id, false);
-        const result = await sessionArchive(session.id, { wasActive });
+        const result = await sessionArchive(session.id);
         if (!result.success) {
             if (wasActive) storage.getState().updateSessionActivity(session.id, true);
-            // A stopped session archives without its process, so a missing RPC here is a live one
-            // whose machine just dropped: nothing was archived, and once the server marks it offline
-            // it archives from the Disconnected block.
-            const message = isRpcMethodNotAvailable(result.message) ? t('sessionInfo.archiveSessionUnreachable') : result.message;
-            throw new HappyError(message || t('sessionInfo.failedToArchiveSession'), false);
+            throw new HappyError(result.message || t('sessionInfo.failedToArchiveSession'), false);
         }
         await sync.clearSessionMessageCache(session.id);
         if (result.archiveMetadataError) {

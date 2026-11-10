@@ -563,6 +563,30 @@ export function sessionRoutes(app: Fastify) {
         });
     });
 
+    // A session's current metadata, for its own CLI to catch up on after a reconnect: an archive
+    // written while it was offline reaches it no other way. Owner only, read-only.
+    app.get('/v1/sessions/:sessionId/metadata', {
+        preHandler: app.authenticate,
+        schema: {
+            params: z.object({
+                sessionId: z.string(),
+            })
+        }
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId } = request.params;
+
+        const session = await db.session.findUnique({
+            where: { id: sessionId, accountId: userId },
+            select: { metadata: true, metadataVersion: true }
+        });
+        if (!session) {
+            return reply.code(404).send({ error: 'Session not found' });
+        }
+
+        return reply.send({ metadata: session.metadata, metadataVersion: session.metadataVersion });
+    });
+
     app.put('/v1/sessions/:sessionId/capabilities', {
         preHandler: app.authenticate,
         schema: {

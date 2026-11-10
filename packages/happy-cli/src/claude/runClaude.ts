@@ -623,7 +623,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         cleanup();
     });
 
-    registerKillSessionHandler(session.rpcHandlerManager, cleanup);
+    registerKillSessionHandler(session, cleanup);
 
     // Create claude loop
     const exitCode = await loop({

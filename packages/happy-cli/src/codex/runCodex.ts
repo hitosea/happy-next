@@ -649,7 +649,7 @@ export async function runCodex(opts: {
 
     // Register abort handler
     session.rpcHandlerManager.registerHandler('abort', () => handleAbort({ graceful: true }));
-    registerKillSessionHandler(session.rpcHandlerManager, handleKillSession);
+    registerKillSessionHandler(session, handleKillSession);
     process.on('SIGTERM', handleKillSession);
 
     //

@@ -884,3 +884,78 @@ describe('ApiSessionClient pending steer', () => {
         await vi.waitFor(() => expect(order.at(-1)).toBe('alive:false'));
     });
 });
+
+describe('ApiSessionClient archived elsewhere', () => {
+    let mockSocket: any;
+    let mockSession: any;
+    const key = new Uint8Array(32);
+    const seal = (metadata: object) => encryptionModule.encodeBase64(encryptionModule.encrypt(key, 'legacy', metadata));
+    const running = { path: '/tmp', host: 'localhost', lifecycleState: 'running' };
+    const archived = { ...running, lifecycleState: 'archived', lifecycleStateSince: 1 };
+
+    beforeEach(() => {
+        mockSocket = { connect: vi.fn(), on: vi.fn(), off: vi.fn(), close: vi.fn(), disconnect: vi.fn(), emit: vi.fn(), connected: true };
+        mockIo.mockReturnValue(mockSocket);
+        mockSession = {
+            id: 'test-session-id', seq: 0, metadata: running, metadataVersion: 3,
+            agentState: null, agentStateVersion: 0, encryptionKey: key, encryptionVariant: 'legacy' as const,
+        };
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    const handler = (event: string) => mockSocket.on.mock.calls.find((args: any[]) => args[0] === event)[1];
+    const updateMetadata = (metadata: object, version: number) =>
+        handler('update')({ body: { t: 'update-session', id: 'test-session-id', metadata: { value: seal(metadata), version } } });
+
+    it('stops once when an update turns the session archived', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => key);
+        const onArchived = vi.fn();
+        client.onArchived(onArchived);
+        updateMetadata(archived, 4);
+        updateMetadata({ ...archived, name: 'renamed' }, 5);
+        expect(onArchived).toHaveBeenCalledOnce();
+        expect(client.getMetadataSnapshot()?.lifecycleState).toBe('archived');
+    });
+
+    it('ignores its own archive, a stale update, and an archive already in place at start', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => key);
+        const onArchived = vi.fn();
+        client.onArchived(onArchived);
+        updateMetadata(archived, 3);
+        updateMetadata({ ...archived, archivedBy: 'cli' }, 4);
+        expect(onArchived).not.toHaveBeenCalled();
+
+        mockSession = { ...mockSession, metadata: archived };
+        const started = new ApiSessionClient('fake-token', mockSession, async () => key);
+        started.onArchived(onArchived);
+        updateMetadata(archived, 4);
+        expect(onArchived).not.toHaveBeenCalled();
+    });
+
+    it('catches up on an archive written while it was offline once it reconnects', async () => {
+        const get = vi.spyOn(axios, 'get').mockImplementation(async (url: string) => {
+            if (url.endsWith('/metadata')) return { data: { metadata: seal(archived), metadataVersion: 7 } };
+            return { data: {} };
+        });
+        const client = new ApiSessionClient('fake-token', mockSession, async () => key);
+        const onArchived = vi.fn();
+        client.onArchived(onArchived);
+        handler('connect')();
+        await vi.waitFor(() => expect(onArchived).toHaveBeenCalledOnce());
+        expect(get).toHaveBeenCalledWith(expect.stringContaining('/v1/sessions/test-session-id/metadata'), expect.anything());
+    });
+
+    it('keeps running when the server has no metadata endpoint', async () => {
+        const get = vi.spyOn(axios, 'get').mockRejectedValue({ response: { status: 404 } });
+        const client = new ApiSessionClient('fake-token', mockSession, async () => key);
+        const onArchived = vi.fn();
+        client.onArchived(onArchived);
+        handler('connect')();
+        await vi.waitFor(() => expect(get).toHaveBeenCalled());
+        expect(onArchived).not.toHaveBeenCalled();
+        expect(client.getMetadataSnapshot()?.lifecycleState).toBe('running');
+    });
+});

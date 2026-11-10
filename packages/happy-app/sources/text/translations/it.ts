@@ -1106,7 +1106,6 @@ export const it: TranslationStructure = {
         failedToCopyMetadata: 'Impossibile copiare i metadati',
         failedToKillSession: 'Impossibile terminare la sessione',
         failedToArchiveSession: 'Impossibile archiviare la sessione',
-        archiveSessionUnreachable: 'La sessione non risponde; la sua macchina potrebbe essere appena andata offline. Riprova tra un momento.',
         codexArchiveFailed: 'Codex native archive failed. The session may already be stopped. Retry archiving',
         colorMarker: 'Indicatore colore',
         clearColorMarker: 'Rimuovi indicatore colore',

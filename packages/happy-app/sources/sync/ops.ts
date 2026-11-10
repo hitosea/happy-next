@@ -1042,20 +1042,19 @@ async function persistArchivedLifecycle(sessionId: string): Promise<void> {
 
 /**
  * Keep Happy's stop-based archive behavior, then synchronize Codex's native history.
- * `wasActive` is the session's activity before any optimistic flip, which would hide a live one.
+ * Archiving records the user's decision, which does not depend on reaching the process: the
+ * archived mark is written either way, and stopping the process is the part done if it can be.
  */
 export async function sessionArchive(
     sessionId: string,
-    opts?: { wasActive?: boolean },
 ): Promise<{ success: boolean; message?: string; nativeArchiveError?: string; archiveMetadataError?: string }> {
-    const session = storage.getState().sessions[sessionId];
-    const metadata = session?.metadata;
-    const wasActive = opts?.wasActive ?? session?.active;
+    const metadata = storage.getState().sessions[sessionId]?.metadata;
     const stopped = await sessionKill(sessionId);
-    const rpcMissing = !stopped.success && isRpcMethodNotAvailable(stopped.message);
-    // A disconnected session has no process left to stop (its machine dropped or it was killed),
-    // so archiving it is only the lifecycle mark.
-    const processGone = rpcMissing && wasActive === false;
+    // No process answers for the session: it is gone (killed, or its machine dropped), or cut off
+    // from the server, which can still list it as live for up to 10 minutes after. Either way there
+    // is nothing to stop from here, so archiving it is only the lifecycle mark; a process that was
+    // only cut off stops itself once it reconnects and sees the mark (the CLI's onArchived).
+    const processGone = !stopped.success && isRpcMethodNotAvailable(stopped.message);
     // With no stop to fall back on, a lost write is the archive failing.
     const archiveWithoutProcess = async (nativeArchiveError?: string) => {
         try {
@@ -1077,7 +1076,7 @@ export async function sessionArchive(
         }
         return stopped;
     }
-    if (!stopped.success && !rpcMissing) return stopped;
+    if (!stopped.success && !processGone) return stopped;
 
     // Native failures must not roll back Happy's stop or be mistaken for a missing session RPC.
     try {
@@ -1110,7 +1109,7 @@ export async function sessionArchive(
     } catch (error) {
         const rawMessage = error instanceof Error ? error.message : 'native-archive-failed';
         // Archive callers tolerate missing session RPCs, but not an unavailable daemon.
-        const message = rpcMissing && isRpcMethodNotAvailable(rawMessage) ? 'daemon-rpc-unavailable' : rawMessage;
+        const message = processGone && isRpcMethodNotAvailable(rawMessage) ? 'daemon-rpc-unavailable' : rawMessage;
         // Its machine is unreachable too: archive it in Happy now; native history stays where it is.
         if (processGone) return archiveWithoutProcess(message);
         return stopped.success ? { success: true, nativeArchiveError: message } : { success: false, message };

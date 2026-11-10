@@ -1107,7 +1107,6 @@ export const es: TranslationStructure = {
         failedToCopyMetadata: 'Falló al copiar metadatos',
         failedToKillSession: 'Falló al terminar sesión',
         failedToArchiveSession: 'Falló al archivar sesión',
-        archiveSessionUnreachable: 'La sesión no responde; puede que su máquina se haya desconectado. Inténtalo de nuevo en un momento.',
         codexArchiveFailed: 'Codex native archive failed. The session may already be stopped. Retry archiving',
         colorMarker: 'Marcador de color',
         clearColorMarker: 'Quitar marcador de color',

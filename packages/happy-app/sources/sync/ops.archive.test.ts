@@ -73,11 +73,14 @@ describe('stop-based archive with Codex native synchronization', () => {
         });
     });
 
-    it('does not mark a session archived without its process when it was live before the optimistic flip', async () => {
-        mocks.getState.mockReturnValue({ sessions: { s1: { active: false, metadataVersion: 2, metadata: { flavor: 'claude' } } } });
+    it('archives a session still shown live whose process does not answer', async () => {
+        mocks.getState.mockReturnValue({ sessions: { s1: { active: true, metadataVersion: 2, metadata: { flavor: 'claude' } } } });
         mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
-        expect(await sessionArchive('s1', { wasActive: true })).toMatchObject({ success: false });
-        expect(mocks.emitWithAck).not.toHaveBeenCalled();
+        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(mocks.emitWithAck).toHaveBeenCalledWith('update-metadata', {
+            sid: 's1', expectedVersion: 2,
+            metadata: JSON.stringify({ flavor: 'claude', lifecycleState: 'archived', lifecycleStateSince: 1_000 }),
+        });
     });
 
     it('fails the archive of a disconnected session when its archived mark is not written', async () => {
@@ -144,17 +147,28 @@ describe('stop-based archive with Codex native synchronization', () => {
         });
     });
 
-    it.each([true, false])('preserves the confirmed stop on metadata failure with session RPC success %s', async success => {
-        mocks.sessionRPC.mockResolvedValue({ success, message: 'RPC method not available' });
+    it('preserves the confirmed stop on metadata failure', async () => {
         mocks.emitWithAck.mockRejectedValue(new Error('Disconnected'));
         expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'archive-metadata-update-failed: Disconnected' });
     });
 
-    it.each([true, false])('preserves the confirmed target stop when another session uses its native thread (session RPC success %s)', async success => {
-        mocks.sessionRPC.mockResolvedValue({ success, message: 'RPC method not available' });
+    it('fails the archive of a session whose process does not answer when its archived mark is not written', async () => {
+        mocks.sessionRPC.mockResolvedValue({ success: false, message: 'RPC method not available' });
+        mocks.emitWithAck.mockRejectedValue(new Error('Disconnected'));
+        expect(await sessionArchive('s1')).toEqual({ success: false, message: 'Disconnected' });
+    });
+
+    it('preserves the confirmed target stop when another session uses its native thread', async () => {
         mocks.machineRPC.mockResolvedValue({ success: false, stopped: true, error: 'native-session-in-use' });
         expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'native-session-in-use' });
         expect(mocks.emitWithAck).not.toHaveBeenCalled();
+    });
+
+    it('archives a session whose process does not answer when another session uses its native thread', async () => {
+        mocks.sessionRPC.mockResolvedValue({ success: false, message: 'RPC method not available' });
+        mocks.machineRPC.mockResolvedValue({ success: false, stopped: true, error: 'native-session-in-use' });
+        expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: 'native-session-in-use' });
+        expect(mocks.emitWithAck).toHaveBeenCalledOnce();
     });
 
     it('does not archive after an unacknowledged stop failure', async () => {
@@ -168,30 +182,41 @@ describe('stop-based archive with Codex native synchronization', () => {
         expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: error });
     });
 
-    it.each(['session-identity-unavailable', 'session-provider-mismatch', 'native-session-id-unavailable'])('requires stop confirmation when native archive reports %s', async error => {
+    // A process that does not answer is archived in Happy whatever its daemon says: the mark is the
+    // archive, and a process only cut off stops itself on seeing it once it reconnects.
+    it.each(['session-identity-unavailable', 'session-provider-mismatch', 'native-session-id-unavailable'])('archives a session whose process does not answer when native archive reports %s', async error => {
         mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
         mocks.machineRPC.mockResolvedValue({ success: false, stopped: false, error });
-        expect(await sessionArchive('s1')).toEqual({ success: false, message: error });
+        expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: error });
+        expect(mocks.emitWithAck).toHaveBeenCalledOnce();
     });
 
-    it.each([true, false])('preserves daemon stop rejection when session stop success is %s', async success => {
-        mocks.sessionRPC.mockResolvedValue({ success, message: 'RPC method not available' });
+    it('preserves daemon stop rejection after an acknowledged session stop', async () => {
         for (const error of ['native-session-in-use', 'stop-not-confirmed', 'stop-failed', 'process-verification-unsupported', 'unknown-error']) {
             mocks.machineRPC.mockResolvedValue({ success: false, stopped: false, error });
             expect(await sessionArchive('s1')).toEqual({ success: false, message: error });
         }
     });
 
-    it.each(['daemon offline', 'RPC timeout', 'RPC method not available'])('fails without stop confirmation when daemon reports %s', async message => {
-        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
-        mocks.machineRPC.mockRejectedValue(new Error(message));
-        expect(await sessionArchive('s1')).toEqual({ success: false, message: message === 'RPC method not available' ? 'daemon-rpc-unavailable' : message });
+    it('archives a session whose process does not answer whatever its daemon rejects', async () => {
+        mocks.sessionRPC.mockResolvedValue({ success: false, message: 'RPC method not available' });
+        for (const error of ['native-session-in-use', 'stop-not-confirmed', 'stop-failed', 'process-verification-unsupported', 'unknown-error']) {
+            mocks.machineRPC.mockResolvedValue({ success: false, stopped: false, error });
+            expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: error });
+        }
     });
 
-    it('does not infer stop confirmation from a legacy daemon response', async () => {
+    it.each(['daemon offline', 'RPC timeout', 'RPC method not available'])('archives a session whose process does not answer when its daemon reports %s', async message => {
+        mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
+        mocks.machineRPC.mockRejectedValue(new Error(message));
+        expect(await sessionArchive('s1')).toEqual({ success: true, nativeArchiveError: message === 'RPC method not available' ? 'daemon-rpc-unavailable' : message });
+    });
+
+    it('archives a session whose process does not answer on a legacy daemon response', async () => {
         mocks.sessionRPC.mockRejectedValue(new Error('RPC method not available'));
         mocks.machineRPC.mockResolvedValue({ success: true });
-        expect(await sessionArchive('s1')).toEqual({ success: false, message: 'stop-not-confirmed' });
+        expect(await sessionArchive('s1')).toEqual({ success: true });
+        expect(mocks.emitWithAck).toHaveBeenCalledOnce();
     });
 
     it('warns on native failure when only the daemon confirmed the stop', async () => {

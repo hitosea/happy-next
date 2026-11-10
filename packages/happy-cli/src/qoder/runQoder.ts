@@ -555,7 +555,7 @@ export async function runQoder(opts: {
   });
 
   session.rpcHandlerManager.registerHandler('abort', handleAbort);
-  registerKillSessionHandler(session.rpcHandlerManager, handleKillSession);
+  registerKillSessionHandler(session, handleKillSession);
   session.rpcHandlerManager.registerHandler<{ mode?: PermissionMode }, boolean>('permission-mode-changed', async (payload) => {
     const mode = payload?.mode;
     if (!mode || !isPermissionModeForAgent('qoder', mode)) {
