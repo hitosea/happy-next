@@ -22,6 +22,16 @@ export interface QoderQuestion {
     multiSelect: boolean;
 }
 
+/**
+ * The AskUserQuestion call a request answers, or null for other elicitations: qodercli
+ * also forwards an MCP server's requests for input this way, with neither the tool's
+ * name nor a tool call.
+ */
+export function qoderAskUserQuestionCallId(request: AcpElicitationRequest): string | null {
+    const toolName = (request._meta?.qoder as { toolName?: unknown } | undefined)?.toolName;
+    return toolName === QODER_ASK_USER_QUESTION && request.toolCallId ? request.toolCallId : null;
+}
+
 /** The form field holding the answer to question `index`. */
 const fieldKey = (index: number) => `q${index}`;
 

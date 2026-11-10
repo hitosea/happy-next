@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema } from './askUserQuestion';
+import { qoderAskUserQuestionCallId, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema } from './askUserQuestion';
 
 // As qodercli 1.1.86 sends them over ACP.
 const input = {
@@ -32,6 +32,7 @@ const request = {
     sessionId: 's1',
     toolCallId: 'call_1',
     message: 'Answer Questions',
+    _meta: { qoder: { toolName: 'AskUserQuestion' } },
     requestedSchema: {
         type: 'object' as const,
         title: 'Answer Questions',
@@ -58,6 +59,12 @@ describe('Qoder AskUserQuestion', () => {
         const questions = qoderQuestionsFromInput(input);
         expect(questions).toEqual(input.questions.map(({ header, multiSelect, question, options }) => ({ header, multiSelect, question, options })));
         expect(qoderQuestionsFromInput({ description: 'Ask user' })).toBeNull();
+    });
+
+    it('takes only the elicitations of AskUserQuestion calls', () => {
+        expect(qoderAskUserQuestionCallId(request)).toBe('call_1');
+        // An MCP server's request for input, forwarded by qodercli
+        expect(qoderAskUserQuestionCallId({ mode: 'form', sessionId: 's1', message: 'Token?', requestedSchema: { type: 'object', properties: { token: { type: 'string' } } } })).toBeNull();
     });
 
     it('rebuilds the same questions from the elicitation form', () => {

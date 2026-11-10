@@ -52,7 +52,7 @@ import { buildQoderBackfillMessages } from '@/qoder/utils/backfill';
 import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
 import { qoderTranscriptStore } from '@/qoder/transcripts';
 import { readQoderContextUsage } from '@/qoder/contextUsage';
-import { QODER_ASK_USER_QUESTION, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema, type QoderQuestion } from '@/qoder/askUserQuestion';
+import { QODER_ASK_USER_QUESTION, qoderAskUserQuestionCallId, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema, type QoderQuestion } from '@/qoder/askUserQuestion';
 import {
   QODER_RESUME_SESSION_ID_ENV,
   isQoderAuthError,
@@ -252,8 +252,10 @@ export async function runQoder(opts: {
   // answers given, which its result carries to the app's question card (keyed by question text).
   const askedQuestions = new Map<string, QoderQuestion[]>();
   const givenAnswers = new Map<string, Record<string, string>>();
+  // Other elicitations (an MCP server asking for input) are cancelled, as before Happy took them.
   const answerQuestions = async (request: AcpElicitationRequest): Promise<AcpElicitationResponse> => {
-    const callId = request.toolCallId ?? randomUUID();
+    const callId = qoderAskUserQuestionCallId(request);
+    if (!callId) return { action: 'cancel' };
     const questions = askedQuestions.get(callId) ?? qoderQuestionsFromSchema(request);
     askedQuestions.delete(callId);
     const result = await permissionHandler!.handleToolCall(callId, QODER_ASK_USER_QUESTION, { questions });
