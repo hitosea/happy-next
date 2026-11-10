@@ -9,8 +9,8 @@ import UIKit
  *
  * The rows keep the order they are given in, whichever way the menu opens: by default iOS orders
  * them outward from the button, so a menu opening upward from the bottom of the screen reads
- * bottom-up. `onMenuOpen` and `onMenuClose` say when the menu shows and when it has gone, so the
- * page can keep the tap that dismisses it from landing on what is under it.
+ * bottom-up. `onMenuOpen` and `onMenuClose` say when the menu shows and when it starts going, so
+ * the page can keep the tap that dismisses it from landing on what is under it.
  *
  * The haptic is the one the sessions list's "+" plays (patches/react-native-screens): a deferred
  * element without rows, which UIKit asks for its rows each time the menu opens.
@@ -56,11 +56,8 @@ final class HappyMenuUIButton: UIButton {
     animator: UIContextMenuInteractionAnimating?
   ) {
     super.contextMenuInteraction(interaction, willEndFor: configuration, animator: animator)
-    if let animator {
-      animator.addCompletion { [weak self] in self?.onMenuClose?() }
-    } else {
-      onMenuClose?()
-    }
+    // As the menu starts going, not once its animation ends: it is out of the way well before then.
+    onMenuClose?()
   }
 }
 

@@ -10,7 +10,7 @@ export type NativeMenuProps = {
     /** What a tap does while the menu opens on a long press. */
     onPress?: () => void;
     /**
-     * The native menu has shown (`true`) or finished going away (`false`), so the page can keep the
+     * The native menu has shown (`true`) or started going away (`false`), so the page can keep the
      * tap that dismisses it from landing on what is under it. Not called by the fallback here.
      */
     onOpenChange?: (open: boolean) => void;

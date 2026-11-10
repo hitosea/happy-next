@@ -38,7 +38,7 @@ const GHOST_STEP = 4;
 const MAX_GHOSTS = 2;
 const TOGGLE_MS = 260;
 // The web has hover and room for a second button: Delete sits on the row, next to the menu.
-const MENU_SHIELD_LINGER_MS = 250;
+const MENU_SHIELD_LINGER_MS = 100;
 const DELETE_ON_ROW = Platform.OS === 'web';
 
 /**
@@ -86,8 +86,8 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
     }, [pendingAction]);
 
     // While a row's native menu is up, a shield over the queue takes the tap that dismisses it, which
-    // iOS would otherwise also hand to the row under it. It stays a moment after the menu has gone,
-    // as the menu reports going once its animation ends.
+    // iOS would otherwise also hand to the row under it. The menu reports going as that tap lands, so
+    // the shield stays a moment longer to be sure it is the one that takes it.
     const [menuShield, setMenuShield] = React.useState(false);
     const shieldTimerRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const handleMenuOpenChange = React.useCallback((open: boolean) => {
