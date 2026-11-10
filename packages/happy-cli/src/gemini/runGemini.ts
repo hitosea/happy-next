@@ -1612,6 +1612,15 @@ export async function runGemini(opts: {
     }
 
     try {
+      // The loop ended on its own (exit from the UI): the session ended, so the app must not list
+      // it as disconnected and waiting to be resumed.
+      session.updateMetadata((currentMetadata) => ({
+        ...currentMetadata,
+        lifecycleState: 'archived',
+        lifecycleStateSince: Date.now(),
+        archivedBy: 'cli',
+        archiveReason: 'Session ended'
+      }));
       session.sendSessionDeath();
       await session.flush();
       await session.close();

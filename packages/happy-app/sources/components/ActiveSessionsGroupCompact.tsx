@@ -254,6 +254,8 @@ interface ActiveSessionsGroupProps {
     pinned?: boolean;
     // The phone's "All machines" view: a project on each machine is a group of its own, naming it.
     byMachine?: boolean;
+    // Sessions cut off by their machine: their projects fold apart from the same live ones.
+    disconnected?: boolean;
 }
 
 function PinnedSessionsHeader() {
@@ -405,9 +407,9 @@ function ProjectSectionHeader({
 }
 
 
-export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned, byMachine }: ActiveSessionsGroupProps) {
+export function ActiveSessionsGroupCompact({ sessions, selectedSessionId, registerSessionRowRef, shared, pinned, byMachine, disconnected }: ActiveSessionsGroupProps) {
     const styles = stylesheet;
-    const projectGroups = useSessionProjectGroups(sessions, { byMachine });
+    const projectGroups = useSessionProjectGroups(sessions, { byMachine, disconnected });
     const { collapsedGroups, toggleGroup } = useCollapsedSessionProjectGroups(projectGroups, selectedSessionId);
     // Stable, so folding one project does not re-render the others.
     const toggleGroupRef = React.useRef(toggleGroup);

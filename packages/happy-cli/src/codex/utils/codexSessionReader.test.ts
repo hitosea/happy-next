@@ -286,3 +286,39 @@ describe('listCodexSessions', () => {
     await expect(readCodexSessionContent(fixture.forkPath)).rejects.toThrow('parent history not found');
   });
 });
+
+describe('readCodexSessionIdFromFile', () => {
+  let tempRoot: string;
+
+  beforeEach(() => {
+    tempRoot = mkdtempSync(join(tmpdir(), 'codex-session-id-'));
+  });
+
+  afterEach(() => {
+    rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it('reads the id from session_meta', async () => {
+    const filePath = join(tempRoot, 'rollout-2026-10-28T05-06-31-11111111-1111-1111-1111-111111111111.jsonl');
+    writeFileSync(filePath, [
+      JSON.stringify({ type: 'session_meta', payload: { id: '01a17bf0-58ec-75e3-a24b-592f97316664', base_instructions: 'x'.repeat(200_000) } }),
+      JSON.stringify({ type: 'response_item', payload: { role: 'user', content: [{ type: 'input_text', text: 'hi' }] } }),
+    ].join('\n') + '\n');
+    const { readCodexSessionIdFromFile } = await import('./codexSessionReader');
+    expect(await readCodexSessionIdFromFile(filePath)).toBe('01a17bf0-58ec-75e3-a24b-592f97316664');
+  });
+
+  it('falls back to the id in the file name when session_meta has none', async () => {
+    const filePath = join(tempRoot, 'rollout-2026-10-28T05-06-31-22222222-2222-2222-2222-222222222222.jsonl');
+    writeFileSync(filePath, 'not json\n');
+    const { readCodexSessionIdFromFile } = await import('./codexSessionReader');
+    expect(await readCodexSessionIdFromFile(filePath)).toBe('22222222-2222-2222-2222-222222222222');
+  });
+
+  it('falls back to the file name when the file is missing', async () => {
+    const { readCodexSessionIdFromFile } = await import('./codexSessionReader');
+    expect(await readCodexSessionIdFromFile(join(tempRoot, 'rollout-x-33333333-3333-3333-3333-333333333333.jsonl')))
+      .toBe('33333333-3333-3333-3333-333333333333');
+    expect(await readCodexSessionIdFromFile(join(tempRoot, 'missing.jsonl'))).toBeNull();
+  });
+});

@@ -133,6 +133,35 @@ function extractSessionIdFromFilename(filePath: string): string | null {
   return fallback[1].trim() || null;
 }
 
+/**
+ * The conversation id of a rollout file: its session_meta's id, else the one in its name. Only the
+ * first line is read — session_meta carries the base instructions and can be large on its own.
+ */
+export async function readCodexSessionIdFromFile(filePath: string): Promise<string | null> {
+  const input = createReadStream(filePath, { encoding: 'utf8' });
+  const rl = createInterface({ input, crlfDelay: Infinity });
+  let firstLine = '';
+  try {
+    for await (const line of rl) {
+      firstLine = line;
+      break;
+    }
+  } catch (error) {
+    logger.debug('[CodexSessionReader] Failed to read rollout file', { filePath, error });
+  } finally {
+    rl.close();
+    input.destroy();
+  }
+  let id: unknown;
+  try {
+    const parsed = JSON.parse(firstLine);
+    id = parsed?.type === 'session_meta' ? parsed.payload?.id : undefined;
+  } catch {
+    // Not JSON: fall back to the name.
+  }
+  return typeof id === 'string' && id ? id : extractSessionIdFromFilename(filePath);
+}
+
 function extractDisplaySessionId(rawSessionId: string): string {
   const lastSegment = rawSessionId.split('-').filter(Boolean).at(-1) || rawSessionId;
   return lastSegment.slice(-6);

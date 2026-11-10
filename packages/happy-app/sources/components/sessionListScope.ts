@@ -51,8 +51,8 @@ export function getMachineDisplayName(machine: Machine | undefined, machineId: s
 
 /**
  * One group per machine the list should offer: every online machine (so one without sessions can
- * still be picked to start one), plus any machine that still has active sessions even though it is
- * offline or no longer synced. Offline machines with nothing on them are left out — the account
+ * still be picked to start one), plus any machine that still has sessions — active, or disconnected
+ * and waiting to be resumed — even though it is offline or no longer synced. Offline machines with nothing on them are left out — the account
  * keeps every machine it ever registered, and listing all of them would bury the live ones.
  * Sessions without a machineId go to a trailing "unknown" group.
  *
@@ -61,7 +61,7 @@ export function getMachineDisplayName(machine: Machine | undefined, machineId: s
  * under the user; it goes once they switch away.
  */
 export function buildSessionMachineGroups(
-    activeSessions: Session[],
+    sessions: Session[],
     machines: Record<string, Machine>,
     nameCache: Record<string, string>,
     machineOrder: readonly string[] = [],
@@ -90,7 +90,7 @@ export function buildSessionMachineGroups(
     }
 
     const unknownSessions: Session[] = [];
-    for (const session of activeSessions) {
+    for (const session of sessions) {
         const machineId = session.metadata?.machineId;
         if (machineId) ensure(machineId).sessions.push(session);
         else unknownSessions.push(session);
