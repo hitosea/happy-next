@@ -39,6 +39,8 @@ const RADIUS = 16;
 // How far each card stacked behind the collapsed bar peeks out above it.
 const GHOST_STEP = 4;
 const MAX_GHOSTS = 2;
+// How far a card's peeking strip reaches under the next one, so no seam shows at its rounded corners.
+const GHOST_OVERLAP = 2;
 const TOGGLE_MS = 260;
 const MENU_SHIELD_LINGER_MS = 100;
 // iPad and the web have room for a second button: sending without interrupting sits on the row,
@@ -430,20 +432,23 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
                 {/* Back as soon as the card starts shrinking, so it settles straight into the stack:
                     the card covers them on its way down. */}
                 {!expanded && Array.from({ length: ghosts }, (_, i) => {
-                    // The farthest card is drawn first, so the nearer ones cover it.
+                    // The farthest card is drawn first, so the nearer ones cover it. Each keeps only the
+                    // strip that peeks out: the cards in front are translucent, and what lies under them
+                    // would show through.
                     const depth = ghosts - i;
                     return (
-                        <GlassSurface
+                        <View
                             key={depth}
-                            glass={glass}
-                            color={surfaceColor}
                             pointerEvents="none"
-                            style={[
-                                styles.ghost,
-                                { top: (ghosts - depth) * GHOST_STEP, left: 8 + depth * 10, right: 8 + depth * 10 },
-                                !glass && styles.ghostSolid,
-                            ]}
-                        />
+                            style={[styles.ghostClip, { top: (ghosts - depth) * GHOST_STEP, left: 8 + depth * 10, right: 8 + depth * 10 }]}
+                        >
+                            <GlassSurface
+                                glass={glass}
+                                color={surfaceColor}
+                                pointerEvents="none"
+                                style={[styles.ghost, !glass && styles.ghostSolid]}
+                            />
+                        </View>
                     );
                 })}
                 <Animated.View style={[styles.shell, glass && Platform.OS === 'web' && styles.shellWebShadow, shellStyle]}>
@@ -500,8 +505,16 @@ const styles = StyleSheet.create((theme) => ({
         maxWidth: layout.maxWidth,
         paddingHorizontal: 8,
     },
+    ghostClip: {
+        position: 'absolute',
+        height: GHOST_STEP + GHOST_OVERLAP,
+        overflow: 'hidden',
+    },
     ghost: {
         position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
         height: BAR_HEIGHT,
         borderRadius: RADIUS,
     },
