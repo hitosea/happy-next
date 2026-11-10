@@ -2517,6 +2517,12 @@ export function useSessionAppearanceLoaded(): boolean {
     return storage((state) => state.sessionAppearanceLoaded);
 }
 
+/** The last model mode other than `default` this session ran with, else the agent's last used one. */
+export function useRememberedModelMode(sessionId: string, agentType: SessionModeAgentType): string | undefined {
+    return storage((state) => getSessionModeForSession(state.sessionModeConfig, sessionId)?.lastModelMode
+        ?? state.sessionModeConfig.lastUsedByAgent[agentType]?.lastModelMode);
+}
+
 export function useSessionModeLastUsed(agentType: SessionModeAgentType) {
     return storage(useShallow((state) => state.sessionModeConfig.lastUsedByAgent[agentType] ?? null));
 }

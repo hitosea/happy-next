@@ -24,6 +24,16 @@ export function enhancedModeQueueHash(mode: EnhancedMode): string {
     });
 }
 
+/**
+ * The mode as the running Claude Code would take it: a context window equal to the one it already runs
+ * with changes nothing, so it is read as the window the running mode was started with and costs no restart.
+ */
+export function withRunningContextWindow(next: EnhancedMode, running: EnhancedMode | null, runningWindow: number | undefined): EnhancedMode {
+    return running && runningWindow !== undefined && next.contextWindow === runningWindow
+        ? { ...next, contextWindow: running.contextWindow }
+        : next;
+}
+
 export function enhancedModeRestartHash(mode: EnhancedMode): string {
     return hashObject({
         reasoningEffort: mode.reasoningEffort,

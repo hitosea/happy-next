@@ -1108,6 +1108,7 @@ function NewSessionWizard() {
                 <View style={{ paddingBottom: safeArea.bottom + (Platform.OS === 'web' ? 8 : 0) }}>
                     <AgentInput
                         panelSideMargin
+                        rememberedModelMode={lastUsedSessionMode?.lastModelMode}
                         contextHeader={agentInputContextHeader}
                         contextFooter={agentInputContextFooter}
                         value={sessionPrompt}

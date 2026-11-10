@@ -147,4 +147,38 @@ describe('sessionModeConfig', () => {
 
         expect(decoded).toEqual(original);
     });
+
+    it('remembers the last specific model mode across a switch to default', () => {
+        let doc = createEmptySessionModeConfig(0);
+        const apply = (modelMode: string, updatedAt: number) => {
+            doc = applySessionModeConfigPatch(doc, patch({
+                includeSessionEntry: true,
+                includeLastUsed: true,
+                sessionId: 's1',
+                modelMode,
+                updatedAt,
+            }));
+        };
+
+        apply('claude-sonnet-5-5-low@1000000', 1);
+        apply('default', 2);
+
+        expect(getSessionModeForSession(doc, 's1')?.modelMode).toBe('default');
+        expect(getSessionModeForSession(doc, 's1')?.lastModelMode).toBe('claude-sonnet-5-5-low@1000000');
+        expect(getLastUsedForAgent(doc, 'claude')?.lastModelMode).toBe('claude-sonnet-5-5-low@1000000');
+
+        apply('claude-opus-5-5-high', 3);
+        expect(getSessionModeForSession(doc, 's1')?.lastModelMode).toBe('claude-opus-5-5-high');
+        expect(decodeSessionModeConfigValue(encodeSessionModeConfigValue(doc))).toEqual(doc);
+    });
+
+    it('has nothing to remember before any specific model mode', () => {
+        const doc = applySessionModeConfigPatch(createEmptySessionModeConfig(0), patch({
+            includeSessionEntry: true,
+            sessionId: 's1',
+            modelMode: 'default',
+        }));
+
+        expect(getSessionModeForSession(doc, 's1')).not.toHaveProperty('lastModelMode');
+    });
 });

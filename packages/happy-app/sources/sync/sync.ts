@@ -61,7 +61,7 @@ import { getFriendsList, getUserProfile } from './apiFriends';
 import { fetchFeed } from './apiFeed';
 import { FeedItem } from './feedTypes';
 import { UserProfile } from './friendTypes';
-import { resolveModelSelectionForFlavor, type MessageAttachment } from 'happy-wire';
+import { getClaudeContextWindowOptions, resolveModelSelectionForFlavor, type MessageAttachment } from 'happy-wire';
 import { getOrchestratorActivity, getOrchestratorActivityBatch } from './apiOrchestrator';
 import { sessionUpdateMetadataFields } from './ops';
 import { shouldInvalidateGitStatusOnActivityTransition } from './gitStatusRefreshPolicy';
@@ -1389,7 +1389,14 @@ class Sync {
             sentFrom = 'web';
         }
 
-        const { model: resolvedModel, reasoningEffort, contextWindow } = resolveModelSelectionForFlavor(flavor, modelMode);
+        const { model: resolvedModel, reasoningEffort, contextWindow: pickedContextWindow } = resolveModelSelectionForFlavor(flavor, modelMode);
+        // The picker highlights 200K until the session has reported the window it runs with, so a model picked
+        // without touching the window runs with 200K whatever Claude Code's own setting says. `default` (the CLI's
+        // own choice) picks no model and so no window.
+        const contextWindow = pickedContextWindow
+            ?? (flavor === 'claude' && resolvedModel && !session.agentState?.contextWindowSize
+                ? getClaudeContextWindowOptions(resolvedModel)?.presets[0]
+                : undefined);
         const model = (resolvedModel && fastMode) ? `${resolvedModel}-fast` : resolvedModel;
         const fallbackModel: string | null = null;
 

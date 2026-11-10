@@ -86,6 +86,8 @@ interface AgentInputProps {
     onPermissionModeChange?: (mode: PermissionMode) => void;
     modelMode?: ModelMode;
     onModelModeChange?: (mode: ModelMode) => void;
+    /** The last model mode other than `default`, so picking a model after the CLI's own choice returns to its effort and context window. */
+    rememberedModelMode?: string;
     metadata?: Metadata | null;
     onAbort?: () => void | Promise<void>;
     // True while the agent is working on a turn: the round button turns into a stop
@@ -966,11 +968,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [selectedModelMode, modelCatalog]);
     // Claude Code's auto-compact window, offered when the model runs with more than 200K: 200K and 1M with
     // one tap, any other size typed in. Unpicked, it shows the one the session reports running with (Claude
-    // Code's own setting), else the model's whole window.
+    // Code's own setting), before any report Claude Code's default, 200K; a tap on it still picks it.
     const claudeContextWindowRange = React.useMemo(() => getClaudeContextWindowOptions(claudeSelection.family), [claudeSelection.family, modelCatalog]);
     const claudeContextWindow = claudeSelection.contextWindow
         ?? props.usageData?.contextWindowSize
-        ?? claudeContextWindowRange?.max
+        ?? claudeContextWindowRange?.presets[0]
         ?? null;
     const claudeCustomContextWindow = claudeContextWindow !== null && !claudeContextWindowRange?.presets.includes(claudeContextWindow)
         ? claudeContextWindow
@@ -1002,11 +1004,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             return;
         }
         const validOptions = getClaudeReasoningOptions(family);
-        // Default to High (not the list's top-of-order Max) when nothing compatible carries over.
-        const fallbackEffort = validOptions.includes('high') ? 'high' : validOptions[0];
-        const effort = claudeSelection.effort && validOptions.includes(claudeSelection.effort) ? claudeSelection.effort : fallbackEffort;
-        props.onModelModeChange(buildClaudeModelMode(family, effort, claudeSelection.contextWindow));
-    }, [claudeSelection.effort, claudeSelection.contextWindow, props.onModelModeChange]);
+        // Coming from `default` (the CLI's own choice, which carries neither), the effort picked before it
+        // comes back. The window does not: the one the session reports running with wins, and is left unpicked
+        // (it is already what Claude Code runs with, so nothing restarts); the remembered one only stands in
+        // until the session has reported.
+        const fromDefault = claudeSelection.family === MODEL_MODE_DEFAULT;
+        const remembered = fromDefault && props.rememberedModelMode ? parseClaudeModelMode(props.rememberedModelMode) : null;
+        const previous = remembered
+            ? { ...remembered, contextWindow: props.usageData?.contextWindowSize ? null : remembered.contextWindow }
+            : claudeSelection;
+        // Default to Medium (not the list's top-of-order Max) when nothing compatible carries over.
+        const fallbackEffort = validOptions.includes('medium') ? 'medium' : validOptions[0];
+        const effort = previous.effort && validOptions.includes(previous.effort) ? previous.effort : fallbackEffort;
+        props.onModelModeChange(buildClaudeModelMode(family, effort, previous.contextWindow));
+    }, [claudeSelection, props.rememberedModelMode, props.usageData?.contextWindowSize, props.onModelModeChange]);
     const handleClaudeReasoningChange = React.useCallback((effort: ClaudeReasoningEffort) => {
         if (!props.onModelModeChange || claudeSelection.family === MODEL_MODE_DEFAULT) return;
         props.onModelModeChange(buildClaudeModelMode(claudeSelection.family, effort, claudeSelection.contextWindow));
@@ -1015,7 +1026,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const [customContextWindowDraft, setCustomContextWindowDraft] = React.useState<string | null>(null);
     const buildClaudeContextWindowMode = (tokens: number) =>
         // A model without effort control ignores the effort it is built with.
-        buildClaudeModelMode(claudeSelection.family, claudeSelection.effort ?? 'high', tokens);
+        buildClaudeModelMode(claudeSelection.family, claudeSelection.effort ?? 'medium', tokens);
     const handleClaudeContextWindowChange = (value: string) => {
         if (value === CUSTOM_CONTEXT_WINDOW) {
             setCustomContextWindowDraft(claudeCustomContextWindow ? String(Math.round(claudeCustomContextWindow / 1000)) : '');
@@ -2302,7 +2313,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 ? { options: claudeReasoningOptions, selected: claudeSelection.effort, onChange: handleClaudeReasoningChange }
                                                 : null,
                                             claudeContextWindowOptions.length > 0
-                                                ? { options: claudeContextWindowOptions, selected: claudeCustomContextWindow ? CUSTOM_CONTEXT_WINDOW : String(claudeContextWindow), onChange: handleClaudeContextWindowChange }
+                                                ? { options: claudeContextWindowOptions, selected: claudeCustomContextWindow ? CUSTOM_CONTEXT_WINDOW : String(claudeContextWindow ?? ''), onChange: handleClaudeContextWindowChange }
                                                 : null,
                                             customContextWindowDraft !== null && claudeContextWindowRange ? (
                                                 <ContextWindowEditor

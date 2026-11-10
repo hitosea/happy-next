@@ -80,7 +80,6 @@ export function ContextWindowSegments({ options, value, onChange, accessibilityL
                                 : { ...previous, [index]: { x, width } });
                         }}
                         onPress={() => {
-                            if (selected && !option.opensEditor) return;
                             hapticsLight();
                             if (!option.opensEditor) setPendingIndex(index);
                             onChange(option.value);

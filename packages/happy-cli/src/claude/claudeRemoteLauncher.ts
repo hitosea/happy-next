@@ -21,7 +21,7 @@ import { getToolName } from "./utils/getToolName";
 import type { PermissionMode } from "@/api/types";
 import type { QueueMessageContent } from "./runClaude";
 import { buildClaudeSlashCommandMetadata } from "./utils/slashCommandMetadata";
-import { enhancedModeRestartHash } from "./utils/enhancedModeHash";
+import { enhancedModeRestartHash, withRunningContextWindow } from "./utils/enhancedModeHash";
 import { inlinePreviewHtmlFileArgs, previewHtmlFilePath } from "@/utils/previewHtmlFile";
 
 interface PermissionsField {
@@ -583,6 +583,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                         // Check if mode has changed
                         if (msg) {
                             const modeChanged = (modeHash !== null && msg.hash !== modeHash) || msg.isolate;
+                            const incomingMode = withRunningContextWindow(msg.mode, mode, currentSyncedContextWindowSize);
                             if (modeChanged) {
                                 // Model and permission mode (incl. plan) changes are applied to the
                                 // warm subprocess — set_model here, set_permission_mode via
@@ -590,7 +591,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                                 // change (effort, system prompt, tools) or a failed/hung set_model
                                 // still goes through the restart path.
                                 const hotSwapped = !msg.isolate && mode !== null && currentQuery !== null
-                                    && enhancedModeRestartHash(mode) === enhancedModeRestartHash(msg.mode)
+                                    && enhancedModeRestartHash(mode) === enhancedModeRestartHash(incomingMode)
                                     && (mode.model === msg.mode.model || await Promise.race([
                                         currentQuery.setModel(msg.mode.model),
                                         new Promise<never>((_, reject) =>
@@ -608,7 +609,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                                 logger.debug(`[remote]: mode hot-swapped (model: ${msg.mode.model ?? 'default'}, permissionMode: ${msg.mode.permissionMode})`);
                             }
                             modeHash = msg.hash;
-                            mode = msg.mode;
+                            mode = incomingMode;
                             permissionHandler.handleModeChange(mode.permissionMode);
                             syncModelMetadata(mode);
                             return {

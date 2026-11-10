@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enhancedModeQueueHash, enhancedModeRestartHash } from './enhancedModeHash';
+import { enhancedModeQueueHash, enhancedModeRestartHash, withRunningContextWindow } from './enhancedModeHash';
 import type { EnhancedMode } from '@/claude/loop';
 
 describe('enhancedModeHash decision logic', () => {
@@ -35,5 +35,19 @@ describe('enhancedModeHash decision logic', () => {
     it('model + plan together: still same restart hash (hot swap)', () => {
         const next: EnhancedMode = { ...base, model: 'claude-sonnet-4-6', permissionMode: 'plan' };
         expect(enhancedModeRestartHash(next)).toBe(enhancedModeRestartHash(base));
+    });
+
+    it('a window equal to the running one is no change (no restart)', () => {
+        const next: EnhancedMode = { ...base, contextWindow: 200_000 };
+        const adopted = withRunningContextWindow(next, base, 200_000);
+        expect(adopted.contextWindow).toBeUndefined();
+        expect(enhancedModeRestartHash(adopted)).toBe(enhancedModeRestartHash(base));
+    });
+
+    it('a window that differs from the running one still restarts', () => {
+        const next: EnhancedMode = { ...base, contextWindow: 1_000_000 };
+        expect(enhancedModeRestartHash(withRunningContextWindow(next, base, 200_000))).not.toBe(enhancedModeRestartHash(base));
+        expect(withRunningContextWindow(next, base, undefined)).toBe(next);
+        expect(withRunningContextWindow(next, null, 1_000_000)).toBe(next);
     });
 });

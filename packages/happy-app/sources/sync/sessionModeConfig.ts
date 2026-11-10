@@ -10,6 +10,8 @@ export interface SessionModeEntry {
     sessionId: string;
     permissionMode: PermissionMode;
     modelMode: string;
+    /** The last model mode other than `default` (effort and context window included): what picking a model after `default` returns to. */
+    lastModelMode?: string;
     fastMode?: boolean;
     updatedAt: number;
 }
@@ -17,6 +19,7 @@ export interface SessionModeEntry {
 export interface SessionModeLastUsedEntry {
     permissionMode: PermissionMode;
     modelMode: string;
+    lastModelMode?: string;
     fastMode?: boolean;
     updatedAt: number;
 }
@@ -58,6 +61,15 @@ function isPermissionMode(value: unknown): value is PermissionMode {
 
 function sanitizeModelMode(value: unknown): string {
     return typeof value === 'string' && value.length > 0 ? value : 'default';
+}
+
+function sanitizeLastModelMode(value: unknown): { lastModelMode: string } | {} {
+    return typeof value === 'string' && value.length > 0 && value !== 'default' ? { lastModelMode: value } : {};
+}
+
+/** The mode to remember: a specific one replaces it, `default` keeps what was there. */
+function rememberModelMode(modelMode: string, previous: string | undefined): { lastModelMode: string } | {} {
+    return sanitizeLastModelMode(modelMode !== 'default' ? modelMode : previous);
 }
 
 function sanitizeTimestamp(value: unknown, fallback: number): number {
@@ -110,6 +122,7 @@ function normalizeLastUsedEntry(raw: unknown): SessionModeLastUsedEntry | null {
     return {
         permissionMode: record.permissionMode,
         modelMode: sanitizeModelMode(record.modelMode),
+        ...sanitizeLastModelMode(record.lastModelMode),
         ...(typeof record.fastMode === 'boolean' ? { fastMode: record.fastMode } : {}),
         updatedAt: sanitizeTimestamp(record.updatedAt, Date.now()),
     };
@@ -124,6 +137,7 @@ function normalizeSessionEntry(raw: unknown): SessionModeEntry | null {
         sessionId,
         permissionMode: record.permissionMode,
         modelMode: sanitizeModelMode(record.modelMode),
+        ...sanitizeLastModelMode(record.lastModelMode),
         ...(typeof record.fastMode === 'boolean' ? { fastMode: record.fastMode } : {}),
         updatedAt: sanitizeTimestamp(record.updatedAt, Date.now()),
     };
@@ -204,6 +218,7 @@ export function applySessionModeConfigPatch(
                     sessionId,
                     permissionMode: patch.permissionMode,
                     modelMode: sanitizeModelMode(patch.modelMode),
+                    ...rememberModelMode(sanitizeModelMode(patch.modelMode), sessions.find((v) => v.sessionId === sessionId)?.lastModelMode),
                     ...(typeof patch.fastMode === 'boolean' ? { fastMode: patch.fastMode } : {}),
                     updatedAt: patch.updatedAt,
                 },
@@ -216,6 +231,7 @@ export function applySessionModeConfigPatch(
         lastUsedByAgent[patch.agentType] = {
             permissionMode: patch.permissionMode,
             modelMode: sanitizeModelMode(patch.modelMode),
+            ...rememberModelMode(sanitizeModelMode(patch.modelMode), normalized.lastUsedByAgent[patch.agentType]?.lastModelMode),
             ...(typeof patch.fastMode === 'boolean' ? { fastMode: patch.fastMode } : {}),
             updatedAt: patch.updatedAt,
         };

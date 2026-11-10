@@ -33,7 +33,8 @@ import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
 import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineForkClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineForkGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, machineForkCodexSession, machineResolveClaudeForkTarget, machineResolveGeminiForkTarget, machineResolveCodexForkTarget, machineGetClaudeSessionUserMessage, machineGetGeminiSessionUserMessage, machineGetCodexSessionUserMessage, machineGetQoderSessionUserMessages, machineGetQoderSessionUserMessage, machineResolveQoderForkTarget, machineDuplicateQoderSession, machineForkQoderSession, type UserMessageWithUuid, type UserMessagePage, type ResolvedForkTarget } from '@/sync/ops';
 import { storage, useIsDataReady, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionUsage, useSetting } from '@/sync/storage';
-import { useMachine, useSession } from '@/sync/storage';
+import { useMachine, useRememberedModelMode, useSession } from '@/sync/storage';
+import type { SessionModeAgentType } from '@/sync/sessionModeConfig';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useQoderModels } from '@/hooks/useQoderModels';
@@ -65,6 +66,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View, type GestureResponderEvent } from 'react-native';
+import { buildClaudeModelMode, parseClaudeModelMode, type ModelMode } from 'happy-wire';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -643,6 +645,28 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const updateModelMode = React.useCallback((mode: string) => {
         storage.getState().updateSessionModelMode(sessionId, mode);
     }, [sessionId]);
+
+    // Claude Code's auto-compact window can change under the App's pick (`/autocompact` in the session), and
+    // what the session reports it runs with is the truth: when that report changes to a size other than the
+    // picked one, the pick is dropped, so the model settings show the size in effect and the next message
+    // doesn't restart Claude Code to put the old pick back. Only a report that differs from the one seen before
+    // counts: the first report is what the session started with (200K by default), before any message has
+    // restarted Claude Code with the pick, and a pick made since is not contradicted by an older report.
+    const reportedContextWindow = session.agentState?.contextWindowSize;
+    const previousReportRef = React.useRef<number | undefined>(undefined);
+    const modelModeRef = React.useRef(modelMode);
+    modelModeRef.current = modelMode;
+    const isClaudeSession = (session.metadata?.flavor ?? 'claude') === 'claude';
+    React.useEffect(() => {
+        if (!isClaudeSession || !reportedContextWindow) return;
+        const previous = previousReportRef.current;
+        previousReportRef.current = reportedContextWindow;
+        if (previous === undefined || previous === reportedContextWindow) return;
+        const { family, effort, contextWindow } = parseClaudeModelMode(modelModeRef.current as ModelMode);
+        if (contextWindow && contextWindow !== reportedContextWindow) {
+            updateModelMode(buildClaudeModelMode(family, effort ?? 'medium'));
+        }
+    }, [reportedContextWindow, isClaudeSession, updateModelMode]);
 
     const updateFastMode = React.useCallback((enabled: boolean) => {
         storage.getState().setSessionFastMode(sessionId, enabled);
@@ -1500,9 +1524,11 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         });
     }, [images, removeImage]);
 
+    const rememberedModelMode = useRememberedModelMode(sessionId, (session.metadata?.flavor ?? 'claude') as SessionModeAgentType);
     const input = canEdit ? (
         <AgentInput
             ref={inputRef}
+            rememberedModelMode={rememberedModelMode}
             panelSideMargin
             glassPanel={useFloatingComposer}
             placeholder={t('session.inputPlaceholder')}
