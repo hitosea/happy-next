@@ -134,6 +134,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 队列面板 UI，支持图片数量徽章和立即发送
 - 排队消息可在发送前编辑，也可暂停或保存为草稿而不分发
 - 重连同步和并发分发安全，回合结束后立即发出下一条排队消息
+- 排队消息可以「插话」进正在运行的回合而不打断它（Claude、Codex 和 Qoder），与「立即发送（打断）」并列；队列是输入框上方的浮动卡片堆，每条消息有自己的菜单
 - 从输入框的添加菜单定时发送消息——30 分钟后、1 小时后、用量限制重置后，或自选时间
 
 ### 多 Agent 支持（Claude Code + Codex + Gemini + Qoder）
@@ -148,6 +149,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 模型目录支持 Claude Fable 5.1 和 Fable 5，提供 1M 上下文及 low / medium / high / xhigh / max 五档推理强度
 - 新增 Claude Opus 5 和 Claude Sonnet 5，支持 1M 上下文、当前推理强度预设、快速模式能力识别和更新后的费用追踪
 - 精简模型选择器：每个 Claude 模型只有一项并使用完整上下文窗口，宽屏下推理强度并排显示，Claude 默认 High 强度；上下文条按 Claude Code 实际使用的窗口计算
+- 创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的上下文窗口——200K、1M 或自定义大小；模型列表新增 Claude Fable 5.2
 - 模型目录支持 GPT-6 Astra，并更新 GPT-5.6 Sol、Terra、Luna 的推理强度和上下文配置
 - 刷新 Gemini 模型目录，加入 Gemini 3.8 Flash，并保留现有 Gemini 模型
 - 通过 ACP 接入 Qoder CLI，支持账号模型与推理强度、权限模式与 plan 模式，Qoder 和 Gemini 会话显示上下文用量

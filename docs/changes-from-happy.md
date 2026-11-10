@@ -98,6 +98,8 @@ Messages sent while the CLI is busy are now queued and delivered automatically.
 - **Edit & pause/draft**: edit a queued message before it sends, or pause it / save it as a draft instead of dispatching
 - **Reconnect sync**: queue state syncs on WebSocket reconnection
 - **Concurrent safety**: hardened dispatch concurrency and cleanup semantics, and the next queued message goes out as soon as the turn ends
+- **Steer into the running turn**: a queued message can be sent into the running turn without interrupting it (Claude, Codex and Qoder), next to "send now (interrupt)"; it waits as "waiting to be read" until the agent takes it in
+- **Floating queue**: the queue is a floating stack above the composer — a capsule when collapsed, cards when expanded, a per-message menu with icons, and details in a bottom sheet
 - **Scheduled messages**: schedule a message to send later from the composer's add menu — in 30 minutes, in an hour, after the usage limit resets, or at a time you pick
 - **Persistent message cache**: session messages are stored locally so reopening a conversation can show existing history faster
 
@@ -119,6 +121,7 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Explained settings**: the settings popover explains each permission mode and AI vendor, and model descriptions follow the app language, including Simplified and Traditional Chinese
 - **Codex "Approve for Me"**: Codex's approval mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
 - **Streamlined model picker**: one entry per Claude model at its full context window; reasoning-effort presets show side by side on wide screens and Claude defaults to High effort
+- **Context window choice**: pick the window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings; Claude Fable 5.2 joins the model list
 - **Claude context window**: the context bar follows the window Claude Code actually uses, and Qoder and Gemini sessions show context usage
 - **Qoder over ACP**: the account's models and reasoning efforts, Qoder's permission modes, and its plan mode shown apart from them
 - **Shell command rules**: "don't ask again" on a shell command picks which programs or subcommands it covers, for all four agents

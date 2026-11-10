@@ -132,6 +132,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Queue panel UI with image count badges and send-now option
 - Edit a queued message before it sends, or pause it / save it as a draft instead of dispatching
 - Reconnect sync and concurrent dispatch safety, and the next queued message goes out as soon as the turn ends
+- Steer a queued message into the running turn without interrupting it (Claude, Codex and Qoder), next to "send now (interrupt)"; the queue is a floating stack above the composer with a per-message menu
 - Schedule a message to send later from the composer's add menu — in 30 minutes, in an hour, after the usage limit resets, or at a time you pick
 
 ### Multi-Agent (Claude Code + Codex + Gemini + Qoder)
@@ -146,6 +147,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Claude Fable 5.1 and Fable 5 in the Claude model catalog, with 1M context and low / medium / high / xhigh / max reasoning effort presets
 - Claude Opus 5 and Claude Sonnet 5 with 1M context, current reasoning-effort presets, fast-mode capability detection, and updated cost tracking
 - Streamlined model picker: one entry per Claude model at its full context window, reasoning-effort presets side by side on wide screens, and Claude defaults to High effort; the context bar follows the window Claude Code actually uses
+- Pick the context window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings; Claude Fable 5.2 joins the model list
 - GPT-6 Astra catalog support plus GPT-5.6 Sol, Terra, and Luna with their current reasoning-effort and context settings
 - Gemini 3.8 Flash joins the refreshed Gemini catalog alongside the existing Gemini models
 - Qoder CLI over ACP, with the account's models and reasoning efforts, permission modes and plan mode, and context usage for Qoder and Gemini sessions

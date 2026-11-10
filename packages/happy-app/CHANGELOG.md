@@ -1,5 +1,21 @@
 # Changelog
 
+## Version 38 - 2026-11-10
+
+Happy Next v2.23.0 lets you steer a queued message into the running turn without interrupting it, rebuilds the pending queue as a floating stack above the composer, and lets Claude and Qoder sessions pick their context window. Claude Fable 5.2 joins the model list, Codex sessions now run on Codex CLI 0.167.1, and Happy CLI is updated to v0.17.0.
+
+- Queue: a queued message can be sent into the running turn without interrupting it, next to "Send now (interrupt)"; it waits as "Waiting to be read" until the agent takes it in (Claude, Codex and Qoder)
+- Queue: a floating stack above the composer — a capsule when collapsed, cards when expanded, a menu with icons on each message, and details in a bottom sheet
+- iOS: native menus give a light haptic as they open and close
+- Context window: pick the window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings
+- Models: Claude Fable 5.2 is available; Codex sessions run on Codex CLI 0.167.1
+- Qoder: asks single and multiple choice questions in the app, shows MCP tools by their real names, and shows context usage again
+- Chat: reading an image or a PDF no longer leaves the Read card spinning
+- Orchestrator: a finished run's callback is no longer lost
+- Sessions: archiving a session that does not respond always succeeds; sessions cut off by a dropped machine stay listed until resumed or archived; a Codex, Gemini or Qoder session started while the server was unreachable can be controlled once it reconnects
+- Settings: the page shows the real app version
+- iOS: the dev client and the dev menu work on iOS 27 again
+
 ## Version 37 - 2026-10-26
 
 Happy Next v2.22.1 opens a menu from a long press on the chat header's buttons and on the session list's "+" capsule, and a conversation's run filter lists only the machines and executor kinds its runs used. It also includes the in-app updates from Happy's server, terminal tab reordering and cleaner long-press menus introduced in v2.22.0.
