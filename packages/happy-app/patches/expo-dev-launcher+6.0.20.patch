@@ -21,6 +21,50 @@ index 5a2f8b9..a2d5e45 100644
      guard let url = URL(string: urlString) else {
        fatalError("Invalid network inspector URL: \(urlString)")
      }
+diff --git a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
+index e7c1d24..e4b8135 100644
+--- a/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
++++ b/node_modules/expo-dev-launcher/ios/ReactDelegateHandler/ExpoDevLauncherAppDelegateSubscriber.swift
+@@ -3,11 +3,36 @@
+ import ExpoModulesCore
+ 
+ public class ExpoDevLauncherAppDelegateSubscriber: ExpoAppDelegateSubscriber {
++  private var windowVisibleObserver: NSObjectProtocol?
++
+   public func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+-    guard let window = UIApplication.shared.delegate?.window ?? UIApplication.shared.windows.filter { $0.isKeyWindow }.first else {
+-      fatalError("Cannot find the keyWindow. Make sure to call `window.makeKeyAndVisible()`.")
++    if let window = UIApplication.shared.delegate?.window ?? UIApplication.shared.windows.filter({ $0.isKeyWindow }).first {
++      EXDevLauncherController.sharedInstance().autoSetupStart(window)
++      return false
++    }
++    // Under the scene life cycle (required by the iOS 27 SDK) there is no window yet: the scene
++    // delegate creates it once the scene connects, assigns it to the app delegate, and starts
++    // React Native into it, which prepares the launcher (autoSetupPrepare) and makes the window
++    // visible. Start the launcher then, as the application life cycle did here. Synchronously:
++    // making the window visible is the last step of starting React Native, and the launcher has to
++    // be started before the scene delegate hands it a cold-start link.
++    windowVisibleObserver = NotificationCenter.default.addObserver(
++      forName: UIWindow.didBecomeVisibleNotification,
++      object: nil,
++      queue: nil
++    ) { [weak self] notification in
++      guard let self,
++        let window = notification.object as? UIWindow,
++        let appWindow = UIApplication.shared.delegate?.window,
++        window === appWindow else {
++        return
++      }
++      if let observer = self.windowVisibleObserver {
++        NotificationCenter.default.removeObserver(observer)
++        self.windowVisibleObserver = nil
++      }
++      EXDevLauncherController.sharedInstance().autoSetupStart(window)
+     }
+-    EXDevLauncherController.sharedInstance().autoSetupStart(window)
+     return false
+   }
+ 
 diff --git a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m b/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m
 index abb3258..0ca4aff 100644
 --- a/node_modules/expo-dev-launcher/ios/Unsafe/RCTPackagerConnection+EXDevLauncherPackagerConnectionInterceptor.m

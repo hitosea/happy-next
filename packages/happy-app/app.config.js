@@ -136,6 +136,8 @@ export default {
             require("./plugins/withVolcEnginePodsSource.js"),
             require("./plugins/withRNAudioAPIIosFFmpeg.js"),
             require("./plugins/withMinimumPodDeploymentTarget.js"),
+            // The iOS 27 SDK requires the scene life cycle (backport of Expo SDK 57's scene delegate)
+            require("./plugins/withIosSceneLifecycle.js"),
             [
                 require("./plugins/withDooPushAutolinking.js"),
                 { enabled: dooPushConfig.enabled },
