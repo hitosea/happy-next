@@ -246,16 +246,24 @@ export function buildCodexModelMode(
     return `${family}-${effort}`;
 }
 
-/** Qoder modes are a model code the account lists, optionally with `:effort` (`performance:high`). */
+/**
+ * Qoder modes are a model code the account lists, optionally with `:effort` and then
+ * `@contextWindow` in tokens (`performance:high@1000000`, `auto@400000`). Without a
+ * context window qodercli picks it: the model's default, or the one a resumed session had.
+ */
 const QODER_EFFORT_SEPARATOR = ':';
+const QODER_CONTEXT_WINDOW_SEPARATOR = '@';
 
-export function buildQoderModelMode(model: string, effort: string | null | undefined): ModelMode {
-    return effort ? `${model}${QODER_EFFORT_SEPARATOR}${effort}` : model;
+export function buildQoderModelMode(model: string, effort: string | null | undefined, contextWindow?: number | null): ModelMode {
+    const withEffort = effort ? `${model}${QODER_EFFORT_SEPARATOR}${effort}` : model;
+    return contextWindow ? `${withEffort}${QODER_CONTEXT_WINDOW_SEPARATOR}${contextWindow}` : withEffort;
 }
 
-export function parseQoderModelMode(mode: ModelMode): { model: string; effort: string | null } {
-    const [model, effort] = mode.split(QODER_EFFORT_SEPARATOR);
-    return { model, effort: effort || null };
+export function parseQoderModelMode(mode: ModelMode): { model: string; effort: string | null; contextWindow: number | null } {
+    const [modelAndEffort, contextWindow] = mode.split(QODER_CONTEXT_WINDOW_SEPARATOR);
+    const [model, effort] = modelAndEffort.split(QODER_EFFORT_SEPARATOR);
+    const tokens = Number(contextWindow);
+    return { model, effort: effort || null, contextWindow: Number.isSafeInteger(tokens) && tokens > 0 ? tokens : null };
 }
 
 function modelDisplayName(model: string): string | undefined {
@@ -265,13 +273,15 @@ function modelDisplayName(model: string): string | undefined {
 export type ModelSelection = {
     model: string | null;
     reasoningEffort: string | null;
+    /** Context window in tokens; only Qoder modes carry one. */
+    contextWindow?: number | null;
 };
 
 export function resolveModelSelectionForFlavor(flavor: string | null | undefined, modelMode: string): ModelSelection {
     if (modelMode === MODEL_MODE_DEFAULT) return { model: null, reasoningEffort: null };
     if (flavor === 'qoder') {
-        const { model, effort } = parseQoderModelMode(modelMode);
-        return { model, reasoningEffort: effort };
+        const { model, effort, contextWindow } = parseQoderModelMode(modelMode);
+        return { model, reasoningEffort: effort, contextWindow };
     }
     if (!isModelMode(modelMode)) {
         const retired = flavor === 'codex' ? parseRetiredCodexMode(modelMode) : null;
@@ -393,6 +403,10 @@ export function getMaxContextSize(
 }
 
 function computeMaxContextSize(modelMode: string | null | undefined, agentFlavor: AgentFlavor | string | null | undefined, actualModel?: string | null): number {
+    // A Qoder mode names its context window when the user picked one.
+    const qoderWindow = agentFlavor === 'qoder' && modelMode ? parseQoderModelMode(modelMode).contextWindow : null;
+    if (qoderWindow) return qoderWindow;
+
     // When modelMode is "default" (CLI configured), use the actual model reported by CLI if available
     if ((!modelMode || modelMode === MODEL_MODE_DEFAULT) && actualModel) {
         const found = findContextWindow(actualModel);

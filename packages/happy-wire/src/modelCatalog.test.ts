@@ -189,13 +189,23 @@ describe('modelCatalog', () => {
 
     it('passes qoder account models through and uses the 200K default window', () => {
         expect(getValidModelModesForAgent('qoder')).toEqual([MODEL_MODE_DEFAULT]);
-        expect(resolveModelSelectionForFlavor('qoder', 'efficient')).toEqual({ model: 'efficient', reasoningEffort: null });
-        expect(resolveModelSelectionForFlavor('qoder', 'performance:high')).toEqual({ model: 'performance', reasoningEffort: 'high' });
+        expect(resolveModelSelectionForFlavor('qoder', 'efficient')).toEqual({ model: 'efficient', reasoningEffort: null, contextWindow: null });
+        expect(resolveModelSelectionForFlavor('qoder', 'performance:high')).toEqual({ model: 'performance', reasoningEffort: 'high', contextWindow: null });
         expect(buildQoderModelMode('performance', 'high')).toBe('performance:high');
         expect(buildQoderModelMode('auto', null)).toBe('auto');
-        expect(parseQoderModelMode('auto')).toEqual({ model: 'auto', effort: null });
+        expect(parseQoderModelMode('auto')).toEqual({ model: 'auto', effort: null, contextWindow: null });
         expect(resolveLocalModelDisplay('smodel:max')).toEqual({ model: 'smodel', reasoningEffort: 'max' });
         expect(getMaxContextSize('default', 'qoder')).toBe(200_000);
+    });
+
+    it('carries a picked qoder context window in the mode', () => {
+        expect(buildQoderModelMode('performance', 'high', 1_000_000)).toBe('performance:high@1000000');
+        expect(buildQoderModelMode('auto', null, 400_000)).toBe('auto@400000');
+        expect(parseQoderModelMode('performance:high@1000000')).toEqual({ model: 'performance', effort: 'high', contextWindow: 1_000_000 });
+        expect(parseQoderModelMode('auto@400000')).toEqual({ model: 'auto', effort: null, contextWindow: 400_000 });
+        expect(resolveModelSelectionForFlavor('qoder', 'dfmodel:max@1000000')).toEqual({ model: 'dfmodel', reasoningEffort: 'max', contextWindow: 1_000_000 });
+        expect(resolveLocalModelDisplay('dfmodel:max@1000000')).toEqual({ model: 'dfmodel', reasoningEffort: 'max' });
+        expect(getMaxContextSize('dfmodel@400000', 'qoder')).toBe(400_000);
     });
 
     it('resolves context windows for claude composite and fast model modes', () => {

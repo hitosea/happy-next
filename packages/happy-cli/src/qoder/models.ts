@@ -12,9 +12,10 @@
  * After a failed refresh qodercli is not started again for 5 min while a list is
  * on hand, or for 1 min with none (asks then fail at once).
  *
- * qodercli is asked with the stream-json `get_models` request the Qoder Agent SDK
- * uses, which answers every model and its efforts at once, and over ACP if that
- * fails, both within one 15s budget.
+ * qodercli is asked over its `--sdk` server with the `daemon.get_models` request the
+ * Qoder Agent SDK uses, which answers every model with its efforts and context windows
+ * at once, and over ACP if that fails (no context windows then), both within one 15s
+ * budget.
  */
 
 import { createInterface } from 'node:readline';
@@ -28,7 +29,12 @@ import { listQoderModelsOverAcp } from '@/qoder/sessions';
 import { createRefreshingCache } from '@/utils/refreshingCache';
 import { withShortLivedProcess } from '@/utils/shortLivedProcess';
 
-export type QoderModel = AcpModel;
+export type QoderModel = AcpModel & {
+  /** Context windows in tokens the model can run with, smallest first; set by `--context-window`. */
+  contextWindows?: number[];
+  /** The context window qodercli picks for the model when none is set. */
+  defaultContextWindow?: number;
+};
 
 const QODER_MODELS_BUDGET_MS = 15_000;
 const MINUTE_MS = 60_000;
@@ -36,7 +42,7 @@ const MINUTE_MS = 60_000;
 /** Labels qodercli gives efforts over ACP; others are capitalized. */
 const EFFORT_LABELS: Record<string, string> = { xhigh: 'Extra High' };
 
-/** An entry of the stream-json `get_models` answer; only the fields read here. */
+/** An entry of the `daemon.get_models` answer; only the fields read here. */
 type CatalogModel = {
   value?: unknown;
   displayName?: unknown;
@@ -48,6 +54,8 @@ type CatalogModel = {
   priceFactor?: unknown;
   efforts?: unknown;
   supportsDisabled?: boolean;
+  availableContextWindows?: unknown;
+  defaultContextWindow?: unknown;
 };
 
 function effortLabel(code: string): string {
@@ -55,7 +63,7 @@ function effortLabel(code: string): string {
 }
 
 /**
- * Turns the `get_models` answer into what ACP reports for the same account, so
+ * Turns the `daemon.get_models` answer into what ACP reports for the same account, so
  * the app sees one shape whichever way the list came: the default model's name
  * carries "(default)", the description is its tags and credit rate, a model that
  * can turn thinking off takes a `none` effort last, and selecting a model picks
@@ -71,28 +79,46 @@ export function qoderModelsFromCatalog(models: unknown): QoderModel[] {
     if (typeof model.priceFactor === 'number') tags.push(`${model.priceFactor.toFixed(2)}x Credit`);
     const codes = Array.isArray(model.efforts) ? model.efforts.filter((code): code is string => typeof code === 'string' && !!code) : [];
     if (model.supportsDisabled) codes.push('none');
+    const contextWindows = Array.isArray(model.availableContextWindows)
+      ? model.availableContextWindows.filter((tokens): tokens is number => Number.isSafeInteger(tokens) && tokens > 0).sort((a, b) => a - b)
+      : [];
+    const defaultContextWindow = contextWindows.find((tokens) => tokens === model.defaultContextWindow) ?? contextWindows[0];
     result.push({
       code: model.value,
       value: model.isDefault ? `${name} (default)` : name,
       ...(tags.length ? { description: tags.join(' · ') } : {}),
       ...(codes.length ? { efforts: codes.map((code) => ({ code, value: effortLabel(code) })), defaultEffort: codes[0] } : {}),
+      ...(contextWindows.length ? { contextWindows, defaultContextWindow } : {}),
     });
   }
   if (!result.length) throw new Error('get_models answered no models');
   return result;
 }
 
-function controlRequest(requestId: string, subtype: string): string {
-  return `${JSON.stringify({ type: 'control_request', request_id: requestId, request: { subtype } })}\n`;
+/** The protocol qodercli's `--sdk` server speaks, and the capability its handshake requires. */
+const SDK_PROTOCOL_VERSION = 2;
+const SDK_REQUIRED_CAPABILITY = 'multi_session_v2';
+
+function controlRequest(requestId: string, request: Record<string, unknown>): string {
+  return `${JSON.stringify({ type: 'control_request', request_id: requestId, request })}\n`;
 }
 
-/** Asks `qodercli --print` in stream-json mode, as the Qoder Agent SDK does. Nothing is prompted, so no session is saved. */
-export async function listQoderModelsOverStreamJson(cwd: string, timeoutMs: number): Promise<QoderModel[]> {
-  const args = ['--print', '--input-format', 'stream-json', '--output-format', 'stream-json'];
+/**
+ * Asks `qodercli --sdk`, the server the Qoder Agent SDK talks to: a handshake on the
+ * account qodercli is signed in to, then `daemon.get_models` fetched live (a cached
+ * catalog may be empty). qodercli answers requests concurrently, so the list is asked
+ * for once the handshake is answered. No session is opened, so none is saved.
+ */
+export async function listQoderModelsOverSdk(cwd: string, timeoutMs: number): Promise<QoderModel[]> {
   const env = { ...process.env, ...QODER_SDK_ISOLATION_ENV };
-  return withShortLivedProcess(resolveQoderCommand(), args, { cwd, env, timeoutMs }, async (child) => {
-    // stdin stays open: qodercli ends its run when it closes
-    child.stdin.write(controlRequest('initialize', 'initialize') + controlRequest('models', 'get_models'));
+  return withShortLivedProcess(resolveQoderCommand(), ['--sdk'], { cwd, env, timeoutMs }, async (child) => {
+    child.stdin.write(controlRequest('initialize', {
+      subtype: 'daemon.initialize',
+      daemon_protocol_version: SDK_PROTOCOL_VERSION,
+      sdk_version: configuration.currentCliVersion,
+      capabilities: [SDK_REQUIRED_CAPABILITY],
+      auth: { type: 'qodercli' },
+    }));
     for await (const line of createInterface({ input: child.stdout })) {
       let message: { type?: string; response?: { subtype?: string; request_id?: string; error?: string; response?: { models?: unknown } } };
       try {
@@ -100,9 +126,11 @@ export async function listQoderModelsOverStreamJson(cwd: string, timeoutMs: numb
       } catch {
         continue;
       }
-      if (message?.type !== 'control_response' || message.response?.request_id !== 'models') continue;
-      if (message.response.subtype !== 'success') throw new Error(message.response.error || 'get_models failed');
-      return qoderModelsFromCatalog(message.response.response?.models);
+      const response = message?.type === 'control_response' ? message.response : undefined;
+      if (!response) continue;
+      if (response.subtype !== 'success') throw new Error(`${response.request_id}: ${response.error || 'failed'}`);
+      if (response.request_id === 'models') return qoderModelsFromCatalog(response.response?.models);
+      if (response.request_id === 'initialize') child.stdin.write(controlRequest('models', { subtype: 'daemon.get_models', fetchStrategy: 'live' }));
     }
     throw new Error('qodercli closed its output before listing models');
   });
@@ -114,9 +142,9 @@ async function fetchQoderModels(): Promise<QoderModel[]> {
   await mkdir(cwd, { recursive: true });
   const deadline = Date.now() + QODER_MODELS_BUDGET_MS;
   try {
-    return await listQoderModelsOverStreamJson(cwd, QODER_MODELS_BUDGET_MS);
+    return await listQoderModelsOverSdk(cwd, QODER_MODELS_BUDGET_MS);
   } catch (error) {
-    logger.debug('[Qoder] get_models failed, listing models over ACP', error);
+    logger.debug('[Qoder] daemon.get_models failed, listing models over ACP', error);
   }
   return listQoderModelsOverAcp(cwd, Math.max(deadline - Date.now(), 0));
 }

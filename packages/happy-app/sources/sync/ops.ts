@@ -1631,10 +1631,13 @@ export async function machineGetQoderSessionPreview(
 /**
  * Lists the models the machine's signed-in Qoder account offers
  */
-/** A model the machine's Qoder account offers, with the reasoning efforts it takes. */
+/** A model the machine's Qoder account offers, with the reasoning efforts and context windows it takes. */
 export type QoderModel = NonNullable<Metadata['models']>[number] & {
     efforts?: NonNullable<Metadata['thoughtLevels']>;
     defaultEffort?: string;
+    /** Context windows in tokens the model can run with, smallest first. */
+    contextWindows?: number[];
+    defaultContextWindow?: number;
 };
 
 /** Model code → description from Qoder's text bundle, per language it carries. */

@@ -8,6 +8,7 @@ export const MessageMetaSchema = z.object({
   model: z.string().nullable().optional(),
   fallbackModel: z.string().nullable().optional(),
   reasoningEffort: z.string().nullable().optional(),
+  contextWindow: z.number().int().positive().nullable().optional(),
   customSystemPrompt: z.string().nullable().optional(),
   appendSystemPrompt: z.string().nullable().optional(),
   allowedTools: z.array(z.string()).nullable().optional(),

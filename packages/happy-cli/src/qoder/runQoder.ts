@@ -5,6 +5,8 @@
  * one qodercli process serves the whole session: mode, model and effort changes are
  * applied in place over ACP before each prompt, and a resumed session restores
  * its conversation with `session/load` and backfills that history into the app.
+ * A picked context window is the exception: qodercli takes it only at startup, so
+ * picking another one restarts qodercli and continues the conversation with `session/load`.
  */
 
 import { render } from 'ink';
@@ -39,7 +41,7 @@ import type { AcpBackend } from '@/agent/acp/AcpBackend';
 import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
 import { extractConfigOptionsFromPayload } from '@/agent/acp/sessionConfigMetadata';
-import { createQoderBackend } from '@/agent/factories/qoder';
+import { createQoderBackend, type QoderLaunch } from '@/agent/factories/qoder';
 import { GeminiDisplay } from '@/ui/ink/GeminiDisplay';
 import type { ImageContent, PermissionMode } from '@/api/types';
 import { formatMessageForGemini } from '@/utils/formatImageMessage';
@@ -63,6 +65,8 @@ type QoderMode = {
   model: string | null;
   /** Reasoning effort; null means the one qodercli picks for the model. */
   effort: string | null;
+  /** Context window in tokens; null means the one qodercli picks (the model's default, or a restored session's). */
+  contextWindow: number | null;
   originalUserMessage: string;
   images?: ImageContent[];
 };
@@ -146,11 +150,13 @@ export async function runQoder(opts: {
     permissionMode: mode.permissionMode,
     model: mode.model,
     effort: mode.effort,
+    contextWindow: mode.contextWindow,
   }));
 
   let desiredPermissionMode: PermissionMode = 'default';
   let desiredModel: string | null = null;
   let desiredEffort: string | null = null;
+  let desiredContextWindow: number | null = null;
   let isFirstMessage = true;
   const firstTurnInstruction = getFirstTurnInstruction(process.env, { includeOrchestrator: true });
 
@@ -162,6 +168,7 @@ export async function runQoder(opts: {
     if (message.meta && 'model' in message.meta) {
       desiredModel = message.meta.model && message.meta.model !== 'default' ? message.meta.model : null;
       desiredEffort = message.meta.reasoningEffort || null;
+      desiredContextWindow = message.meta.contextWindow ?? null;
     }
 
     const originalUserMessage = message.content.text;
@@ -176,6 +183,7 @@ export async function runQoder(opts: {
       permissionMode: desiredPermissionMode,
       model: desiredModel,
       effort: desiredEffort,
+      contextWindow: desiredContextWindow,
       originalUserMessage,
       images: images.length > 0 ? images : undefined,
     }, hooks);
@@ -247,6 +255,8 @@ export async function runQoder(opts: {
   let appliedEffort: string | null = null;
   // The model a fresh qodercli session starts with, used when the app asks for the default.
   let defaultModel: string | null = null;
+  // The model and context window the running qodercli was started with.
+  let launched: QoderLaunch = { model: null, contextWindow: null };
   // Plan mode stands apart from qodercli's permission mode and is reported by neither, so the
   // plan tools that succeed mark it: calls of them in flight, with the plan mode each leads to.
   const planToolCalls = new Map<string, boolean>();
@@ -418,13 +428,14 @@ export async function runQoder(opts: {
    * Starts qodercli and its ACP session, restoring `resumeSessionId` when given.
    * Returns the history qodercli replayed while restoring.
    */
-  const startBackend = async (resumeSessionId?: string): Promise<SessionNotification['update'][]> => {
+  const startBackend = async (resumeSessionId?: string, launch: QoderLaunch = { model: null, contextWindow: null }): Promise<SessionNotification['update'][]> => {
     const replayed: SessionNotification['update'][] = [];
     const backend = createQoderBackend({
       cwd: process.cwd(),
       mcpServers,
       permissionHandler,
       resumeSessionId,
+      launch,
       onReplayedUpdate: (update) => replayed.push(update),
     });
     backend.onMessage(handleBackendMessage);
@@ -437,10 +448,12 @@ export async function runQoder(opts: {
       throw error;
     }
     qoderBackend = backend;
-    defaultModel = appliedModel;
+    launched = launch;
+    // Started on a given model, qodercli reports that one rather than the account's default.
+    defaultModel = launch.model ? defaultModel : appliedModel;
     const qoderSessionId = backend.getSessionId() ?? undefined;
     session.updateMetadata((current) => ({ ...current, qoderSessionId }));
-    logger.debug('[Qoder] Session started', { qoderSessionId, resumeSessionId, appliedMode, appliedModel });
+    logger.debug('[Qoder] Session started', { qoderSessionId, resumeSessionId, launch, appliedMode, appliedModel });
     return replayed;
   };
 
@@ -580,10 +593,24 @@ export async function runQoder(opts: {
       setThinking(true);
 
       try {
-        if (!qoderBackend) await startBackend();
+        const model = batch.mode.model ?? defaultModel;
+        const { contextWindow } = batch.mode;
+        // A picked context window starts qodercli together with its model: switching models over ACP would reset it.
+        const launch: QoderLaunch = { model: contextWindow ? model : null, contextWindow };
+        const previousBackend = qoderBackend;
+        const previousSessionId = previousBackend?.getSessionId() ?? undefined;
+        if (previousBackend && contextWindow && (contextWindow !== launched.contextWindow || (!!model && model !== appliedModel))) {
+          logger.debug('[Qoder] Restarting qodercli for its context window', { from: launched, to: launch });
+          qoderBackend = null;
+          await previousBackend.dispose();
+          await startBackend(previousSessionId, launch);
+          if (qoderBackend!.getSessionId() !== previousSessionId) {
+            sendAgentText('The Qoder conversation could not be continued with the new context window, so it starts fresh.');
+          }
+        }
+        if (!qoderBackend) await startBackend(undefined, launch);
         const backend = qoderBackend!;
         await applyPermissionMode(backend, batch.mode.permissionMode);
-        const model = batch.mode.model ?? defaultModel;
         if (model && model !== appliedModel) {
           const applied = await backend.setSessionConfigOption('model', model);
           logger.debug(`[Qoder] Set model ${model}: ${applied}`);

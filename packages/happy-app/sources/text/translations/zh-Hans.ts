@@ -1264,6 +1264,7 @@ export const zhHans: TranslationStructure = {
             title: '模型',
             configureInCli: '在 CLI 设置中配置模型',
             reasoningEffort: '推理强度',
+            contextWindow: '上下文窗口',
             fastMode: '快速模式',
             useCliConfigured: '使用 CLI 配置的模型',
             useCliDefaults: '使用档案/CLI 的默认设置',

@@ -9,6 +9,8 @@ interface ScrollToSelectedListProps {
     renderItems: (onItemLayout: ItemLayoutHandler) => React.ReactNode;
     style?: StyleProp<ViewStyle>;
     contentContainerStyle?: StyleProp<ViewStyle>;
+    /** Rows (indexes into the array `renderItems` returns) that stay at the top while the rows after them scroll under. */
+    stickyHeaderIndices?: number[];
 }
 
 const EDGE = 8;
@@ -19,7 +21,7 @@ const EDGE = 8;
  * resized by a neighbouring section would otherwise lose or shift its position and hide the choice.
  */
 export const ScrollToSelectedList = React.memo((props: ScrollToSelectedListProps) => {
-    const { selectedValue, renderItems, style, contentContainerStyle } = props;
+    const { selectedValue, renderItems, style, contentContainerStyle, stickyHeaderIndices } = props;
     const scrollRef = React.useRef<ScrollView>(null);
     const scrollYRef = React.useRef(0);
     const viewportRef = React.useRef(0);
@@ -60,6 +62,7 @@ export const ScrollToSelectedList = React.memo((props: ScrollToSelectedListProps
             ref={scrollRef}
             style={style}
             contentContainerStyle={contentContainerStyle}
+            stickyHeaderIndices={stickyHeaderIndices}
             keyboardShouldPersistTaps="always"
             scrollEventThrottle={16}
             onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {

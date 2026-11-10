@@ -41,6 +41,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { isRunningOnMac } from '@/utils/platform';
 import { NativeMenu } from './NativeMenu';
 import { DropdownMenu } from './DropdownMenu';
+import { ContextWindowSegments } from './ContextWindowSegments';
 import { ScrollToSelectedList, type ItemLayoutHandler } from './ScrollToSelectedList';
 import type { ActionMenuItem } from './ActionMenu';
 import {
@@ -359,12 +360,31 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 8,
         paddingHorizontal: 16,
+    },
+    // A long title gives way to the value beside it.
+    effortDropdownLabel: {
+        flexShrink: 1,
     },
     effortDropdownValue: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        flexShrink: 0,
+    },
+    // Wide layout: the effort and context window column, one list with a sticky title per section.
+    settingsListContent: {
+        paddingBottom: 8,
+    },
+    // Opaque, so the radios scroll under it; spaced from its radios as the other columns' titles are.
+    settingsColumnTitle: {
+        paddingTop: 8,
+        paddingBottom: 12,
+        backgroundColor: theme.colors.floatingOverlay.background,
+    },
+    settingsColumnGap: {
+        height: 20,
     },
     effortDropdownValueText: {
         fontSize: 14,
@@ -560,6 +580,11 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
 }));
 
+// 200000 → 200K, 1000000 → 1M, as Qoder labels its context windows.
+const formatContextWindowLabel = (tokens: number) => tokens >= 1_000_000 && tokens % 1_000_000 === 0
+    ? `${tokens / 1_000_000}M`
+    : `${Math.round(tokens / 1000)}K`;
+
 const formatCompactTokenCount = (value: number) => {
     if (value >= 1000) {
         return `${Math.round(value / 1000)}k`;
@@ -663,9 +688,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         options: readonly { value: T; label: string }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
+        title: string = t('agentInput.model.reasoningEffort'),
     ) => (
         <DropdownMenu
-            accessibilityLabel={t('agentInput.model.reasoningEffort')}
+            accessibilityLabel={title}
             placement="topCenter"
             style={[styles.effortDropdown, { height: modelFooterRowHeight }]}
             items={options.map(option => ({
@@ -674,7 +700,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 onPress: () => { hapticsLight(); onSelect(option.value); },
             }))}
         >
-            <Text style={styles.fastModeLabel}>{t('agentInput.model.reasoningEffort')}</Text>
+            <Text style={[styles.fastModeLabel, styles.effortDropdownLabel]} numberOfLines={1}>{title}</Text>
             <View style={styles.effortDropdownValue}>
                 <Text style={styles.effortDropdownValueText}>
                     {options.find(option => option.value === selectedValue)?.label ?? ''}
@@ -793,13 +819,29 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const qoderEffortOptions = [...qoderEffortLevels]
         .sort((a, b) => qoderEffortRank(a.code) - qoderEffortRank(b.code))
         .map((level) => ({ value: level.code, label: formatReasoningEffortLabel(level.code) ?? level.value }));
-    // Like qodercli's own /model, a newly picked model starts on its own default effort.
+    // Context windows the model can run with (from the machine's list); offered only when there is a choice.
+    // Unpicked, it shows the one the session reports running with, else the model's default.
+    const qoderContextWindows = qoderSelectedModel?.contextWindows ?? [];
+    const qoderContextWindow = qoderSelection.contextWindow
+        ?? qoderContextWindows.find((tokens) => tokens === props.usageData?.contextWindowSize)
+        ?? qoderSelectedModel?.defaultContextWindow
+        ?? null;
+    const qoderContextWindowOptions = qoderContextWindows.length > 1
+        ? qoderContextWindows.map((tokens) => ({ value: tokens, label: formatContextWindowLabel(tokens) }))
+        : [];
+    // Like qodercli's own /model, a newly picked model starts on its own default effort; a picked
+    // context window is kept while the new model takes it.
     const handleQoderModelChange = React.useCallback((code: string) => {
-        props.onModelModeChange?.(buildQoderModelMode(code, qoderModels.find((model) => model.code === code)?.defaultEffort));
-    }, [qoderModels, props.onModelModeChange]);
+        const model = qoderModels.find((candidate) => candidate.code === code);
+        const contextWindow = model?.contextWindows?.find((tokens) => tokens === qoderSelection.contextWindow);
+        props.onModelModeChange?.(buildQoderModelMode(code, model?.defaultEffort, contextWindow));
+    }, [qoderModels, qoderSelection.contextWindow, props.onModelModeChange]);
     const handleQoderEffortChange = React.useCallback((effort: string) => {
-        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, effort));
-    }, [qoderSelection.model, props.onModelModeChange]);
+        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, effort, qoderSelection.contextWindow));
+    }, [qoderSelection.model, qoderSelection.contextWindow, props.onModelModeChange]);
+    const handleQoderContextWindowChange = React.useCallback((contextWindow: number) => {
+        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, qoderSelection.effort, contextWindow));
+    }, [qoderSelection.model, qoderSelection.effort, props.onModelModeChange]);
     const modelCatalog = useModelCatalog();
     const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
         return parseCodexModelMode(selectedModelMode);
@@ -2157,35 +2199,72 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 </>
                                             );
                                         })() : isQoder ? (() => {
-                                            const reasoningColumn = (
-                                                <>
-                                                    <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
-                                                        {t('agentInput.model.reasoningEffort')}
-                                                    </Text>
-                                                    {renderScrollableList(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
-                                                </>
-                                            );
                                             const hasEffort = qoderEffortOptions.length > 0;
+                                            const hasContextWindow = qoderContextWindowOptions.length > 0 && qoderContextWindow !== null;
+                                            const contextWindowTitle = t('agentInput.model.contextWindow');
+                                            const contextWindowRadios = qoderContextWindowOptions.map((option) => ({ value: String(option.value), label: option.label }));
+                                            const pickContextWindow = (value: string) => handleQoderContextWindowChange(Number(value));
+                                            // Wide screens: the context window's radios follow the effort's in one list in the column
+                                            // beside the models, each under its own title that stays on top while its radios scroll.
                                             if (isWideModelLayout) {
+                                                const settingsColumn = [
+                                                    ...(hasEffort ? [{
+                                                        title: t('agentInput.model.reasoningEffort'),
+                                                        render: (onItemLayout: ItemLayoutHandler) => renderRadioOptions(qoderEffortOptions, qoderEffort, handleQoderEffortChange, onItemLayout),
+                                                    }] : []),
+                                                    ...(hasContextWindow ? [{
+                                                        title: contextWindowTitle,
+                                                        // The list keeps the effort in view when there is one, else the context window.
+                                                        render: (onItemLayout: ItemLayoutHandler) => renderRadioOptions(contextWindowRadios, String(qoderContextWindow), pickContextWindow, hasEffort ? undefined : onItemLayout),
+                                                    }] : []),
+                                                ];
+                                                // Each title's row index: a title, its radios, then a gap before the next title.
+                                                const settingsColumnHeaders = hasEffort && hasContextWindow ? [0, qoderEffortOptions.length + 2] : [0];
                                                 return (
                                                     <View style={styles.modelColumns}>
                                                         <View style={styles.modelColumn}>
                                                             {renderScrollableList(modelOptions, qoderSelection.model, handleQoderModelChange)}
                                                         </View>
-                                                        {hasEffort && <View style={styles.overlayColumnDivider} />}
-                                                        {hasEffort && <View style={styles.modelColumn}>{reasoningColumn}</View>}
+                                                        {(hasEffort || hasContextWindow) && <View style={styles.overlayColumnDivider} />}
+                                                        {(hasEffort || hasContextWindow) && (
+                                                            <View style={styles.modelColumn}>
+                                                                <ScrollToSelectedList
+                                                                    style={styles.modelListScroll}
+                                                                    contentContainerStyle={styles.settingsListContent}
+                                                                    selectedValue={hasEffort ? qoderEffort : String(qoderContextWindow)}
+                                                                    stickyHeaderIndices={settingsColumnHeaders}
+                                                                    renderItems={(onItemLayout) => settingsColumn.flatMap((section, index) => [
+                                                                        <Text key={`title-${section.title}`} style={[styles.overlaySectionTitle, styles.settingsColumnTitle]}>
+                                                                            {section.title}
+                                                                        </Text>,
+                                                                        ...section.render(onItemLayout),
+                                                                        ...(index < settingsColumn.length - 1 ? [<View key={`gap-${section.title}`} style={styles.settingsColumnGap} />] : []),
+                                                                    ])}
+                                                                />
+                                                            </View>
+                                                        )}
                                                     </View>
                                                 );
                                             }
+                                            // Narrow screens: effort and context window are rows of their own under the models;
+                                            // a context window with up to three sizes is picked in place, more open a dropdown.
                                             return (
                                                 <>
                                                     {renderScrollableList(modelOptions, qoderSelection.model, handleQoderModelChange)}
-                                                    {hasEffort && (
-                                                        <>
-                                                            <View style={styles.overlayDivider} />
-                                                            {renderEffortDropdown(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
-                                                        </>
-                                                    )}
+                                                    {hasEffort && <View style={styles.overlayDivider} />}
+                                                    {hasEffort && renderEffortDropdown(qoderEffortOptions, qoderEffort, handleQoderEffortChange)}
+                                                    {hasContextWindow && <View style={styles.overlayDivider} />}
+                                                    {hasContextWindow && (qoderContextWindowOptions.length <= 3 ? (
+                                                        <View style={[styles.fastModeRow, { height: modelFooterRowHeight }]}>
+                                                            <Text style={styles.fastModeLabel}>{contextWindowTitle}</Text>
+                                                            <ContextWindowSegments
+                                                                options={qoderContextWindowOptions}
+                                                                value={qoderContextWindow}
+                                                                onChange={handleQoderContextWindowChange}
+                                                                accessibilityLabel={contextWindowTitle}
+                                                            />
+                                                        </View>
+                                                    ) : renderEffortDropdown(contextWindowRadios, String(qoderContextWindow), pickContextWindow, contextWindowTitle))}
                                                 </>
                                             );
                                         })() : (

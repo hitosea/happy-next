@@ -22,7 +22,16 @@ export interface QoderBackendOptions extends AgentFactoryOptions {
   resumeSessionId?: string;
   /** Receives the history qodercli replays while loading `resumeSessionId`. */
   onReplayedUpdate?: (update: SessionNotification['update']) => void;
+  /**
+   * Model and context window to start with. qodercli takes a context window only at
+   * startup (`--context-window`; ACP has no option for it) and switching models over
+   * ACP resets it to the model's default, so a picked window comes with its model.
+   * Both override what a restored session had.
+   */
+  launch?: QoderLaunch;
 }
+
+export type QoderLaunch = { model: string | null; contextWindow: number | null };
 
 /**
  * qodercli names an MCP tool only in a call's title, with a `call_…` id and kind
@@ -91,6 +100,7 @@ export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
     command,
     cwd: options.cwd,
     resumeSessionId: options.resumeSessionId,
+    launch: options.launch,
     mcpServerCount: options.mcpServers ? Object.keys(options.mcpServers).length : 0,
   });
 
@@ -98,7 +108,11 @@ export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
     agentName: 'qoder',
     cwd: options.cwd,
     command,
-    args: ['--acp'],
+    args: [
+      '--acp',
+      ...(options.launch?.model ? ['--model', options.launch.model] : []),
+      ...(options.launch?.contextWindow ? ['--context-window', String(options.launch.contextWindow)] : []),
+    ],
     env: { ...options.env, ...QODER_SDK_ISOLATION_ENV, ...QODER_TOKEN_USAGE_ENV },
     mcpServers: options.mcpServers,
     permissionHandler: options.permissionHandler,

@@ -1262,6 +1262,7 @@ export const pt: TranslationStructure = {
             title: 'MODELO',
             configureInCli: 'Configurar modelos nas configurações do CLI',
             reasoningEffort: 'Reasoning Effort',
+            contextWindow: 'Janela de contexto',
             fastMode: 'Fast Mode',
             useCliConfigured: 'Modelo configurado na CLI',
             useCliDefaults: 'Padrões do perfil/CLI',

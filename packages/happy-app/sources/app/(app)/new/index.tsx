@@ -561,9 +561,11 @@ function NewSessionWizard() {
     const isModelModeAvailable = (agent: 'claude' | 'codex' | 'gemini' | 'qoder', mode: string) => {
         if (agent !== 'qoder') return isModelModeForAgent(agent, mode);
         if (qoderModelsPending) return true;
-        const { model, effort } = parseQoderModelMode(mode);
+        const { model, effort, contextWindow } = parseQoderModelMode(mode);
         const listed = qoderModels?.find((candidate) => candidate.code === model);
-        return !!listed && (!effort || !!listed.efforts?.some((level) => level.code === effort));
+        return !!listed
+            && (!effort || !!listed.efforts?.some((level) => level.code === effort))
+            && (!contextWindow || !!listed.contextWindows?.includes(contextWindow));
     };
     // Qoder offers no "CLI default" entry, so it starts on the first model the account lists (Qoder's Auto).
     const fallbackModelMode = (agentType === 'qoder' ? qoderModels?.[0]?.code : undefined) ?? MODEL_MODE_DEFAULT;

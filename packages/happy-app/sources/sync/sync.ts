@@ -1389,7 +1389,7 @@ class Sync {
             sentFrom = 'web';
         }
 
-        const { model: resolvedModel, reasoningEffort } = resolveModelSelectionForFlavor(flavor, modelMode);
+        const { model: resolvedModel, reasoningEffort, contextWindow } = resolveModelSelectionForFlavor(flavor, modelMode);
         const model = (resolvedModel && fastMode) ? `${resolvedModel}-fast` : resolvedModel;
         const fallbackModel: string | null = null;
 
@@ -1429,6 +1429,7 @@ class Sync {
                 permissionMode: permissionMode || 'default',
                 model,
                 reasoningEffort,
+                ...(contextWindow ? { contextWindow } : {}),
                 fallbackModel,
                 appendSystemPrompt: this.buildSystemPrompt(sessionId),
                 ...(displayText && { displayText }),

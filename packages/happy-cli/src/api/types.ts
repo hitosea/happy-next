@@ -258,6 +258,7 @@ export const MessageMetaSchema = z.object({
   permissionMode: z.enum(['default', 'acceptEdits', 'auto', 'bypassPermissions', 'plan', 'read-only', 'on-failure', 'full-auto', 'auto_edit', 'yolo']).optional(), // Permission mode for this message
   model: z.string().nullable().optional(), // Model name for this message (null = reset)
   reasoningEffort: z.string().nullable().optional(), // Reasoning effort for this message (null = reset)
+  contextWindow: z.number().int().positive().nullable().optional(), // Context window in tokens for this message (Qoder; null = the agent's own)
   fallbackModel: z.string().nullable().optional(), // Fallback model for this message (null = reset)
   customSystemPrompt: z.string().nullable().optional(), // Custom system prompt for this message (null = reset)
   appendSystemPrompt: z.string().nullable().optional(), // Append to system prompt for this message (null = reset)

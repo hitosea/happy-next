@@ -29,6 +29,14 @@ describe('createQoderBackend', () => {
       onReplayedUpdate,
     }));
   });
+
+  it('starts qodercli on the model and context window it is launched with', () => {
+    createQoderBackend({ cwd: '/work', launch: { model: 'dfmodel', contextWindow: 1_000_000 } });
+    expect(mocks.createBackend).toHaveBeenLastCalledWith(expect.objectContaining({ args: ['--acp', '--model', 'dfmodel', '--context-window', '1000000'] }));
+
+    createQoderBackend({ cwd: '/work', launch: { model: null, contextWindow: 400_000 } });
+    expect(mocks.createBackend).toHaveBeenLastCalledWith(expect.objectContaining({ args: ['--acp', '--context-window', '400000'] }));
+  });
 });
 
 describe('QoderTransport', () => {
