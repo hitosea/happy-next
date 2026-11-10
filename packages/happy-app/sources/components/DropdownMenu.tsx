@@ -25,11 +25,11 @@ export type DropdownMenuProps = {
  * `NativeMenu.ios.tsx`); where there is none the rows show in an `ActionMenuModal`. The web
  * anchors its own popover under the button (`DropdownMenu.web.tsx`).
  */
-export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, children }: DropdownMenuProps) => {
+export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, placement, children }: DropdownMenuProps) => {
     const [visible, setVisible] = React.useState(false);
     return (
         <>
-            <NativeMenu items={items} style={style} onFallbackOpen={() => setVisible(true)}>
+            <NativeMenu items={items} style={style} opensUpward={placement === 'topCenter'} onFallbackOpen={() => setVisible(true)}>
                 {children}
             </NativeMenu>
             <ActionMenuModal
