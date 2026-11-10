@@ -167,10 +167,10 @@ const rawToolResultContentSchema = z.object({
     type: z.literal('tool_result'),
     tool_use_id: z.string(),
     content: z.union([
-        z.array(z.union([
-            z.object({ type: z.literal('text'), text: z.string() }),
-            z.object({ type: z.literal('tool_reference'), tool_name: z.string() }),  // Tool references from ToolSearch
-        ])),
+        // Any block type: text, tool_reference (ToolSearch), image (Read on an image, MCP screenshots),
+        // document (Read on a PDF) and whatever comes next. A block type missing here made the whole
+        // message fail validation and get dropped, leaving the tool call running until the turn ended.
+        z.array(z.object({ type: z.string(), text: z.unknown().optional() }).passthrough()),
         z.string()
     ]),
     is_error: z.boolean().optional(),
@@ -1056,7 +1056,7 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                             content.push({
                                 ...c,  // WOLOG: Preserve all fields including unknown ones
                                 type: 'tool-result',
-                                content: raw.content.data.toolUseResult ? raw.content.data.toolUseResult : (typeof c.content === 'string' ? c.content : (c.content[0]?.type === 'text' ? c.content[0].text : '')),
+                                content: raw.content.data.toolUseResult ? raw.content.data.toolUseResult : (typeof c.content === 'string' ? c.content : (c.content[0]?.type === 'text' && typeof c.content[0].text === 'string' ? c.content[0].text : '')),
                                 is_error: c.is_error || false,
                                 uuid: raw.content.data.uuid,
                                 parentUUID: raw.content.data.parentUuid ?? null,

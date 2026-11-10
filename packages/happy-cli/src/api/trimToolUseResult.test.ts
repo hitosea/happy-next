@@ -280,6 +280,20 @@ describe('trimToolResultContent', () => {
         expect(trimToolResultContent('Read', 'short')).toBe('short');
     });
 
+    it('trims image blocks for trimmable tools', () => {
+        const arr = [{ type: 'image', source: { type: 'base64', data: 'iVBOR', media_type: 'image/png' } }];
+        expect(trimToolResultContent('Read', arr)).toBe('[trimmed]');
+        expect(trimToolResultContent('mcp__playwright__browser_take_screenshot', arr)).toBe(arr);
+    });
+
+    it('trims PDF document blocks for trimmable tools', () => {
+        const arr = [
+            { type: 'text', text: 'PDF file read: /tmp/a.pdf (385 bytes)' },
+            { type: 'document', source: { type: 'base64', data: 'JVBER', media_type: 'application/pdf' } },
+        ];
+        expect(trimToolResultContent('Read', arr)).toBe('[trimmed]');
+    });
+
     it('trims array content with large total text', () => {
         const arr = [
             { type: 'text', text: 'x'.repeat(300) },

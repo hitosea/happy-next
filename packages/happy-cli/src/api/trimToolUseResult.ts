@@ -165,6 +165,12 @@ export function trimToolResultContent(toolName: string, content: unknown): unkno
     }
 
     if (Array.isArray(content)) {
+        // Read on an image or a PDF returns the file as base64 (image / document blocks). The app
+        // never renders these bytes (images are previewed through the tool image RPC), and a large
+        // PDF could push the message past the socket's size limit.
+        if (content.some((item: any) => item?.type === 'image' || item?.type === 'document')) {
+            return '[trimmed]';
+        }
         const totalLength = content.reduce((sum: number, item: any) =>
             sum + (typeof item?.text === 'string' ? item.text.length : 0), 0);
         if (totalLength >= 500) {

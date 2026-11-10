@@ -584,6 +584,58 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
     });
 
     describe('Handles unexpected data formats gracefully', () => {
+        it('accepts a tool_result with a document block (Read on a PDF)', () => {
+            const normalized = normalizeRawMessage('msg-pdf', null, 1, {
+                role: 'agent',
+                content: {
+                    type: 'output',
+                    data: {
+                        type: 'user',
+                        uuid: 'u2',
+                        parentUuid: null,
+                        isSidechain: false,
+                        message: {
+                            role: 'user',
+                            content: [{
+                                type: 'tool_result',
+                                tool_use_id: 'toolu_pdf',
+                                content: [
+                                    { type: 'text', text: 'PDF file read: /tmp/a.pdf (385 bytes)' },
+                                    { type: 'document', source: { type: 'base64', data: 'JVBER', media_type: 'application/pdf' } },
+                                ],
+                            }],
+                        },
+                    },
+                },
+            } as any);
+            expect((normalized as any).content[0]).toMatchObject({ type: 'tool-result', tool_use_id: 'toolu_pdf', content: 'PDF file read: /tmp/a.pdf (385 bytes)' });
+        });
+
+        it('accepts a tool_result whose content is an image (Read on an image file)', () => {
+            const normalized = normalizeRawMessage('msg-image', null, 1, {
+                role: 'agent',
+                content: {
+                    type: 'output',
+                    data: {
+                        type: 'user',
+                        uuid: 'u1',
+                        parentUuid: null,
+                        isSidechain: false,
+                        message: {
+                            role: 'user',
+                            content: [{
+                                type: 'tool_result',
+                                tool_use_id: 'toolu_img',
+                                content: [{ type: 'image', source: { type: 'base64', data: 'iVBOR', media_type: 'image/png' } }],
+                            }],
+                        },
+                    },
+                },
+            } as any);
+            expect(normalized?.role).toBe('agent');
+            expect((normalized as any).content[0]).toMatchObject({ type: 'tool-result', tool_use_id: 'toolu_img', content: '' });
+        });
+
         it('handles tool-call with both callId and id fields (prefers callId)', () => {
             const message = {
                 role: 'agent',
