@@ -3,6 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { requireNativeViewManager, requireOptionalNativeModule } from 'expo-modules-core';
 import { isRunningOnMac } from '@/utils/platform';
 import type { ActionMenuItem } from './ActionMenu';
+import { hapticsLight } from './haptics';
 import { NativeMenu as FallbackMenu, type NativeMenuProps } from './NativeMenu';
 
 type MenuButtonElement = {
@@ -70,15 +71,22 @@ function menuButtonItems(items: ActionMenuItem[]): MenuButtonElement[] {
 export const NativeMenu = React.memo((props: NativeMenuProps) => {
     const { items, activation = 'press', onPress, onOpenChange, disabled, style, children } = props;
     // Handlers are looked up when the event arrives, so they are always the latest render's
-    const latestRef = React.useRef({ items, onPress, onOpenChange });
-    latestRef.current = { items, onPress, onOpenChange };
+    const latestRef = React.useRef({ items, activation, onPress, onOpenChange });
+    latestRef.current = { items, activation, onPress, onOpenChange };
     const menu = React.useMemo(() => ({ items: menuButtonItems(items) }), [items]);
     const handlePress = React.useCallback(() => latestRef.current.onPress?.(), []);
     const handleSelect = React.useCallback((event: { nativeEvent: { id: string } }) => {
         latestRef.current.items[Number(event.nativeEvent.id)]?.onPress();
     }, []);
-    const handleOpen = React.useCallback(() => latestRef.current.onOpenChange?.(true), []);
-    const handleClose = React.useCallback(() => latestRef.current.onOpenChange?.(false), []);
+    // A light tap as the menu opens and as it goes; a long press plays its own as it opens.
+    const handleOpen = React.useCallback(() => {
+        if (latestRef.current.activation === 'press') hapticsLight();
+        latestRef.current.onOpenChange?.(true);
+    }, []);
+    const handleClose = React.useCallback(() => {
+        hapticsLight();
+        latestRef.current.onOpenChange?.(false);
+    }, []);
 
     if (!MenuButton) {
         return <FallbackMenu {...props} />;
