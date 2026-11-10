@@ -1004,7 +1004,7 @@ export const zhHans: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `定时 · ${time}`,
         scheduledDue: '已到时间 · 等待发送',
         reschedule: '修改发送时间',
-        sendNowInterrupt: '打断并立即发送',
+        sendNowInterrupt: '立即发送（打断）',
         pinned: '置顶',
         paused: '已暂停',
         collapsedTitle: ({ count }: { count: number }) => `待发送 ${count} 条`,
@@ -1014,11 +1014,11 @@ export const zhHans: TranslationStructure = {
         expand: '展开队列',
         collapse: '收起队列',
         moreActions: '更多操作',
-        steer: '插话',
-        steering: '插话中',
+        steer: '立即发送（不打断）',
+        steering: '等待读取',
         steeringHint: 'AI 读到后显示在对话里',
         queuedSection: '待发送',
-        steerFailed: '没能插进本轮，消息仍在队列中。',
+        steerFailed: '没能发进正在进行的这一轮，消息仍在队列中。',
     },
 
     commandPalette: {

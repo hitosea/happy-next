@@ -1023,11 +1023,11 @@ export const en = {
         expand: 'Show queue',
         collapse: 'Hide queue',
         moreActions: 'More actions',
-        steer: 'Add to this turn',
-        steering: 'Steering in',
-        steeringHint: 'Shown in the chat once the AI reads it',
+        steer: 'Send now without interrupting',
+        steering: 'Waiting for the AI to read',
+        steeringHint: 'Shown in the chat once read',
         queuedSection: 'Queued',
-        steerFailed: 'Couldn\'t add it to this turn — it stays in the queue.',
+        steerFailed: 'Couldn\'t send it into the running turn — it stays in the queue.',
     },
 
     commandPalette: {

@@ -1012,11 +1012,11 @@ export const ca: TranslationStructure = {
         expand: 'Mostra la cua',
         collapse: 'Amaga la cua',
         moreActions: 'Més accions',
-        steer: 'Afegeix a aquest torn',
-        steering: 'Afegint',
-        steeringHint: 'Apareix al xat quan la IA el llegeixi',
+        steer: 'Envia sense interrompre',
+        steering: 'Esperant que la IA el llegeixi',
+        steeringHint: 'Apareix al xat quan es llegeixi',
         queuedSection: 'A la cua',
-        steerFailed: 'No s\'ha pogut afegir a aquest torn; continua a la cua.',
+        steerFailed: 'No s\'ha pogut enviar al torn actual; continua a la cua.',
     },
 
     commandPalette: {

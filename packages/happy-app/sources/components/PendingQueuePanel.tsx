@@ -11,6 +11,7 @@ import { GlassSurface } from './GlassSurface';
 import { hapticsLight } from './haptics';
 import { layout } from './layout';
 import { PendingMessageDetailSheet } from './PendingMessageDetailSheet';
+import { Tooltip } from './Tooltip';
 import { getPendingPreviewText, getPendingScheduleInfo, truncatePendingPreview } from './pendingQueuePanelUtils';
 
 type PendingActionType = 'send-now' | 'steer' | 'pin' | 'delete' | 'pause';
@@ -24,7 +25,7 @@ type PendingQueuePanelProps = {
     /** The composer floats over the chat as Liquid Glass (iOS 26): the queue floats with it, as glass too. */
     glass: boolean;
     onSendNow: (pendingId: string) => Promise<void> | void;
-    /** Steers a message into the running turn ("插话"); set only when the session's agent can. */
+    /** Sends a message into the running turn without interrupting it (steering); set only when the session's agent can. */
     onSteer?: (pendingId: string) => Promise<void> | void;
     onPin: (pendingId: string) => Promise<void> | void;
     onDelete: (pendingId: string) => Promise<void> | void;
@@ -39,9 +40,12 @@ const RADIUS = 16;
 const GHOST_STEP = 4;
 const MAX_GHOSTS = 2;
 const TOGGLE_MS = 260;
-// The web has hover and room for a second button: Delete sits on the row, next to the menu.
 const MENU_SHIELD_LINGER_MS = 100;
-const DELETE_ON_ROW = Platform.OS === 'web';
+// iPad and the web have room for a second button: sending without interrupting sits on the row,
+// before the menu; phones keep every action in the menu.
+const STEER_ON_ROW = Platform.OS === 'web' || (Platform.OS === 'ios' && Platform.isPad);
+// The web has hover: the row's buttons are bare until hovered.
+const BARE_UNTIL_HOVER = Platform.OS === 'web';
 
 /**
  * The queue of messages waiting to be sent, right above the composer and shaped like it: collapsed,
@@ -156,49 +160,56 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
     const previewOf = (m: PendingMessage) => truncatePendingPreview(getPendingPreviewText(m.previewText, t('pendingQueue.empty')));
     const surfaceColor = theme.colors.input.background;
 
+    // Only into a running turn, and only a message that would otherwise go out at the next turn
+    const canSteerMessage = (message: PendingMessage) =>
+        onSteer !== undefined && isBusy && message.pausedAt === null && message.deliverAt === null;
+
     const menuItems = (message: PendingMessage): ActionMenuItem[] => {
         const isPaused = message.pausedAt !== null;
         const items: ActionMenuItem[] = [];
-        // Only into a running turn, and only a message that would otherwise go out at the next turn
-        if (onSteer && isBusy && !isPaused && message.deliverAt === null) {
+        if (onSteer && !STEER_ON_ROW && canSteerMessage(message)) {
             items.push({
                 label: t('pendingQueue.steer'),
+                icon: { ionicon: 'return-down-forward', sfSymbol: 'arrow.turn.down.right' },
                 onPress: () => void runAction(message.id, 'steer', onSteer),
             });
         }
         if (!isPaused) {
             items.push({
                 label: isBusy ? t('pendingQueue.sendNowInterrupt') : t('pendingQueue.sendNow'),
+                icon: { ionicon: 'paper-plane-outline', sfSymbol: 'paperplane' },
                 onPress: () => void runAction(message.id, 'send-now', onSendNow),
             });
             items.push({
                 label: t('pendingQueue.pin'),
+                icon: { ionicon: 'push-outline', sfSymbol: 'arrow.up.to.line' },
                 onPress: () => void runAction(message.id, 'pin', onPin),
             });
         }
         items.push({
             label: t('pendingQueue.edit'),
+            icon: { ionicon: 'create-outline', sfSymbol: 'pencil' },
             onPress: () => openDetail(message, true),
         });
         items.push({
             label: isPaused ? t('pendingQueue.resume') : t('pendingQueue.pause'),
+            icon: isPaused ? { ionicon: 'play-outline', sfSymbol: 'play' } : { ionicon: 'pause-outline', sfSymbol: 'pause' },
             onPress: () => void runAction(message.id, 'pause', onPause),
         });
         if (onReschedule) {
             items.push({
                 label: t('pendingQueue.reschedule'),
+                icon: { ionicon: 'time-outline', sfSymbol: 'clock' },
                 onPress: () => onReschedule(message.id),
             });
         }
-        // The web shows Delete on the row itself.
-        if (!DELETE_ON_ROW) {
-            items.push({
-                label: t('pendingQueue.delete'),
-                destructive: true,
-                startsSection: true,
-                onPress: () => void runAction(message.id, 'delete', onDelete),
-            });
-        }
+        items.push({
+            label: t('pendingQueue.delete'),
+            icon: { ionicon: 'trash-outline', sfSymbol: 'trash' },
+            destructive: true,
+            startsSection: true,
+            onPress: () => void runAction(message.id, 'delete', onDelete),
+        });
         return items;
     };
 
@@ -257,12 +268,12 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
         return tags.length > 0 ? <View style={styles.tagRow}>{tags}</View> : null;
     };
 
-    // A row's actions. On the web Delete sits after the menu, and both are bare until hovered.
+    // A row's actions: the menu, and on iPad and the web sending without interrupting before it.
     const renderActions = (message: PendingMessage) => {
         if (!canManage || message.steeringAt !== null) return null;
         if (pendingAction?.pendingId === message.id) {
             return (
-                <View style={[styles.moreButton, DELETE_ON_ROW && styles.moreButtonHoverOnly]}>
+                <View style={[styles.moreButton, BARE_UNTIL_HOVER && styles.moreButtonHoverOnly]}>
                     <ActivityIndicator size="small" color={theme.colors.textSecondary} />
                 </View>
             );
@@ -270,27 +281,33 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
         const disabled = pendingAction !== null;
         return (
             <View style={styles.rowActions}>
+                {onSteer && STEER_ON_ROW && canSteerMessage(message) && (
+                    <Tooltip label={t('pendingQueue.steer')}>
+                        {(tooltip) => (
+                            <Pressable
+                                {...tooltip}
+                                style={({ hovered }: any) => [styles.moreButton, BARE_UNTIL_HOVER && styles.moreButtonHoverOnly, BARE_UNTIL_HOVER && hovered && !disabled && styles.moreButtonHovered, disabled && styles.moreButtonDisabled]}
+                                onPress={() => void runAction(message.id, 'steer', onSteer)}
+                                disabled={disabled}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('pendingQueue.steer')}
+                            >
+                                <Ionicons name="return-down-forward" size={16} color={theme.colors.textLink} />
+                            </Pressable>
+                        )}
+                    </Tooltip>
+                )}
                 <DropdownMenu
                     items={menuItems(message)}
                     accessibilityLabel={t('pendingQueue.moreActions')}
                     // Above the trigger and centred on it on native; the web flips on its own when there is no room below.
                     placement={Platform.OS === 'web' ? undefined : 'topCenter'}
                     onOpenChange={handleMenuOpenChange}
-                    style={[styles.moreButton, DELETE_ON_ROW && styles.moreButtonHoverOnly, disabled && styles.moreButtonDisabled]}
-                    hoveredStyle={DELETE_ON_ROW && !disabled ? styles.moreButtonHovered : undefined}
+                    style={[styles.moreButton, BARE_UNTIL_HOVER && styles.moreButtonHoverOnly, disabled && styles.moreButtonDisabled]}
+                    hoveredStyle={BARE_UNTIL_HOVER && !disabled ? styles.moreButtonHovered : undefined}
                 >
                     <Ionicons name="ellipsis-horizontal" size={16} color={theme.colors.text} />
                 </DropdownMenu>
-                {DELETE_ON_ROW && (
-                    <Pressable
-                        style={({ hovered }: any) => [styles.moreButton, styles.moreButtonHoverOnly, hovered && !disabled && styles.moreButtonHovered, disabled && styles.moreButtonDisabled]}
-                        onPress={() => void runAction(message.id, 'delete', onDelete)}
-                        disabled={disabled}
-                        accessibilityLabel={t('pendingQueue.delete')}
-                    >
-                        <Ionicons name="trash-outline" size={16} color={theme.colors.textDestructive} />
-                    </Pressable>
-                )}
             </View>
         );
     };

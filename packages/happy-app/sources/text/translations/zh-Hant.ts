@@ -1003,7 +1003,7 @@ export const zhHant: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `定時 · ${time}`,
         scheduledDue: '已到時間 · 等待傳送',
         reschedule: '修改傳送時間',
-        sendNowInterrupt: '打斷並立即傳送',
+        sendNowInterrupt: '立即傳送（打斷）',
         pinned: '置頂',
         paused: '已暫停',
         collapsedTitle: ({ count }: { count: number }) => `待傳送 ${count} 則`,
@@ -1013,11 +1013,11 @@ export const zhHant: TranslationStructure = {
         expand: '展開佇列',
         collapse: '收合佇列',
         moreActions: '更多操作',
-        steer: '插話',
-        steering: '插話中',
+        steer: '立即傳送（不打斷）',
+        steering: '等待讀取',
         steeringHint: 'AI 讀到後顯示在對話中',
         queuedSection: '待傳送',
-        steerFailed: '沒能插入本輪，訊息仍在佇列中。',
+        steerFailed: '沒能送進正在進行的這一輪，訊息仍在佇列中。',
     },
 
     commandPalette: {

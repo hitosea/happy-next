@@ -1014,11 +1014,11 @@ export const ja: TranslationStructure = {
         expand: 'キューを表示',
         collapse: 'キューを閉じる',
         moreActions: 'その他の操作',
-        steer: 'このターンに追加',
-        steering: '追加中',
-        steeringHint: 'AIが読むと会話に表示されます',
+        steer: '中断せずに今すぐ送信',
+        steering: 'AIの読み取り待ち',
+        steeringHint: '読まれると会話に表示されます',
         queuedSection: '送信待ち',
-        steerFailed: 'このターンに追加できませんでした。メッセージはキューに残っています。',
+        steerFailed: '実行中のターンに送信できませんでした。メッセージはキューに残っています。',
     },
 
     commandPalette: {
