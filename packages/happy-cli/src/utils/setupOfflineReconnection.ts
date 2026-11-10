@@ -83,7 +83,8 @@ export function setupOfflineReconnection(opts: SetupOfflineReconnectionOptions):
     // Note: connectionState.notifyOffline() was already called by api.ts with error details
     if (!response) {
         // Create a no-op session stub for offline mode using shared utility
-        session = createOfflineSessionStub(sessionTag);
+        const offline = createOfflineSessionStub(sessionTag);
+        session = offline.session;
 
         // Start background reconnection
         reconnectionHandle = startOfflineReconnection<ApiSessionClient>({
@@ -92,6 +93,8 @@ export function setupOfflineReconnection(opts: SetupOfflineReconnectionOptions):
                 const resp = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
                 if (!resp) throw new Error('Server unavailable');
                 const realSession = api.sessionSyncClient(resp);
+                // What the backend registered while offline (message handlers, abort, kill, ...)
+                offline.handOver(realSession);
                 // Notify caller to swap the session reference
                 onSessionSwap(realSession);
                 return realSession;
