@@ -17,6 +17,7 @@ export type PendingMessageRecord = {
     pinnedAt: Date | null;
     pausedAt: Date | null;
     deliverAt: Date | null;
+    steeringAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -32,6 +33,7 @@ const pendingMessageSelect = {
     pinnedAt: true,
     pausedAt: true,
     deliverAt: true,
+    steeringAt: true,
     createdAt: true,
     updatedAt: true,
 } as const;
@@ -143,114 +145,83 @@ export async function enqueuePendingMessage(params: {
     }
 }
 
-export async function pinPendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageRecord | null> {
+/** The result of changing a queued message: `steering` when it is steered and can no longer change. */
+export type PendingMessageChange = PendingMessageRecord | "steering" | null;
+
+// Change a queued message unless it is steering: by then it is the agent's, so it can only be read
+// or dropped. The update is conditional, so one that races a steer start loses to it.
+async function updateUnlessSteering(
+    sessionId: string,
+    pendingId: string,
+    data: (message: PendingMessageRecord) => Prisma.SessionPendingMessageUpdateManyMutationInput,
+): Promise<PendingMessageChange> {
     const message = await findPendingMessageById(sessionId, pendingId);
     if (!message) {
         return null;
     }
+    if (message.steeringAt) {
+        return "steering";
+    }
 
-    const updated = await db.sessionPendingMessage.update({
+    const updated = await db.sessionPendingMessage.updateMany({
         where: {
             id: pendingId,
+            sessionId,
+            steeringAt: null,
         },
-        data: {
-            pinnedAt: message.pinnedAt ? null : new Date(),
-        },
-        select: pendingMessageSelect,
+        data: data(message),
     });
+    if (updated.count === 0) {
+        const current = await findPendingMessageById(sessionId, pendingId);
+        return current?.steeringAt ? "steering" : null;
+    }
 
-    return updated as PendingMessageRecord;
+    return findPendingMessageById(sessionId, pendingId);
+}
+
+export async function pinPendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageChange> {
+    return updateUnlessSteering(sessionId, pendingId, (message) => ({
+        pinnedAt: message.pinnedAt ? null : new Date(),
+    }));
 }
 
 // Toggle the paused state of a pending message. A paused message stays in the
 // session (and is still listed/synced) but is excluded from auto-dispatch — it
 // behaves as a draft until resumed. Mirrors pinPendingMessage's toggle shape.
-export async function pausePendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageRecord | null> {
-    const message = await findPendingMessageById(sessionId, pendingId);
-    if (!message) {
-        return null;
-    }
-
-    const updated = await db.sessionPendingMessage.update({
-        where: {
-            id: pendingId,
-        },
-        data: {
-            pausedAt: message.pausedAt ? null : new Date(),
-        },
-        select: pendingMessageSelect,
-    });
-
-    return updated as PendingMessageRecord;
+export async function pausePendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageChange> {
+    return updateUnlessSteering(sessionId, pendingId, (message) => ({
+        pausedAt: message.pausedAt ? null : new Date(),
+    }));
 }
 
 // Replace the (client-encrypted) content of a pending message. The server only
 // stores ciphertext: `content` is the already-encrypted string produced by the
 // client, wrapped the same way as enqueue.
-export async function updatePendingMessageContent(sessionId: string, pendingId: string, content: string): Promise<PendingMessageRecord | null> {
-    const message = await findPendingMessageById(sessionId, pendingId);
-    if (!message) {
-        return null;
-    }
-
-    const updated = await db.sessionPendingMessage.update({
-        where: {
-            id: pendingId,
+export async function updatePendingMessageContent(sessionId: string, pendingId: string, content: string): Promise<PendingMessageChange> {
+    return updateUnlessSteering(sessionId, pendingId, () => ({
+        content: {
+            t: "encrypted",
+            c: content,
         },
-        data: {
-            content: {
-                t: "encrypted",
-                c: content,
-            },
-        },
-        select: pendingMessageSelect,
-    });
-
-    return updated as PendingMessageRecord;
+    }));
 }
 
 // Set or clear the scheduled delivery time. Independent of content updates so a
 // reschedule never touches the ciphertext.
-export async function updatePendingMessageDeliverAt(sessionId: string, pendingId: string, deliverAt: Date | null): Promise<PendingMessageRecord | null> {
-    const message = await findPendingMessageById(sessionId, pendingId);
-    if (!message) {
-        return null;
-    }
-
-    const updated = await db.sessionPendingMessage.update({
-        where: {
-            id: pendingId,
-        },
-        data: {
-            deliverAt,
-        },
-        select: pendingMessageSelect,
-    });
-
-    return updated as PendingMessageRecord;
+export async function updatePendingMessageDeliverAt(sessionId: string, pendingId: string, deliverAt: Date | null): Promise<PendingMessageChange> {
+    return updateUnlessSteering(sessionId, pendingId, () => ({
+        deliverAt,
+    }));
 }
 
 // Make a pending message the next one to dispatch: resume it, drop any schedule
 // and pin it. Sets state instead of toggling, so retries are idempotent.
-export async function releasePendingMessageForSendNow(sessionId: string, pendingId: string): Promise<PendingMessageRecord | null> {
-    const message = await findPendingMessageById(sessionId, pendingId);
-    if (!message) {
-        return null;
-    }
-
-    const updated = await db.sessionPendingMessage.update({
-        where: {
-            id: pendingId,
-        },
-        data: {
-            pausedAt: null,
-            deliverAt: null,
-            pinnedAt: message.pinnedAt ?? new Date(),
-        },
-        select: pendingMessageSelect,
-    });
-
-    return updated as PendingMessageRecord;
+export async function releasePendingMessageForSendNow(sessionId: string, pendingId: string): Promise<PendingMessageChange> {
+    return updateUnlessSteering(sessionId, pendingId, (message) => ({
+        pausedAt: null,
+        deliverAt: null,
+        pinnedAt: message.pinnedAt ?? new Date(),
+    }));
 }
 
 // A pending message is dispatchable when it is not a paused draft and its
@@ -322,7 +293,7 @@ export async function listScheduledSessions(accountId: string): Promise<{ sessio
         : []);
 }
 
-export async function deletePendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageRecord | null> {
+export async function deletePendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageChange> {
     return db.$transaction(async (tx) => {
         const message = await tx.sessionPendingMessage.findUnique({
             where: {
@@ -334,11 +305,15 @@ export async function deletePendingMessage(sessionId: string, pendingId: string)
         if (!message || message.sessionId !== sessionId) {
             return null;
         }
+        if (message.steeringAt) {
+            return "steering";
+        }
 
         const deleted = await tx.sessionPendingMessage.deleteMany({
             where: {
                 id: pendingId,
                 sessionId,
+                steeringAt: null,
             },
         });
 
@@ -352,6 +327,19 @@ export async function deletePendingMessage(sessionId: string, pendingId: string)
 
 export async function takeNextPendingMessageForDispatch(sessionId: string): Promise<PendingMessageRecord | null> {
     return db.$transaction(async (tx) => {
+        // A steered message the agent has not read yet goes before everything queued after it:
+        // nothing is sent until it is read (and on the wall) or dropped back into the queue.
+        const steering = await tx.sessionPendingMessage.findFirst({
+            where: {
+                sessionId,
+                steeringAt: { not: null },
+            },
+            select: { id: true },
+        });
+        if (steering) {
+            return null;
+        }
+
         const candidate = await tx.sessionPendingMessage.findFirst({
             where: {
                 sessionId,
@@ -383,5 +371,122 @@ export async function takeNextPendingMessageForDispatch(sessionId: string): Prom
         }
 
         return candidate as PendingMessageRecord;
+    });
+}
+
+/**
+ * Mark a queued message as steering. Only a message that would go out on its own can be steered —
+ * not a paused draft, not one scheduled for later. Steering one already steering changes nothing.
+ */
+export async function startSteeringPendingMessage(sessionId: string, pendingId: string): Promise<
+    | { status: "started"; message: PendingMessageRecord }
+    | { status: "already"; message: PendingMessageRecord }
+    | { status: "not_found" }
+    | { status: "not_ready" }
+> {
+    const message = await findPendingMessageById(sessionId, pendingId);
+    if (!message) {
+        return { status: "not_found" };
+    }
+    if (message.steeringAt) {
+        return { status: "already", message };
+    }
+    if (message.pausedAt || message.deliverAt) {
+        return { status: "not_ready" };
+    }
+
+    const updated = await db.sessionPendingMessage.updateMany({
+        where: {
+            id: pendingId,
+            sessionId,
+            steeringAt: null,
+            pausedAt: null,
+            deliverAt: null,
+        },
+        data: {
+            steeringAt: new Date(),
+        },
+    });
+    const current = await findPendingMessageById(sessionId, pendingId);
+    if (!current) {
+        return { status: "not_found" };
+    }
+    if (updated.count === 0) {
+        return current.steeringAt ? { status: "already", message: current } : { status: "not_ready" };
+    }
+    return { status: "started", message: current };
+}
+
+/**
+ * Put a steering message back in the queue, where it was. `steeringAt` names the steer being undone,
+ * so undoing a steer that failed never clears a later one of the same message.
+ */
+export async function stopSteeringPendingMessage(sessionId: string, pendingId: string, steeringAt?: Date): Promise<PendingMessageRecord | null> {
+    const updated = await db.sessionPendingMessage.updateMany({
+        where: {
+            id: pendingId,
+            sessionId,
+            steeringAt: steeringAt ?? { not: null },
+        },
+        data: {
+            steeringAt: null,
+        },
+    });
+    if (updated.count === 0) {
+        return null;
+    }
+    return findPendingMessageById(sessionId, pendingId);
+}
+
+/**
+ * Put the steering messages of a session back in the queue — with `steeredBefore`, only those
+ * steered before then; returns them as they now are.
+ */
+export async function stopSteeringAllPendingMessages(sessionId: string, steeredBefore?: Date): Promise<PendingMessageRecord[]> {
+    const steering = await db.sessionPendingMessage.findMany({
+        where: {
+            sessionId,
+            steeringAt: steeredBefore ? { not: null, lt: steeredBefore } : { not: null },
+        },
+        select: { id: true, steeringAt: true },
+    });
+
+    const released: PendingMessageRecord[] = [];
+    for (const message of steering) {
+        const record = await stopSteeringPendingMessage(sessionId, message.id, message.steeringAt!);
+        if (record) {
+            released.push(record);
+        }
+    }
+    return released;
+}
+
+/**
+ * Take a message the agent has read out of the queue. Taken even when it is no longer marked
+ * steering (it went back when the CLI's connection dropped): the agent has it either way.
+ */
+export async function takeSteeredPendingMessage(sessionId: string, pendingId: string): Promise<PendingMessageRecord | null> {
+    return db.$transaction(async (tx) => {
+        const message = await tx.sessionPendingMessage.findUnique({
+            where: {
+                id: pendingId,
+            },
+            select: pendingMessageSelect,
+        });
+        if (!message || message.sessionId !== sessionId) {
+            return null;
+        }
+
+        const deleted = await tx.sessionPendingMessage.deleteMany({
+            where: {
+                id: pendingId,
+                sessionId,
+            },
+        });
+        if (deleted.count === 0) {
+            return null;
+        }
+
+        return message as PendingMessageRecord;
     });
 }

@@ -19,6 +19,7 @@ import {
     type PendingMessageRecord,
 } from "@/app/session/pendingMessageService";
 import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
+import { steerPendingMessage } from "@/app/session/pendingMessageSteer";
 import { dispatchSessionMessage, sessionMessageKinds } from "@/app/session/sessionMessageDispatch";
 import { db } from "@/storage/db";
 import { Prisma } from "@prisma/client";
@@ -124,6 +125,7 @@ function toPendingResponseMessage(message: PendingMessageRecord) {
         pinnedAt: message.pinnedAt ? message.pinnedAt.getTime() : null,
         pausedAt: message.pausedAt ? message.pausedAt.getTime() : null,
         deliverAt: message.deliverAt ? message.deliverAt.getTime() : null,
+        steeringAt: message.steeringAt ? message.steeringAt.getTime() : null,
         createdAt: message.createdAt.getTime(),
         updatedAt: message.updatedAt.getTime(),
     };
@@ -603,6 +605,9 @@ export function v3SessionRoutes(app: Fastify) {
         if (!pending) {
             return reply.code(404).send({ error: "Pending message not found" });
         }
+        if (pending === "steering") {
+            return reply.code(409).send({ error: "Pending message is steering" });
+        }
 
         await emitPendingUpsert(ownerId, sessionId, pending);
 
@@ -632,6 +637,9 @@ export function v3SessionRoutes(app: Fastify) {
         const pending = await pausePendingMessage(sessionId, pendingId);
         if (!pending) {
             return reply.code(404).send({ error: "Pending message not found" });
+        }
+        if (pending === "steering") {
+            return reply.code(409).send({ error: "Pending message is steering" });
         }
 
         await emitPendingUpsert(ownerId, sessionId, pending);
@@ -686,6 +694,9 @@ export function v3SessionRoutes(app: Fastify) {
         if (!pending) {
             return reply.code(404).send({ error: "Pending message not found" });
         }
+        if (pending === "steering") {
+            return reply.code(409).send({ error: "Pending message is steering" });
+        }
 
         await emitPendingUpsert(ownerId, sessionId, pending);
 
@@ -719,6 +730,9 @@ export function v3SessionRoutes(app: Fastify) {
         if (!pending) {
             return reply.code(404).send({ error: "Pending message not found" });
         }
+        if (pending === "steering") {
+            return reply.code(409).send({ error: "Pending message is steering" });
+        }
 
         await emitPendingUpsert(ownerId, sessionId, pending);
 
@@ -728,6 +742,39 @@ export function v3SessionRoutes(app: Fastify) {
             dispatched: result.pendingId === pending.id,
             pending: toPendingResponseMessage(pending),
         });
+    });
+
+    // Steer a queued message into the running turn without interrupting it ("插话"): it stays in the
+    // queue, marked steering, until the agent reads it (see `pendingMessageSteer`).
+    app.post("/v3/sessions/:sessionId/pending-messages/:pendingId/steer", {
+        preHandler: app.authenticate,
+        schema: {
+            params: pendingMessageParamsSchema,
+        },
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId, pendingId } = request.params;
+
+        if (!await canSendMessages(userId, sessionId)) {
+            return reply.code(404).send({ error: "Session not found" });
+        }
+
+        const ownerId = await getSessionOwnerId(sessionId);
+        if (!ownerId) {
+            return reply.code(404).send({ error: "Session not found" });
+        }
+
+        const result = await steerPendingMessage({ ownerId, sessionId, pendingId });
+        switch (result.status) {
+            case "steering":
+                return reply.send({ message: toPendingResponseMessage(result.message) });
+            case "not_found":
+                return reply.code(404).send({ error: "Pending message not found" });
+            case "rejected":
+                return reply.code(409).send({ error: "Steer rejected", reason: result.reason });
+            default:
+                return reply.code(409).send({ error: "Cannot steer", reason: result.status });
+        }
     });
 
     app.delete("/v3/sessions/:sessionId/pending-messages/:pendingId", {
@@ -751,6 +798,9 @@ export function v3SessionRoutes(app: Fastify) {
         const pending = await deletePendingMessage(sessionId, pendingId);
         if (!pending) {
             return reply.code(404).send({ error: "Pending message not found" });
+        }
+        if (pending === "steering") {
+            return reply.code(409).send({ error: "Pending message is steering" });
         }
 
         await emitPendingDelete(ownerId, sessionId, pending.id);

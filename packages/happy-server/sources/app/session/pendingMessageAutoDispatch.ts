@@ -9,7 +9,7 @@ import { scheduleFirstMessageReplay } from "@/app/api/routes/firstMessageReplay"
 import { dispatchSessionMessage } from "@/app/session/sessionMessageDispatch";
 import { takeNextPendingMessageForDispatch } from "@/app/session/pendingMessageService";
 
-function extractEncryptedText(content: unknown): string {
+export function extractEncryptedText(content: unknown): string {
     if (
         content &&
         typeof content === "object" &&

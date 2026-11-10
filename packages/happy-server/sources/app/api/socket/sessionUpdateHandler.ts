@@ -12,6 +12,8 @@ import { Socket } from "socket.io";
 import { delay } from "@/utils/delay";
 import { emitSessionCapabilitiesUpdate, updateSessionCapabilitiesAtomic } from "@/app/session/sessionCapabilities";
 import { sessionMessageKinds, type SessionMessageKind } from "@/app/session/sessionMessageDispatch";
+import { handlePendingSteerResult, releaseSteeringPendingMessages } from "@/app/session/pendingMessageSteer";
+import { PendingSteerResultSchema } from "happy-wire";
 
 /**
  * Check if there's an active CLI (session-scoped) connection for a session.
@@ -271,6 +273,9 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                 // reports idle only once its outbox has drained, so the turn's last
                 // message is already stored by now.
                 await receiveMessageLock.inLock(async () => {
+                    // The CLI reports each steered message before the turn is over, so any still
+                    // steering now were lost on the way: queue them again, to go out next
+                    await releaseSteeringPendingMessages(userId, sid, 'settled');
                     const result = await dispatchNextPendingIfPossible({
                         ownerId: userId,
                         sessionId: sid,
@@ -364,6 +369,44 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
             });
         } catch (error) {
             log({ module: 'websocket', level: 'error' }, `Error in message-receipt: ${error}`);
+        }
+    });
+
+    // The CLI says what became of a message steered into the turn (happy-wire `pendingSteer`). In
+    // the lock with the CLI's messages, so a read one goes on the wall after what came before it.
+    socket.on('pending-steer-result', async (data: unknown) => {
+        try {
+            const parsed = PendingSteerResultSchema.safeParse(data);
+            if (!parsed.success) {
+                return;
+            }
+            if (connection.connectionType !== 'session-scoped' || connection.sessionId !== parsed.data.sid) {
+                return;
+            }
+            await receiveMessageLock.inLock(async () => {
+                await handlePendingSteerResult({ ownerId: userId, connection, result: parsed.data });
+            });
+        } catch (error) {
+            log({ module: 'websocket', level: 'error' }, `Error in pending-steer-result: ${error}`);
+        }
+    });
+
+    // With the session's last steering CLI gone, its steered messages will never be reported:
+    // queue them again. A CLI that comes back and reports one read still takes it off the queue.
+    socket.on('disconnect', async () => {
+        if (connection.connectionType !== 'session-scoped' || !connection.supportsPendingSteer) {
+            return;
+        }
+        try {
+            const sessionId = connection.sessionId;
+            const others = Array.from(eventRouter.getConnections(userId) ?? []).some((other) => (
+                other !== connection && other.connectionType === 'session-scoped' && other.sessionId === sessionId
+            ));
+            if (!others) {
+                await releaseSteeringPendingMessages(userId, sessionId, 'all');
+            }
+        } catch (error) {
+            log({ module: 'websocket', level: 'error' }, `Error releasing steered messages: ${error}`);
         }
     });
 

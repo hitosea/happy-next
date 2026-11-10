@@ -174,6 +174,11 @@ vi.mock("@/app/session/pendingMessageAutoDispatch", () => ({
     dispatchNextPendingIfPossible: dispatchNextPendingIfPossibleMock
 }));
 
+vi.mock("@/app/session/pendingMessageSteer", () => ({
+    handlePendingSteerResult: vi.fn(async () => undefined),
+    releaseSteeringPendingMessages: vi.fn(async () => undefined),
+}));
+
 import { sessionUpdateHandler } from "./sessionUpdateHandler";
 import { __resetSessionTurnRuntimeForTests } from "@/app/presence/sessionTurnRuntime";
 
@@ -191,7 +196,8 @@ describe("sessionUpdateHandler message-receipt", () => {
         userId: "user-1",
         sessionId: "session-1",
         supportsMessageReceipt: true,
-        supportsCallbackLedger: true
+        supportsCallbackLedger: true,
+        supportsPendingSteer: false
     });
 
     it("removes waiting issue when receipt ok=true", async () => {
@@ -286,7 +292,8 @@ describe("sessionUpdateHandler session-alive auto-dispatch", () => {
         userId: "user-1",
         sessionId: "session-1",
         supportsMessageReceipt: true,
-        supportsCallbackLedger: true
+        supportsCallbackLedger: true,
+        supportsPendingSteer: false
     });
 
     it("dispatches once on thinking true->false and ignores repeated idle heartbeats", async () => {

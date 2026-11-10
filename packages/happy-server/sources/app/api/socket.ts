@@ -1,3 +1,4 @@
+import { PENDING_STEER_HANDSHAKE_FLAG } from "happy-wire";
 import { onShutdown } from "@/utils/shutdown";
 import { Fastify } from "./types";
 import { buildMachineActivityEphemeral, ClientConnection, eventRouter } from "@/app/events/eventRouter";
@@ -41,6 +42,7 @@ export function startSocket(app: Fastify) {
         const machineId = socket.handshake.auth.machineId as string | undefined;
         const supportsMessageReceipt = socket.handshake.auth.supportsMessageReceipt === true;
         const supportsCallbackLedger = socket.handshake.auth.supportsCallbackLedger === true;
+        const supportsPendingSteer = socket.handshake.auth[PENDING_STEER_HANDSHAKE_FLAG] === true;
 
         if (!token) {
             log({ module: 'websocket' }, `No token provided`);
@@ -86,7 +88,8 @@ export function startSocket(app: Fastify) {
                 userId,
                 sessionId,
                 supportsMessageReceipt,
-                supportsCallbackLedger
+                supportsCallbackLedger,
+                supportsPendingSteer
             };
         } else if (metadata.clientType === 'machine-scoped' && machineId) {
             connection = {

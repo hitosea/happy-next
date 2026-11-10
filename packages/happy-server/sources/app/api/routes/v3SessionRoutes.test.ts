@@ -3,6 +3,7 @@ import { serializerCompiler, validatorCompiler, ZodTypeProvider } from "fastify-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetSessionTurnRuntimeForTests, markTurnStarted } from "@/app/presence/sessionTurnRuntime";
 import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoDispatch";
+import { handlePendingSteerResult, releaseSteeringPendingMessages } from "@/app/session/pendingMessageSteer";
 import { type Fastify } from "../types";
 
 type SessionRecord = {
@@ -43,6 +44,7 @@ type PendingMessageRecord = {
     pinnedAt: Date | null;
     pausedAt: Date | null;
     deliverAt: Date | null;
+    steeringAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -76,7 +78,8 @@ const {
             userId: string;
             sessionId: string;
             supportsMessageReceipt: boolean;
-            socket: { emit: (...args: unknown[]) => void };
+            supportsPendingSteer?: boolean;
+            socket: { emit: (...args: unknown[]) => void; timeout?: (ms: number) => { emitWithAck: (...args: unknown[]) => Promise<unknown> } };
         }>,
         nowMs: 1700000000000
     };
@@ -151,6 +154,7 @@ const {
         pinnedAt?: Date | null;
         pausedAt?: Date | null;
         deliverAt?: Date | null;
+        steeringAt?: Date | null;
         createdAt?: Date;
     }) => {
         const createdAt = input.createdAt ?? new Date(state.nowMs);
@@ -166,6 +170,7 @@ const {
             pinnedAt: input.pinnedAt ?? null,
             pausedAt: input.pausedAt ?? null,
             deliverAt: input.deliverAt ?? null,
+            steeringAt: input.steeringAt ?? null,
             createdAt,
             updatedAt: createdAt,
         };
@@ -325,6 +330,37 @@ const {
         return selectFields(row as unknown as Record<string, unknown>, args?.select);
     });
 
+    // A Prisma filter on a nullable date column, as the service uses them: null, a date, or { not: null, lt? }
+    const matchesDate = (value: Date | null, filter: any): boolean => {
+        if (filter === undefined) return true;
+        if (filter === null) return value === null;
+        if (filter instanceof Date) return value !== null && value.getTime() === filter.getTime();
+        if (filter.not === null && value === null) return false;
+        if (filter.lt instanceof Date && (value === null || value.getTime() >= filter.lt.getTime())) return false;
+        return true;
+    };
+
+    const sessionPendingMessageUpdateMany = vi.fn(async (args: any) => {
+        const where = args?.where ?? {};
+        const rows = state.pendingMessages.filter((message) => (
+            (!where.id || message.id === where.id) &&
+            (!where.sessionId || message.sessionId === where.sessionId) &&
+            matchesDate(message.steeringAt, where.steeringAt) &&
+            matchesDate(message.pausedAt, where.pausedAt) &&
+            matchesDate(message.deliverAt, where.deliverAt)
+        ));
+        for (const row of rows) {
+            for (const key of ["pinnedAt", "pausedAt", "deliverAt", "steeringAt", "content"] as const) {
+                if (args?.data?.[key] !== undefined) {
+                    (row as any)[key] = args.data[key];
+                }
+            }
+            row.updatedAt = new Date(state.nowMs);
+            state.nowMs += 1;
+        }
+        return { count: rows.length };
+    });
+
     const sessionPendingMessageFindMany = vi.fn(async (args: any) => {
         let rows = [...state.pendingMessages];
         if (args?.where?.sessionId) {
@@ -345,6 +381,9 @@ const {
         }
         if (args?.where?.pausedAt === null) {
             rows = rows.filter((message) => message.pausedAt === null);
+        }
+        if ("steeringAt" in (args?.where ?? {})) {
+            rows = rows.filter((message) => matchesDate(message.steeringAt, args.where.steeringAt));
         }
         if (args?.where?.deliverAt?.lte instanceof Date) {
             const limit = args.where.deliverAt.lte.getTime();
@@ -421,6 +460,7 @@ const {
             pinnedAt: args?.data?.pinnedAt ?? null,
             pausedAt: args?.data?.pausedAt ?? null,
             deliverAt: args?.data?.deliverAt ?? null,
+            steeringAt: null,
             createdAt,
             updatedAt: createdAt,
         };
@@ -464,6 +504,9 @@ const {
                 return true;
             }
             if (args?.where?.sessionId && message.sessionId !== args.where.sessionId) {
+                return true;
+            }
+            if (!matchesDate(message.steeringAt, args?.where?.steeringAt)) {
                 return true;
             }
             return false;
@@ -530,6 +573,7 @@ const {
             findUnique: sessionPendingMessageFindUnique,
             create: sessionPendingMessageCreate,
             update: sessionPendingMessageUpdate,
+            updateMany: sessionPendingMessageUpdateMany,
             delete: sessionPendingMessageDelete,
             deleteMany: sessionPendingMessageDeleteMany,
         },
@@ -564,6 +608,7 @@ const {
             findUnique: sessionPendingMessageFindUnique,
             create: sessionPendingMessageCreate,
             update: sessionPendingMessageUpdate,
+            updateMany: sessionPendingMessageUpdateMany,
             delete: sessionPendingMessageDelete,
             deleteMany: sessionPendingMessageDeleteMany,
         },
@@ -1533,6 +1578,174 @@ describe("v3SessionRoutes", () => {
             expect(state.pendingMessages[0].deliverAt).toBeNull();
             expect(state.pendingMessages[0].pinnedAt).not.toBeNull();
             expect(state.messages).toHaveLength(0);
+        });
+    });
+
+    describe("steering", () => {
+        const inject = (method: "POST" | "PATCH" | "DELETE", url: string, payload?: unknown) => app.inject({
+            method,
+            url,
+            headers: { "x-user-id": "user-1" },
+            payload: payload as any,
+        });
+
+        const addCli = (answer: unknown | (() => Promise<unknown>)) => {
+            const emitWithAck = vi.fn(typeof answer === "function" ? answer as () => Promise<unknown> : async () => answer);
+            const connection = {
+                connectionType: "session-scoped" as const,
+                userId: "user-1",
+                sessionId: "session-1",
+                supportsMessageReceipt: true,
+                supportsPendingSteer: true,
+                socket: { emit: vi.fn(), timeout: vi.fn(() => ({ emitWithAck })) },
+            };
+            state.connections.push(connection);
+            return { connection, emitWithAck };
+        };
+
+        const seedQueue = () => {
+            seedSession({ id: "session-1", accountId: "user-1", seq: 0 });
+            const first = seedPendingMessage({ sessionId: "session-1", localId: "first", content: { t: "encrypted", c: "first" } });
+            const second = seedPendingMessage({ sessionId: "session-1", localId: "second", content: { t: "encrypted", c: "second" } });
+            return { first, second };
+        };
+
+        it("hands the message to the CLI and holds the queue until it is read", async () => {
+            const { first, second } = seedQueue();
+            markTurnStarted("session-1");
+            const { emitWithAck } = addCli({ accepted: true });
+            app = await createApp();
+
+            const response = await inject("POST", `/v3/sessions/session-1/pending-messages/${second.id}/steer`);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.json().message.steeringAt).toEqual(expect.any(Number));
+            expect(emitWithAck).toHaveBeenCalledWith("pending-steer", {
+                sid: "session-1",
+                pendingId: second.id,
+                localId: "second",
+                content: "second",
+            });
+
+            // The turn ends: the steered message is not reported yet, so nothing goes out
+            __resetSessionTurnRuntimeForTests();
+            expect((await dispatchNextPendingIfPossible({ ownerId: "user-1", sessionId: "session-1", delayMs: 0 })).dispatched).toBe(false);
+            expect(state.pendingMessages.map((m) => m.id)).toEqual([first.id, second.id]);
+
+            // Steering again changes nothing
+            const again = await inject("POST", `/v3/sessions/session-1/pending-messages/${second.id}/steer`);
+            expect(again.statusCode).toBe(200);
+            expect(emitWithAck).toHaveBeenCalledTimes(1);
+        });
+
+        it("puts a read message on the wall, past the CLI, and then sends the queue on", async () => {
+            const { first, second } = seedQueue();
+            state.pendingMessages[1].steeringAt = new Date(state.nowMs);
+            const { connection } = addCli({ accepted: true });
+
+            await handlePendingSteerResult({
+                ownerId: "user-1",
+                connection: connection as any,
+                result: { sid: "session-1", pendingId: second.id, outcome: "read" },
+            });
+
+            // The read one first; the session is idle, so the queue's head follows
+            expect(state.messages.map((m) => m.localId)).toEqual(["second", "first"]);
+            expect(state.pendingMessages).toHaveLength(0);
+            expect(emitToSessionSubscribersMock.mock.calls[0]).toEqual([expect.objectContaining({ skipSenderConnection: connection })]);
+
+            // A repeat changes nothing
+            await handlePendingSteerResult({
+                ownerId: "user-1",
+                connection: connection as any,
+                result: { sid: "session-1", pendingId: second.id, outcome: "read" },
+            });
+            expect(state.messages).toHaveLength(2);
+            void first;
+        });
+
+        it("queues a dropped message again where it was", async () => {
+            const { first, second } = seedQueue();
+            markTurnStarted("session-1");
+            state.pendingMessages[1].steeringAt = new Date(state.nowMs);
+            const { connection } = addCli({ accepted: true });
+
+            await handlePendingSteerResult({
+                ownerId: "user-1",
+                connection: connection as any,
+                result: { sid: "session-1", pendingId: second.id, outcome: "dropped" },
+            });
+
+            expect(state.pendingMessages.map((m) => [m.id, m.steeringAt])).toEqual([[first.id, null], [second.id, null]]);
+            expect(state.messages).toHaveLength(0);
+        });
+
+        it("leaves the message queued when the CLI turns it down or does not answer", async () => {
+            const { second } = seedQueue();
+            markTurnStarted("session-1");
+            addCli({ accepted: false, reason: "not_steerable" });
+            app = await createApp();
+
+            const rejected = await inject("POST", `/v3/sessions/session-1/pending-messages/${second.id}/steer`);
+            expect(rejected.statusCode).toBe(409);
+            expect(rejected.json().reason).toBe("not_steerable");
+            expect(state.pendingMessages[1].steeringAt).toBeNull();
+
+            state.connections = [];
+            addCli(async () => { throw new Error("timeout"); });
+            const silent = await inject("POST", `/v3/sessions/session-1/pending-messages/${second.id}/steer`);
+            expect(silent.json().reason).toBe("no_answer");
+            expect(state.pendingMessages[1].steeringAt).toBeNull();
+        });
+
+        it("steers only into a running turn, through a CLI that steers, a message that would go out", async () => {
+            const { first } = seedQueue();
+            const paused = seedPendingMessage({ sessionId: "session-1", localId: "paused", content: { t: "encrypted", c: "p" }, pausedAt: new Date() });
+            app = await createApp();
+
+            const noCli = await inject("POST", `/v3/sessions/session-1/pending-messages/${first.id}/steer`);
+            expect(noCli.json().reason).toBe("unsupported");
+
+            const { emitWithAck } = addCli({ accepted: true });
+            const idle = await inject("POST", `/v3/sessions/session-1/pending-messages/${first.id}/steer`);
+            expect(idle.json().reason).toBe("not_running");
+
+            markTurnStarted("session-1");
+            const draft = await inject("POST", `/v3/sessions/session-1/pending-messages/${paused.id}/steer`);
+            expect(draft.json().reason).toBe("not_ready");
+
+            expect(emitWithAck).not.toHaveBeenCalled();
+            expect(state.pendingMessages.every((m) => m.steeringAt === null)).toBe(true);
+        });
+
+        it("refuses to change or delete a steering message", async () => {
+            const { first } = seedQueue();
+            state.pendingMessages[0].steeringAt = new Date(state.nowMs);
+            app = await createApp();
+
+            for (const [method, url, payload] of [
+                ["POST", "pin", undefined],
+                ["POST", "pause", undefined],
+                ["POST", "send-now", undefined],
+                ["PATCH", "", { content: "edited" }],
+                ["DELETE", "", undefined],
+            ] as const) {
+                const response = await inject(method, `/v3/sessions/session-1/pending-messages/${first.id}${url ? `/${url}` : ""}`, payload);
+                expect(response.statusCode).toBe(409);
+            }
+            expect(state.pendingMessages[0]).toMatchObject({ pinnedAt: null, pausedAt: null, content: { t: "encrypted", c: "first" } });
+        });
+
+        it("at turn end queues again what was steered long ago, not what is being handed over", async () => {
+            const { first, second } = seedQueue();
+            state.pendingMessages[0].steeringAt = new Date(Date.now() - 60_000);
+            state.pendingMessages[1].steeringAt = new Date();
+
+            await releaseSteeringPendingMessages("user-1", "session-1", "settled");
+            expect(state.pendingMessages.map((m) => [m.id, m.steeringAt === null])).toEqual([[first.id, true], [second.id, false]]);
+
+            await releaseSteeringPendingMessages("user-1", "session-1", "all");
+            expect(state.pendingMessages.every((m) => m.steeringAt === null)).toBe(true);
         });
     });
 

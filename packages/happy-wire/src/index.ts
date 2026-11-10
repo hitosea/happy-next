@@ -13,3 +13,4 @@ export * from './terminal';
 export * from './messageSearch';
 export * from './userPrompt';
 export * from './messageKind';
+export * from './pendingSteer';

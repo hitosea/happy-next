@@ -16,6 +16,8 @@ export interface SessionScopedConnection {
     supportsMessageReceipt: boolean;
     /** A CLI that pulls its orchestrator callbacks from the server's ledger and acks them; older ones take each from the run's terminal notice */
     supportsCallbackLedger: boolean;
+    /** A CLI that takes `pending-steer` and reports what became of each message (happy-wire `pendingSteer`) */
+    supportsPendingSteer: boolean;
 }
 
 export interface UserScopedConnection {
@@ -228,6 +230,7 @@ export type EphemeralEvent = {
         pinnedAt: number | null;
         pausedAt: number | null;
         deliverAt: number | null;
+        steeringAt: number | null;
         createdAt: number;
         updatedAt: number;
     };
@@ -727,6 +730,7 @@ export function buildPendingMessageUpsertEphemeral(sessionId: string, pending: {
     pinnedAt: Date | null;
     pausedAt: Date | null;
     deliverAt: Date | null;
+    steeringAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }): EphemeralPayload {
@@ -743,6 +747,7 @@ export function buildPendingMessageUpsertEphemeral(sessionId: string, pending: {
             pinnedAt: pending.pinnedAt ? pending.pinnedAt.getTime() : null,
             pausedAt: pending.pausedAt ? pending.pausedAt.getTime() : null,
             deliverAt: pending.deliverAt ? pending.deliverAt.getTime() : null,
+            steeringAt: pending.steeringAt ? pending.steeringAt.getTime() : null,
             createdAt: pending.createdAt.getTime(),
             updatedAt: pending.updatedAt.getTime(),
         },

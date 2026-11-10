@@ -344,6 +344,9 @@ model SessionPendingMessage {
   pausedAt         DateTime?
   /// Scheduled delivery time; null means deliver as soon as the queue allows.
   deliverAt        DateTime?
+  /// Set while the message is steered into the running turn: handed to the CLI, not yet read by the
+  /// agent. It stays queued (and off the wall) until the CLI reports it read, or goes back if dropped.
+  steeringAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
