@@ -755,7 +755,8 @@ export const knownTools = {
         },
         icon: ICON_TERMINAL,
         isMutable: true,
-        minimal: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+        minimal: true,
+        /* minimal: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
             const input = opts.tool.input;
             const title = input?.toolCall?.title;
             if (typeof title === 'string' && title.trim().length > 0) {
@@ -769,7 +770,7 @@ export const knownTools = {
                 return false;
             }
             return true;
-        },
+        }, */
         input: z.object({}).partial().passthrough(),
         extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
             // Extract description from parentheses at the end
