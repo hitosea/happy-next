@@ -19,6 +19,8 @@ type ContextWindowEditorProps = {
     /** Takes the typed thousands; false when it is not a size in range, and the editor says so. */
     onSubmit: (thousands: number) => boolean;
     onCancel: () => void;
+    /** Just the field and its buttons in one row, for the context window row of the wide layout; the range is the placeholder. */
+    inline?: boolean;
 };
 
 /**
@@ -26,7 +28,7 @@ type ContextWindowEditorProps = {
  * of the settings overlay rather than a system prompt: a prompt's window takes the keyboard over from the
  * screen and gives it back as it closes, and the screen behind it blanks for a moment as it does.
  */
-export function ContextWindowEditor({ initialValue, range, onSubmit, onCancel }: ContextWindowEditorProps) {
+export function ContextWindowEditor({ initialValue, range, onSubmit, onCancel, inline }: ContextWindowEditorProps) {
     const { theme } = useUnistyles();
     const [text, setText] = React.useState(initialValue);
     const [invalid, setInvalid] = React.useState(false);
@@ -39,19 +41,21 @@ export function ContextWindowEditor({ initialValue, range, onSubmit, onCancel }:
     const submit = () => setInvalid(!text || !onSubmit(Number(text)));
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>{t('agentInput.model.contextWindow')}</Text>
+        <View style={inline ? styles.inlineContainer : styles.container}>
+            {!inline && <Text style={styles.title}>{t('agentInput.model.contextWindow')}</Text>}
             <View style={styles.row}>
-                <View style={[styles.field, invalid && styles.fieldInvalid]}>
+                <View style={[styles.field, inline && styles.fieldInline, invalid && styles.fieldInvalid]}>
                     <TextInput
                         ref={inputRef}
-                        style={styles.input}
+                        style={[styles.input, inline && styles.inputInline]}
                         value={text}
                         onChangeText={(next) => { setText(next.replace(/\D/g, '')); setInvalid(false); }}
                         onSubmitEditing={submit}
                         selectTextOnFocus
                         keyboardType="number-pad"
                         maxLength={4}
+                        placeholder={inline ? `${limits.min}–${limits.max}` : undefined}
+                        placeholderTextColor={theme.colors.textSecondary}
                         accessibilityLabel={t('agentInput.model.contextWindow')}
                     />
                     <Text style={styles.unit}>K</Text>
@@ -61,7 +65,7 @@ export function ContextWindowEditor({ initialValue, range, onSubmit, onCancel }:
                     accessibilityLabel={t('common.cancel')}
                     hitSlop={6}
                     onPress={() => { hapticsLight(); onCancel(); }}
-                    style={styles.button}
+                    style={[styles.button, inline && styles.buttonInline]}
                 >
                     <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
                 </Pressable>
@@ -70,14 +74,16 @@ export function ContextWindowEditor({ initialValue, range, onSubmit, onCancel }:
                     accessibilityLabel={t('common.ok')}
                     hitSlop={6}
                     onPress={() => { hapticsLight(); submit(); }}
-                    style={styles.button}
+                    style={[styles.button, inline && styles.buttonInline]}
                 >
                     <Ionicons name="checkmark" size={20} color={theme.colors.text} />
                 </Pressable>
             </View>
-            <Text style={[styles.hint, invalid && styles.hintInvalid]}>
-                {invalid ? t('agentInput.model.customContextWindowInvalid', limits) : t('agentInput.model.customContextWindowMessage', limits)}
-            </Text>
+            {!inline && (
+                <Text style={[styles.hint, invalid && styles.hintInvalid]}>
+                    {invalid ? t('agentInput.model.customContextWindowInvalid', limits) : t('agentInput.model.customContextWindowMessage', limits)}
+                </Text>
+            )}
         </View>
     );
 }
@@ -88,6 +94,11 @@ const styles = StyleSheet.create((theme) => ({
         paddingTop: 12,
         paddingBottom: 12,
         gap: 8,
+    },
+    inlineContainer: {
+        flexDirection: 'row',
+        flex: 1,
+        justifyContent: 'flex-end',
     },
     title: {
         fontSize: 12,
@@ -111,6 +122,24 @@ const styles = StyleSheet.create((theme) => ({
         borderWidth: 1,
         borderColor: 'transparent',
         backgroundColor: theme.colors.floatingOverlay.segmentedBackground,
+    },
+    fieldInline: {
+        flex: 0,
+        width: 120,
+        minWidth: 120,
+        maxWidth: 120,
+        height: 28,
+    },
+    inputInline: {
+        // A web input is as wide as its size attribute unless allowed to shrink, which pushed the K out of the field.
+        minWidth: 0,
+        width: 0,
+        height: 28,
+        fontSize: 13,
+    },
+    buttonInline: {
+        width: 28,
+        height: 28,
     },
     fieldInvalid: {
         borderColor: theme.colors.warningCritical,

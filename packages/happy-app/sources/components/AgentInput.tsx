@@ -387,6 +387,10 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         paddingBottom: 12,
         backgroundColor: theme.colors.floatingOverlay.background,
     },
+    // The effort list sits at the top of the column, the context window row at the bottom, level with the model list's ends.
+    settingsColumnBox: {
+        justifyContent: 'space-between',
+    },
     settingsColumnGap: {
         height: 20,
     },
@@ -423,6 +427,11 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
+    },
+    contextWindowRow: {
+        marginBottom: 8,
+        // Room between the label and a typed size.
+        gap: 24,
     },
     fastModeLabel: {
         fontSize: 12,
@@ -735,10 +744,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         models: { options: readonly { value: T; label: string; description?: string; trailing?: string }[]; selected: T | null; onChange: (value: T) => void },
         effort: { options: readonly { value: E; label: string }[]; selected: E | null; onChange: (value: E) => void } | null,
         contextWindow: { options: readonly (ContextWindowSegment & { trailing?: string; segmentLabel?: string })[]; selected: string; onChange: (value: string) => void } | null,
-        // Shown in place of the lists while a size is typed: short enough to stay clear of the keyboard it raises.
-        editor: React.ReactNode = null,
+        // Where a custom size is typed: `full` replaces the lists on narrow screens (short enough to stay clear of
+        // the keyboard it raises); `inline` takes the place of the segments in the context window row on wide ones.
+        editor: { full: React.ReactNode; inline: React.ReactNode } | null = null,
     ) => {
-        if (editor) return editor;
+        if (editor && !isWideModelLayout) return editor.full;
         const contextWindowTitle = t('agentInput.model.contextWindow');
         const contextWindowRadios = contextWindow?.options ?? [];
         const pickContextWindow = (value: string) => contextWindow?.onChange(value);
@@ -749,14 +759,22 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                     title: t('agentInput.model.reasoningEffort'),
                     render: (onItemLayout: ItemLayoutHandler) => renderRadioOptions(effort.options, effort.selected, effort.onChange, onItemLayout),
                 }] : []),
-                ...(contextWindow ? [{
-                    title: contextWindowTitle,
-                    // The list keeps the effort in view when there is one, else the context window.
-                    render: (onItemLayout: ItemLayoutHandler) => renderRadioOptions(contextWindowRadios, selectedContextWindow, pickContextWindow, effort ? undefined : onItemLayout),
-                }] : []),
             ];
-            // Each title's row index: a title, its radios, then a gap before the next title.
-            const settingsColumnHeaders = effort && contextWindow ? [0, effort.options.length + 2] : [0];
+            // Only the effort's title is sticky; the context window is one row (label left, sizes right) under it.
+            const settingsColumnHeaders = effort ? [0] : [];
+            const contextWindowRow = contextWindow && (
+                <View key="context-window-row" style={[styles.fastModeRow, styles.contextWindowRow, { height: modelFooterRowHeight }]}>
+                    <Text style={styles.fastModeLabel}>{contextWindowTitle}</Text>
+                    {editor?.inline ?? (
+                        <ContextWindowSegments
+                            options={contextWindow.options.map((option) => ({ ...option, label: option.segmentLabel ?? option.label, accessibilityLabel: option.trailing ? `${option.label} ${option.trailing}` : option.label }))}
+                            value={contextWindow.selected}
+                            onChange={contextWindow.onChange}
+                            accessibilityLabel={contextWindowTitle}
+                        />
+                    )}
+                </View>
+            );
             // The model list keeps its place in the tree whether or not the settings column exists, so it is
             // not rebuilt (and its scroll position lost) when the picked model changes between having one and not.
             return (
@@ -764,13 +782,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                     <View style={styles.modelColumn}>
                         {renderScrollableList(models.options, models.selected, models.onChange)}
                     </View>
-                    {settingsColumn.length > 0 && <View style={styles.overlayColumnDivider} />}
-                    {settingsColumn.length > 0 && (
-                        <View style={styles.modelColumn}>
+                    {(settingsColumn.length > 0 || contextWindowRow) && <View style={styles.overlayColumnDivider} />}
+                    {(settingsColumn.length > 0 || contextWindowRow) && (
+                        <View style={[styles.modelColumn, styles.settingsColumnBox]}>
                             <ScrollToSelectedList
                                 style={styles.modelListScroll}
                                 contentContainerStyle={styles.settingsListContent}
-                                selectedValue={effort ? effort.selected : selectedContextWindow}
+                                selectedValue={effort ? effort.selected : null}
                                 stickyHeaderIndices={settingsColumnHeaders}
                                 renderItems={(onItemLayout) => settingsColumn.flatMap((section, index) => [
                                     <Text key={`title-${section.title}`} style={[styles.overlaySectionTitle, styles.settingsColumnTitle]}>
@@ -780,6 +798,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     ...(index < settingsColumn.length - 1 ? [<View key={`gap-${section.title}`} style={styles.settingsColumnGap} />] : []),
                                 ])}
                             />
+                            {contextWindowRow}
                         </View>
                     )}
                 </View>
@@ -2315,14 +2334,15 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             claudeContextWindowOptions.length > 0
                                                 ? { options: claudeContextWindowOptions, selected: claudeCustomContextWindow ? CUSTOM_CONTEXT_WINDOW : String(claudeContextWindow ?? ''), onChange: handleClaudeContextWindowChange }
                                                 : null,
-                                            customContextWindowDraft !== null && claudeContextWindowRange ? (
-                                                <ContextWindowEditor
-                                                    initialValue={customContextWindowDraft}
-                                                    range={{ min: claudeContextWindowRange.min / 1000, max: claudeContextWindowRange.max / 1000 }}
-                                                    onSubmit={submitCustomContextWindow}
-                                                    onCancel={() => setCustomContextWindowDraft(null)}
-                                                />
-                                            ) : null,
+                                            customContextWindowDraft !== null && claudeContextWindowRange ? (() => {
+                                                const editorProps = {
+                                                    initialValue: customContextWindowDraft,
+                                                    range: { min: claudeContextWindowRange.min / 1000, max: claudeContextWindowRange.max / 1000 },
+                                                    onSubmit: submitCustomContextWindow,
+                                                    onCancel: () => setCustomContextWindowDraft(null),
+                                                };
+                                                return { full: <ContextWindowEditor {...editorProps} />, inline: <ContextWindowEditor {...editorProps} inline /> };
+                                            })() : null,
                                         ) : isQoder ? renderModelSettings(
                                             { options: modelOptions, selected: qoderSelection.model, onChange: handleQoderModelChange },
                                             qoderEffortOptions.length > 0
