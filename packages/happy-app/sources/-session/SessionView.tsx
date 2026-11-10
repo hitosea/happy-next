@@ -398,6 +398,19 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const fastMode = session.fastMode ?? false;
     const sessionStatus = useSessionStatus(session);
     const sessionUsage = useSessionUsage(sessionId);
+    const isTurnRunning = sessionStatus.state === 'thinking' || sessionStatus.state === 'awaiting' || sessionStatus.state === 'permission_required';
+
+    // Whether the agent can steer comes with the session's capabilities, which reach the app
+    // otherwise only through autocomplete or an update, and a new session's first update can
+    // arrive before the app knows the session. They are fetched as each turn starts.
+    React.useEffect(() => {
+        if (!isTurnRunning || canSteer) {
+            return;
+        }
+        sync.fetchSessionCapabilities(sessionId).catch((error) => {
+            console.error('Error fetching session capabilities:', error);
+        });
+    }, [sessionId, isTurnRunning, canSteer]);
     const alwaysShowContextSize = useSetting('alwaysShowContextSize');
     const [silentRefreshTrackingKey, setSilentRefreshTrackingKey] = React.useState(0);
     const [silentRefreshPhase, setSilentRefreshPhase] = React.useState<'idle' | 'refreshing' | 'failed'>('idle');
@@ -1414,7 +1427,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             sessionId={sessionId}
             messages={pendingMessages}
             canManage={canEdit}
-            isBusy={sessionStatus.state === 'thinking' || sessionStatus.state === 'awaiting' || sessionStatus.state === 'permission_required'}
+            isBusy={isTurnRunning}
             // The web has no Liquid Glass; the queue is frosted glass there (see GlassSurface).
             glass={useFloatingComposer || Platform.OS === 'web'}
             onSendNow={handleSendNowPending}
