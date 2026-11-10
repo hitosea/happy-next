@@ -35,7 +35,6 @@ import { ExpandedComposerModal } from './ExpandedComposerModal';
 import type { ComposerFile } from '@/hooks/useFileAttachments';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
-import { useKeyboardDetachedPrompt } from '@/hooks/useKeyboardDetachedPrompt';
 import { useWebFileDrop } from '@/hooks/useWebFileDrop';
 import { useModelCatalog } from '@/hooks/useModelCatalog';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
@@ -43,6 +42,7 @@ import { isRunningOnMac } from '@/utils/platform';
 import { NativeMenu } from './NativeMenu';
 import { DropdownMenu } from './DropdownMenu';
 import { ContextWindowSegments, type ContextWindowSegment } from './ContextWindowSegments';
+import { ContextWindowEditor } from './ContextWindowEditor';
 import { ScrollToSelectedList, type ItemLayoutHandler } from './ScrollToSelectedList';
 import type { ActionMenuItem } from './ActionMenu';
 import {
@@ -590,18 +590,6 @@ const formatContextWindowLabel = (tokens: number) => tokens >= 1_000_000 && toke
 // The context window option that asks for a size instead of being one.
 const CUSTOM_CONTEXT_WINDOW = 'custom';
 
-/**
- * A typed context window in tokens, read as Claude Code's `/autocompact` reads it: "350K", "1M",
- * "350000", or a bare number up to 1000 in thousands ("350"). Null when it isn't a size.
- */
-const parseContextWindowInput = (input: string) => {
-    const match = input.trim().toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)\s*([km]?)$/);
-    if (!match) return null;
-    const amount = Number(match[1]);
-    const unit = match[2] === 'm' ? 1_000_000 : match[2] === 'k' || amount <= 1000 ? 1000 : 1;
-    return Math.round(amount * unit);
-};
-
 const formatCompactTokenCount = (value: number) => {
     if (value >= 1000) {
         return `${Math.round(value / 1000)}k`;
@@ -745,7 +733,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         models: { options: readonly { value: T; label: string; description?: string; trailing?: string }[]; selected: T | null; onChange: (value: T) => void },
         effort: { options: readonly { value: E; label: string }[]; selected: E | null; onChange: (value: E) => void } | null,
         contextWindow: { options: readonly (ContextWindowSegment & { trailing?: string; segmentLabel?: string })[]; selected: string; onChange: (value: string) => void } | null,
+        // Shown in place of the lists while a size is typed: short enough to stay clear of the keyboard it raises.
+        editor: React.ReactNode = null,
     ) => {
+        if (editor) return editor;
         const contextWindowTitle = t('agentInput.model.contextWindow');
         const contextWindowRadios = contextWindow?.options ?? [];
         const pickContextWindow = (value: string) => contextWindow?.onChange(value);
@@ -1020,27 +1011,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         if (!props.onModelModeChange || claudeSelection.family === MODEL_MODE_DEFAULT) return;
         props.onModelModeChange(buildClaudeModelMode(claudeSelection.family, effort, claudeSelection.contextWindow));
     }, [claudeSelection.family, claudeSelection.contextWindow, props.onModelModeChange]);
-    const promptWithoutFollowingKeyboard = useKeyboardDetachedPrompt();
-    const handleClaudeContextWindowChange = React.useCallback(async (value: string) => {
-        if (!claudeContextWindowRange) return;
+    // The custom size is typed in place of the settings lists; null while none is being typed.
+    const [customContextWindowDraft, setCustomContextWindowDraft] = React.useState<string | null>(null);
+    const buildClaudeContextWindowMode = (tokens: number) =>
         // A model without effort control ignores the effort it is built with.
-        const pick = (tokens: number) => props.onModelModeChange?.(buildClaudeModelMode(claudeSelection.family, claudeSelection.effort ?? 'high', tokens));
-        if (value !== CUSTOM_CONTEXT_WINDOW) {
-            pick(Number(value));
+        buildClaudeModelMode(claudeSelection.family, claudeSelection.effort ?? 'high', tokens);
+    const handleClaudeContextWindowChange = (value: string) => {
+        if (value === CUSTOM_CONTEXT_WINDOW) {
+            setCustomContextWindowDraft(claudeCustomContextWindow ? String(Math.round(claudeCustomContextWindow / 1000)) : '');
             return;
         }
-        const range = { min: formatContextWindowLabel(claudeContextWindowRange.min), max: formatContextWindowLabel(claudeContextWindowRange.max) };
-        const input = await promptWithoutFollowingKeyboard(t('agentInput.model.customContextWindowTitle'), t('agentInput.model.customContextWindowMessage', range), {
-            defaultValue: claudeCustomContextWindow ? formatContextWindowLabel(claudeCustomContextWindow) : '',
-        });
-        if (input === null) return;
-        const tokens = parseContextWindowInput(input);
-        if (!tokens || tokens < claudeContextWindowRange.min || tokens > claudeContextWindowRange.max) {
-            Modal.alert(t('agentInput.model.customContextWindowTitle'), t('agentInput.model.customContextWindowInvalid', range));
-            return;
-        }
-        pick(tokens);
-    }, [claudeContextWindowRange, claudeCustomContextWindow, claudeSelection.family, claudeSelection.effort, props.onModelModeChange, promptWithoutFollowingKeyboard]);
+        props.onModelModeChange?.(buildClaudeContextWindowMode(Number(value)));
+    };
+    const submitCustomContextWindow = (thousands: number) => {
+        const tokens = thousands * 1000;
+        if (!claudeContextWindowRange || tokens < claudeContextWindowRange.min || tokens > claudeContextWindowRange.max) return false;
+        props.onModelModeChange?.(buildClaudeContextWindowMode(tokens));
+        setCustomContextWindowDraft(null);
+        return true;
+    };
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
         if (isGemini) return localizeModelOptions(getModelFamilyOptions('gemini'));
         const cliDefault = { value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') };
@@ -1367,6 +1356,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         if (showSettings) {
             Keyboard.dismiss();
         }
+        // A size being typed does not outlive the overlay or its model tab.
+        if (showSettings !== 'model') setCustomContextWindowDraft(null);
     }, [showSettings]);
 
     // The overlay stays mounted while it animates out, still showing the tab it was closed on.
@@ -2313,6 +2304,14 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             claudeContextWindowOptions.length > 0
                                                 ? { options: claudeContextWindowOptions, selected: claudeCustomContextWindow ? CUSTOM_CONTEXT_WINDOW : String(claudeContextWindow), onChange: handleClaudeContextWindowChange }
                                                 : null,
+                                            customContextWindowDraft !== null && claudeContextWindowRange ? (
+                                                <ContextWindowEditor
+                                                    initialValue={customContextWindowDraft}
+                                                    range={{ min: claudeContextWindowRange.min / 1000, max: claudeContextWindowRange.max / 1000 }}
+                                                    onSubmit={submitCustomContextWindow}
+                                                    onCancel={() => setCustomContextWindowDraft(null)}
+                                                />
+                                            ) : null,
                                         ) : isQoder ? renderModelSettings(
                                             { options: modelOptions, selected: qoderSelection.model, onChange: handleQoderModelChange },
                                             qoderEffortOptions.length > 0

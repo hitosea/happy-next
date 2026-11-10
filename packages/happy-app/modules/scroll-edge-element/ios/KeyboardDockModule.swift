@@ -75,50 +75,12 @@ public final class KeyboardDockView: ExpoView {
     ])
     keyboardConstraint = keyboard
     heightConstraint = height
-
-    NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
-    NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHide), name: UIResponder.keyboardDidHideNotification, object: nil)
   }
 
   deinit {
-    NotificationCenter.default.removeObserver(self)
     stopWatchdog()
     stopSearching()
     shrinkLink?.invalidate()
-  }
-
-  // MARK: - Keyboard owner
-
-  /**
-   * The guide follows every keyboard, also one raised for a field that is not the composer's: the
-   * text field of a prompt alert opened from the composer's settings. Riding that one would lift the
-   * composer and the chat list's inset for as long as the alert is up and drop them as it closes, a
-   * jump of the whole screen behind the alert. So the dock lets go of the keyboard while what it is
-   * typed into is outside the dock, and takes it again for the next keyboard raised for the composer.
-   */
-  @objc private func keyboardWillShow() {
-    let responder = KeyboardDockView.currentFirstResponder() as? UIView
-    let ownsKeyboard = responder.map { $0.isDescendant(of: dockView) } ?? true
-    guard keyboardConstraint?.isActive != ownsKeyboard else { return }
-    keyboardConstraint?.isActive = ownsKeyboard
-  }
-
-  @objc private func keyboardDidHide() {
-    guard keyboardConstraint?.isActive == false else { return }
-    keyboardConstraint?.isActive = true
-  }
-
-  private static weak var foundFirstResponder: UIResponder?
-
-  /// UIKit has no getter for the first responder; an action sent to no target reaches it.
-  private static func currentFirstResponder() -> UIResponder? {
-    foundFirstResponder = nil
-    UIApplication.shared.sendAction(#selector(UIResponder.happyCaptureFirstResponder), to: nil, from: nil, for: nil)
-    return foundFirstResponder
-  }
-
-  fileprivate static func capture(_ responder: UIResponder) {
-    foundFirstResponder = responder
   }
 
   // MARK: - Children
@@ -462,11 +424,5 @@ public final class KeyboardDockView: ExpoView {
       stack.append(contentsOf: view.subviews)
     }
     return best
-  }
-}
-
-extension UIResponder {
-  @objc fileprivate func happyCaptureFirstResponder() {
-    KeyboardDockView.capture(self)
   }
 }
