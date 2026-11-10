@@ -11,7 +11,7 @@ import type { SessionNotification } from '@agentclientprotocol/sdk';
 import { AcpBackend, type AcpPermissionHandler } from '../acp/AcpBackend';
 import type { AgentFactoryOptions, McpServerConfig } from '../core';
 import { agentRegistry } from '../core';
-import { DefaultTransport } from '../transport';
+import { DefaultTransport, type IdentifiableToolCall, type IdentifiedToolCall } from '../transport';
 import { logger } from '@/ui/logger';
 import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
 
@@ -39,21 +39,51 @@ export function qoderMcpToolName(title: unknown): string | null {
 const QODER_UNNAMED_KINDS = new Set(['other', 'switch_mode']);
 
 /**
+ * qodercli's meta-tool for MCP tools it loads lazily: `mcp_call({ toolName, arguments })`
+ * runs MCP tool `toolName` (`mcp__<server>__<tool>`), named nowhere else in the call.
+ */
+const QODER_MCP_CALL = 'mcp_call';
+
+/**
+ * The MCP tool an `mcp_call` input runs and its arguments, or null when the input names
+ * no tool. A `<server>/<tool>` name, the form qodercli's permission titles use, is
+ * given in qodercli's own form too.
+ */
+export function unwrapQoderMcpCall(rawInput: unknown): IdentifiedToolCall | null {
+  const { toolName, arguments: args } = (rawInput ?? {}) as { toolName?: unknown; arguments?: unknown };
+  if (typeof toolName !== 'string' || !toolName) return null;
+  return {
+    name: toolName.replace(/^([^/]+)\/(.+)$/, 'mcp__$1__$2'),
+    input: args && typeof args === 'object' && !Array.isArray(args) ? args as Record<string, unknown> : {},
+  };
+}
+
+/**
  * Names the calls whose ACP kind does not say which tool they are: MCP tools by their
  * title, the rest (EnterPlanMode as `other`, ExitPlanMode as `switch_mode`) by the
  * tool name qodercli puts in `_meta.qoder`, else by the title. The tool call and its
  * permission request get the same name, though their titles differ ("EnterPlanMode",
  * then "Allow entering plan mode?"), so the app and the permission handler know the tool.
+ * An `mcp_call` is named after the MCP tool it runs, with that tool's arguments as input.
  */
 export class QoderTransport extends DefaultTransport {
-  nameToolCall(toolCall: { kind?: unknown; title?: unknown; _meta?: unknown }): string | null {
+  identifyToolCall(toolCall: IdentifiableToolCall): IdentifiedToolCall | null {
     if (!QODER_UNNAMED_KINDS.has(String(toolCall.kind))) return null;
     const metaName = (toolCall._meta as { qoder?: { toolName?: unknown } } | undefined)?.qoder?.toolName;
-    return qoderMcpToolName(toolCall.title) || (typeof metaName === 'string' && metaName) || (typeof toolCall.title === 'string' && toolCall.title) || null;
+    const name = qoderMcpToolName(toolCall.title) || (typeof metaName === 'string' && metaName) || (typeof toolCall.title === 'string' && toolCall.title) || null;
+    if (name === QODER_MCP_CALL) return unwrapQoderMcpCall(toolCall.rawInput) ?? { name };
+    return name ? { name } : null;
   }
 }
 
 const qoderTransport = new QoderTransport('qoder');
+
+/**
+ * qodercli writes token counts (and the share of the context window used) to its
+ * transcript only with this set; without it every count is zero or left out.
+ * readQoderContextUsage reads them.
+ */
+const QODER_TOKEN_USAGE_ENV = { QODER_EXPOSE_TOKEN_USAGE: '1' };
 
 export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
   const command = resolveQoderCommand();
@@ -69,7 +99,7 @@ export function createQoderBackend(options: QoderBackendOptions): AcpBackend {
     cwd: options.cwd,
     command,
     args: ['--acp'],
-    env: { ...options.env, ...QODER_SDK_ISOLATION_ENV },
+    env: { ...options.env, ...QODER_SDK_ISOLATION_ENV, ...QODER_TOKEN_USAGE_ENV },
     mcpServers: options.mcpServers,
     permissionHandler: options.permissionHandler,
     transportHandler: qoderTransport,

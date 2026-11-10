@@ -291,7 +291,7 @@ export async function runQoder(opts: {
     const sessionId = qoderBackend?.getSessionId();
     if (!sessionId) return;
     try {
-      const usage = await readQoderContextUsage(sessionId, qoderBackend!.getPid());
+      const usage = await readQoderContextUsage(sessionId);
       if (usage) {
         session.sendAgentMessage('qoder', { type: 'token_count', context_used_tokens: usage.usedTokens, context_window_size: usage.windowSize, id: randomUUID() });
       }

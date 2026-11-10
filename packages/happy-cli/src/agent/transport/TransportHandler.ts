@@ -46,6 +46,20 @@ export interface ToolNameContext {
 /**
  * Result of stderr processing
  */
+/** The fields of an ACP tool call, from a session update or permission request, that name it. */
+export interface IdentifiableToolCall {
+  kind?: unknown;
+  title?: unknown;
+  rawInput?: unknown;
+  _meta?: unknown;
+}
+
+/** A tool call's real name and, when it differs from the call's `rawInput`, its real input. */
+export interface IdentifiedToolCall {
+  name: string;
+  input?: Record<string, unknown>;
+}
+
 export interface StderrResult {
   /** Message to emit (null = don't emit anything) */
   message: AgentMessage | null;
@@ -143,14 +157,15 @@ export interface TransportHandler {
   extractToolNameFromId?(toolCallId: string): string | null;
 
   /**
-   * Name a tool call from the call itself, for agents whose ACP kind does not say
+   * Identify a tool call from the call itself, for agents whose ACP kind does not say
    * which tool it is (e.g. kind "other"). Used for both the tool call and its
-   * permission request, so the two carry the same name.
+   * permission request, so the two carry the same name and input.
    *
    * @param toolCall - The tool call from a session update or permission request
-   * @returns The tool name, or null to keep the default naming
+   * @returns The tool name, with `input` set when the tool's real input is not the call's
+   *   `rawInput` (e.g. it is nested in a meta-tool's envelope); null keeps the default naming
    */
-  nameToolCall?(toolCall: { kind?: unknown; title?: unknown; _meta?: unknown }): string | null;
+  identifyToolCall?(toolCall: IdentifiableToolCall): IdentifiedToolCall | null;
 
   /**
    * Determine the real tool name from various sources.

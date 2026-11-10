@@ -13,6 +13,8 @@ export type {
   StderrContext,
   StderrResult,
   ToolNameContext,
+  IdentifiableToolCall,
+  IdentifiedToolCall,
 } from './TransportHandler';
 
 // Default implementation

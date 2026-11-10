@@ -16,7 +16,7 @@ import { BasePermissionHandler, type PermissionResult } from '@/utils/BasePermis
 import { persistAllowRules } from '@/utils/allowRulesSettings';
 import { HAPPY_TOOLS_APPROVED_WITHOUT_ASKING_PREFIXED } from '@/agent/mcp/happyToolsApproved';
 
-// Named as QoderTransport reads them back from qodercli's permission titles.
+// Named as QoderTransport identifies them: from qodercli's titles, or from the tool an mcp_call runs.
 export const HAPPY_TOOLS_APPROVED_WITHOUT_ASKING = HAPPY_TOOLS_APPROVED_WITHOUT_ASKING_PREFIXED;
 
 export class QoderPermissionHandler extends BasePermissionHandler {

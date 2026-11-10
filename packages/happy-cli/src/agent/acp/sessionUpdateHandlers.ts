@@ -257,7 +257,8 @@ export function startToolCall(
 
   // Extract real tool name from toolCallId
   const extractedName = ctx.transport.extractToolNameFromId?.(toolCallId);
-  const namedToolName = ctx.transport.nameToolCall?.(update) ?? null;
+  const identified = ctx.transport.identifyToolCall?.(update) ?? null;
+  const namedToolName = identified?.name ?? null;
   const realToolName = extractedName ?? namedToolName ?? (toolKindStr || 'unknown');
 
   // Store mapping for permission requests
@@ -303,16 +304,17 @@ export function startToolCall(
   // Emit running status
   ctx.emit({ type: 'status', status: 'running' });
 
-  // Parse args: prefer rawInput (ACP: "Raw input parameters sent to the tool")
-  // over content (which is output produced by the tool, not input)
+  // Parse args: prefer the input the transport identified (the real tool's, when the call
+  // wraps it), then rawInput (ACP: "Raw input parameters sent to the tool") over content
+  // (which is output produced by the tool, not input)
   // Spread to avoid mutating the original update object
-  const baseArgs = update.rawInput != null
-    ? parseArgsFromContent(update.rawInput)
-    : parseArgsFromContent(update.content);
+  const baseArgs = identified?.input
+    ?? (update.rawInput != null ? parseArgsFromContent(update.rawInput) : parseArgsFromContent(update.content));
   const args: Record<string, unknown> = { ...baseArgs };
 
-  // Include title as description for display (ACP: "Human-readable title")
-  if (typeof update.title === 'string' && update.title && !args.description) {
+  // Include title as description for display (ACP: "Human-readable title"), unless it
+  // titles the call that wraps the identified tool (Qoder's "mcp_call")
+  if (typeof update.title === 'string' && update.title && !args.description && !identified?.input) {
     args.description = update.title;
   }
 

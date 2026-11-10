@@ -566,8 +566,9 @@ export class AcpBackend implements AgentBackend {
           const extendedParams = params as ExtendedRequestPermissionRequest;
           const toolCall = extendedParams.toolCall;
           const rawKind = toolCall?.kind;
+          const identified = toolCall ? this.transport.identifyToolCall?.(toolCall) ?? null : null;
           let toolName = toolCall?.toolName
-            || (toolCall && this.transport.nameToolCall?.(toolCall))
+            || identified?.name
             || (rawKind && rawKind !== 'other' ? rawKind : null)
             || extendedParams.kind
             || 'Unknown tool';
@@ -580,9 +581,12 @@ export class AcpBackend implements AgentBackend {
           // ACP SDK uses rawInput for tool input parameters
           let input: Record<string, unknown> = {};
           if (toolCall) {
-            // 1. Prefer rawInput (ACP standard field for tool input)
+            // 1. Prefer the input the transport identified (the real tool's, when the call wraps it),
+            //    then rawInput (ACP standard field for tool input)
             const { rawInput } = toolCall;
-            if (rawInput != null && typeof rawInput === 'object' && !Array.isArray(rawInput)) {
+            if (identified?.input) {
+              input = identified.input;
+            } else if (rawInput != null && typeof rawInput === 'object' && !Array.isArray(rawInput)) {
               input = rawInput as Record<string, unknown>;
             } else if (rawInput != null && Array.isArray(rawInput)) {
               input = { items: rawInput };
@@ -595,8 +599,9 @@ export class AcpBackend implements AgentBackend {
             else if (typeof toolCall.title === 'string' && toolCall.title.startsWith('{')) {
               try { input = JSON.parse(toolCall.title); } catch { input = {}; }
             }
-            // 4. Include title as description if no description already present
-            if (!input.description && typeof toolCall.title === 'string' && toolCall.title) {
+            // 4. Include title as description if no description already present, unless it
+            //    titles the call that wraps the identified tool (Qoder's "Allow MCP tool …?")
+            if (!input.description && typeof toolCall.title === 'string' && toolCall.title && !identified?.input) {
               input = { ...input, description: toolCall.title };
             }
           } else {
@@ -1347,11 +1352,6 @@ export class AcpBackend implements AgentBackend {
   /** Agent-native session id, available once `startSession` resolves. */
   getSessionId(): string | null {
     return this.acpSessionId;
-  }
-
-  /** Process id of the spawned agent (of cmd.exe on Windows), while it runs. */
-  getPid(): number | undefined {
-    return this.process?.pid;
   }
 
   async cancel(sessionId: SessionId): Promise<boolean> {

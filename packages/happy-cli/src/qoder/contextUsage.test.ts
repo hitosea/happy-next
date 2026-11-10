@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readQoderContextUsage } from './contextUsage';
 
-const assistant = (ratio: number, extra: Record<string, unknown> = {}) => ({
+const assistant = (usage: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
     type: 'assistant',
     isSidechain: false,
-    message: { model: 'efficient', usage: { input_tokens: 0, output_tokens: 0, context_usage_ratio: ratio } },
+    message: { model: 'auto', usage },
     ...extra,
 });
 
@@ -20,14 +20,6 @@ describe('readQoderContextUsage', () => {
         writeFileSync(join(projectDir, 'qoder-session.jsonl'), records.map((record) => JSON.stringify(record)).join('\n') + '\n');
     };
 
-    const writeRunLog = (run: string, lines: string[]) => {
-        mkdirSync(join(configDir, 'logs', 'runs', run), { recursive: true });
-        writeFileSync(join(configDir, 'logs', 'runs', run, 'qodercli.log'), lines.join('\n') + '\n');
-    };
-
-    const modelConfig = (model: string, window: number) =>
-        `2026-10-11T15:39:47.195Z INFO  debug.message [QoderInferRequest details] model_config={"key":"${model}","display_name":"X","source":"system","max_input_tokens":${window}}, custom_model=null`;
-
     beforeEach(() => {
         configDir = mkdtempSync(join(tmpdir(), 'qoder-context-'));
         vi.stubEnv('QODER_CONFIG_DIR', configDir);
@@ -38,36 +30,28 @@ describe('readQoderContextUsage', () => {
         rmSync(configDir, { recursive: true, force: true });
     });
 
-    it('scales the latest main-chain ratio by the window the process logged for its model', async () => {
+    it('reads the latest main-chain request\'s input tokens and works the window out from its ratio', async () => {
         writeTranscript([
-            assistant(0.1),
-            assistant(0.25),
-            assistant(0.9, { isSidechain: true }),
+            assistant({ input_tokens: 9000, context_usage_ratio: 0.045 }),
+            // As qodercli 1.1.86 recorded it with QODER_EXPOSE_TOKEN_USAGE=1
+            assistant({ input_tokens: 18198, cache_read_input_tokens: 2304, output_tokens: 2, context_usage_ratio: 0.09099 }),
+            assistant({ input_tokens: 500000, context_usage_ratio: 0.5 }, { isSidechain: true }),
             { type: 'user', message: { content: 'next' } },
         ]);
-        writeRunLog('2026-10-11T15-39-45-370Z-yj84r0-p4242', [modelConfig('efficient', 128000), modelConfig('ultimate', 1000000)]);
 
-        expect(await readQoderContextUsage('qoder-session', 4242)).toEqual({ usedTokens: 32000, windowSize: 128000 });
+        expect(await readQoderContextUsage('qoder-session')).toEqual({ usedTokens: 18198, windowSize: 200000 });
     });
 
-    it('reads the newest run of a reused pid', async () => {
-        writeTranscript([assistant(0.5)]);
-        writeRunLog('2026-10-01T10-00-00-000Z-aaaaaa-p4242', [modelConfig('efficient', 100000)]);
-        writeRunLog('2026-10-11T10-00-00-000Z-bbbbbb-p4242', [modelConfig('efficient', 300000)]);
+    it('estimates the tokens from the default Qoder window when the counts are zero', async () => {
+        writeTranscript([assistant({ input_tokens: 0, output_tokens: 0, context_usage_ratio: 0.5 })]);
 
-        expect(await readQoderContextUsage('qoder-session', 4242)).toEqual({ usedTokens: 150000, windowSize: 300000 });
+        expect(await readQoderContextUsage('qoder-session')).toEqual({ usedTokens: 100000, windowSize: 200000 });
     });
 
-    it('falls back to the default Qoder window without a run log', async () => {
-        writeTranscript([assistant(0.5)]);
+    it('returns null for a conversation without recorded usage, or none at all', async () => {
+        writeTranscript([{ type: 'user', message: { content: 'hi' } }, assistant({})]);
 
-        expect(await readQoderContextUsage('qoder-session', undefined)).toEqual({ usedTokens: 100000, windowSize: 200000 });
-    });
-
-    it('returns null for a conversation without a recorded ratio, or none at all', async () => {
-        writeTranscript([{ type: 'user', message: { content: 'hi' } }]);
-
-        expect(await readQoderContextUsage('qoder-session', 4242)).toBeNull();
-        expect(await readQoderContextUsage('missing-session', 4242)).toBeNull();
+        expect(await readQoderContextUsage('qoder-session')).toBeNull();
+        expect(await readQoderContextUsage('missing-session')).toBeNull();
     });
 });
