@@ -1004,6 +1004,16 @@ export const ja: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `予約 · ${time}`,
         scheduledDue: '予約時刻を過ぎました · 送信待ち',
         reschedule: '送信時刻を変更',
+        sendNowInterrupt: '中断して今すぐ送信',
+        pinned: '固定',
+        paused: '一時停止中',
+        collapsedTitle: ({ count }: { count: number }) => `送信待ち ${count} 件`,
+        nextUp: ({ text }: { text: string }) => `次：${text}`,
+        nothingDue: 'すべて一時停止中または予約済み',
+        sendsAfterTurn: 'このターンの終了後に順番に送信',
+        expand: 'キューを表示',
+        collapse: 'キューを閉じる',
+        moreActions: 'その他の操作',
     },
 
     commandPalette: {

@@ -1194,6 +1194,16 @@ export const ru: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `Запланировано · ${time}`,
         scheduledDue: 'Время пришло · ожидает отправки',
         reschedule: 'Изменить время отправки',
+        sendNowInterrupt: 'Прервать и отправить',
+        pinned: 'Закреплено',
+        paused: 'На паузе',
+        collapsedTitle: ({ count }: { count: number }) => `В очереди: ${count}`,
+        nextUp: ({ text }: { text: string }) => `Далее: ${text}`,
+        nothingDue: 'Все на паузе или запланированы',
+        sendsAfterTurn: 'Отправятся по порядку после этого хода',
+        expand: 'Показать очередь',
+        collapse: 'Скрыть очередь',
+        moreActions: 'Другие действия',
     },
 
     commandPalette: {

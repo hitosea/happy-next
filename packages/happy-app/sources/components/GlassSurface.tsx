@@ -1,13 +1,14 @@
 import * as React from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { useUnistyles } from 'react-native-unistyles';
 import { isRunningOnMac } from '@/utils/platform';
 
 /** Whether surfaces floating over content turn into Liquid Glass (iOS 26, not Catalyst). */
 export const liquidGlassAvailable = Platform.OS === 'ios' && !isRunningOnMac() && isLiquidGlassAvailable();
 
 type GlassSurfaceProps = ViewProps & {
-    /** Liquid Glass behind the content; otherwise a plain view painted `color`. */
+    /** Liquid Glass behind the content (frosted glass on the web); otherwise a plain view painted `color`. */
     glass: boolean;
     /** The background used when `glass` is off. */
     color?: string;
@@ -22,6 +23,9 @@ type GlassSurfaceProps = ViewProps & {
  * content, as `AgentInput` does it, and takes the surface's corner radius so its shape matches.
  */
 export const GlassSurface = React.memo(({ glass, color, tint, style, children, ...props }: GlassSurfaceProps) => {
+    if (glass && Platform.OS === 'web') {
+        return <FrostedSurface {...props} style={style}>{children}</FrostedSurface>;
+    }
     if (!glass) {
         return (
             <View {...props} style={[style, color !== undefined && { backgroundColor: color }]}>
@@ -38,3 +42,29 @@ export const GlassSurface = React.memo(({ glass, color, tint, style, children, .
     );
 });
 GlassSurface.displayName = 'GlassSurface';
+
+/** The web's stand-in for Liquid Glass: a translucent, blurred surface with a hairline edge and a soft shadow. */
+const FrostedSurface = React.memo(({ style, children, ...props }: ViewProps) => {
+    const { theme } = useUnistyles();
+    const frosted: ViewStyle & { backdropFilter: string; boxShadow: string } = theme.dark
+        ? {
+            backgroundColor: 'rgba(44, 44, 46, 0.72)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            borderWidth: StyleSheet.hairlineWidth,
+            backdropFilter: 'blur(20px) saturate(180%)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+        }
+        : {
+            backgroundColor: 'rgba(255, 255, 255, 0.72)',
+            borderColor: 'rgba(0, 0, 0, 0.08)',
+            borderWidth: StyleSheet.hairlineWidth,
+            backdropFilter: 'blur(20px) saturate(180%)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        };
+    return (
+        <View {...props} style={[style, frosted]}>
+            {children}
+        </View>
+    );
+});
+FrostedSurface.displayName = 'FrostedSurface';

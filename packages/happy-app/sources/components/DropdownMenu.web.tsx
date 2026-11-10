@@ -11,13 +11,15 @@ const MENU_GAP = 4;
 // Beside the trigger the gap matches the session hover card's (`SessionHoverCard.tsx`).
 const SIDE_GAP = 8;
 const WINDOW_MARGIN = 8;
+const ITEM_HEIGHT = 32;
+const MENU_PADDING = 4;
 
 // `bottom` is the distance from the window's bottom edge, for a popover that opens upward.
 type Anchor = { top?: number; bottom?: number; left: number };
 
 /**
  * The web's dropdown: a popover under the button (left-aligned with it), above it (centred on it) or beside it on the right
- * (top-aligned with it), kept inside the window.
+ * (top-aligned with it), kept inside the window — one that would run off the bottom opens upward.
  * A click outside or Escape closes it; picking a row closes it, then runs the row.
  */
 export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hoveredStyle, openOnHover = false, onPress, placement = 'bottom', children }: DropdownMenuProps) => {
@@ -44,13 +46,19 @@ export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, hove
             : placement === 'topCenter'
                 ? rect.left + (rect.width - MENU_WIDTH) / 2
                 : rect.left;
+        // A menu under (or beside) a trigger near the window's bottom would run off it: there it opens
+        // upward instead, when there is more room above. Rows have a fixed height, so it is known up front.
+        const menuHeight = items.length * ITEM_HEIGHT + MENU_PADDING * 2;
+        const top = placement === 'right' ? rect.top : rect.bottom + MENU_GAP;
+        const overflowsBelow = top + menuHeight > window.innerHeight - WINDOW_MARGIN;
+        const opensUpward = placement === 'topCenter' || (overflowsBelow && rect.top > window.innerHeight - rect.bottom);
         setAnchor({
-            ...(placement === 'topCenter'
-                ? { bottom: window.innerHeight - rect.top + MENU_GAP }
-                : { top: placement === 'right' ? rect.top : rect.bottom + MENU_GAP }),
+            ...(opensUpward
+                ? { bottom: window.innerHeight - (placement === 'right' ? rect.bottom : rect.top - MENU_GAP) }
+                : { top }),
             left: Math.max(WINDOW_MARGIN, Math.min(left, window.innerWidth - MENU_WIDTH - WINDOW_MARGIN)),
         });
-    }, [placement]);
+    }, [placement, items.length]);
     const close = React.useCallback(() => setAnchor(null), []);
     const press = React.useCallback(() => {
         if (!onPress) return;
@@ -195,7 +203,7 @@ const stylesheet = StyleSheet.create((theme) => ({
     menu: {
         position: 'absolute',
         width: MENU_WIDTH,
-        padding: 4,
+        padding: MENU_PADDING,
         borderRadius: 10,
         backgroundColor: theme.dark ? theme.colors.surfaceHighest : theme.colors.surface,
         borderWidth: StyleSheet.hairlineWidth,
@@ -203,7 +211,7 @@ const stylesheet = StyleSheet.create((theme) => ({
         boxShadow: '0 6px 24px rgba(0, 0, 0, 0.18)',
     },
     item: {
-        height: 32,
+        height: ITEM_HEIGHT,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,

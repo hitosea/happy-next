@@ -1404,6 +1404,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             sessionId={sessionId}
             messages={pendingMessages}
             canManage={canEdit}
+            isBusy={sessionStatus.state === 'thinking' || sessionStatus.state === 'awaiting' || sessionStatus.state === 'permission_required'}
+            // The web has no Liquid Glass; the queue is frosted glass there (see GlassSurface).
+            glass={useFloatingComposer || Platform.OS === 'web'}
             onSendNow={handleSendNowPending}
             onPin={handlePinPending}
             onDelete={handleDeletePending}

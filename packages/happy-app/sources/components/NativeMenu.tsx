@@ -10,10 +10,10 @@ export type NativeMenuProps = {
     /** What a tap does while the menu opens on a long press. */
     onPress?: () => void;
     /**
-     * The trigger sits at the bottom of the screen, so the menu opens above it. iOS puts the first
-     * row nearest the trigger, which reads bottom-up there; this keeps `items` reading top-down.
+     * The native menu has shown (`true`) or finished going away (`false`), so the page can keep the
+     * tap that dismisses it from landing on what is under it. Not called by the fallback here.
      */
-    opensUpward?: boolean;
+    onOpenChange?: (open: boolean) => void;
     /** Leaves the trigger as it is, without opening anything (a busy or unavailable action). */
     disabled?: boolean;
     /** Outer size and placement of the trigger; `children` fill it. */

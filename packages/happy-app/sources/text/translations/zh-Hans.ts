@@ -1004,6 +1004,16 @@ export const zhHans: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `定时 · ${time}`,
         scheduledDue: '已到时间 · 等待发送',
         reschedule: '修改发送时间',
+        sendNowInterrupt: '打断并立即发送',
+        pinned: '置顶',
+        paused: '已暂停',
+        collapsedTitle: ({ count }: { count: number }) => `待发送 ${count} 条`,
+        nextUp: ({ text }: { text: string }) => `下一条：${text}`,
+        nothingDue: '均已暂停或定时',
+        sendsAfterTurn: '本轮结束后依次发送',
+        expand: '展开队列',
+        collapse: '收起队列',
+        moreActions: '更多操作',
     },
 
     commandPalette: {

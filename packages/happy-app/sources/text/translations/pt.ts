@@ -1002,6 +1002,16 @@ export const pt: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `Agendado · ${time}`,
         scheduledDue: 'Hora atingida · aguardando envio',
         reschedule: 'Alterar horário de envio',
+        sendNowInterrupt: 'Interromper e enviar',
+        pinned: 'Fixado',
+        paused: 'Pausado',
+        collapsedTitle: ({ count }: { count: number }) => `${count} na fila`,
+        nextUp: ({ text }: { text: string }) => `Próxima: ${text}`,
+        nothingDue: 'Todas pausadas ou agendadas',
+        sendsAfterTurn: 'Enviadas em ordem ao fim deste turno',
+        expand: 'Mostrar fila',
+        collapse: 'Ocultar fila',
+        moreActions: 'Mais ações',
     },
 
     commandPalette: {

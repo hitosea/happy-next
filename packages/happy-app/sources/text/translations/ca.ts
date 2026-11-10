@@ -1002,6 +1002,16 @@ export const ca: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `Programat · ${time}`,
         scheduledDue: 'Hora complerta · esperant l\'enviament',
         reschedule: 'Canvia l\'hora d\'enviament',
+        sendNowInterrupt: 'Interromp i envia',
+        pinned: 'Fixat',
+        paused: 'En pausa',
+        collapsedTitle: ({ count }: { count: number }) => `${count} a la cua`,
+        nextUp: ({ text }: { text: string }) => `Següent: ${text}`,
+        nothingDue: 'Tots en pausa o programats',
+        sendsAfterTurn: 'S\'envien en ordre en acabar aquest torn',
+        expand: 'Mostra la cua',
+        collapse: 'Amaga la cua',
+        moreActions: 'Més accions',
     },
 
     commandPalette: {

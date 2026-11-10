@@ -1003,6 +1003,16 @@ export const zhHant: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `定時 · ${time}`,
         scheduledDue: '已到時間 · 等待傳送',
         reschedule: '修改傳送時間',
+        sendNowInterrupt: '打斷並立即傳送',
+        pinned: '置頂',
+        paused: '已暫停',
+        collapsedTitle: ({ count }: { count: number }) => `待傳送 ${count} 則`,
+        nextUp: ({ text }: { text: string }) => `下一則：${text}`,
+        nothingDue: '皆已暫停或排程',
+        sendsAfterTurn: '本輪結束後依序傳送',
+        expand: '展開佇列',
+        collapse: '收合佇列',
+        moreActions: '更多操作',
     },
 
     commandPalette: {

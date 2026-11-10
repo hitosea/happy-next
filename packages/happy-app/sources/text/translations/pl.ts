@@ -1013,6 +1013,16 @@ export const pl: TranslationStructure = {
         scheduledAt: ({ time }: { time: string }) => `Zaplanowano · ${time}`,
         scheduledDue: 'Czas minął · oczekuje na wysłanie',
         reschedule: 'Zmień czas wysłania',
+        sendNowInterrupt: 'Przerwij i wyślij',
+        pinned: 'Przypięte',
+        paused: 'Wstrzymane',
+        collapsedTitle: ({ count }: { count: number }) => `W kolejce: ${count}`,
+        nextUp: ({ text }: { text: string }) => `Następna: ${text}`,
+        nothingDue: 'Wszystkie wstrzymane lub zaplanowane',
+        sendsAfterTurn: 'Wysyłane po kolei po zakończeniu tej tury',
+        expand: 'Pokaż kolejkę',
+        collapse: 'Ukryj kolejkę',
+        moreActions: 'Więcej akcji',
     },
 
     commandPalette: {

@@ -2648,7 +2648,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                 {props.onImageButtonPress && (props.imageMenuItems ? (
                                     <NativeMenu
                                         items={props.imageMenuItems}
-                                        opensUpward
                                         disabled={props.isUploadingImages}
                                         style={styles.iconButton}
                                         onFallbackOpen={props.onImageButtonPress}

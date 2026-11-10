@@ -112,7 +112,14 @@ const MEASURE_SCRIPT = `(function(){
   if (window.ResizeObserver) { try { new ResizeObserver(report).observe(document.body); } catch (e) {} }
 })(); true;`;
 
-export function SelectableTextView({ text, language = 'markdown', bottomPadding = 16, onMeasure }: { text: string; language?: string; bottomPadding?: number; onMeasure?: (height: number) => void }) {
+export function SelectableTextView({ text, language = 'markdown', bottomPadding = 16, backgroundColor, onMeasure }: {
+    text: string;
+    language?: string;
+    bottomPadding?: number;
+    /** The page behind the text; defaults to the surface. Transparent shows what the view sits on (a sheet). */
+    backgroundColor?: string;
+    onMeasure?: (height: number) => void;
+}) {
     const { theme, rt } = useUnistyles();
     const isDark = rt.themeName === 'dark';
 
@@ -121,11 +128,11 @@ export function SelectableTextView({ text, language = 'markdown', bottomPadding 
         return buildSelectionHtml({
             highlightedHtml: highlighted,
             isDark,
-            backgroundColor: theme.colors.surface,
+            backgroundColor: backgroundColor ?? theme.colors.surface,
             textColor: theme.colors.text,
             bottomPadding,
         });
-    }, [text, language, isDark, theme.colors.surface, theme.colors.text, bottomPadding]);
+    }, [text, language, isDark, backgroundColor, theme.colors.surface, theme.colors.text, bottomPadding]);
 
     if (Platform.OS === 'web') {
         // react-native-webview is unsupported on web. Use a plain iframe with the same

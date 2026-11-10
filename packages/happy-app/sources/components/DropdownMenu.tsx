@@ -17,6 +17,8 @@ export type DropdownMenuProps = {
     onPress?: () => void;
     /** Where the popover sits relative to the trigger: under it (default), above it and centred on it, or beside it on the right (web). */
     placement?: 'bottom' | 'topCenter' | 'right';
+    /** The native iOS menu has shown or gone (see `NativeMenuProps.onOpenChange`). */
+    onOpenChange?: (open: boolean) => void;
     children: React.ReactNode;
 };
 
@@ -25,11 +27,11 @@ export type DropdownMenuProps = {
  * `NativeMenu.ios.tsx`); where there is none the rows show in an `ActionMenuModal`. The web
  * anchors its own popover under the button (`DropdownMenu.web.tsx`).
  */
-export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, placement, children }: DropdownMenuProps) => {
+export const DropdownMenu = React.memo(({ items, accessibilityLabel, style, onOpenChange, children }: DropdownMenuProps) => {
     const [visible, setVisible] = React.useState(false);
     return (
         <>
-            <NativeMenu items={items} style={style} opensUpward={placement === 'topCenter'} onFallbackOpen={() => setVisible(true)}>
+            <NativeMenu items={items} style={style} onOpenChange={onOpenChange} onFallbackOpen={() => setVisible(true)}>
                 {children}
             </NativeMenu>
             <ActionMenuModal

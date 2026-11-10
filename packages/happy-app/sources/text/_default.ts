@@ -1013,6 +1013,16 @@ export const en = {
         scheduledAt: ({ time }: { time: string }) => `Scheduled · ${time}`,
         scheduledDue: 'Due · waiting to send',
         reschedule: 'Change send time',
+        sendNowInterrupt: 'Interrupt & send now',
+        pinned: 'Pinned',
+        paused: 'Paused',
+        collapsedTitle: ({ count }: { count: number }) => `${count} queued`,
+        nextUp: ({ text }: { text: string }) => `Next: ${text}`,
+        nothingDue: 'All paused or scheduled',
+        sendsAfterTurn: 'Sent in order after this turn',
+        expand: 'Show queue',
+        collapse: 'Hide queue',
+        moreActions: 'More actions',
     },
 
     commandPalette: {
