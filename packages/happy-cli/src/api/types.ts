@@ -9,6 +9,8 @@ import {
   UpdateSchema as WireUpdateSchema,
   createEnvelope,
   messageAttachmentSchema,
+  type PendingSteerAck,
+  type PendingSteerResult,
 } from 'happy-wire'
 import type {
   ApiUpdateMachineState as WireApiUpdateMachineState,
@@ -91,6 +93,7 @@ export interface ServerToClientEvents {
   ) => void
   auth: (data: { success: boolean, user: string }) => void
   error: (data: { message: string }) => void
+  'pending-steer': (data: unknown, callback: (ack: PendingSteerAck) => void) => void
 }
 
 
@@ -114,6 +117,7 @@ export interface ClientToServerEvents {
     mode?: 'local' | 'remote';
   }) => void
   'session-end': (data: { sid: string, time: number }) => void,
+  'pending-steer-result': (data: PendingSteerResult) => void,
   'update-metadata': (data: { sid: string, expectedVersion: number, metadata: string }, cb: (answer: {
     result: 'error'
   } | {
@@ -351,6 +355,8 @@ export const SessionCapabilitiesSchema = z.object({
     displayName: z.string().optional(),
     shortDescription: z.string().optional(),
   })).optional(),
+  /** The agent can take a queued message into the running turn without interrupting it ("插话") */
+  canSteer: z.boolean().optional(),
 })
 
 export type SessionCapabilities = z.infer<typeof SessionCapabilitiesSchema>

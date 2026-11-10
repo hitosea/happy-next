@@ -54,6 +54,7 @@ export type AgentMessage =
   | { type: 'exec-approval-request'; call_id: string; [key: string]: unknown } // Exec approval request (like Codex exec_approval_request)
   | { type: 'patch-apply-begin'; call_id: string; auto_approved?: boolean; changes: Record<string, unknown> } // Patch operation begin (like Codex patch_apply_begin)
   | { type: 'patch-apply-end'; call_id: string; stdout?: string; stderr?: string; success: boolean } // Patch operation end (like Codex patch_apply_end)
+  | { type: 'steer'; pendingId: string; outcome: 'read' | 'dropped' } // A message steered into the turn was taken in, or the turn ended without it
 
 /** MCP server configuration for tools - STDIO transport */
 export interface McpServerStdioConfig {

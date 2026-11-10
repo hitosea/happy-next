@@ -233,6 +233,7 @@ export async function runCodex(opts: {
             const currentSkills = skills;
             session.updateCapabilities((currentCapabilities) => addBuiltinSlashCommands(addOrchestratorSlashCommands({
                 ...currentCapabilities,
+                canSteer: true,
                 skills: currentSkills,
             })));
             if (permissionHandler) {
@@ -245,6 +246,7 @@ export async function runCodex(opts: {
     const initialSkills = skills;
     session.updateCapabilities((currentCapabilities) => addBuiltinSlashCommands(addOrchestratorSlashCommands({
         ...currentCapabilities,
+        canSteer: true,
         skills: initialSkills,
     })));
 
@@ -261,6 +263,7 @@ export async function runCodex(opts: {
             lastSkillsSignature = nextSignature;
             session.updateCapabilities((currentCapabilities) => addBuiltinSlashCommands(addOrchestratorSlashCommands({
                 ...currentCapabilities,
+                canSteer: true,
                 skills: nextSkills,
             })));
         } catch (error) {
@@ -418,6 +421,22 @@ export async function runCodex(opts: {
             images: images.length > 0 ? images : undefined,
         };
         messageQueue.push(messageText, enhancedMode, hooks);
+    });
+    // A queued message taken into the running turn ("插话"), under the turn's own mode. Commands
+    // that act on the session rather than talk to the agent wait for their turn in the queue.
+    session.onPendingSteer(async (message, pendingId) => {
+        const text = message.content.text;
+        if (!thinking || !backend) return { accepted: false, reason: 'not_running' };
+        if (parseClear(text).isClear || parseCodexSlashCommand(text).matched) return { accepted: false, reason: 'command' };
+        const images: ImageContent[] = message.content.type === 'mixed' && 'images' in message.content ? message.content.images : [];
+        const promptImages = await Promise.all(images.map(async (img) => {
+            const downloaded = await downloadImage(img.url);
+            return { data: downloaded.base64, mimeType: downloaded.mimeType };
+        }));
+        const prompt = expandOrchestratorSlashCommand(text)?.prompt ?? expandBuiltinSlashCommand(text)?.prompt ?? text;
+        await (backend as CodexAppServerBackend).steer(pendingId, prompt, { images: promptImages });
+        messageBuffer.addMessage(text, 'user');
+        return { accepted: true };
     });
     let thinking = false;
     let isTerminating = false;
@@ -766,6 +785,11 @@ export async function runCodex(opts: {
                     });
                     messageSentThisTurn = true;
                 }
+                break;
+            }
+
+            case 'steer': {
+                session.reportPendingSteer(msg.pendingId, msg.outcome);
                 break;
             }
 

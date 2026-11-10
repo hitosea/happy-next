@@ -48,6 +48,8 @@ export function createOfflineSessionStub(sessionTag: string): ApiSessionClient {
         updateCapabilities: () => {},
         updateAgentState: () => {},
         onUserMessage: () => {},
+        onPendingSteer: () => {},
+        reportPendingSteer: () => {},
         rpcHandlerManager: {
             registerHandler: () => {}
         }

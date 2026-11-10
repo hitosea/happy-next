@@ -1042,3 +1042,69 @@ describe('buildThreadParams', () => {
     expect(servers.dootask.url).toBe('https://dootask.example/mcp');
   });
 });
+
+describe('CodexAppServerBackend steering', () => {
+  beforeEach(() => {
+    vi.spyOn(logger, 'debug').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function runningBackend() {
+    const backend = createBackend() as any;
+    backend.threadId = 'thread-1';
+    const request = vi.fn().mockResolvedValue({ turnId: 'turn-1' });
+    backend.peer = { request };
+    const messages: any[] = [];
+    backend.onMessage((msg: any) => messages.push(msg));
+    backend.handleNotification(Methods.NOTIFY_TURN_STARTED, { turn: { id: 'turn-1' } });
+    return { backend, request, messages };
+  }
+
+  it('steers into the running turn under the message id', async () => {
+    const { backend, request } = runningBackend();
+    await backend.steer('pending-1', 'also check the tests');
+    expect(request).toHaveBeenCalledWith(Methods.TURN_STEER, {
+      threadId: 'thread-1',
+      expectedTurnId: 'turn-1',
+      input: [{ type: 'text', text: 'also check the tests' }],
+      clientUserMessageId: 'pending-1',
+    });
+  });
+
+  it('refuses when no turn is running', async () => {
+    const { backend, request } = runningBackend();
+    backend.handleNotification(Methods.NOTIFY_TURN_COMPLETED, { turn: { id: 'turn-1', status: 'completed' } });
+    await expect(backend.steer('pending-1', 'hi')).rejects.toThrow('not_running');
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('reports read when the agent takes the message in, once', async () => {
+    const { backend, messages } = runningBackend();
+    await backend.steer('pending-1', 'hi');
+    backend.handleNotification(Methods.NOTIFY_ITEM_STARTED, { item: { type: 'userMessage', id: 'u1', clientId: 'pending-1', content: [] } });
+    backend.handleNotification(Methods.NOTIFY_ITEM_STARTED, { item: { type: 'userMessage', id: 'u1', clientId: 'pending-1', content: [] } });
+    backend.handleNotification(Methods.NOTIFY_TURN_COMPLETED, { turn: { id: 'turn-1', status: 'completed' } });
+    expect(messages.filter((m) => m.type === 'steer')).toEqual([{ type: 'steer', pendingId: 'pending-1', outcome: 'read' }]);
+  });
+
+  it('reports a message the agent never took as dropped before the turn goes idle', async () => {
+    const { backend, messages } = runningBackend();
+    await backend.steer('pending-1', 'hi');
+    backend.handleNotification(Methods.NOTIFY_TURN_COMPLETED, { turn: { id: 'turn-1', status: 'interrupted' } });
+    const steer = messages.findIndex((m) => m.type === 'steer');
+    const idle = messages.findIndex((m) => m.type === 'status' && m.status === 'idle');
+    expect(messages[steer]).toEqual({ type: 'steer', pendingId: 'pending-1', outcome: 'dropped' });
+    expect(steer).toBeLessThan(idle);
+  });
+
+  it('forgets a message Codex refused', async () => {
+    const { backend, request, messages } = runningBackend();
+    request.mockRejectedValueOnce(new Error('turn is not steerable'));
+    await expect(backend.steer('pending-1', 'hi')).rejects.toThrow('turn is not steerable');
+    backend.handleNotification(Methods.NOTIFY_TURN_COMPLETED, { turn: { id: 'turn-1', status: 'completed' } });
+    expect(messages.some((m) => m.type === 'steer')).toBe(false);
+  });
+});

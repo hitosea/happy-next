@@ -14,6 +14,21 @@ import { PermissionResult } from "./sdk/types";
 import type { JsRuntime } from "./runClaude";
 import { formatMessageForClaude, ClaudeContent } from '@/utils/formatImageMessage';
 import { ImageContent } from '@/api/types';
+import type { PendingSteerAck } from 'happy-wire';
+import { randomUUID } from 'node:crypto';
+
+/** A message the app sent, as the caller's queue holds it */
+export type ClaudeRemoteMessage = string | { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] };
+
+/** Takes a queued message into the running turn ("插话") */
+export type ClaudeSteer = (message: ClaudeRemoteMessage, pendingId: string) => Promise<PendingSteerAck>;
+
+/**
+ * How long a turn's end waits for Claude to start the messages steered into it that it had not
+ * taken yet: Claude runs them as a turn of their own straight after, so this only guards against
+ * one that never comes.
+ */
+const STEERED_TURN_START_TIMEOUT_MS = 30_000;
 
 export async function claudeRemote(opts: {
 
@@ -32,7 +47,7 @@ export async function claudeRemote(opts: {
     jsRuntime?: JsRuntime,
 
     // Dynamic parameters
-    nextMessage: () => Promise<{ message: string | { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] }, mode: EnhancedMode } | null>,
+    nextMessage: () => Promise<{ message: ClaudeRemoteMessage, mode: EnhancedMode } | null>,
     onReady: () => void,
     /** Hands on messages the caller still holds back, so they leave ahead of the idle heartbeat. */
     flushOutgoing?: () => Promise<void>,
@@ -48,6 +63,14 @@ export async function claudeRemote(opts: {
     onSessionReset?: () => void,
     /** Called when the SDK Query instance is created, allowing the caller to call interrupt() */
     onQueryCreated?: (query: Query) => void,
+    /**
+     * This Claude can take messages into the running turn, through `steer`; null once it has
+     * exited. Claude tells its input's lifecycle only from some version on, so this comes with
+     * the first message it reports.
+     */
+    onSteerChange?: (steer: ClaudeSteer | null) => void,
+    /** A steered message was taken in by Claude, or dropped as Claude exited without it */
+    onSteerResult?: (pendingId: string, outcome: 'read' | 'dropped') => void,
 }) {
 
     // Check if session is valid
@@ -188,9 +211,7 @@ export async function claudeRemote(opts: {
     let messages = new PushableAsyncIterable<SDKUserMessage>();
 
     // Normalize queue message payloads into Claude SDK content format
-    const toClaudeMessageContent = async (
-        message: string | { type: 'text'; text: string } | { type: 'mixed'; text: string; images: ImageContent[] }
-    ): Promise<string | ClaudeContent[]> => {
+    const toClaudeMessageContent = async (message: ClaudeRemoteMessage): Promise<string | ClaudeContent[]> => {
         if (typeof message === 'object' && 'type' in message) {
             if (message.type === 'mixed') {
                 return formatMessageForClaude(message.text, message.images);
@@ -202,13 +223,36 @@ export async function claudeRemote(opts: {
 
     const initialMessageContent = await toClaudeMessageContent(initial.message);
 
+    // Every message goes with an id, which Claude reports it under as it queues and starts it
     messages.push({
         type: 'user',
+        uuid: randomUUID(),
         message: {
             role: 'user',
             content: initialMessageContent,
         },
     });
+
+    // Steered messages Claude has not started yet: their input id → their pending id
+    const unreadSteers = new Map<string, string>();
+    let steerSupported = false;
+    // A turn's end held back while Claude has steered messages still to start
+    let heldTurnEnd: NodeJS.Timeout | null = null;
+    // From the turn's result until the next one starts: a message steered then would start a turn
+    // of its own after the turn was reported over
+    let turnFinishing = false;
+    const steer: ClaudeSteer = async (message, pendingId) => {
+        const text = typeof message === 'string' ? message : message.text;
+        // Commands act on the session rather than talk to Claude: they wait for their turn in the queue
+        if (text.trimStart().startsWith('/')) return { accepted: false, reason: 'command' };
+        const content = await toClaudeMessageContent(message);
+        if (!thinking || turnFinishing || streamEnded) return { accepted: false, reason: 'not_running' };
+        if (compacting) return { accepted: false, reason: 'compacting' };
+        const uuid = randomUUID();
+        unreadSteers.set(uuid, pendingId);
+        messages.push({ type: 'user', uuid, message: { role: 'user', content } });
+        return { accepted: true };
+    };
 
     let awaitingNextUserMessage = false;
     let streamEnded = false;
@@ -230,6 +274,7 @@ export async function claudeRemote(opts: {
                     const messageContent = await toClaudeMessageContent(next.message);
                     messages.push({
                         type: 'user',
+                        uuid: randomUUID(),
                         message: {
                             role: 'user',
                             content: messageContent
@@ -253,6 +298,46 @@ export async function claudeRemote(opts: {
         }
     };
 
+    // The turn is over: its messages are handed on, then Claude is reported idle
+    const finishTurn = async () => {
+        turnFinishing = true;
+        // The turn's last messages can still sit in the caller's outgoing queue:
+        // hand them on first, or idle reaches the app ahead of them.
+        await opts.flushOutgoing?.();
+        opts.onTurnEnd?.();
+        updateThinking(false);
+        logger.debug('[claudeRemote] Result received, waiting for next user message');
+
+        // Send completion messages. Only report success when the engine
+        // actually compacted; otherwise the engine already surfaced the
+        // reason as its own message, so we just close the started/ended
+        // pair with a truthful status instead of a misleading "completed".
+        if (isCompactCommand) {
+            const completionMessage = compactFailed ? 'Compaction failed' : 'Compaction completed';
+            logger.debug(`[claudeRemote] ${completionMessage}`);
+            if (opts.onCompletionEvent) {
+                opts.onCompletionEvent(completionMessage);
+            }
+            isCompactCommand = false;
+            compactFailed = false;
+        }
+
+        // Send ready event
+        opts.onReady();
+
+        // Keep consuming SDK output while waiting for next user message.
+        // Waiting inline here can block late-arriving events (task notifications, tool outputs)
+        // until the user sends another message.
+        void pumpNextUserMessage();
+    };
+
+    const dropUnreadSteers = () => {
+        for (const pendingId of unreadSteers.values()) {
+            opts.onSteerResult?.(pendingId, 'dropped');
+        }
+        unreadSteers.clear();
+    };
+
     // Start the loop
     const response = query({
         prompt: messages,
@@ -269,12 +354,33 @@ export async function claudeRemote(opts: {
         for await (const message of response) {
             logger.debugLargeJson(`[claudeRemote] Message ${message.type}`, message);
 
+            // Claude's word on the messages it was sent: queued, started (taken in), completed
+            if (message.type === 'command_lifecycle') {
+                if (!steerSupported) {
+                    steerSupported = true;
+                    opts.onSteerChange?.(steer);
+                }
+                const pendingId = unreadSteers.get(message.command_uuid as string);
+                if (message.state === 'started' && pendingId) {
+                    unreadSteers.delete(message.command_uuid as string);
+                    // On the wall after everything Claude produced before taking it in
+                    await opts.flushOutgoing?.();
+                    opts.onSteerResult?.(pendingId, 'read');
+                    if (heldTurnEnd && unreadSteers.size === 0) {
+                        clearTimeout(heldTurnEnd);
+                        heldTurnEnd = null;
+                    }
+                }
+                continue;
+            }
+
             // Handle messages
             opts.onMessage(message);
 
             // Handle special system messages
             if (message.type === 'system' && message.subtype === 'init') {
                 // Start thinking when session initializes
+                turnFinishing = false;
                 updateThinking(true);
 
                 const systemInit = message as SDKSystemMessage;
@@ -315,34 +421,18 @@ export async function claudeRemote(opts: {
 
             // Handle result messages
             if (message.type === 'result') {
-                // The turn's last messages can still sit in the caller's outgoing queue:
-                // hand them on first, or idle reaches the app ahead of them.
-                await opts.flushOutgoing?.();
-                opts.onTurnEnd?.();
-                updateThinking(false);
-                logger.debug('[claudeRemote] Result received, waiting for next user message');
-
-                // Send completion messages. Only report success when the engine
-                // actually compacted; otherwise the engine already surfaced the
-                // reason as its own message, so we just close the started/ended
-                // pair with a truthful status instead of a misleading "completed".
-                if (isCompactCommand) {
-                    const completionMessage = compactFailed ? 'Compaction failed' : 'Compaction completed';
-                    logger.debug(`[claudeRemote] ${completionMessage}`);
-                    if (opts.onCompletionEvent) {
-                        opts.onCompletionEvent(completionMessage);
-                    }
-                    isCompactCommand = false;
-                    compactFailed = false;
+                if (unreadSteers.size > 0) {
+                    // Claude starts the steered messages it has not taken as a turn of their own
+                    // straight after: the turn goes on, and only if none comes is it over.
+                    logger.debug(`[claudeRemote] Result with ${unreadSteers.size} steered message(s) to start; holding the turn end`);
+                    heldTurnEnd = setTimeout(() => {
+                        heldTurnEnd = null;
+                        dropUnreadSteers();
+                        void finishTurn();
+                    }, STEERED_TURN_START_TIMEOUT_MS);
+                } else {
+                    await finishTurn();
                 }
-
-                // Send ready event
-                opts.onReady();
-
-                // Keep consuming SDK output while waiting for next user message.
-                // Waiting inline here can block late-arriving events (task notifications, tool outputs)
-                // until the user sends another message.
-                void pumpNextUserMessage();
             }
 
             // Handle tool result
@@ -366,6 +456,9 @@ export async function claudeRemote(opts: {
             throw e;
         }
     } finally {
+        if (heldTurnEnd) clearTimeout(heldTurnEnd);
+        opts.onSteerChange?.(null);
+        dropUnreadSteers();
         updateThinking(false);
     }
 }

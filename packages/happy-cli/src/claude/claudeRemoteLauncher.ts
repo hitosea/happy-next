@@ -3,7 +3,7 @@ import { Session } from "./session";
 import { MessageBuffer } from "@/ui/ink/messageBuffer";
 import { RemoteModeDisplay } from "@/ui/ink/RemoteModeDisplay";
 import React from "react";
-import { claudeRemote } from "./claudeRemote";
+import { claudeRemote, type ClaudeSteer } from "./claudeRemote";
 import { PermissionHandler } from "./utils/permissionHandler";
 import { Future } from "@/utils/future";
 import { cleanupStdinAfterInk } from "@/utils/terminalStdinCleanup";
@@ -71,6 +71,13 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     let abortController: AbortController | null = null;
     let abortFuture: Future<void> | null = null;
     let currentQuery: Query | null = null;
+
+    // Queued messages steered into the running turn go to the Claude running it, once it has shown
+    // it can take them
+    let currentSteer: ClaudeSteer | null = null;
+    session.client.onPendingSteer(async (message, pendingId) => currentSteer
+        ? currentSteer(message.content, pendingId)
+        : { accepted: false, reason: 'not_running' });
 
     // graceful: stop the current turn but keep the subprocess warm for the next
     // message (stop button / ESC / pending "send now"). Default hard path tears
@@ -640,6 +647,11 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                         logger.debug('[remote]: Session reset');
                         session.clearSessionId();
                     },
+                    onSteerChange: (steer) => {
+                        currentSteer = steer;
+                        if (steer) session.client.updateCapabilities((capabilities) => ({ ...capabilities, canSteer: true }));
+                    },
+                    onSteerResult: (pendingId, outcome) => session.client.reportPendingSteer(pendingId, outcome),
                     onQueryCreated: (q) => {
                         currentQuery = q;
                         permissionHandler.setModeForwarder(async (mode) => {

@@ -23,6 +23,7 @@ import {
   type TurnStartParams,
   type TurnStartResponse,
   type TurnInterruptParams,
+  type TurnSteerParams,
   type UserInput,
   type ApplyPatchApprovalParams,
   type ExecCommandApprovalParams,
@@ -197,6 +198,10 @@ export class CodexAppServerBackend implements AgentBackend {
   private listeners: AgentMessageHandler[] = [];
   private threadId: string | null = null;
   private currentTurnId: string | null = null;
+  /** The turn running now, which messages can be steered into; null between turns */
+  private runningTurnId: string | null = null;
+  /** Ids of the messages steered into the running turn that the agent has not taken in yet */
+  private unreadSteers = new Set<string>();
   private sessionId: string | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private feedbackQueue: string[] = [];
@@ -332,6 +337,31 @@ export class CodexAppServerBackend implements AgentBackend {
       // Interrupt may fail if already completed - ignore
       logger.debug('[CodexBackend] Interrupt failed (process may have already exited)');
       return false;
+    }
+  }
+
+  /**
+   * Hands a message to the running turn without interrupting it. Resolves once Codex has it; the
+   * agent takes it in shortly after, reported as a `steer` message, `read`, or `dropped` if the
+   * turn ends first. Throws when no turn is running or this one cannot take input (a review, a
+   * compaction).
+   */
+  async steer(clientId: string, prompt: string, options?: SendPromptOptions): Promise<void> {
+    if (!this.threadId || !this.runningTurnId) {
+      throw new Error('not_running');
+    }
+    // Listed before the request: the agent may take it in before the response arrives
+    this.unreadSteers.add(clientId);
+    try {
+      await this.peer.request(Methods.TURN_STEER, {
+        threadId: this.threadId,
+        expectedTurnId: this.runningTurnId,
+        input: this.buildInput(prompt, options),
+        clientUserMessageId: clientId,
+      } satisfies TurnSteerParams);
+    } catch (error) {
+      this.unreadSteers.delete(clientId);
+      throw error;
     }
   }
 
@@ -474,6 +504,7 @@ export class CodexAppServerBackend implements AgentBackend {
     this.pendingApprovals.clear();
 
     // Resolve any waitForResponseComplete
+    this.endRunningTurn();
     this.resolveTurnComplete();
 
     await this.peer.close();
@@ -520,9 +551,7 @@ export class CodexAppServerBackend implements AgentBackend {
 
   // ─── Message Sending ──────────────────────────────────────────
 
-  private async doSendMessage(prompt: string, options?: SendPromptOptions): Promise<void> {
-    if (!this.threadId) return;
-
+  private buildInput(prompt: string, options?: SendPromptOptions): UserInput[] {
     const input: UserInput[] = [];
 
     // Add images if present
@@ -540,7 +569,13 @@ export class CodexAppServerBackend implements AgentBackend {
       type: 'text',
       text: prompt,
     });
+    return input;
+  }
 
+  private async doSendMessage(prompt: string, options?: SendPromptOptions): Promise<void> {
+    if (!this.threadId) return;
+
+    const input = this.buildInput(prompt, options);
     recordNativeThreadEmpty(this.threadId, false);
     const result = await this.peer.request<TurnStartResponse>(Methods.TURN_START, {
       threadId: this.threadId,
@@ -646,6 +681,7 @@ export class CodexAppServerBackend implements AgentBackend {
 
       // ── Turn lifecycle ──
       case Methods.NOTIFY_TURN_STARTED:
+        this.runningTurnId = p.turn?.id ?? null;
         this.emit({ type: 'status', status: 'running' });
         break;
 
@@ -677,6 +713,7 @@ export class CodexAppServerBackend implements AgentBackend {
         break;
 
       case Methods.NOTIFY_THREAD_CLOSED:
+        this.endRunningTurn();
         this.emit({ type: 'status', status: 'stopped' });
         this.resolveTurnComplete();
         break;
@@ -796,10 +833,16 @@ export class CodexAppServerBackend implements AgentBackend {
         });
         break;
 
+      case 'userMessage':
+        // A steered message the agent has taken in now
+        if (item.clientId && this.unreadSteers.delete(item.clientId)) {
+          this.emit({ type: 'steer', pendingId: item.clientId, outcome: 'read' });
+        }
+        break;
+
       case 'agentMessage':
       case 'reasoning':
       case 'plan':
-      case 'userMessage':
       case 'imageGeneration':
       case 'contextCompaction':
         // These items are handled via delta notifications or turn/completed
@@ -888,7 +931,19 @@ export class CodexAppServerBackend implements AgentBackend {
     }
   }
 
+  /** No turn runs now: the messages steered into it that the agent never took in are dropped. */
+  private endRunningTurn(): void {
+    this.runningTurnId = null;
+    for (const clientId of this.unreadSteers) {
+      this.emit({ type: 'steer', pendingId: clientId, outcome: 'dropped' });
+    }
+    this.unreadSteers.clear();
+  }
+
   private handleTurnCompleted(turn: Record<string, any> | undefined): void {
+    // Reported before the turn's end
+    this.endRunningTurn();
+
     if (!turn) {
       this.emit({ type: 'status', status: 'idle' });
       this.resolveTurnComplete();

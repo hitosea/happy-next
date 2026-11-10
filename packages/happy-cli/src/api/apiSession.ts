@@ -21,7 +21,7 @@ import { registerToolImageForCall } from '../modules/common/toolImageStore';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
 import { MessageArchiveWriter } from '../modules/common/messageArchive';
-import { extractSearchableMessage, messageKind, type MessageKind, type MessageSearchRole } from 'happy-wire';
+import { extractSearchableMessage, messageKind, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
 import { openOrchestratorResponse, openOrchestratorTitle, sealOrchestrator, sealTitle, type OrchestratorResumeEnvelope, type OrchestratorTaskEnvelope } from '@/orchestrator/seal';
 import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
 
@@ -169,6 +169,10 @@ export class ApiSessionClient extends EventEmitter {
     private socket: Socket<ServerToClientEvents, ClientToServerEvents>;
     private pendingMessages: Array<{ message: UserMessage; hooks?: MessageQueueItemHooks }> = [];
     private pendingMessageCallback: ((message: UserMessage, hooks?: MessageQueueItemHooks) => void) | null = null;
+    /** Takes a queued message into the running turn ("插话"); null while the agent cannot */
+    private pendingSteerHandler: ((message: UserMessage, pendingId: string) => Promise<PendingSteerAck>) | null = null;
+    /** Steer reports on their way out; the idle heartbeat goes after them */
+    private steerReports = new Set<Promise<void>>();
     readonly rpcHandlerManager: RpcHandlerManager;
     private agentStateLock = new AsyncLock();
     private metadataLock = new AsyncLock();
@@ -259,7 +263,8 @@ export class ApiSessionClient extends EventEmitter {
                 clientType: 'session-scoped' as const,
                 sessionId: this.sessionId,
                 supportsMessageReceipt: true,
-                supportsCallbackLedger: true
+                supportsCallbackLedger: true,
+                [PENDING_STEER_HANDSHAKE_FLAG]: true
             },
             path: '/v1/updates',
             reconnection: true,
@@ -301,6 +306,25 @@ export class ApiSessionClient extends EventEmitter {
         this.socket.on('ephemeral', (payload: any) => {
             if (payload?.type === 'orchestrator-run-terminal') {
                 this.pullOrchestratorCallbacks();
+            }
+        });
+
+        // A queued message to take into the running turn; it stays queued until `reportPendingSteer`
+        this.socket.on('pending-steer', async (data, callback) => {
+            const answer = (ack: PendingSteerAck) => typeof callback === 'function' && callback(ack);
+            const request = PendingSteerRequestSchema.safeParse(data);
+            if (!request.success || request.data.sid !== this.sessionId) return answer({ accepted: false, reason: 'invalid_request' });
+            if (!this.pendingSteerHandler) return answer({ accepted: false, reason: 'unsupported' });
+            try {
+                const message = UserMessageSchema.parse(decrypt(this.encryptionKey, this.encryptionVariant, decodeBase64(request.data.content)));
+                const attachments = message.meta?.attachments;
+                if (attachments?.length) {
+                    message.content.text = appendAttachmentsToPrompt(message.content.text, attachments);
+                }
+                answer(await this.pendingSteerHandler(message, request.data.pendingId));
+            } catch (error) {
+                logger.debug('[API] pending-steer failed:', error);
+                answer({ accepted: false, reason: error instanceof Error ? error.message : String(error) });
             }
         });
 
@@ -673,6 +697,29 @@ export class ApiSessionClient extends EventEmitter {
             }
         );
         return response.data;
+    }
+
+    /**
+     * Where queued messages go to be taken into the running turn ("插话"). The handler accepts one
+     * only when the agent has it now, and then reports it through `reportPendingSteer`.
+     */
+    onPendingSteer(handler: (message: UserMessage, pendingId: string) => Promise<PendingSteerAck>) {
+        this.pendingSteerHandler = handler;
+    }
+
+    /**
+     * A steered message's fate: `read` once the agent has taken it in, which goes out after
+     * everything the agent produced before it; `dropped` when the turn ended without it. Either goes
+     * out before the idle heartbeat of the turn it was steered into.
+     */
+    reportPendingSteer(pendingId: string, outcome: 'read' | 'dropped') {
+        if (outcome === 'read') this.releaseHeldText(false);
+        const report = (outcome === 'read' ? this.sendSync.invalidateAndAwait().catch(() => {}) : Promise.resolve())
+            .then(() => {
+                this.socket.emit('pending-steer-result', { sid: this.sessionId, pendingId, outcome });
+            })
+            .finally(() => this.steerReports.delete(report));
+        this.steerReports.add(report);
     }
 
     /**
@@ -1313,7 +1360,7 @@ export class ApiSessionClient extends EventEmitter {
         if (this.idleDrain) return;
         this.releaseHeldText(true);
         const drain = Promise.race([
-            this.sendSync.invalidateAndAwait(),
+            Promise.all([this.sendSync.invalidateAndAwait(), ...this.steerReports]),
             new Promise((resolve) => setTimeout(resolve, IDLE_DRAIN_MAX_MS).unref()),
         ]);
         this.idleDrain = drain;

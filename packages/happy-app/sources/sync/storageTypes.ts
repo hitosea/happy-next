@@ -144,6 +144,8 @@ export const SessionCapabilitiesSchema = z.object({
         displayName: z.string().optional(),
         shortDescription: z.string().optional(),
     })).optional(),
+    /** The agent can take a queued message into the running turn without interrupting it ("插话") */
+    canSteer: z.boolean().optional(),
 });
 
 export type SessionCapabilities = z.infer<typeof SessionCapabilitiesSchema>;

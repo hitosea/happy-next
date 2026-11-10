@@ -795,3 +795,92 @@ describe('ApiSessionClient orchestrator callbacks', () => {
         expect(delivered).toHaveLength(1);
     });
 });
+
+describe('ApiSessionClient pending steer', () => {
+    let socket: any;
+    let client: ApiSessionClient;
+    let outboxDrains: Array<() => void>;
+    let order: string[];
+
+    beforeEach(() => {
+        order = [];
+        socket = {
+            connect: vi.fn(), on: vi.fn(), off: vi.fn(), close: vi.fn(), disconnect: vi.fn(),
+            emit: vi.fn((event: string, payload: any) => order.push(`${event}:${payload?.outcome ?? ''}`)),
+            connected: true,
+            volatile: { emit: vi.fn((_event: string, payload: any) => order.push(`alive:${payload.thinking}`)) },
+        };
+        mockIo.mockReturnValue(socket);
+        client = new ApiSessionClient('fake-token', {
+            id: 'test-session-id',
+            seq: 0,
+            metadata: { path: '/tmp', host: 'localhost', homeDir: '/home/user', happyHomeDir: '/home/user/.happy-next', happyLibDir: '/home/user/.happy/lib', happyToolsDir: '/home/user/.happy/tools' },
+            metadataVersion: 0,
+            agentState: null,
+            agentStateVersion: 0,
+            encryptionKey: new Uint8Array(32),
+            encryptionVariant: 'legacy',
+        } as any, async () => new Uint8Array(32));
+        outboxDrains = [];
+        vi.spyOn((client as any).sendSync, 'invalidateAndAwait').mockImplementation(
+            () => new Promise<void>((resolve) => { outboxDrains.push(resolve); }),
+        );
+        vi.spyOn(axios, 'post').mockResolvedValue({ data: { ok: true, data: { callbacks: [] } } });
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    function steerHandler() {
+        return socket.on.mock.calls.find((args: any[]) => args[0] === 'pending-steer')[1];
+    }
+
+    it('says it handles pending-steer in the handshake', () => {
+        expect(mockIo.mock.calls.at(-1)![1].auth.supportsPendingSteer).toBe(true);
+    });
+
+    it('hands the decrypted message to the handler and acks its answer', async () => {
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({ role: 'user', content: { type: 'text', text: 'also this' } } as any);
+        const handler = vi.fn().mockResolvedValue({ accepted: true });
+        client.onPendingSteer(handler);
+        const ack = vi.fn();
+        await steerHandler()({ sid: 'test-session-id', pendingId: 'p1', localId: 'l1', content: 'abc' }, ack);
+        expect(handler).toHaveBeenCalledWith(expect.objectContaining({ content: { type: 'text', text: 'also this' } }), 'p1');
+        expect(ack).toHaveBeenCalledWith({ accepted: true });
+    });
+
+    it('refuses when no agent takes steered messages, or the handler fails', async () => {
+        const ack = vi.fn();
+        await steerHandler()({ sid: 'test-session-id', pendingId: 'p1', localId: 'l1', content: 'abc' }, ack);
+        expect(ack).toHaveBeenLastCalledWith({ accepted: false, reason: 'unsupported' });
+
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({ role: 'user', content: { type: 'text', text: 'x' } } as any);
+        client.onPendingSteer(vi.fn().mockRejectedValue(new Error('not steerable')));
+        await steerHandler()({ sid: 'test-session-id', pendingId: 'p1', localId: 'l1', content: 'abc' }, ack);
+        expect(ack).toHaveBeenLastCalledWith({ accepted: false, reason: 'not steerable' });
+    });
+
+    it('reports read after the outbox drains, and the turn end after the report', async () => {
+        client.keepAlive(true, 'remote');
+        client.reportPendingSteer('p1', 'read');
+        client.keepAlive(false, 'remote');
+        await Promise.resolve();
+        expect(order).toEqual(['alive:true']);
+        outboxDrains.forEach((drain) => drain());
+        await vi.waitFor(() => expect(order).toEqual(['alive:true', 'pending-steer-result:read', 'alive:false']));
+        expect(socket.emit).toHaveBeenCalledWith('pending-steer-result', { sid: 'test-session-id', pendingId: 'p1', outcome: 'read' });
+    });
+
+    it('reports dropped at once, ahead of the idle heartbeat', async () => {
+        client.keepAlive(true, 'remote');
+        client.reportPendingSteer('p1', 'dropped');
+        client.keepAlive(false, 'remote');
+        await Promise.resolve();
+        expect(order).toEqual(['alive:true', 'pending-steer-result:dropped']);
+        outboxDrains.forEach((drain) => drain());
+        await vi.waitFor(() => expect(order.at(-1)).toBe('alive:false'));
+    });
+});

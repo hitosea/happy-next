@@ -191,6 +191,15 @@ export interface TurnError {
   additionalDetails?: string | null;
 }
 
+/** Input for the running turn, without interrupting it; fails when `expectedTurnId` is not the running one */
+export interface TurnSteerParams {
+  threadId: string;
+  expectedTurnId: string;
+  input: UserInput[];
+  /** Comes back as the `clientId` of the turn's `userMessage` item once the agent takes the input in */
+  clientUserMessageId?: string | null;
+}
+
 export interface TurnInterruptParams {
   threadId: string;
   turnId: string;
@@ -415,6 +424,7 @@ export const Methods = {
   THREAD_TURNS_LIST: 'thread/turns/list',
   TURN_START: 'turn/start',
   TURN_INTERRUPT: 'turn/interrupt',
+  TURN_STEER: 'turn/steer',
   REVIEW_START: 'review/start',
   THREAD_COMPACT_START: 'thread/compact/start',
   THREAD_GOAL_SET: 'thread/goal/set',
