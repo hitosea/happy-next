@@ -19,3 +19,26 @@ index 2edab16..7b57863 100644
      guard let url = URL(string: openURL) else {
        NSLog("[DevMenu] Invalid openJSInspector URL: $@", openURL)
        return
+diff --git a/node_modules/expo-dev-menu/ios/DevMenuManager.swift b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
+index 6b0873e..4eee014 100644
+--- a/node_modules/expo-dev-menu/ios/DevMenuManager.swift
++++ b/node_modules/expo-dev-menu/ios/DevMenuManager.swift
+@@ -267,7 +267,17 @@ open class DevMenuManager: NSObject {
+     }
+     if visible {
+       setCurrentScreen(screen)
+-      DispatchQueue.main.async { self.window?.makeKeyAndVisible() }
++      DispatchQueue.main.async {
++        // Backported from expo-dev-menu 57: under the scene life cycle (required by the iOS 27 SDK)
++        // a window made with only a frame belongs to no scene and is never shown, so the shake and
++        // three-finger gestures opened nothing. Attach it to the active scene before showing it.
++        if self.window?.windowScene == nil {
++          let windowScene = UIApplication.shared.connectedScenes
++            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
++          self.window?.windowScene = windowScene
++        }
++        self.window?.makeKeyAndVisible()
++      }
+     } else {
+       DispatchQueue.main.async { self.window?.closeBottomSheet(nil) }
+     }
