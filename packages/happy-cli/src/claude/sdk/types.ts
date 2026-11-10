@@ -230,6 +230,8 @@ export interface QueryOptions {
     forkSession?: boolean
     model?: string
     effort?: string
+    /** Auto-compact window in tokens (`--autocompact`); Claude Code only reads it at startup */
+    autoCompactWindow?: number
     fallbackModel?: string
     strictMcpConfig?: boolean
     canCallTool?: CanCallToolCallback

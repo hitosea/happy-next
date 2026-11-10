@@ -27,6 +27,11 @@ describe('enhancedModeHash decision logic', () => {
         expect(enhancedModeRestartHash(next)).not.toBe(enhancedModeRestartHash(base));
     });
 
+    it('context window change: different restart hash (cold restart with --autocompact)', () => {
+        const next: EnhancedMode = { ...base, contextWindow: 400_000 };
+        expect(enhancedModeRestartHash(next)).not.toBe(enhancedModeRestartHash(base));
+    });
+
     it('model + plan together: still same restart hash (hot swap)', () => {
         const next: EnhancedMode = { ...base, model: 'claude-sonnet-4-6', permissionMode: 'plan' };
         expect(enhancedModeRestartHash(next)).toBe(enhancedModeRestartHash(base));

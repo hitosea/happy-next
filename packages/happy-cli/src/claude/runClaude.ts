@@ -431,6 +431,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let currentPermissionMode: PermissionMode | undefined = options.permissionMode;
     let currentModel = options.model; // Track current model state
     let currentReasoningEffort: string | undefined = undefined;
+    let currentContextWindow: number | undefined = undefined;
     let currentFallbackModel: string | undefined = undefined; // Track current fallback model
     let currentCustomSystemPrompt: string | undefined = undefined; // Track current custom system prompt
     let currentAppendSystemPrompt: string | undefined = undefined; // Track current append system prompt
@@ -465,6 +466,11 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             logger.debug(`[loop] Reasoning effort updated from user message: ${messageReasoningEffort || 'reset to default'}`);
         } else {
             logger.debug(`[loop] User message received with no reasoning effort override, using current: ${currentReasoningEffort || 'default'}`);
+        }
+
+        // A context window comes with the model the app picked: a message without one runs on Claude Code's own.
+        if (message.meta?.hasOwnProperty('model')) {
+            currentContextWindow = message.meta.contextWindow || undefined;
         }
 
         // Resolve custom system prompt - use message.meta.customSystemPrompt if provided, otherwise use current
@@ -523,6 +529,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
             permissionMode: messagePermissionMode || 'default',
             model: messageModel,
             reasoningEffort: messageReasoningEffort,
+            contextWindow: currentContextWindow,
             fallbackModel: messageFallbackModel,
             customSystemPrompt: messageCustomSystemPrompt,
             appendSystemPrompt: messageAppendSystemPrompt,

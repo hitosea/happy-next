@@ -178,11 +178,29 @@ export function parseModelCatalog(data: unknown): ModelCatalog | null {
 }
 
 export function isModelMode(value: string): value is ModelMode {
-    return index.modeSet.has(value);
+    return index.modeSet.has(value) || isClaudeModeWithContextWindow(value);
 }
 
 export function isModelModeForAgent(agent: AgentFlavor, mode: string): mode is ModelMode {
-    return (index.modeSetByAgent[agent] ?? index.modeSetByAgent.codex).has(mode);
+    return (index.modeSetByAgent[agent] ?? index.modeSetByAgent.codex).has(mode)
+        || (agent === 'claude' && isClaudeModeWithContextWindow(mode));
+}
+
+/**
+ * Modes that name a context window end with `@tokens`: Qoder's (`performance:high@1000000`)
+ * and Claude's (`claude-opus-5-5-high@400000`, the auto-compact window Claude Code runs with).
+ */
+const CONTEXT_WINDOW_SEPARATOR = '@';
+
+function splitContextWindow(mode: string): { mode: string; contextWindow: number | null } {
+    const [base, suffix] = mode.split(CONTEXT_WINDOW_SEPARATOR);
+    const tokens = Number(suffix);
+    return { mode: base, contextWindow: Number.isSafeInteger(tokens) && tokens > 0 ? tokens : null };
+}
+
+function isClaudeModeWithContextWindow(mode: string): boolean {
+    const split = splitContextWindow(mode);
+    return split.contextWindow !== null && split.mode !== MODEL_MODE_DEFAULT && index.modeSetByAgent.claude.has(split.mode);
 }
 
 /** Every mode the agent accepts, `default` first. */
@@ -200,11 +218,28 @@ function parseRetiredCodexMode(mode: string): { model: string; reasoningEffort: 
     return index.retiredCodexModes.get(mode) ?? null;
 }
 
-export function parseClaudeModelMode(mode: ModelMode): { family: ClaudeModelFamily; effort: ClaudeReasoningEffort | null } {
+export function parseClaudeModelMode(modelMode: ModelMode): { family: ClaudeModelFamily; effort: ClaudeReasoningEffort | null; contextWindow: number | null } {
+    const { mode, contextWindow } = splitContextWindow(modelMode);
     const entry = index.claudeModeToSelection.get(mode);
-    if (entry) return entry;
-    if (mode === MODEL_MODE_DEFAULT) return { family: MODEL_MODE_DEFAULT, effort: null };
-    return { family: mode, effort: null };
+    if (entry) return { ...entry, contextWindow };
+    if (mode === MODEL_MODE_DEFAULT) return { family: MODEL_MODE_DEFAULT, effort: null, contextWindow: null };
+    return { family: mode, effort: null, contextWindow };
+}
+
+/** Claude Code's auto-compact window runs from 100K up to 1M; 200K and 1M are offered with one tap. */
+const CLAUDE_CONTEXT_WINDOW_MIN = 100_000;
+const CLAUDE_CONTEXT_WINDOW_MAX = 1_000_000;
+const CLAUDE_CONTEXT_WINDOW_PRESETS = [200_000, 1_000_000];
+
+/**
+ * The context windows a Claude model can run with: any size from `min` to `max` (the model's own
+ * window, at most 1M), and the `presets` among them, smallest first. Null when there is nothing to
+ * pick (a model with a 200K window, or `default`).
+ */
+export function getClaudeContextWindowOptions(family: ClaudeModelFamily): { presets: number[]; min: number; max: number } | null {
+    const max = Math.min(index.claudeFamilyModels.get(family)?.contextWindow ?? 0, CLAUDE_CONTEXT_WINDOW_MAX);
+    if (max <= CLAUDE_CONTEXT_WINDOW_PRESETS[0]) return null;
+    return { presets: CLAUDE_CONTEXT_WINDOW_PRESETS.filter((tokens) => tokens <= max), min: CLAUDE_CONTEXT_WINDOW_MIN, max };
 }
 
 export function getClaudeReasoningOptions(family: ClaudeModelFamily): readonly ClaudeReasoningEffort[] {
@@ -220,11 +255,16 @@ export function claudeSupportsFastMode(family: ClaudeModelFamily): boolean {
 export function buildClaudeModelMode(
     family: ClaudeModelFamily,
     effort: ClaudeReasoningEffort,
+    contextWindow?: number | null,
 ): ModelMode {
     if (family === MODEL_MODE_DEFAULT) return MODEL_MODE_DEFAULT;
     // Models without effort control (e.g. Haiku 4.5) always use the bare model mode.
-    if (index.claudeFamilyModels.get(family)?.efforts.length === 0) return family;
-    return `${family}-${effort}`;
+    const mode = index.claudeFamilyModels.get(family)?.efforts.length === 0 ? family : `${family}-${effort}`;
+    // A window the model can't run with is dropped, so switching models never carries one over that doesn't fit.
+    const range = getClaudeContextWindowOptions(family);
+    return contextWindow && range && contextWindow >= range.min && contextWindow <= range.max
+        ? `${mode}${CONTEXT_WINDOW_SEPARATOR}${contextWindow}`
+        : mode;
 }
 
 export function parseCodexModelMode(mode: ModelMode): { family: CodexModelFamily; effort: CodexReasoningEffort } {
@@ -252,18 +292,16 @@ export function buildCodexModelMode(
  * context window qodercli picks it: the model's default, or the one a resumed session had.
  */
 const QODER_EFFORT_SEPARATOR = ':';
-const QODER_CONTEXT_WINDOW_SEPARATOR = '@';
 
 export function buildQoderModelMode(model: string, effort: string | null | undefined, contextWindow?: number | null): ModelMode {
     const withEffort = effort ? `${model}${QODER_EFFORT_SEPARATOR}${effort}` : model;
-    return contextWindow ? `${withEffort}${QODER_CONTEXT_WINDOW_SEPARATOR}${contextWindow}` : withEffort;
+    return contextWindow ? `${withEffort}${CONTEXT_WINDOW_SEPARATOR}${contextWindow}` : withEffort;
 }
 
-export function parseQoderModelMode(mode: ModelMode): { model: string; effort: string | null; contextWindow: number | null } {
-    const [modelAndEffort, contextWindow] = mode.split(QODER_CONTEXT_WINDOW_SEPARATOR);
-    const [model, effort] = modelAndEffort.split(QODER_EFFORT_SEPARATOR);
-    const tokens = Number(contextWindow);
-    return { model, effort: effort || null, contextWindow: Number.isSafeInteger(tokens) && tokens > 0 ? tokens : null };
+export function parseQoderModelMode(modelMode: ModelMode): { model: string; effort: string | null; contextWindow: number | null } {
+    const { mode, contextWindow } = splitContextWindow(modelMode);
+    const [model, effort] = mode.split(QODER_EFFORT_SEPARATOR);
+    return { model, effort: effort || null, contextWindow };
 }
 
 function modelDisplayName(model: string): string | undefined {
@@ -273,7 +311,7 @@ function modelDisplayName(model: string): string | undefined {
 export type ModelSelection = {
     model: string | null;
     reasoningEffort: string | null;
-    /** Context window in tokens; only Qoder modes carry one. */
+    /** Context window in tokens; only Qoder and Claude modes carry one. */
     contextWindow?: number | null;
 };
 
@@ -295,7 +333,7 @@ export function resolveModelSelectionForFlavor(flavor: string | null | undefined
     if (flavor === 'claude') {
         const parsed = parseClaudeModelMode(modelMode);
         if (parsed.family === MODEL_MODE_DEFAULT) return { model: modelMode, reasoningEffort: null };
-        return { model: parsed.family, reasoningEffort: parsed.effort };
+        return { model: parsed.family, reasoningEffort: parsed.effort, ...(parsed.contextWindow ? { contextWindow: parsed.contextWindow } : {}) };
     }
     if (flavor === 'gemini') return { model: modelMode, reasoningEffort: null };
     return { model: null, reasoningEffort: null };
@@ -314,12 +352,12 @@ export function resolveLocalModelDisplay(modelMode: string | null | undefined): 
         return { model: parsedCodex.family, reasoningEffort: parsedCodex.effort };
     }
 
-    const parsedClaude = index.claudeModeToSelection.get(modelMode);
+    const parsedClaude = index.claudeModeToSelection.get(splitContextWindow(modelMode).mode);
     if (parsedClaude) {
         return { model: parsedClaude.family, reasoningEffort: parsedClaude.effort };
     }
 
-    return { model: modelMode, reasoningEffort: null };
+    return { model: splitContextWindow(modelMode).mode, reasoningEffort: null };
 }
 
 /**
@@ -403,9 +441,10 @@ export function getMaxContextSize(
 }
 
 function computeMaxContextSize(modelMode: string | null | undefined, agentFlavor: AgentFlavor | string | null | undefined, actualModel?: string | null): number {
-    // A Qoder mode names its context window when the user picked one.
-    const qoderWindow = agentFlavor === 'qoder' && modelMode ? parseQoderModelMode(modelMode).contextWindow : null;
-    if (qoderWindow) return qoderWindow;
+    // A Qoder or Claude mode names its context window when the user picked one.
+    const pickedWindow = (agentFlavor === 'qoder' || agentFlavor === 'claude') && modelMode ? splitContextWindow(modelMode).contextWindow : null;
+    if (pickedWindow) return pickedWindow;
+    if (agentFlavor === 'claude' && modelMode) modelMode = splitContextWindow(modelMode).mode;
 
     // When modelMode is "default" (CLI configured), use the actual model reported by CLI if available
     if ((!modelMode || modelMode === MODEL_MODE_DEFAULT) && actualModel) {

@@ -157,6 +157,7 @@ export async function claudeRemote(opts: {
         permissionMode: mapToClaudeMode(initial.mode.permissionMode),
         model: initial.mode.model,
         effort: initial.mode.reasoningEffort,
+        autoCompactWindow: initial.mode.contextWindow,
         fallbackModel: initial.mode.fallbackModel,
         customSystemPrompt: initial.mode.customSystemPrompt ? initial.mode.customSystemPrompt + '\n\n' + systemPrompt : undefined,
         appendSystemPrompt: initial.mode.appendSystemPrompt ? initial.mode.appendSystemPrompt + '\n\n' + systemPrompt : systemPrompt,

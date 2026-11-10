@@ -6,8 +6,11 @@ import {
     onModelCatalogChanged,
     parseModelCatalog,
     setModelCatalog,
+    buildClaudeModelMode,
     buildCodexModelMode,
     claudeSupportsFastMode,
+    getClaudeContextWindowOptions,
+    parseClaudeModelMode,
     formatModelDisplay,
     getClaudeReasoningOptions,
     getCodexReasoningOptions,
@@ -206,6 +209,26 @@ describe('modelCatalog', () => {
         expect(resolveModelSelectionForFlavor('qoder', 'dfmodel:max@1000000')).toEqual({ model: 'dfmodel', reasoningEffort: 'max', contextWindow: 1_000_000 });
         expect(resolveLocalModelDisplay('dfmodel:max@1000000')).toEqual({ model: 'dfmodel', reasoningEffort: 'max' });
         expect(getMaxContextSize('dfmodel@400000', 'qoder')).toBe(400_000);
+    });
+
+    it('carries a picked claude context window in the mode', () => {
+        expect(getClaudeContextWindowOptions('claude-opus-5-5')).toEqual({ presets: [200_000, 1_000_000], min: 100_000, max: 1_000_000 });
+        expect(getClaudeContextWindowOptions('claude-haiku-4-5')).toBeNull();
+        expect(getClaudeContextWindowOptions(MODEL_MODE_DEFAULT)).toBeNull();
+        expect(buildClaudeModelMode('claude-opus-5-5', 'high', 400_000)).toBe('claude-opus-5-5-high@400000');
+        expect(buildClaudeModelMode('claude-opus-5-5', 'high', 350_000)).toBe('claude-opus-5-5-high@350000');
+        expect(buildClaudeModelMode('claude-opus-5-5', 'high', 50_000)).toBe('claude-opus-5-5-high');
+        expect(buildClaudeModelMode('claude-opus-5-5', 'high', 1_200_000)).toBe('claude-opus-5-5-high');
+        expect(buildClaudeModelMode('claude-haiku-4-5', 'high', 400_000)).toBe('claude-haiku-4-5');
+        expect(parseClaudeModelMode('claude-opus-5-5-high@400000')).toEqual({ family: 'claude-opus-5-5', effort: 'high', contextWindow: 400_000 });
+        expect(parseClaudeModelMode('claude-opus-5-5-high')).toEqual({ family: 'claude-opus-5-5', effort: 'high', contextWindow: null });
+        expect(isModelModeForAgent('claude', 'claude-opus-5-5-high@400000')).toBe(true);
+        expect(isModelModeForAgent('claude', 'default@400000')).toBe(false);
+        expect(isModelModeForAgent('codex', 'claude-opus-5-5-high@400000')).toBe(false);
+        expect(resolveModelSelectionForFlavor('claude', 'claude-opus-5-5-high@400000')).toEqual({ model: 'claude-opus-5-5', reasoningEffort: 'high', contextWindow: 400_000 });
+        expect(resolveLocalModelDisplay('claude-opus-5-5-high@400000')).toEqual({ model: 'claude-opus-5-5', reasoningEffort: 'high' });
+        expect(getMaxContextSize('claude-opus-5-5-high@400000', 'claude')).toBe(400_000);
+        expect(getMaxContextSize('claude-opus-5-5-high', 'claude')).toBe(1_000_000);
     });
 
     it('resolves context windows for claude composite and fast model modes', () => {

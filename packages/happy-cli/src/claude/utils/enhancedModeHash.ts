@@ -27,6 +27,7 @@ export function enhancedModeQueueHash(mode: EnhancedMode): string {
 export function enhancedModeRestartHash(mode: EnhancedMode): string {
     return hashObject({
         reasoningEffort: mode.reasoningEffort,
+        contextWindow: mode.contextWindow,
         fallbackModel: mode.fallbackModel,
         customSystemPrompt: mode.customSystemPrompt,
         appendSystemPrompt: mode.appendSystemPrompt,

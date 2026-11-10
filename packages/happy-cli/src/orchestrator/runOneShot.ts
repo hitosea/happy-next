@@ -93,6 +93,9 @@ export function buildSpawnPlan(
               if (parsed.effort) {
                 baseArgs.push('--effort', parsed.effort);
               }
+              if (parsed.contextWindow) {
+                baseArgs.push('--autocompact', String(parsed.contextWindow));
+              }
             }
           } else {
             baseArgs.push('--model', normalizedModelMode);

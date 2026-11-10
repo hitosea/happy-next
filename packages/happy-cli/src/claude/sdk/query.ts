@@ -349,6 +349,7 @@ export function query(config: {
             forkSession,
             model,
             effort,
+            autoCompactWindow,
             fallbackModel,
             strictMcpConfig,
             canCallTool,
@@ -369,6 +370,7 @@ export function query(config: {
     if (maxTurns) args.push('--max-turns', maxTurns.toString())
     if (model) args.push('--model', model)
     if (effort) args.push('--effort', effort)
+    if (autoCompactWindow) args.push('--autocompact', String(autoCompactWindow))
     if (canCallTool) {
         if (typeof prompt === 'string') {
             throw new Error('canCallTool callback requires --input-format stream-json. Please set prompt as an AsyncIterable.')

@@ -16,6 +16,8 @@ export interface EnhancedMode {
     permissionMode: PermissionMode;
     model?: string;
     reasoningEffort?: string;
+    /** Context (auto-compact) window in tokens; unset leaves it to Claude Code's settings. */
+    contextWindow?: number;
     fallbackModel?: string;
     customSystemPrompt?: string;
     appendSystemPrompt?: string;
