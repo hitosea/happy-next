@@ -449,7 +449,7 @@ const colorPairsDark = [
   { tint: '#A3E635', background: '#581C87' }, // Lime → Deep purple
   { tint: '#FB7185', background: '#1F2937' }, // Coral → Dark slate
   { tint: '#FDE047', background: '#312E81' }, // Yellow → Indigo
-  { tint: '#38BDF8', background: '#020617' }, // Sky blue → Black
+  { tint: '#E2E8F0', background: '#25384A' }, // Ice white → Slate
   { tint: '#C084FC', background: '#3B0764' }, // Purple → Deep violet
 ];
 
@@ -458,7 +458,7 @@ const colorPairsLight = [
   { tint: '#A3E635', background: '#6B21A8' }, // Lime → Purple (lighter)
   { tint: '#FB7185', background: '#334155' }, // Coral → Slate (lighter)
   { tint: '#FDE047', background: '#4338CA' }, // Yellow → Blue-violet (lighter)
-  { tint: '#38BDF8', background: '#020617' }, // Sky blue → Black (anchor)
+  { tint: '#E2E8F0', background: '#25384A' }, // Ice white → Slate
   { tint: '#C084FC', background: '#581C87' }, // Purple → Violet (lighter)
 ];
 
