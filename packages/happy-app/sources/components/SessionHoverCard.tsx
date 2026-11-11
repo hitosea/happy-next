@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Platform, Pressable, TextInput, View, type ViewStyle, useWindowDimensions } from 'react-native';
 import { Ionicons, Octicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { formatModelDisplay, resolveLocalModelDisplay } from 'happy-wire';
 import { Text } from '@/components/StyledText';
@@ -98,6 +99,31 @@ function providerName(flavor: string | null | undefined): string {
     if (flavor === 'qoder') return 'Qoder';
     return flavor;
 }
+
+const providerIcons = {
+    claude: require('@/assets/images/icon-claude.png'),
+    codex: require('@/assets/images/icon-gpt.png'),
+    gemini: require('@/assets/images/icon-gemini.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
+};
+type ProviderIcon = keyof typeof providerIcons;
+
+function resolveProviderIcon(flavor: string | null | undefined): ProviderIcon {
+    if (flavor === 'codex' || flavor === 'gpt' || flavor === 'openai') return 'codex';
+    if (flavor === 'gemini') return 'gemini';
+    if (flavor === 'qoder') return 'qoder';
+    return 'claude';
+}
+
+// A faint vendor mark stamped on the card's top-right corner. Codex and Qoder fill their frames,
+// while Claude's starburst and Gemini's spark carry padding of their own, so their artwork is drawn
+// smaller to give every vendor the same ink.
+const watermarkArtworkSize: Record<ProviderIcon, number> = {
+    claude: 88,
+    codex: 74,
+    gemini: 88,
+    qoder: 78,
+};
 
 /**
  * The card's title, renamed in place: a click turns it into an input over the same box, so
@@ -238,6 +264,7 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     const model = formatModelDisplay(agentModelName(metadata, metadata?.model), metadata?.reasoningEffort)
         || formatModelDisplay(agentModelName(metadata, local.model), local.reasoningEffort);
     const agent = [providerName(metadata?.flavor), model].filter(Boolean).join(' · ');
+    const provider = resolveProviderIcon(metadata?.flavor);
 
     // The gap to the row is transparent padding on the card's own box, which starts a pixel inside
     // the row: the pointer never leaves both on its way across, so the card can hide the moment it
@@ -295,6 +322,14 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
             style={[styles.frame, bridge, settled && MOVE_TRANSITION, { left, top, opacity: cardHeight === null ? 0 : 1 }]}
         >
             <View style={styles.card}>
+                <View pointerEvents="none" style={styles.watermark}>
+                    <Image
+                        source={providerIcons[provider]}
+                        style={{ width: watermarkArtworkSize[provider], height: watermarkArtworkSize[provider] }}
+                        contentFit="contain"
+                        tintColor={theme.colors.text}
+                    />
+                </View>
                 <EditableTitle key={session.id} session={session} onEditingChange={sessionHoverCard.setEditing} />
                 <View style={styles.statusRow}>
                     <StatusDot color={status.statusDotColor} isPulsing={status.isPulsing} />
@@ -370,6 +405,14 @@ const styles = StyleSheet.create((theme) => ({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.16,
         shadowRadius: 16,
+        overflow: 'hidden',
+    },
+    // The vendor mark sits behind the card's content and is cropped by its rounded corner.
+    watermark: {
+        position: 'absolute',
+        top: -20,
+        right: -16,
+        opacity: 0.07,
     },
     title: {
         fontSize: 15,
