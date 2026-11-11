@@ -45,7 +45,7 @@ describe('modelCatalog', () => {
         expect(isModelMode('gpt-6-astra-max')).toBe(true);
         expect(isModelMode('gpt-6-astra-ultra')).toBe(true);
         expect(isModelMode('gpt-5.6-sol-ultra')).toBe(true);
-        expect(isModelMode('gpt-5.5-xhigh')).toBe(true);
+        expect(isModelMode('gpt-6-luna-xhigh')).toBe(true);
         expect(isModelMode('unknown-model')).toBe(false);
 
         expect(isModelModeForAgent('codex', 'gpt-5.6-sol-ultra')).toBe(true);
@@ -64,8 +64,8 @@ describe('modelCatalog', () => {
     });
 
     it('parses codex model mode into family and effort', () => {
-        expect(parseCodexModelMode('gpt-5.5-medium')).toEqual({
-            family: 'gpt-5.5',
+        expect(parseCodexModelMode('gpt-6-luna-medium')).toEqual({
+            family: 'gpt-6-luna',
             effort: 'medium',
         });
         expect(parseCodexModelMode('claude-opus-4-6')).toEqual({
@@ -86,7 +86,7 @@ describe('modelCatalog', () => {
 
     it('returns valid reasoning options per codex family', () => {
         expect(getCodexReasoningOptions('gpt-6-astra')).toEqual(['ultra', 'max', 'xhigh', 'high', 'medium', 'low']);
-        expect(getCodexReasoningOptions('gpt-5.5')).toEqual(['xhigh', 'high', 'medium', 'low']);
+        expect(getCodexReasoningOptions('gpt-6-luna')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
         expect(getCodexReasoningOptions('gpt-5.6-sol')).toEqual(['ultra', 'max', 'xhigh', 'high', 'medium', 'low']);
         expect(getCodexReasoningOptions('gpt-5.6-terra')).toEqual(['ultra', 'max', 'xhigh', 'high', 'medium', 'low']);
         expect(getCodexReasoningOptions('gpt-5.6-luna')).toEqual(['max', 'xhigh', 'high', 'medium', 'low']);
@@ -143,11 +143,12 @@ describe('modelCatalog', () => {
         expect(getValidModelModesForAgent('codex')[0]).toBe(MODEL_MODE_DEFAULT);
         expect(getValidModelModesForAgent('codex')).toContain('gpt-6-astra-max');
         expect(getValidModelModesForAgent('codex')).toContain('gpt-6-astra-ultra');
-        expect(getValidModelModesForAgent('codex')).toContain('gpt-5.5-high');
+        expect(getValidModelModesForAgent('codex')).toContain('gpt-6-luna-high');
     });
 
     it('drops retired codex families from the pickers but keeps old sessions resolving', () => {
         // Retired from the pickers: no longer a valid mode, no longer offered.
+        expect(isModelMode('gpt-5.5-high')).toBe(false);
         expect(isModelMode('gpt-5.4-high')).toBe(false);
         expect(isModelMode('gpt-5.4-mini-low')).toBe(false);
         expect(isModelMode('gpt-5.2-xhigh')).toBe(false);
