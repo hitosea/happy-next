@@ -14,6 +14,7 @@ import { sync } from '@/sync/sync';
 import { OrchestratorStatusBadge } from '@/components/orchestrator/OrchestratorStatusBadge';
 import { OrchestratorProgressBar } from '@/components/orchestrator/OrchestratorProgressBar';
 import { OrchestratorDuration } from '@/components/orchestrator/OrchestratorDuration';
+import { OrchestratorTimelineDot, OrchestratorTimelineHeaderLines, OrchestratorTimelineLine } from '@/components/orchestrator/OrchestratorTimeline';
 import {
     formatOrchestratorProviderLabel,
     resolveOrchestratorTaskName,
@@ -36,7 +37,7 @@ import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { headerMenuOptions } from '@/components/navigation/headerMenu';
 import { hasWebTextSelection } from '@/components/webTextSelection';
 
-// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the card it is in
+// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the row it is in
 const IS_WEB = Platform.OS === 'web';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -45,16 +46,40 @@ const stylesheet = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.groupped.background,
     },
     contentContainer: {
-        padding: 16,
         paddingBottom: 24,
-        gap: 12,
     },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        padding: 14,
+    // Flat blocks on the grouped background; an inset hairline between tasks, as in an iOS list
+    summarySection: {
+        padding: 16,
+    },
+    // Timeline rows on the grouped background: a status dot on a rail at the left, no horizontal rules
+    taskRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+    },
+    taskBody: {
+        flex: 1,
+    },
+    // The header holds the dot and the task's first line, so the dot centers on that line itself
+    timelineHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 14,
+    },
+    timelineHeaderLine: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    taskRest: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    taskRestContent: {
+        flex: 1,
+        paddingBottom: 14,
     },
     sectionTitle: {
         fontSize: 16,
@@ -84,8 +109,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 16,
         fontWeight: '700',
         color: theme.colors.text,
-        marginTop: 4,
-        paddingLeft: 4,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 4,
     },
     taskHeader: {
         flexDirection: 'row',
@@ -342,7 +368,7 @@ export default function OrchestratorRunDetailScreen() {
                     { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' },
                 ]}
             >
-                <View style={styles.card}>
+                <View style={styles.summarySection}>
                     <View style={styles.taskHeader}>
                         <Text selectable={IS_WEB} style={styles.title}>{run.title}</Text>
                         <OrchestratorStatusBadge status={run.status} />
@@ -371,52 +397,66 @@ export default function OrchestratorRunDetailScreen() {
                 </View>
 
                 <Text selectable={IS_WEB} style={styles.sectionLabel}>{t('settings.orchestratorTasksTitle')}</Text>
-                {(run.tasks ?? []).map((task) => {
+                {(run.tasks ?? []).map((task, index, allTasks) => {
                     const attempt = resolveOrchestratorAttemptDisplay(task);
                     const providerLabel = formatOrchestratorProviderLabel(task);
                     const outputSummary = sanitizeOrchestratorOutputSummary(task.outputSummary);
                     return (
                         <Pressable
                             key={task.taskId}
-                            style={styles.card}
+                            style={styles.taskRow}
                             onPress={() => !hasWebTextSelection() && router.push(`/orchestrator/${run.runId}/task/${task.taskId}`)}
                         >
-                            <View style={styles.taskHeader}>
-                                <Text selectable={IS_WEB} style={styles.taskTitle} numberOfLines={1}>
-                                    #{task.seq} {resolveOrchestratorTaskName(task) ?? t('settings.orchestratorProviderTask', { provider: task.provider })}
-                                </Text>
-                                <OrchestratorStatusBadge status={task.status} />
-                            </View>
-                            <Text selectable={IS_WEB} style={styles.taskMeta}>
-                                {t('settings.orchestratorTaskMeta', { provider: providerLabel, current: attempt.current, max: attempt.max })}
-                            </Text>
-                            {(() => {
-                                const machineId = resolveTaskMachineId(task);
-                                return machineId ? (
-                                    <Text selectable={IS_WEB} style={styles.taskMeta}>
-                                        {t('settings.orchestratorLabelMachine')}: {resolveMachineName(machineId, machineNameMap)}
-                                    </Text>
-                                ) : null;
-                            })()}
-                            <OrchestratorDuration
-                                style={styles.taskMeta}
-                                label={t('settings.orchestratorLabelDuration')}
-                                live={task.status === 'running'}
-                                resolve={(now) => resolveTaskDurationMs(task, now)}
-                            />
-                            {task.taskKey ? (
-                                <Text selectable={IS_WEB} style={styles.taskMeta}>{t('settings.orchestratorLabelTaskKey')}: {task.taskKey}</Text>
-                            ) : null}
-                            {task.dependsOn.length > 0 ? (
-                                <View style={styles.depWrap}>
-                                    {task.dependsOn.map((dependencyKey) => (
-                                        <View key={`${task.taskId}-${dependencyKey}`} style={styles.depPill}>
-                                            <Text selectable={IS_WEB} style={styles.depText}>{t('settings.orchestratorDependsOnKey', { key: dependencyKey })}</Text>
-                                        </View>
-                                    ))}
+                            <View style={styles.taskBody}>
+                                <View style={styles.timelineHeader}>
+                                    <OrchestratorTimelineHeaderLines
+                                        above={index > 0}
+                                        below={index < allTasks.length - 1}
+                                    />
+                                    <OrchestratorTimelineDot status={task.status} />
+                                    <View style={styles.timelineHeaderLine}>
+                                        <Text selectable={IS_WEB} style={styles.taskTitle} numberOfLines={1}>
+                                            #{task.seq} {resolveOrchestratorTaskName(task) ?? t('settings.orchestratorProviderTask', { provider: task.provider })}
+                                        </Text>
+                                        <OrchestratorStatusBadge status={task.status} />
+                                    </View>
                                 </View>
-                            ) : null}
-                            {outputSummary ? <Text selectable={IS_WEB} style={styles.outputSummary}>{outputSummary}</Text> : null}
+                                <View style={styles.taskRest}>
+                                    <OrchestratorTimelineLine visible={index < allTasks.length - 1} />
+                                    <View style={styles.taskRestContent}>
+                                        <Text selectable={IS_WEB} style={styles.taskMeta}>
+                                            {t('settings.orchestratorTaskMeta', { provider: providerLabel, current: attempt.current, max: attempt.max })}
+                                        </Text>
+                                        {(() => {
+                                            const machineId = resolveTaskMachineId(task);
+                                            return machineId ? (
+                                                <Text selectable={IS_WEB} style={styles.taskMeta}>
+                                                    {t('settings.orchestratorLabelMachine')}: {resolveMachineName(machineId, machineNameMap)}
+                                                </Text>
+                                            ) : null;
+                                        })()}
+                                        <OrchestratorDuration
+                                            style={styles.taskMeta}
+                                            label={t('settings.orchestratorLabelDuration')}
+                                            live={task.status === 'running'}
+                                            resolve={(now) => resolveTaskDurationMs(task, now)}
+                                        />
+                                        {task.taskKey ? (
+                                            <Text selectable={IS_WEB} style={styles.taskMeta}>{t('settings.orchestratorLabelTaskKey')}: {task.taskKey}</Text>
+                                        ) : null}
+                                        {task.dependsOn.length > 0 ? (
+                                            <View style={styles.depWrap}>
+                                                {task.dependsOn.map((dependencyKey) => (
+                                                    <View key={`${task.taskId}-${dependencyKey}`} style={styles.depPill}>
+                                                        <Text selectable={IS_WEB} style={styles.depText}>{t('settings.orchestratorDependsOnKey', { key: dependencyKey })}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        ) : null}
+                                        {outputSummary ? <Text selectable={IS_WEB} style={styles.outputSummary}>{outputSummary}</Text> : null}
+                                    </View>
+                                </View>
+                            </View>
                         </Pressable>
                     );
                 })}

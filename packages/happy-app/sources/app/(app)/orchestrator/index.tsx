@@ -12,6 +12,7 @@ import { OrchestratorRunFilterSheet, ORCHESTRATOR_RUN_KIND_ICONS, ORCHESTRATOR_R
 import { sync } from '@/sync/sync';
 import { OrchestratorStatusBadge } from '@/components/orchestrator/OrchestratorStatusBadge';
 import { OrchestratorProgressBar } from '@/components/orchestrator/OrchestratorProgressBar';
+import { OrchestratorTimelineDot, OrchestratorTimelineHeaderLines, OrchestratorTimelineLine } from '@/components/orchestrator/OrchestratorTimeline';
 import { Ionicons } from '@expo/vector-icons';
 import { resolveOrchestratorSummaryLineData, resolveMachineName, resolveOrchestratorRunKind } from '@/components/orchestrator/display';
 import { useMachineNameMap } from '@/hooks/useMachineNameMap';
@@ -26,7 +27,7 @@ import { getSessionName } from '@/utils/sessionUtils';
 import { hasWebTextSelection } from '@/components/webTextSelection';
 import { useOrchestratorSessionFacets } from '@/hooks/useOrchestratorSessionFacets';
 
-// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the card it is in
+// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the row it is in
 const IS_WEB = Platform.OS === 'web';
 
 type RunListItem = Pick<OrchestratorRunDetail, 'runId' | 'title' | 'status' | 'createdAt' | 'updatedAt' | 'summary' | 'machines' | 'providers'>;
@@ -74,26 +75,36 @@ const stylesheet = StyleSheet.create((theme) => ({
         color: theme.colors.button.primary.tint,
     },
     listContent: {
-        paddingHorizontal: 16,
         paddingBottom: 24,
     },
-    listHeader: {
-        // The filter bar keeps its own side padding, so it undoes the list's.
-        marginHorizontal: -16,
+    // Timeline rows on the grouped background: a status dot on a rail at the left, no horizontal rules
+    row: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
     },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        padding: 14,
-        marginBottom: 10,
+    rowBody: {
+        flex: 1,
     },
+    // The header holds the dot and the title on one flex line, so the dot centers on that line itself
     cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 14,
+    },
+    cardHeaderLine: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 8,
+    },
+    rowRest: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    rowRestContent: {
+        flex: 1,
+        paddingBottom: 14,
     },
     title: {
         flex: 1,
@@ -290,12 +301,18 @@ export default function OrchestratorRunsScreen() {
         };
     }, [fetchRuns]));
 
-    const renderRunItem = React.useCallback(({ item }: { item: RunListItem; }) => {
+    // Titles are sealed end to end, so the server can't search them: the search narrows the runs loaded so far
+    const searchQuery = searchText.trim().toLowerCase();
+    const visibleRuns = React.useMemo(() => (
+        searchQuery ? runs.filter((run) => run.title.toLowerCase().includes(searchQuery)) : runs
+    ), [runs, searchQuery]);
+
+    const renderRunItem = React.useCallback(({ item, index }: { item: RunListItem; index: number; }) => {
         const summaryLine = resolveOrchestratorSummaryLineData(item.summary);
         const kind = resolveOrchestratorRunKind(item.providers);
         return (
             <Pressable
-                style={styles.card}
+                style={styles.row}
                 onPress={() => !hasWebTextSelection() && router.push({
                     pathname: '/orchestrator/[runId]',
                     params: {
@@ -304,34 +321,48 @@ export default function OrchestratorRunsScreen() {
                     },
                 })}
             >
-                <View style={styles.cardHeader}>
-                    {kind ? <Ionicons name={ORCHESTRATOR_RUN_KIND_ICONS[kind]} size={16} color={theme.colors.textSecondary} /> : null}
-                    <Text selectable={IS_WEB} style={styles.title} numberOfLines={1}>{item.title}</Text>
-                    <OrchestratorStatusBadge status={item.status} />
+                <View style={styles.rowBody}>
+                    <View style={styles.cardHeader}>
+                        <OrchestratorTimelineHeaderLines
+                            above={index > 0}
+                            below={index < visibleRuns.length - 1}
+                        />
+                        <OrchestratorTimelineDot status={item.status} />
+                        <View style={styles.cardHeaderLine}>
+                            {kind ? <Ionicons name={ORCHESTRATOR_RUN_KIND_ICONS[kind]} size={16} color={theme.colors.textSecondary} /> : null}
+                            <Text selectable={IS_WEB} style={styles.title} numberOfLines={1}>{item.title}</Text>
+                            <OrchestratorStatusBadge status={item.status} />
+                        </View>
+                    </View>
+                    <View style={styles.rowRest}>
+                        <OrchestratorTimelineLine visible={index < visibleRuns.length - 1} />
+                        <View style={styles.rowRestContent}>
+                            <Text selectable={IS_WEB} style={styles.meta}>
+                                {t('settings.orchestratorUpdatedTime', { time: formatDate(item.updatedAt) })}
+                            </Text>
+                            <View style={styles.progressRow}>
+                                <OrchestratorProgressBar summary={item.summary} />
+                                <Text selectable={IS_WEB} style={styles.summary}>
+                                    {t('settings.orchestratorSummaryLine', {
+                                        total: summaryLine.total,
+                                        running: summaryLine.running,
+                                        completed: summaryLine.completed,
+                                        failed: summaryLine.failed,
+                                        cancelled: summaryLine.cancelled,
+                                    })}
+                                </Text>
+                            </View>
+                            {item.machines && item.machines.length > 0 ? (
+                                <Text selectable={IS_WEB} style={styles.meta}>
+                                    {t('settings.orchestratorRunMachines')}: {item.machines.map((id) => resolveMachineName(id, machineNameMap)).join(', ')}
+                                </Text>
+                            ) : null}
+                        </View>
+                    </View>
                 </View>
-                <Text selectable={IS_WEB} style={styles.meta}>
-                    {t('settings.orchestratorUpdatedTime', { time: formatDate(item.updatedAt) })}
-                </Text>
-                <View style={styles.progressRow}>
-                    <OrchestratorProgressBar summary={item.summary} />
-                    <Text selectable={IS_WEB} style={styles.summary}>
-                        {t('settings.orchestratorSummaryLine', {
-                            total: summaryLine.total,
-                            running: summaryLine.running,
-                            completed: summaryLine.completed,
-                            failed: summaryLine.failed,
-                            cancelled: summaryLine.cancelled,
-                        })}
-                    </Text>
-                </View>
-                {item.machines && item.machines.length > 0 ? (
-                    <Text selectable={IS_WEB} style={styles.meta}>
-                        {t('settings.orchestratorRunMachines')}: {item.machines.map((id) => resolveMachineName(id, machineNameMap)).join(', ')}
-                    </Text>
-                ) : null}
             </Pressable>
         );
-    }, [router, styles, theme, machineNameMap]);
+    }, [router, styles, theme, machineNameMap, visibleRuns.length]);
 
     const listEmpty = React.useMemo(() => {
         if (loading) {
@@ -355,12 +386,6 @@ export default function OrchestratorRunsScreen() {
             </View>
         );
     }, [loading, styles, error, isConversationScoped, statusFilter, kindFilter, machineFilter, searchText]);
-
-    // Titles are sealed end to end, so the server can't search them: the search narrows the runs loaded so far
-    const searchQuery = searchText.trim().toLowerCase();
-    const visibleRuns = React.useMemo(() => (
-        searchQuery ? runs.filter((run) => run.title.toLowerCase().includes(searchQuery)) : runs
-    ), [runs, searchQuery]);
 
     // The drawer's filters, as the button that opens it names them once any is set
     const filterMachine = machineFilter ? filterMachines.find((item) => item.id === machineFilter) : undefined;
@@ -431,7 +456,7 @@ export default function OrchestratorRunsScreen() {
                 ListEmptyComponent={listEmpty}
                 // Under the see-through iOS header the filters scroll with the list: pinned, they
                 // would sit on the runs with no backdrop right under the header's soft edge.
-                ListHeaderComponent={useNativeSoftHeader ? <View style={styles.listHeader}>{filterBar}</View> : undefined}
+                ListHeaderComponent={useNativeSoftHeader ? filterBar : undefined}
             />
     );
 

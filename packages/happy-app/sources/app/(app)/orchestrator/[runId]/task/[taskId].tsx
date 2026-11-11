@@ -11,6 +11,7 @@ import { getOrchestratorTask, type OrchestratorExecutionRecord, type Orchestrato
 import { sync } from '@/sync/sync';
 import { OrchestratorStatusBadge } from '@/components/orchestrator/OrchestratorStatusBadge';
 import { OrchestratorDuration } from '@/components/orchestrator/OrchestratorDuration';
+import { OrchestratorTimelineDot, OrchestratorTimelineHeaderLines, OrchestratorTimelineLine } from '@/components/orchestrator/OrchestratorTimeline';
 import {
     formatOrchestratorProviderLabel,
     parseOrchestratorTransferSpec,
@@ -31,7 +32,7 @@ import { softHeaderOptions } from '@/components/navigation/softHeader';
 import { hasWebTextSelection } from '@/components/webTextSelection';
 import { CopyableText } from '@/components/LongPressCopy';
 
-// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the card it is in
+// Mouse users copy what they select here (the desktop app is web too); a drag-select must not count as a tap on the row it is in
 const IS_WEB = Platform.OS === 'web';
 
 const stylesheet = StyleSheet.create((theme) => ({
@@ -40,15 +41,11 @@ const stylesheet = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.groupped.background,
     },
     contentContainer: {
-        padding: 16,
         paddingBottom: 24,
     },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme.colors.divider,
-        padding: 14,
+    // Flat blocks on the grouped background; an inset hairline between executions, as in an iOS list
+    headerSection: {
+        padding: 16,
     },
     sectionTitle: {
         fontSize: 16,
@@ -84,15 +81,9 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontSize: 16,
         fontWeight: '700',
         color: theme.colors.text,
-        marginTop: 16,
-        marginBottom: 12,
-        paddingLeft: 4,
-    },
-    executionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 8,
     },
     executionHeaderStatus: {
         flexDirection: 'row',
@@ -103,18 +94,13 @@ const stylesheet = StyleSheet.create((theme) => ({
         backgroundColor: theme.colors.groupped.background,
         zIndex: 1,
     },
-    executionSectionGap: {
-        height: 12,
-        backgroundColor: theme.colors.groupped.background,
+    // Timeline rows: the dot rides a rail at the left, the block below it keeps the row's bottom padding
+    executionRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
     },
-    executionHeaderCardExpanded: {
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
-        borderBottomWidth: 0,
-    },
-    executionDetailsCard: {
-        borderTopLeftRadius: 0,
-        borderTopRightRadius: 0,
+    executionBody: {
+        flex: 1,
     },
     executionTitle: {
         flex: 1,
@@ -122,8 +108,36 @@ const stylesheet = StyleSheet.create((theme) => ({
         fontWeight: '600',
         color: theme.colors.text,
     },
+    // The header holds the dot and the attempt's first line, so the dot centers on that line itself
+    executionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 14,
+    },
+    executionHeaderLine: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    executionRest: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    executionRestContent: {
+        flex: 1,
+        paddingBottom: 14,
+    },
+    executionDetailsRow: {
+        flexDirection: 'row',
+        gap: 10,
+        paddingHorizontal: 16,
+    },
     executionDetails: {
-        paddingTop: 2,
+        flex: 1,
+        paddingTop: 4,
+        paddingBottom: 14,
     },
     executionDuration: {
         fontSize: 12,
@@ -354,7 +368,7 @@ export default function OrchestratorTaskDetailScreen() {
     const taskPrompt = transferSpec
         ? `${resolveMachineName(transferSpec.sourceMachineId, machineNameMap)}:${transferSpec.sourcePath} → ${transferSpec.targetPath}${transferSpec.overwrite ? ' (overwrite)' : ''}`
         : task.prompt;
-    const executionSections: Array<{
+    const attemptSections: Array<{
         key: string;
         execution: OrchestratorExecutionRecord | null;
         data: string[];
@@ -365,6 +379,12 @@ export default function OrchestratorTaskDetailScreen() {
             data: [execution.executionId],
         }))
         : [{ key: 'pending', execution: null, data: ['pending'] }];
+    // Newest attempt first: the rail's first node hides the line above it, the last one the line below
+    const executionSections = attemptSections.map((section, index) => ({
+        ...section,
+        first: index === 0,
+        last: index === attemptSections.length - 1,
+    }));
 
     const toggleExecution = (executionId: string) => {
         setExpandedExecutionIds((current) => {
@@ -396,7 +416,7 @@ export default function OrchestratorTaskDetailScreen() {
                 ]}
                 ListHeaderComponent={(
                     <>
-                        <View style={styles.card}>
+                        <View style={styles.headerSection}>
                             <View style={styles.header}>
                                 <Text selectable={IS_WEB} style={styles.title} numberOfLines={1}>{buildTaskTitle(task)}</Text>
                                 <OrchestratorStatusBadge status={task.status} />
@@ -430,20 +450,29 @@ export default function OrchestratorTaskDetailScreen() {
                     return (
                         <View style={styles.executionStickyHeader}>
                             <Pressable
-                                style={[styles.card, styles.executionHeaderCardExpanded]}
+                                style={styles.executionRow}
                                 onPress={() => !hasWebTextSelection() && toggleExecution(executionId)}
                             >
-                                <View style={styles.executionHeader}>
-                                    <Text selectable={IS_WEB} style={styles.executionTitle}>
-                                        {t('settings.orchestratorAttemptTitle', { attempt, machineId })}
-                                    </Text>
-                                    <View style={styles.executionHeaderStatus}>
-                                        <OrchestratorStatusBadge status={status} />
-                                        <Ionicons
-                                            name="chevron-up"
-                                            size={18}
-                                            color={theme.colors.textSecondary}
+                                <View style={styles.executionBody}>
+                                    <View style={styles.executionHeaderRow}>
+                                        <OrchestratorTimelineHeaderLines
+                                            above={!section.first}
+                                            below={!section.last}
                                         />
+                                        <OrchestratorTimelineDot status={status} />
+                                        <View style={styles.executionHeaderLine}>
+                                            <Text selectable={IS_WEB} style={styles.executionTitle}>
+                                                {t('settings.orchestratorAttemptTitle', { attempt, machineId })}
+                                            </Text>
+                                            <View style={styles.executionHeaderStatus}>
+                                                <OrchestratorStatusBadge status={status} />
+                                                <Ionicons
+                                                    name="chevron-up"
+                                                    size={18}
+                                                    color={theme.colors.textSecondary}
+                                                />
+                                            </View>
+                                        </View>
                                     </View>
                                 </View>
                             </Pressable>
@@ -458,35 +487,50 @@ export default function OrchestratorTaskDetailScreen() {
                         const status = execution?.status ?? task.status;
                         const summary = execution ? sanitizeOrchestratorOutputSummary(execution.outputSummary) : null;
                         return (
-                            <Pressable style={styles.card} onPress={() => !hasWebTextSelection() && toggleExecution(section.key)}>
-                                <View style={styles.executionHeader}>
-                                    <Text selectable={IS_WEB} style={styles.executionTitle}>
-                                        {t('settings.orchestratorAttemptTitle', { attempt, machineId })}
-                                    </Text>
-                                    <View style={styles.executionHeaderStatus}>
-                                        {execution ? (
-                                            <OrchestratorDuration
-                                                style={styles.executionDuration}
-                                                live={execution.status === 'running'}
-                                                resolve={(now) => resolveExecutionDurationMs(execution, now)}
-                                            />
-                                        ) : null}
-                                        <OrchestratorStatusBadge status={status} />
-                                        <Ionicons
-                                            name="chevron-down"
-                                            size={18}
-                                            color={theme.colors.textSecondary}
+                            <Pressable style={styles.executionRow} onPress={() => !hasWebTextSelection() && toggleExecution(section.key)}>
+                                <View style={styles.executionBody}>
+                                    <View style={styles.executionHeaderRow}>
+                                        <OrchestratorTimelineHeaderLines
+                                            above={!section.first}
+                                            below={!section.last}
                                         />
+                                        <OrchestratorTimelineDot status={status} />
+                                        <View style={styles.executionHeaderLine}>
+                                            <Text selectable={IS_WEB} style={styles.executionTitle}>
+                                                {t('settings.orchestratorAttemptTitle', { attempt, machineId })}
+                                            </Text>
+                                            <View style={styles.executionHeaderStatus}>
+                                                {execution ? (
+                                                    <OrchestratorDuration
+                                                        style={styles.executionDuration}
+                                                        live={execution.status === 'running'}
+                                                        resolve={(now) => resolveExecutionDurationMs(execution, now)}
+                                                    />
+                                                ) : null}
+                                                <OrchestratorStatusBadge status={status} />
+                                                <Ionicons
+                                                    name="chevron-down"
+                                                    size={18}
+                                                    color={theme.colors.textSecondary}
+                                                />
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <View style={styles.executionRest}>
+                                        <OrchestratorTimelineLine visible={!section.last} />
+                                        <View style={styles.executionRestContent}>
+                                            {summary ? <Text selectable={IS_WEB} style={styles.summaryPreview} numberOfLines={2}>{summary}</Text> : null}
+                                        </View>
                                     </View>
                                 </View>
-                                {summary ? <Text selectable={IS_WEB} style={styles.summaryPreview} numberOfLines={2}>{summary}</Text> : null}
                             </Pressable>
                         );
                     }
 
                     if (!execution) {
                         return (
-                            <View style={[styles.card, styles.executionDetailsCard]}>
+                            <View style={styles.executionDetailsRow}>
+                                <OrchestratorTimelineLine visible={!section.last} />
                                 <View style={styles.executionDetails}>
                                     <Text selectable={IS_WEB} style={[styles.detailLabel, { marginTop: 0 }]}>{promptLabel}</Text>
                                     <MonoText text={taskPrompt} />
@@ -497,7 +541,8 @@ export default function OrchestratorTaskDetailScreen() {
 
                     const executionPrompt = resolveOrchestratorExecutionPrompt(taskPrompt, execution);
                     return (
-                        <View style={[styles.card, styles.executionDetailsCard]}>
+                        <View style={styles.executionDetailsRow}>
+                            <OrchestratorTimelineLine visible={!section.last} />
                             <View style={styles.executionDetails}>
                                 <Text selectable={IS_WEB} style={styles.row}>{t('settings.orchestratorLabelStarted')}: {formatDate(execution.startedAt)}</Text>
                                 <Text selectable={IS_WEB} style={styles.row}>{t('settings.orchestratorLabelFinished')}: {formatDate(execution.finishedAt)}</Text>
@@ -518,7 +563,6 @@ export default function OrchestratorTaskDetailScreen() {
                         </View>
                     );
                 }}
-                renderSectionFooter={() => <View style={styles.executionSectionGap} />}
                 ListFooterComponent={error ? <Text selectable={IS_WEB} style={styles.errorText}>{error}</Text> : null}
             />
         </View>
