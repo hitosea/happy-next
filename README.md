@@ -360,6 +360,10 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 - A running delegated task on a folded line is named by the chat header's own icon
 - Pending message details keep the dark theme background
+- Claude now shows the notices it sends — information, retries, refusals and model fallbacks, denied permissions with a reason, killed agents — keeps its Task card and session title in step, and reports rate-limit warnings once per window
+- Orchestrator runs, tasks and attempts hang off one continuous timeline with status dots; folded lines are cut in the middle so the part that tells two steps apart stays visible
+- The session hover card stamps the agent's mark faintly beside the title, and commit details, session info and Settings open directly on the page instead of white cards
+- The fifth avatar pair is ice-white on a slate disc, and 43 thin-line icons no longer fade at small sizes
 
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
@@ -403,6 +407,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.16.1 describes the orchestrator and `preview_html` tools more accurately, so agents pick the right working directory and prefer a file path for HTML previews
 
 - Happy CLI v0.18.0 shows what Codex used to drop — generated images, plans, hook runs, review decisions, warnings, thread metadata, `/review` markers and sleeps — warns before a Codex quota runs out, and shows Qoder's plan as steps
+- Happy CLI v0.19.0 surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so an upgrade fails a test instead of dropping them
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing

@@ -85,6 +85,7 @@ A multi-agent orchestration system that lets you define task dependency graphs a
 - **Run search and filters**: search runs by title and filter them by status, agent and machine, each run showing its agent's icon
 - **Selectable text**: text on the orchestrator pages can be selected and copied on web and desktop
 - **Conversation run filter**: opened from a conversation, the run filter lists only the machines and executor kinds its runs used
+- **Run timeline**: runs, tasks and attempts hang off one continuous rail with status dots — filled for running and done, rings for queued and cancelled — instead of separate cards
 
 ## Pending Message Queue
 
@@ -147,6 +148,8 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Codex output that was being dropped**: a generated image becomes a step whose preview opens, a finished plan becomes the turn's answer when the reply did not repeat it, hook runs fold into steps named by their event, and a refused or high-risk "Approve for me" decision reports its action and reason
 - **Codex session metadata and notices**: Codex's own title and `/model` switches reach the session metadata (a pinned title still wins), warnings appear as notices, `/review` gets start and end markers, and a sleep shows as a timed step
 - **Qoder plans as steps**: the plan Qoder reports appears as TodoWrite steps, one per changed snapshot
+- **Claude notices**: information, retry attempts, refusals and model fallbacks, permission denials with their reason, oversized rule files and killed agents appear as one-line notices, and rate-limit warnings report once per window
+- **Claude Task card and title**: the Task card follows progress without restarting its clock and closes when the task ends, Claude's own title reaches session metadata unless you pinned one, the history list uses Claude's titles, and running out of turns ends with a notice
 
 ## GitHub Integration
 - **Repository navigation**: browse connected repositories and navigate directly to GitHub-backed work from the app
@@ -438,6 +441,9 @@ Extensive improvements to the chat and session management experience.
 - **Full-page composer**: long text opens on a page of its own, with a send button at the bottom
 - **Videos from the library**: the Library entry takes videos too, uploaded to the session's machine as files
 - **Delegated task icon**: a running delegated task on a folded line is named by the chat header's own icon — the one its "+" turns into once a conversation has delegations — instead of repeating "delegated task"
+- **Mid-cut fold lines**: a folded line's path, command or search is cut in the middle, so the file or flag that tells two steps apart stays visible
+- **Vendor watermark**: the session hover card stamps the agent's mark faintly beside the title, cropped by the card's corner
+- **Commit details on the page**: the commit detail page lays the message, totals and changed files directly on the surface, as rows matching the commit list
 
 ## CLI Improvements
 
@@ -507,6 +513,8 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 
 - **Happy CLI v0.18.0**: shows what Codex used to drop — generated images, finished plans, hook runs, review decisions, warnings, thread titles and `/model` switches, `/review` markers and sleeps — warns before a Codex account's quota runs out, and shows Qoder's plan as TodoWrite steps
 
+- **Happy CLI v0.19.0**: surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so a CLI upgrade fails a test instead of dropping them
+
 ## Server
 
 - **v3 messages API** with batch seq allocation and cursor pagination
@@ -536,6 +544,8 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Status bar**: expanded model/permission display, auto-collapse timeout, mobile mic button
 - **System font**: text is set in the system font, so Chinese takes the same weights as Latin
 - **Flat lists**: the inbox, DooTask and GitHub lists lie flat like the session list
+- **Flat page headers**: session info and Settings open under the page's own header instead of a rounded white card
+- **Avatars at small sizes**: the fifth brutalist pair is ice-white on a slate disc instead of sky blue on near-black, and 43 thin-line icons are redrawn so they no longer fade at 24pt
 
 - **Vendor mark**: a small logo derived from the session's flavor — the same source the model list uses — sits in front of the model's short label, so a session's vendor no longer needs the model list opened to be known
 - **SVG wordmark**: the desktop sidebar, the welcome screen and the settings logo view draw the brand wordmark from the outlined SVG exports instead of rasterised PNGs
