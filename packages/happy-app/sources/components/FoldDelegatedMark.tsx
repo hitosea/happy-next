@@ -1,24 +1,23 @@
 import * as React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
-import { t } from '@/text';
 import { TextShimmer } from './TextShimmer';
 
 /**
- * What a folded line says at its far end when a delegated task it hides is still running: "delegated task"
- * and what the task was asked to do, the title carrying the same band of light the line's snapshot has,
- * or a spinner in its place when the call carried no title. Only ever drawn where there is no snapshot.
+ * What a folded line says at its far end when a delegated task it hides is still running: the icon
+ * the chat header wears once a conversation has delegations, and what the task was asked to do, the
+ * title carrying the same band of light the line's snapshot has, or a spinner in its place when the
+ * call carried no title. Only ever drawn where there is no snapshot.
  *
- * The prefix is what keeps this from reading as the turn still going. The line's duration has stopped
+ * The icon is what keeps this from reading as the turn still going. The line's duration has stopped
  * with the turn and the task runs on without it, so the far end has to say it is a different thing.
  */
 export const FoldDelegatedMark = React.memo((props: { label: string | null }) => {
     const { theme } = useUnistyles();
     return (
         <View style={styles.row}>
-            <Text style={styles.prefix} numberOfLines={1}>
-                {props.label ? `${t('message.delegatedTask')} ·` : t('message.delegatedTask')}
-            </Text>
+            <Ionicons name="layers-outline" size={12} color={theme.colors.textSecondary} style={styles.icon} />
             {props.label ? (
                 <TextShimmer
                     style={styles.label}
@@ -45,10 +44,8 @@ const styles = StyleSheet.create((theme) => ({
         marginLeft: 'auto',
         paddingLeft: 12,
     },
-    prefix: {
+    icon: {
         flexShrink: 0,
-        fontSize: 12,
-        color: theme.colors.textSecondary,
         opacity: 0.7,
     },
     label: {
