@@ -1,12 +1,9 @@
 import * as React from 'react';
-import { View, ActivityIndicator, Pressable } from 'react-native';
+import { View, ActivityIndicator, Pressable, Platform, ScrollView } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/StyledText';
-import { Item } from '@/components/Item';
-import { ItemList } from '@/components/ItemList';
-import { ItemGroup } from '@/components/ItemGroup';
 import { Typography } from '@/constants/Typography';
 import { sessionBash } from '@/sync/ops';
 import { getSession } from '@/sync/storage';
@@ -229,104 +226,172 @@ export default function CommitScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.groupped?.background || theme.colors.surface }]}>
+        <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
             {headerActions}
-            <ItemList style={{ flex: 1 }}>
-                {/* Commit message */}
-                <ItemGroup>
-                    <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-                        <Text selectable={selectable} style={{
-                            fontSize: 17,
-                            fontWeight: '600',
-                            color: theme.colors.text,
-                            marginBottom: commitDetail.body ? 8 : 4,
-                            ...Typography.default('semiBold'),
-                        }}>
-                            {commitDetail.title}
+            <ScrollView
+                contentInsetAdjustmentBehavior="automatic"
+                contentContainerStyle={[
+                    styles.content,
+                    { maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' },
+                ]}
+            >
+                <View style={styles.summary}>
+                    <Text selectable={selectable} style={styles.title}>{commitDetail.title}</Text>
+                    {commitDetail.body ? (
+                        <Text selectable={selectable} style={styles.body}>{commitDetail.body}</Text>
+                    ) : null}
+                    <View style={styles.metaRow}>
+                        <Text selectable={selectable} style={styles.hash}>{commitDetail.shortHash}</Text>
+                        <Text style={styles.metaSeparator}>·</Text>
+                        <Text selectable={selectable} style={styles.meta} numberOfLines={1}>
+                            {commitDetail.author} · {formatRelativeTime(commitDetail.date)}
                         </Text>
-                        {commitDetail.body ? (
-                            <Text selectable={selectable} style={{
-                                fontSize: 14,
-                                color: theme.colors.textSecondary,
-                                marginBottom: 8,
-                                lineHeight: 20,
-                                ...Typography.default(),
-                            }}>
-                                {commitDetail.body}
-                            </Text>
-                        ) : null}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                            <Text selectable={selectable} style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.mono() }}>
-                                {commitDetail.shortHash}
-                            </Text>
-                            <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginHorizontal: 6, ...Typography.default() }}>
-                                ·
-                            </Text>
-                            <Text selectable={selectable} style={{ fontSize: 13, color: theme.colors.textSecondary, ...Typography.default() }}>
-                                {commitDetail.author} · {formatRelativeTime(commitDetail.date)}
-                            </Text>
+                    </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.filesHeader}>
+                    <Text style={styles.filesTitle}>{t('commits.filesChanged', { count: files.length })}</Text>
+                    <View style={styles.totals}>
+                        {totalAdditions > 0 && <Text style={styles.additions}>+{totalAdditions}</Text>}
+                        {totalDeletions > 0 && <Text style={styles.deletions}>-{totalDeletions}</Text>}
+                    </View>
+                </View>
+
+                {files.map((file, index) => (
+                    <Pressable
+                        key={file.filePath}
+                        onPress={() => handleFilePress(file)}
+                        style={[styles.fileRow, index < files.length - 1 && styles.fileRowDivider]}
+                    >
+                        <FileIcon fileName={file.fileName} size={29} />
+                        <View style={styles.fileContent}>
+                            <Text style={styles.fileName} numberOfLines={1}>{file.fileName}</Text>
+                            <Text style={styles.filePath} numberOfLines={1} ellipsizeMode="middle">{file.filePath}</Text>
                         </View>
-                    </View>
-                </ItemGroup>
-
-                {/* Stats summary */}
-                <ItemGroup>
-                    <View style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        <Text style={{ fontSize: 14, color: theme.colors.text, ...Typography.default() }}>
-                            {t('commits.filesChanged', { count: files.length })}
-                        </Text>
-                        {totalAdditions > 0 && (
-                            <Text style={{ fontSize: 14, color: '#34C759', ...Typography.default() }}>
-                                +{totalAdditions}
-                            </Text>
-                        )}
-                        {totalDeletions > 0 && (
-                            <Text style={{ fontSize: 14, color: '#FF3B30', ...Typography.default() }}>
-                                -{totalDeletions}
-                            </Text>
-                        )}
-                    </View>
-                </ItemGroup>
-
-                {/* Changed files */}
-                <ItemGroup>
-                    {files.map((file, index) => {
-                        return (
-                            <Item
-                                key={file.filePath}
-                                title={file.fileName}
-                                subtitle={file.filePath}
-                                icon={<FileIcon fileName={file.fileName} size={29} />}
-                                rightElement={
-                                    <View style={{ flexDirection: 'row', gap: 4 }}>
-                                        {file.additions > 0 && (
-                                            <Text style={{ fontSize: 13, color: '#34C759', ...Typography.mono() }}>
-                                                +{file.additions}
-                                            </Text>
-                                        )}
-                                        {file.deletions > 0 && (
-                                            <Text style={{ fontSize: 13, color: '#FF3B30', ...Typography.mono() }}>
-                                                -{file.deletions}
-                                            </Text>
-                                        )}
-                                    </View>
-                                }
-                                onPress={() => handleFilePress(file)}
-                                showDivider={index < files.length - 1}
-                            />
-                        );
-                    })}
-                </ItemGroup>
-            </ItemList>
+                        <View style={styles.fileCounts}>
+                            {file.additions > 0 && <Text style={styles.additions}>+{file.additions}</Text>}
+                            {file.deletions > 0 && <Text style={styles.deletions}>-{file.deletions}</Text>}
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+                    </Pressable>
+                ))}
+            </ScrollView>
         </View>
     );
 }
 
-const styles = StyleSheet.create((_theme) => ({
+const styles = StyleSheet.create((theme) => ({
     container: {
         flex: 1,
         maxWidth: layout.maxWidth,
         alignSelf: 'center' as const,
         width: '100%',
+    },
+    content: {
+        paddingBottom: 32,
+    },
+    summary: {
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 16,
+        gap: 8,
+    },
+    title: {
+        ...Typography.default('semiBold'),
+        fontSize: 20,
+        lineHeight: 26,
+        color: theme.colors.text,
+    },
+    body: {
+        ...Typography.default(),
+        fontSize: 15,
+        lineHeight: 22,
+        color: theme.colors.textSecondary,
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+    },
+    hash: {
+        ...Typography.mono(),
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+    },
+    metaSeparator: {
+        ...Typography.default(),
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        marginHorizontal: 6,
+    },
+    meta: {
+        ...Typography.default(),
+        fontSize: 13,
+        color: theme.colors.textSecondary,
+        flexShrink: 1,
+    },
+    divider: {
+        height: Platform.select({ ios: StyleSheet.hairlineWidth, default: 1 }),
+        backgroundColor: theme.colors.divider,
+    },
+    filesHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 6,
+    },
+    filesTitle: {
+        ...Typography.default('semiBold'),
+        fontSize: 14,
+        color: theme.colors.textSecondary,
+    },
+    totals: {
+        flexDirection: 'row',
+        gap: 6,
+    },
+    additions: {
+        ...Typography.mono(),
+        fontSize: 13,
+        color: '#34C759',
+    },
+    deletions: {
+        ...Typography.mono(),
+        fontSize: 13,
+        color: '#FF3B30',
+    },
+    fileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    fileRowDivider: {
+        borderBottomWidth: Platform.select({ ios: StyleSheet.hairlineWidth, default: 1 }),
+        borderBottomColor: theme.colors.divider,
+    },
+    fileContent: {
+        flex: 1,
+        gap: 2,
+    },
+    fileName: {
+        ...Typography.default('medium'),
+        fontSize: 15,
+        color: theme.colors.text,
+    },
+    filePath: {
+        ...Typography.default(),
+        fontSize: 12,
+        color: theme.colors.textSecondary,
+    },
+    fileCounts: {
+        flexDirection: 'row',
+        gap: 6,
+        flexShrink: 0,
     },
 }));
