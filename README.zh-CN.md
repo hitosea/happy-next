@@ -157,6 +157,8 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 模型目录由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.1-Sol、GPT-6-Sol 和 GPT-6-Luna
 - 设置弹层为每种权限模式和 AI 厂商附上说明，模型描述跟随 App 语言，包括简体中文和繁体中文
 - Codex 的“帮我批准”模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
+- Codex 会在账号配额用完前预警，并不再丢弃生成图片、完成的 plan、hook 运行和审批决定；Codex 自己的标题、`/model` 切换、警告、`/review` 标记和 sleep 也会显示在会话里
+- Qoder 的 plan 显示为 TodoWrite 步骤
 
 ### 语音助手（Happy Voice）
 - 语音网关认证改用短效 token，安全性提升
@@ -358,6 +360,9 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 输入框中的长文本可展开为独立的全屏编辑页，底部带发送按钮
 - 相册入口也可选择视频，作为文件上传到会话所在机器
 
+- 折叠行上的运行中委派任务改用聊天头部自己的图标
+- 待发消息详情保持深色主题背景
+
 ### CLI
 - `happy update` 自更新、`happy --version` 显示所有 Agent 版本
 - 守护进程开机自启动（`happy daemon enable/disable`）、重启命令
@@ -398,6 +403,8 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Happy CLI v0.16.0 修复 Codex 的“帮我批准”模式，编排工具执行操作前先请求权限，复制会话时带上上下文窗口，并把每条消息标记为文本或其他，让手表只加载文本
 
 - Happy CLI v0.16.1 让编排工具和 `preview_html` 的说明更准确，Agent 能选对工作目录，HTML 预览优先传文件路径
+
+- Happy CLI v0.18.0 展示 Codex 以前丢弃的内容——生成图片、plan、hook 运行、审批决定、警告、线程元数据、`/review` 标记和 sleep——在 Codex 配额用完前预警，并把 Qoder 的 plan 显示为步骤
 
 ### Bug 修复和稳定性
 - 255+ Bug 修复：消息发送可靠性、会话生命周期、Markdown 渲染、导航、语音、DooTask、共享

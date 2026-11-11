@@ -1,5 +1,19 @@
 # Changelog
 
+## Version 39 - 2026-11-11
+
+Happy Next v2.24.0 shows Codex work it used to drop — generated images, finished plans, hook runs and review decisions — and warns before a Codex account's quota runs out. Qoder's plan becomes visible as steps, and Happy CLI is updated to v0.18.0.
+
+- Codex: a generated image becomes a step whose preview opens in the app, and a finished plan is sent as the turn's answer when the reply never repeated it
+- Codex: hook runs fold into steps named by their event, and a refused or high-risk "Approve for me" decision shows its action and reason
+- Codex: warns once when a usage window passes 90% and re-arms below 80%; a reached quota, exhausted credits or a spent control limit each report once with the reset time
+- Codex: Codex's own title and `/model` switches reach session metadata (a title you pinned still wins), warnings appear as notices, `/review` gets start and end markers, and a sleep shows as a timed step
+- Codex: an assistant row holding only a space no longer splits a run of steps into separate fold lines
+- Qoder: the plan Qoder reports appears as TodoWrite steps
+- Chat: a running delegated task on a folded line is named by the chat header's own icon
+- Chat: pending message details keep the dark theme background
+- CLI: Happy CLI v0.18.0
+
 ## Version 38 - 2026-11-10
 
 Happy Next v2.23.0 lets you steer a queued message into the running turn without interrupting it, rebuilds the pending queue as a floating stack above the composer, and lets Claude and Qoder sessions pick their context window. Claude Fable 5.2 joins the model list, Codex sessions now run on Codex CLI 0.167.1, and Happy CLI is updated to v0.17.0.

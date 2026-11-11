@@ -155,6 +155,8 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - The model catalog is served by the server, so new models show up without an app update — now with Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.1-Sol, GPT-6-Sol, and GPT-6-Luna
 - The settings popover explains each permission mode and AI vendor, and model descriptions follow the app language, including Simplified and Traditional Chinese
 - Codex's "Approve for Me" mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
+- Codex warns before an account's quota runs out, and no longer drops a generated image, a finished plan, hook runs or review decisions; its own title, `/model` switches, warnings, `/review` markers and sleeps reach the session
+- Qoder's plan appears as TodoWrite steps
 
 ### Voice Assistant (Happy Voice)
 - Voice gateway auth now uses short-lived tokens for improved security
@@ -356,6 +358,9 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Long text in the composer opens on a full page of its own, with a send button at the bottom
 - The Library entry takes videos too, uploaded to the session's machine as files
 
+- A running delegated task on a folded line is named by the chat header's own icon
+- Pending message details keep the dark theme background
+
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
 - Daemon auto-start on boot (`happy daemon enable/disable`), restart command
@@ -396,6 +401,8 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.16.0 fixes Codex's "Approve for Me" mode, asks before orchestrator tools act, carries a copied session's context window, and marks each message as text or other so the watch loads only text
 
 - Happy CLI v0.16.1 describes the orchestrator and `preview_html` tools more accurately, so agents pick the right working directory and prefer a file path for HTML previews
+
+- Happy CLI v0.18.0 shows what Codex used to drop — generated images, plans, hook runs, review decisions, warnings, thread metadata, `/review` markers and sleeps — warns before a Codex quota runs out, and shows Qoder's plan as steps
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing

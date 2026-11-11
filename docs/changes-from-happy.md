@@ -143,6 +143,10 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Dynamic permission mode**: permission mode changes via RPC during active sessions
 - **Codex context restore**: `/duplicate` restores context using `thread/resume` with path
 - **Tool name normalization**: `normalizeToolName` aligns MCP tool names with Codex convention
+- **Codex quota warnings**: a usage window that passes 90% warns once and re-arms below 80%, while a reached quota, exhausted credits or a spent control limit each report once with the reset time
+- **Codex output that was being dropped**: a generated image becomes a step whose preview opens, a finished plan becomes the turn's answer when the reply did not repeat it, hook runs fold into steps named by their event, and a refused or high-risk "Approve for me" decision reports its action and reason
+- **Codex session metadata and notices**: Codex's own title and `/model` switches reach the session metadata (a pinned title still wins), warnings appear as notices, `/review` gets start and end markers, and a sleep shows as a timed step
+- **Qoder plans as steps**: the plan Qoder reports appears as TodoWrite steps, one per changed snapshot
 
 ## GitHub Integration
 - **Repository navigation**: browse connected repositories and navigate directly to GitHub-backed work from the app
@@ -433,6 +437,7 @@ Extensive improvements to the chat and session management experience.
 - **Share into Happy**: photos, videos, files, text and links shared from another app open in a new or online session's composer, nothing sent; on iOS you pick the session right in the share sheet
 - **Full-page composer**: long text opens on a page of its own, with a send button at the bottom
 - **Videos from the library**: the Library entry takes videos too, uploaded to the session's machine as files
+- **Delegated task icon**: a running delegated task on a folded line is named by the chat header's own icon — the one its "+" turns into once a conversation has delegations — instead of repeating "delegated task"
 
 ## CLI Improvements
 
@@ -500,6 +505,8 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 
 - **Happy CLI v0.16.1**: describes the orchestrator and `preview_html` tools more accurately, so agents pick the right working directory and prefer a file path for HTML previews
 
+- **Happy CLI v0.18.0**: shows what Codex used to drop — generated images, finished plans, hook runs, review decisions, warnings, thread titles and `/model` switches, `/review` markers and sleeps — warns before a Codex account's quota runs out, and shows Qoder's plan as TodoWrite steps
+
 ## Server
 
 - **v3 messages API** with batch seq allocation and cursor pagination
@@ -543,6 +550,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Terminal input**: the cursor is drawn hollow while the input is unfocused, and a Command chord no longer types its letter
 - **Empty-session placeholder**: the placeholder shows on web and desktop and is localized in every language, including DooTask's empty chat
 - **Small layout fixes**: the iOS new session card spacing is even, and the DooTask error banner floats above the tab bar
+- **Pending message details**: the detail sheet keeps the dark theme background
 
 ## Bug Fixes & Stability
 
@@ -592,6 +600,7 @@ Over 255 bug fixes landed. The following are grouped by area.
 - Fix Codex icon invisible in dark mode
 - Fix sub-agent messages overwriting session model metadata
 - Remove stale archived session index entries
+- Fix a blank assistant row splitting a run of steps into separate fold lines
 
 ### Markdown Rendering
 - Fix table horizontal scroll and row height measurement
