@@ -270,7 +270,7 @@ export const SettingsView = React.memo(function SettingsView() {
         <ItemList style={{ paddingTop: 0 }} containerStyle={{ paddingBottom: tabBottomPadding }}>
             {/* App Info Header */}
             <View style={{ maxWidth: layout.maxWidth, alignSelf: 'center', width: '100%' }}>
-                <View style={{ alignItems: 'center', paddingVertical: 24, backgroundColor: theme.colors.surface, marginTop: 16, borderRadius: 12, marginHorizontal: 16 }}>
+                <View style={{ alignItems: 'center', paddingVertical: 24, marginTop: 16 }}>
                     {profile.firstName ? (
                         // Profile view: Avatar + name + version
                         <>
