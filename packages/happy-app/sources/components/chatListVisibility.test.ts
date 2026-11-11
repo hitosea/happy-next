@@ -81,6 +81,13 @@ describe('shouldHideMessageInChatList', () => {
         expect(shouldHideMessageInChatList(agentText(), true)).toBe(false);
     });
 
+    it('drops agent rows with no words of their own', () => {
+        // What Codex sends around a tool call, so a run of steps stays one run.
+        expect(shouldHideMessageInChatList(agentText({ text: ' ' }), true)).toBe(true);
+        expect(shouldHideMessageInChatList(agentText({ text: '\n\t ' }), true)).toBe(true);
+        expect(shouldHideMessageInChatList(agentText({ text: '好的' }), true)).toBe(false);
+    });
+
     it('drops compaction markers', () => {
         const marker = '<local-command-stdout>compacted</local-command-stdout>';
         expect(shouldHideMessageInChatList(userText(marker), true)).toBe(true);

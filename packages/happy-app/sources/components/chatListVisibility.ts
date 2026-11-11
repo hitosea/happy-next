@@ -23,6 +23,12 @@ export function shouldHideMessageInChatList(message: Message, showThinkingMessag
     if (message.kind === 'agent-text' && message.isThinking && !showThinkingMessages) {
         return true;
     }
+    // Codex sends an assistant message holding nothing but a space around most of its tool calls. A
+    // row with no words is not something the agent said: left in, it renders as a blank gap and splits
+    // the steps on either side of it into separate runs, one fold line each.
+    if (message.kind === 'agent-text' && message.text.trim() === '') {
+        return true;
+    }
     // The summary row right above it already says the context was compacted. The event still
     // arrives because the reducer resets context usage on it.
     if (message.kind === 'agent-event' && message.event.type === 'message' && message.event.message === 'Compaction completed') {
