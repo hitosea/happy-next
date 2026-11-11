@@ -1323,4 +1323,102 @@ describe('CodexAppServerBackend thread metadata and 0.167.1 items', () => {
       { type: 'event', name: 'auto_review', payload: { phase: 'strict' } },
     ]);
   });
+
+  it('warns once when a quota window passes 90%, and only again after it drops below 80%', () => {
+    const { messages, anyBackend } = collect();
+    const send = (usedPercent: number) => anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: {
+        planType: 'plus',
+        primary: { usedPercent, windowDurationMins: 300, resetsAt: 1800000000 },
+      },
+    });
+
+    send(50);
+    send(92);
+    send(95);
+    send(70);
+    send(91);
+
+    expect(messages).toEqual([
+      {
+        type: 'event',
+        name: 'rate_limit',
+        payload: {
+          kind: 'window',
+          window: 'primary',
+          usedPercent: 92,
+          windowDurationMins: 300,
+          resetsAt: 1800000000,
+          limitName: null,
+          planType: 'plus',
+        },
+      },
+      {
+        type: 'event',
+        name: 'rate_limit',
+        payload: {
+          kind: 'window',
+          window: 'primary',
+          usedPercent: 91,
+          windowDurationMins: 300,
+          resetsAt: 1800000000,
+          limitName: null,
+          planType: 'plus',
+        },
+      },
+    ]);
+  });
+
+  it('keeps a quota window that a sparse update omits', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: { primary: { usedPercent: 92, windowDurationMins: 300 } },
+    });
+    // No primary here: the known 92% must survive, and must not warn a second time.
+    anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: { secondary: { usedPercent: 10, windowDurationMins: 10080 } },
+    });
+    anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: { primary: { usedPercent: 93, windowDurationMins: 300 } },
+    });
+    expect(messages.map((m) => m.payload.usedPercent)).toEqual([92]);
+  });
+
+  it('reports a reached quota and re-arms it when the condition ends', () => {
+    const { messages, anyBackend } = collect();
+    const reached = 'workspace_owner_usage_limit_reached';
+    const send = (rateLimitReachedType: string | null) => anyBackend.handleNotification(
+      Methods.NOTIFY_ACCOUNT_RATE_LIMITS,
+      { rateLimits: { rateLimitReachedType } },
+    );
+
+    send(reached);
+    send(reached);
+    send(null);
+    send(reached);
+
+    expect(messages).toEqual([
+      { type: 'event', name: 'rate_limit', payload: { kind: 'reached', reachedType: reached } },
+      { type: 'event', name: 'rate_limit', payload: { kind: 'reached', reachedType: reached } },
+    ]);
+  });
+
+  it('reports exhausted credits unless the reached type already named them', () => {
+    const { messages, anyBackend } = collect();
+    const credits = { hasCredits: false, unlimited: false, balance: '0' };
+    anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: { credits },
+    });
+    anyBackend.handleNotification(Methods.NOTIFY_ACCOUNT_RATE_LIMITS, {
+      rateLimits: { rateLimitReachedType: 'workspace_member_credits_depleted', credits },
+    });
+    expect(messages).toEqual([
+      { type: 'event', name: 'rate_limit', payload: { kind: 'credits', balance: '0' } },
+      {
+        type: 'event',
+        name: 'rate_limit',
+        payload: { kind: 'reached', reachedType: 'workspace_member_credits_depleted' },
+      },
+    ]);
+  });
 });

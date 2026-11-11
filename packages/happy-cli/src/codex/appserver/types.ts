@@ -342,6 +342,43 @@ export interface StrictReviewRequiredParams {
   startedAtMs: number;
 }
 
+export interface RateLimitWindow {
+  usedPercent: number;
+  windowDurationMins?: number | null;
+  /** Unix seconds, or milliseconds from a newer server. */
+  resetsAt?: number | null;
+}
+
+export interface CreditsSnapshot {
+  hasCredits: boolean;
+  unlimited: boolean;
+  balance?: string | null;
+}
+
+export interface SpendControlLimitSnapshot {
+  limit: string;
+  remainingPercent: number;
+  resetsAt: number;
+  used: string;
+}
+
+/** Account-wide quota; updates are sparse, so a missing window keeps the last known one. */
+export interface RateLimitSnapshot {
+  limitId?: string | null;
+  limitName?: string | null;
+  planType?: string | null;
+  primary?: RateLimitWindow | null;
+  secondary?: RateLimitWindow | null;
+  credits?: CreditsSnapshot | null;
+  individualLimit?: SpendControlLimitSnapshot | null;
+  rateLimitReachedType?: string | null;
+  spendControlReached?: boolean | null;
+}
+
+export interface AccountRateLimitsUpdatedParams {
+  rateLimits: RateLimitSnapshot;
+}
+
 // ─── Auth ──────────────────────────────────────────────────────
 
 export interface GetAuthStatusParams {
@@ -606,6 +643,7 @@ export const Methods = {
   NOTIFY_AUTO_REVIEW_STARTED: 'item/autoApprovalReview/started',
   NOTIFY_AUTO_REVIEW_COMPLETED: 'item/autoApprovalReview/completed',
   NOTIFY_STRICT_REVIEW_REQUIRED: 'autoApprovalReview/strictReviewRequired',
+  NOTIFY_ACCOUNT_RATE_LIMITS: 'account/rateLimits/updated',
   NOTIFY_DEPRECATION: 'deprecationNotice',
   NOTIFY_CONFIG_WARNING: 'configWarning',
 } as const;

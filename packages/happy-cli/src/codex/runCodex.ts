@@ -82,6 +82,57 @@ function collapseWhitespace(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
 
+interface RateLimitNotice {
+    kind?: 'window' | 'reached' | 'spend' | 'credits';
+    usedPercent?: number;
+    windowDurationMins?: number | null;
+    resetsAt?: number | null;
+    limitName?: string | null;
+    reachedType?: string;
+    limit?: string;
+    remainingPercent?: number;
+    balance?: string | null;
+}
+
+function describeQuotaWindow(durationMins: number | null | undefined): string {
+    if (typeof durationMins !== 'number' || durationMins <= 0) return 'usage';
+    if (durationMins === 300) return '5-hour';
+    if (durationMins === 10080) return 'weekly';
+    if (durationMins % 1440 === 0) return `${durationMins / 1440}-day`;
+    if (durationMins % 60 === 0) return `${durationMins / 60}-hour`;
+    return `${durationMins}-minute`;
+}
+
+/** Accepts Unix seconds or milliseconds, whichever magnitude the quota snapshot uses. */
+function formatQuotaReset(value: number | null | undefined): string | null {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+    const date = new Date(value > 1e12 ? value : value * 1000);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatRateLimitNotice(payload: RateLimitNotice): string | null {
+    const reset = formatQuotaReset(payload.resetsAt);
+    const resetSuffix = reset ? `, resets ${reset}` : '';
+    switch (payload.kind) {
+        case 'window': {
+            const who = payload.limitName ? ` (${payload.limitName})` : '';
+            const used = Math.round(payload.usedPercent ?? 0);
+            return `Codex usage${who}: ${describeQuotaWindow(payload.windowDurationMins)} limit ${used}% used${resetSuffix}.`;
+        }
+        case 'reached':
+            return `Codex usage limit reached: ${(payload.reachedType ?? 'quota exhausted').replace(/_/g, ' ')}.`;
+        case 'spend': {
+            const limit = payload.limit ? ` ${payload.limit}` : '';
+            return `Codex spend limit${limit} reached: ${payload.remainingPercent ?? 0}% remaining${resetSuffix}.`;
+        }
+        case 'credits':
+            return payload.balance ? `Codex credits exhausted (balance ${payload.balance}).` : 'Codex credits exhausted.';
+        default:
+            return null;
+    }
+}
+
 function formatUnknownCodexError(error: unknown): string {
     if (error instanceof Error) {
         return `${error.message}\n${error.stack ?? ''}`;
@@ -1090,6 +1141,11 @@ export async function runCodex(opts: {
                             type: 'message',
                             message: `Auto-review ${payload.status}${action}${risk}${rationale}`,
                         });
+                    }
+                } else if (msg.name === 'rate_limit') {
+                    const message = formatRateLimitNotice(msg.payload as RateLimitNotice);
+                    if (message) {
+                        session.sendSessionEvent({ type: 'message', message });
                     }
                 } else if (msg.name === 'goal_updated') {
                     logger.debug('[Codex] Goal updated', msg.payload);

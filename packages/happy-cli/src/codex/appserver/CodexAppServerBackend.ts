@@ -45,6 +45,7 @@ import {
   type ImageGenerationThreadItem,
   type HookRunSummary,
   type GuardianApprovalReviewAction,
+  type RateLimitSnapshot,
   type ThreadCompactStartParams,
   type ThreadGoalSetParams,
   type ThreadGoalGetParams,
@@ -168,6 +169,10 @@ const HAPPY_MCP_SERVER_CONFIG = {
 
 const buildMcpToolName = (server: string, tool: string) => `mcp:${server}:${tool}`;
 
+/** Warn once a quota window is this full, and re-arm only after it drops below the lower bound. */
+const RATE_LIMIT_WARN_PERCENT = 90;
+const RATE_LIMIT_REARM_PERCENT = 80;
+
 interface ElicitationMeta {
   approvalKind: unknown;
   serverName: string;
@@ -238,6 +243,10 @@ export class CodexAppServerBackend implements AgentBackend {
   private openedSleeps = new Set<string>();
   /** Hook runs that already emitted their tool call; a hook may outlive the turn, so this is not cleared */
   private openedHooks = new Set<string>();
+  /** Latest account quota snapshot, merged from sparse updates */
+  private rateLimitSnapshot: RateLimitSnapshot = {};
+  /** Quota warnings already shown; crossing back under the re-arm threshold clears one */
+  private rateLimitAlerts = new Set<string>();
   private sessionId: string | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private feedbackQueue: string[] = [];
@@ -854,6 +863,11 @@ export class CodexAppServerBackend implements AgentBackend {
         this.emit({ type: 'event', name: 'auto_review', payload: { phase: 'strict' } });
         break;
 
+      // ── Account quota ──
+      case Methods.NOTIFY_ACCOUNT_RATE_LIMITS:
+        this.handleRateLimits(p.rateLimits);
+        break;
+
       // ── Errors ──
       case Methods.NOTIFY_ERROR:
         this.handleErrorNotification(p);
@@ -890,6 +904,109 @@ export class CodexAppServerBackend implements AgentBackend {
       default:
         logger.debug(`[CodexBackend] Unhandled notification: ${method}`);
         break;
+    }
+  }
+
+  /**
+   * Merge a sparse quota update, then report only the crossings the reader has not seen. Quota
+   * updates carry no thread, so the warning goes to the session the Codex process serves.
+   */
+  private handleRateLimits(update: unknown): void {
+    if (!update || typeof update !== 'object') return;
+    const next = update as RateLimitSnapshot;
+    const merged: RateLimitSnapshot = { ...this.rateLimitSnapshot };
+
+    for (const key of ['limitId', 'limitName', 'planType'] as const) {
+      const value = next[key];
+      if (value !== undefined && value !== null) merged[key] = value;
+    }
+    // A missing window or credit balance means "unavailable in this update", not "cleared".
+    for (const key of ['primary', 'secondary', 'credits', 'individualLimit'] as const) {
+      const value = next[key];
+      if (value !== undefined && value !== null) (merged as any)[key] = value;
+    }
+    // These two are real state; null ends the condition.
+    if (next.rateLimitReachedType !== undefined) merged.rateLimitReachedType = next.rateLimitReachedType;
+    if (next.spendControlReached !== undefined) merged.spendControlReached = next.spendControlReached;
+
+    this.rateLimitSnapshot = merged;
+    this.reportRateLimits(merged);
+  }
+
+  private reportRateLimits(snapshot: RateLimitSnapshot): void {
+    const claim = (key: string): boolean => {
+      if (this.rateLimitAlerts.has(key)) return false;
+      this.rateLimitAlerts.add(key);
+      return true;
+    };
+    const release = (key: string) => {
+      this.rateLimitAlerts.delete(key);
+    };
+
+    const windows = [['primary', snapshot.primary], ['secondary', snapshot.secondary]] as const;
+    for (const [window, limit] of windows) {
+      if (!limit || typeof limit.usedPercent !== 'number') {
+        if (!limit) release(window);
+        continue;
+      }
+      if (limit.usedPercent >= RATE_LIMIT_WARN_PERCENT) {
+        if (claim(window)) {
+          this.emit({
+            type: 'event',
+            name: 'rate_limit',
+            payload: {
+              kind: 'window',
+              window,
+              usedPercent: limit.usedPercent,
+              windowDurationMins: limit.windowDurationMins ?? null,
+              resetsAt: limit.resetsAt ?? null,
+              limitName: snapshot.limitName ?? null,
+              planType: snapshot.planType ?? null,
+            },
+          });
+        }
+      } else if (limit.usedPercent < RATE_LIMIT_REARM_PERCENT) {
+        release(window);
+      }
+    }
+
+    const reached = snapshot.rateLimitReachedType ?? null;
+    if (reached) {
+      if (claim(`reached:${reached}`)) {
+        this.emit({ type: 'event', name: 'rate_limit', payload: { kind: 'reached', reachedType: reached } });
+      }
+    } else {
+      for (const key of [...this.rateLimitAlerts]) {
+        if (key.startsWith('reached:')) release(key);
+      }
+    }
+
+    const spend = snapshot.individualLimit;
+    if (snapshot.spendControlReached === true && spend) {
+      if (claim('spend')) {
+        this.emit({
+          type: 'event',
+          name: 'rate_limit',
+          payload: {
+            kind: 'spend',
+            limit: spend.limit,
+            remainingPercent: spend.remainingPercent,
+            resetsAt: spend.resetsAt,
+          },
+        });
+      }
+    } else {
+      release('spend');
+    }
+
+    // A reached type already names the depletion; reporting credits too would repeat it.
+    const credits = snapshot.credits;
+    if (!reached && credits && credits.unlimited === false && credits.hasCredits === false) {
+      if (claim('credits')) {
+        this.emit({ type: 'event', name: 'rate_limit', payload: { kind: 'credits', balance: credits.balance ?? null } });
+      }
+    } else {
+      release('credits');
     }
   }
 

@@ -58,6 +58,7 @@ export const HANDLED_NOTIFICATIONS = [
   'hook/completed',
   'item/autoApprovalReview/completed',
   'autoApprovalReview/strictReviewRequired',
+  'account/rateLimits/updated',
   'thread/closed',
   'thread/compacted',
   'thread/goal/updated',
@@ -139,7 +140,4 @@ export const IGNORED_NOTIFICATIONS = [
 ] as const;
 
 /** Known gaps, each with a later batch that owns it. */
-export const PENDING_NOTIFICATIONS = [
-  // Account-wide usage limit, surfaced as a notice.
-  'account/rateLimits/updated',
-] as const;
+export const PENDING_NOTIFICATIONS = [] as const;
