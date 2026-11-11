@@ -5,7 +5,7 @@ import { codexPackage } from '@/codex/package';
 import { codexFastModeArgs, resolveCodexRuntime } from '@/codex/codexRuntime';
 import { logger } from '@/ui/logger';
 import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseCodexModelMode, parseClaudeModelMode, splitFastModeSuffix } from 'happy-wire';
+import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseClaudeModelMode, resolveModelSelectionForFlavor, splitFastModeSuffix } from 'happy-wire';
 import {
   ORCHESTRATOR_ENV_KEYS,
   type OrchestratorProvider,
@@ -127,16 +127,12 @@ export function buildSpawnPlan(
       } else {
         codexArgs.push(prompt);
         if (codexMode && codexMode !== MODEL_MODE_DEFAULT) {
-          if (isModelModeForAgent('codex', codexMode)) {
-            const parsed = parseCodexModelMode(codexMode);
-            if (parsed.family !== MODEL_MODE_DEFAULT) {
-              codexArgs.push('--model', parsed.family);
-              if (parsed.effort) {
-                codexArgs.push('-c', `model_reasoning_effort=${parsed.effort}`);
-              }
+          const selection = resolveModelSelectionForFlavor('codex', codexMode);
+          if (selection.model) {
+            codexArgs.push('--model', selection.model);
+            if (selection.reasoningEffort) {
+              codexArgs.push('-c', `model_reasoning_effort=${selection.reasoningEffort}`);
             }
-          } else {
-            codexArgs.push('--model', codexMode);
           }
         }
       }
