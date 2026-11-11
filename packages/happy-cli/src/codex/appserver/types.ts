@@ -5,8 +5,10 @@
  * a JSON-RPC protocol over stdin/stdout with a thread/turn lifecycle.
  *
  * References:
- * - docs/codex-app-server-0.145.0/ (generated JSON schemas, local-only; regenerate via
+ * - docs/codex-app-server-0.167.1/ (generated JSON schemas, local-only; regenerate via
  *   `npx -y @openai/codex@<ver> app-server generate-json-schema [--experimental] --out <dir>`)
+ * - protocolVocabulary.ts / protocolCoverage.ts — the 0.167.1 item and notification vocabulary,
+ *   with every name classified as handled, ignored, or pending
  */
 
 // ─── Wire Format ───────────────────────────────────────────────
@@ -150,6 +152,35 @@ export interface ThreadForkParams {
 
 export type ThreadForkResponse = ThreadStartResponse;
 
+export interface ThreadNameUpdatedParams {
+  threadId: string;
+  threadName?: string | null;
+}
+
+/** The settings Codex reports when the model, effort, or sandbox changes inside the thread. */
+export interface ThreadSettings {
+  model: string;
+  modelProvider: string;
+  effort?: string | null;
+  cwd?: string;
+  [key: string]: unknown;
+}
+
+export interface ThreadSettingsUpdatedParams {
+  threadId: string;
+  threadSettings: ThreadSettings;
+}
+
+export interface WarningParams {
+  message: string;
+  threadId?: string | null;
+}
+
+export interface GuardianWarningParams {
+  message: string;
+  threadId: string;
+}
+
 export interface ThreadTurnsListResponse {
   data: Turn[];
   nextCursor: string | null;
@@ -211,6 +242,20 @@ export interface TurnInterruptResponse {}
 
 /** Discriminated union of thread item types */
 export type ThreadItem = { id: string; type: string; [key: string]: unknown };
+
+/** Display item emitted by the interruptible `clock.sleep` tool. */
+export interface SleepThreadItem {
+  id: string;
+  type: 'sleep';
+  durationMs: number;
+}
+
+/** A `/review` run's start or end. */
+export interface ReviewModeThreadItem {
+  id: string;
+  type: 'enteredReviewMode' | 'exitedReviewMode';
+  review: string;
+}
 
 // ─── Auth ──────────────────────────────────────────────────────
 
@@ -448,6 +493,8 @@ export const Methods = {
   NOTIFY_THREAD_STARTED: 'thread/started',
   NOTIFY_THREAD_STATUS_CHANGED: 'thread/status/changed',
   NOTIFY_THREAD_CLOSED: 'thread/closed',
+  NOTIFY_THREAD_NAME_UPDATED: 'thread/name/updated',
+  NOTIFY_THREAD_SETTINGS_UPDATED: 'thread/settings/updated',
   NOTIFY_THREAD_TOKEN_USAGE: 'thread/tokenUsage/updated',
   NOTIFY_THREAD_COMPACTED: 'thread/compacted',
   NOTIFY_THREAD_GOAL_UPDATED: 'thread/goal/updated',
@@ -467,6 +514,8 @@ export const Methods = {
   NOTIFY_PLAN_DELTA: 'item/plan/delta',
   NOTIFY_MCP_PROGRESS: 'item/mcpToolCall/progress',
   NOTIFY_ERROR: 'error',
+  NOTIFY_WARNING: 'warning',
+  NOTIFY_GUARDIAN_WARNING: 'guardianWarning',
   NOTIFY_DEPRECATION: 'deprecationNotice',
   NOTIFY_CONFIG_WARNING: 'configWarning',
 } as const;

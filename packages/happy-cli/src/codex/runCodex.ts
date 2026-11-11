@@ -996,6 +996,41 @@ export async function runCodex(opts: {
                 } else if (msg.name === 'context_compacted') {
                     messageBuffer.addMessage('Context compacted', 'status');
                     session.sendSessionEvent({ type: 'message', message: 'Context compacted' });
+                } else if (msg.name === 'thread_name_updated') {
+                    // Codex renamed the thread (its own auto-naming, or /rename): mirror it so the
+                    // session list in Happy does not keep a stale title. A title the reader pinned
+                    // through the app wins, exactly as it does against Claude's summaries.
+                    const name = (msg.payload as { name?: string }).name;
+                    if (name) {
+                        session.updateMetadata((currentMetadata) => (
+                            currentMetadata.summaryPinned
+                                ? currentMetadata
+                                : { ...currentMetadata, summary: { text: name, updatedAt: Date.now() } }
+                        ));
+                    }
+                } else if (msg.name === 'thread_settings_updated') {
+                    // /model or effort switched inside Codex: keep the metadata the app shows in step.
+                    const payload = msg.payload as { model?: string; effort?: string | null };
+                    if (payload.model) {
+                        if (payload.effort !== undefined) {
+                            syncSessionModelInfo({ model: payload.model, reasoningEffort: payload.effort });
+                        } else {
+                            syncSessionModelInfo({ model: payload.model });
+                        }
+                    }
+                } else if (msg.name === 'warning') {
+                    const payload = msg.payload as { message?: string; kind?: 'warning' | 'guardian' };
+                    if (payload.message) {
+                        const label = payload.kind === 'guardian' ? 'Guardian warning' : 'Warning';
+                        session.sendSessionEvent({ type: 'message', message: `${label}: ${payload.message}` });
+                    }
+                } else if (msg.name === 'review_mode') {
+                    const payload = msg.payload as { entered?: boolean; review?: string };
+                    const label = payload.entered ? 'Review started' : 'Review finished';
+                    session.sendSessionEvent({
+                        type: 'message',
+                        message: payload.review ? `${label}: ${payload.review}` : label,
+                    });
                 } else if (msg.name === 'goal_updated') {
                     logger.debug('[Codex] Goal updated', msg.payload);
                 } else if (msg.name === 'goal_cleared') {

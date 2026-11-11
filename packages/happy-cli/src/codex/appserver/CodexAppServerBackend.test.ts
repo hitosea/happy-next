@@ -1108,3 +1108,86 @@ describe('CodexAppServerBackend steering', () => {
     expect(messages.some((m) => m.type === 'steer')).toBe(false);
   });
 });
+
+describe('CodexAppServerBackend thread metadata and 0.167.1 items', () => {
+  function collect() {
+    const backend = createBackend();
+    const messages: any[] = [];
+    backend.onMessage((msg) => messages.push(msg));
+    return { backend, messages, anyBackend: backend as any };
+  }
+
+  it('reports a thread rename', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_THREAD_NAME_UPDATED, {
+      threadId: 't1', threadName: 'Fix the fold',
+    });
+    expect(messages).toEqual([
+      { type: 'event', name: 'thread_name_updated', payload: { name: 'Fix the fold' } },
+    ]);
+  });
+
+  it('ignores a cleared or blank name', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_THREAD_NAME_UPDATED, { threadId: 't1', threadName: null });
+    anyBackend.handleNotification(Methods.NOTIFY_THREAD_NAME_UPDATED, { threadId: 't1', threadName: '   ' });
+    expect(messages).toEqual([]);
+  });
+
+  it('reports the model and effort Codex switched to', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_THREAD_SETTINGS_UPDATED, {
+      threadId: 't1',
+      threadSettings: { model: 'gpt-5.1-codex', modelProvider: 'openai', effort: 'high' },
+    });
+    expect(messages).toEqual([
+      { type: 'event', name: 'thread_settings_updated', payload: { model: 'gpt-5.1-codex', effort: 'high' } },
+    ]);
+  });
+
+  it('reports warnings and tags guardian ones', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_WARNING, { message: 'Network is slow' });
+    anyBackend.handleNotification(Methods.NOTIFY_GUARDIAN_WARNING, { threadId: 't1', message: 'Blocked a command' });
+    expect(messages).toEqual([
+      { type: 'event', name: 'warning', payload: { message: 'Network is slow', kind: 'warning' } },
+      { type: 'event', name: 'warning', payload: { message: 'Blocked a command', kind: 'guardian' } },
+    ]);
+  });
+
+  it('counts a sleep as a step', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_STARTED, {
+      item: { id: 'sleep-1', type: 'sleep', durationMs: 60000 },
+    });
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'sleep-1', type: 'sleep', durationMs: 60000 },
+    });
+    expect(messages).toEqual([
+      { type: 'tool-call', toolName: 'Sleep', callId: 'sleep-1', args: { duration_ms: 60000 } },
+      { type: 'tool-result', toolName: 'Sleep', callId: 'sleep-1', result: { duration_ms: 60000 } },
+    ]);
+  });
+
+  it('opens a sleep that arrives completed only', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'sleep-2', type: 'sleep', durationMs: 5000 },
+    });
+    expect(messages.map((m) => m.type)).toEqual(['tool-call', 'tool-result']);
+  });
+
+  it('marks where a review run starts and ends', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'review-1', type: 'enteredReviewMode', review: 'uncommitted changes' },
+    });
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'review-2', type: 'exitedReviewMode', review: 'uncommitted changes' },
+    });
+    expect(messages).toEqual([
+      { type: 'event', name: 'review_mode', payload: { entered: true, review: 'uncommitted changes' } },
+      { type: 'event', name: 'review_mode', payload: { entered: false, review: 'uncommitted changes' } },
+    ]);
+  });
+});

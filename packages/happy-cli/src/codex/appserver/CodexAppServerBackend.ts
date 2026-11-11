@@ -39,6 +39,8 @@ import {
   type ThreadTokenUsage,
   type ReviewStartParams,
   type ReviewTarget,
+  type SleepThreadItem,
+  type ReviewModeThreadItem,
   type ThreadCompactStartParams,
   type ThreadGoalSetParams,
   type ThreadGoalGetParams,
@@ -202,6 +204,8 @@ export class CodexAppServerBackend implements AgentBackend {
   private runningTurnId: string | null = null;
   /** Ids of the messages steered into the running turn that the agent has not taken in yet */
   private unreadSteers = new Set<string>();
+  /** Sleep items that already emitted their tool call, so a completed-only event still pairs */
+  private openedSleeps = new Set<string>();
   private sessionId: string | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private feedbackQueue: string[] = [];
@@ -718,6 +722,25 @@ export class CodexAppServerBackend implements AgentBackend {
         this.resolveTurnComplete();
         break;
 
+      // ── Thread metadata ──
+      case Methods.NOTIFY_THREAD_NAME_UPDATED: {
+        const name = typeof p.threadName === 'string' ? p.threadName.trim() : '';
+        if (name) {
+          this.emit({ type: 'event', name: 'thread_name_updated', payload: { name } });
+        }
+        break;
+      }
+
+      case Methods.NOTIFY_THREAD_SETTINGS_UPDATED:
+        if (p.threadSettings) {
+          this.emit({
+            type: 'event',
+            name: 'thread_settings_updated',
+            payload: { model: p.threadSettings.model, effort: p.threadSettings.effort },
+          });
+        }
+        break;
+
       // ── Token usage ──
       case Methods.NOTIFY_THREAD_TOKEN_USAGE:
         this.handleTokenUsage(p.tokenUsage);
@@ -739,6 +762,23 @@ export class CodexAppServerBackend implements AgentBackend {
       case Methods.NOTIFY_ERROR:
         this.handleErrorNotification(p);
         break;
+
+      // ── Warnings ──
+      case Methods.NOTIFY_WARNING:
+      case Methods.NOTIFY_GUARDIAN_WARNING: {
+        const message = typeof p.message === 'string' ? p.message.trim() : '';
+        if (message) {
+          this.emit({
+            type: 'event',
+            name: 'warning',
+            payload: {
+              message,
+              kind: method === Methods.NOTIFY_GUARDIAN_WARNING ? 'guardian' : 'warning',
+            },
+          });
+        }
+        break;
+      }
 
       // ── MCP progress ──
       case Methods.NOTIFY_MCP_PROGRESS:
@@ -833,6 +873,18 @@ export class CodexAppServerBackend implements AgentBackend {
         });
         break;
 
+      case 'sleep': {
+        const sleep = item as SleepThreadItem;
+        this.openedSleeps.add(sleep.id);
+        this.emit({
+          type: 'tool-call',
+          toolName: 'Sleep',
+          callId: sleep.id,
+          args: { duration_ms: sleep.durationMs },
+        });
+        break;
+      }
+
       case 'userMessage':
         // A steered message the agent has taken in now
         if (item.clientId && this.unreadSteers.delete(item.clientId)) {
@@ -845,7 +897,10 @@ export class CodexAppServerBackend implements AgentBackend {
       case 'plan':
       case 'imageGeneration':
       case 'contextCompaction':
-        // These items are handled via delta notifications or turn/completed
+      case 'enteredReviewMode':
+      case 'exitedReviewMode':
+        // These items are handled via delta notifications or turn/completed. The review markers
+        // are reported once, on completion, so they cannot show up twice.
         break;
 
       default:
@@ -902,6 +957,40 @@ export class CodexAppServerBackend implements AgentBackend {
         });
         break;
 
+      case 'sleep': {
+        const sleep = item as SleepThreadItem;
+        // A completed-only item still gets a call to pair with, so the step renders.
+        if (!this.openedSleeps.delete(sleep.id)) {
+          this.emit({
+            type: 'tool-call',
+            toolName: 'Sleep',
+            callId: sleep.id,
+            args: { duration_ms: sleep.durationMs },
+          });
+        }
+        this.emit({
+          type: 'tool-result',
+          toolName: 'Sleep',
+          callId: sleep.id,
+          result: { duration_ms: sleep.durationMs },
+        });
+        break;
+      }
+
+      case 'enteredReviewMode':
+      case 'exitedReviewMode': {
+        const review = item as ReviewModeThreadItem;
+        this.emit({
+          type: 'event',
+          name: 'review_mode',
+          payload: {
+            entered: review.type === 'enteredReviewMode',
+            review: review.review,
+          },
+        });
+        break;
+      }
+
       case 'agentMessage':
         // Full message text available in item.text
         this.emit({ type: 'model-output', fullText: item.text });
@@ -934,6 +1023,7 @@ export class CodexAppServerBackend implements AgentBackend {
   /** No turn runs now: the messages steered into it that the agent never took in are dropped. */
   private endRunningTurn(): void {
     this.runningTurnId = null;
+    this.openedSleeps.clear();
     for (const clientId of this.unreadSteers) {
       this.emit({ type: 'steer', pendingId: clientId, outcome: 'dropped' });
     }

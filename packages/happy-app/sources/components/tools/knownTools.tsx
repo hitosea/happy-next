@@ -21,7 +21,29 @@ const ICON_QUESTION = (size: number = 24, color: string = '#000') => <Ionicons n
 const ICON_SKILL = (size: number = 24, color: string = '#000') => <Ionicons name="construct-outline" size={size} color={color} />;
 const ICON_ROBOT = (size: number = 24, color: string = '#000') => <MaterialCommunityIcons name="robot-outline" size={size} color={color} />;
 
+/** "45s" / "2m" / "1m 30s" — the length of a Codex sleep, which has nothing else to show. */
+function formatSleepDuration(durationMs: unknown): string | null {
+    if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs <= 0) {
+        return null;
+    }
+    const seconds = Math.round(durationMs / 1000);
+    if (seconds < 60) {
+        return `${seconds}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return rest > 0 ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
 export const knownTools = {
+    // Codex's interruptible wait. It has no output worth reading, so the row is just the wait itself.
+    'Sleep': {
+        title: 'Sleep',
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => formatSleepDuration(opts.tool.input?.duration_ms),
+        icon: (size: number, color: string) => <Ionicons name="time-outline" size={size} color={color} />,
+        minimal: true,
+        isMutable: false,
+    },
     'view_image': {
         title: () => t('tools.names.viewImage'),
         extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => getToolImageDisplayPath('view_image', opts.tool.input, opts.metadata?.homeDir),
