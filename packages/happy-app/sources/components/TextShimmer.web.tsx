@@ -43,6 +43,8 @@ export const TextShimmer = React.memo((props: {
     baseColor: string;
     /** What it comes up to as it passes. */
     highlightColor: string;
+    /** Accepted for the native implementation's sake; react-native-web drops it and cuts at the end. */
+    ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }) => {
     const ref = React.useRef<React.ComponentRef<typeof Text>>(null);
 

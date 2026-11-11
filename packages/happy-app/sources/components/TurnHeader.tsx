@@ -167,13 +167,14 @@ export const TurnHeader = React.memo((props: {
                         style={styles.snapshotLive}
                         baseColor={theme.colors.textSecondary}
                         highlightColor={theme.colors.text}
+                        ellipsizeMode="middle"
                     >
                         {fold.snapshot}
                     </TextShimmer>
                 ) : (
                     // The snapshot gives way to the label: the cost of the process is the line's own
                     // subject, and the snapshot is what the reader glances at.
-                    <Text style={styles.snapshot} numberOfLines={1}>{fold.snapshot}</Text>
+                    <Text style={styles.snapshot} numberOfLines={1} ellipsizeMode="middle">{fold.snapshot}</Text>
                 )
             ) : foldable && fold.delegated !== undefined ? (
                 <FoldDelegatedMark label={fold.delegated} />

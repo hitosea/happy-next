@@ -88,11 +88,12 @@ export const SegmentFoldLine = React.memo((props: {
                         style={styles.snapshotLive}
                         baseColor={theme.colors.textSecondary}
                         highlightColor={theme.colors.text}
+                        ellipsizeMode="middle"
                     >
                         {snapshot}
                     </TextShimmer>
                 ) : (
-                    <Text style={styles.snapshot} numberOfLines={1}>{snapshot}</Text>
+                    <Text style={styles.snapshot} numberOfLines={1} ellipsizeMode="middle">{snapshot}</Text>
                 )
             ) : delegated !== undefined ? (
                 <FoldDelegatedMark label={delegated} />

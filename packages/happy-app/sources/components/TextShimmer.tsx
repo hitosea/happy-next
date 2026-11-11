@@ -59,6 +59,8 @@ export const TextShimmer = React.memo((props: {
     baseColor: string;
     /** What it comes up to as it passes. */
     highlightColor: string;
+    /** Where an overlong line is cut. Every copy is cut the same, so the mask stays on the glyphs. */
+    ellipsizeMode?: 'head' | 'middle' | 'tail' | 'clip';
 }) => {
     const { layout, text } = React.useMemo(() => splitStyle(props.style), [props.style]);
     const [width, setWidth] = React.useState(0);
@@ -108,13 +110,14 @@ export const TextShimmer = React.memo((props: {
     return (
         <View style={layout}>
             <View onLayout={onLayout}>
-                <Text style={[text, { color: dimmed(props.baseColor, BASE_ALPHA) }]} numberOfLines={1}>
+                <Text style={[text, { color: dimmed(props.baseColor, BASE_ALPHA) }]} numberOfLines={1} ellipsizeMode={props.ellipsizeMode}>
                     {props.children}
                 </Text>
                 {animating && Platform.OS === 'android' && (
                     <Animated.Text
                         style={[text, styles.glow, { color: props.highlightColor, opacity: progress }]}
                         numberOfLines={1}
+                        ellipsizeMode={props.ellipsizeMode}
                         pointerEvents="none"
                     >
                         {props.children}
@@ -125,7 +128,7 @@ export const TextShimmer = React.memo((props: {
                         style={StyleSheet.absoluteFill}
                         pointerEvents="none"
                         maskElement={
-                            <Text style={[text, styles.mask]} numberOfLines={1}>{props.children}</Text>
+                            <Text style={[text, styles.mask]} numberOfLines={1} ellipsizeMode={props.ellipsizeMode}>{props.children}</Text>
                         }
                     >
                         <Animated.View style={[styles.band, { width: band, transform: [{ translateX }] }]}>
