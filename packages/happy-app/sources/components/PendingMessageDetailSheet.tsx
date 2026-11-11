@@ -231,7 +231,12 @@ export function PendingMessageDetailSheet({
                     // Straight on the sheet, which is the card: the text, then the actions under it.
                     <View style={styles.box}>
                         <View style={{ height: textHeight }}>
-                            <SelectableTextView key={fullText} text={fullText} backgroundColor="transparent" onMeasure={setMeasuredText} />
+                            <SelectableTextView
+                                key={fullText}
+                                text={fullText}
+                                backgroundColor={theme.colors.groupped.background}
+                                onMeasure={setMeasuredText}
+                            />
                         </View>
                         <Action icon="copy-outline" label={t('pendingQueue.copyText')} onPress={() => void handleCopy()} />
                         {/* Steering into the running turn, it cannot be changed until the agent reads it */}
