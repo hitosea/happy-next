@@ -50,6 +50,7 @@ export interface SessionUpdate {
     textDelta?: string;
   };
   plan?: unknown;
+  entries?: unknown;
   thinking?: unknown;
   [key: string]: unknown;
 }
@@ -546,14 +547,16 @@ export function handlePlanUpdate(
   update: SessionUpdate,
   ctx: HandlerContext
 ): HandlerResult {
-  if (!update.plan) {
+  // ACP puts a plan's entries at the top level; `plan` is the older shape some agents still send.
+  const plan = update.entries ?? update.plan;
+  if (!plan) {
     return { handled: false };
   }
 
   ctx.emit({
     type: 'event',
     name: 'plan',
-    payload: update.plan,
+    payload: plan,
   });
 
   return { handled: true };

@@ -53,6 +53,7 @@ import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
 import { qoderTranscriptStore } from '@/qoder/transcripts';
 import { QoderSteering } from '@/qoder/steering';
 import { readQoderContextUsage } from '@/qoder/contextUsage';
+import { qoderPlanTodos } from '@/qoder/planTodos';
 import { QODER_ASK_USER_QUESTION, qoderAskUserQuestionCallId, qoderElicitationAnswer, qoderQuestionsFromInput, qoderQuestionsFromSchema, type QoderQuestion } from '@/qoder/askUserQuestion';
 import {
   QODER_RESUME_SESSION_ID_ENV,
@@ -286,6 +287,7 @@ export async function runQoder(opts: {
   let abortRequested = false;
   let abortFeedbackSent = false;
   let taskStartedSent = false;
+  let lastPlanSignature: string | null = null;
 
   const sendAbortFeedback = () => {
     if (abortFeedbackSent) return;
@@ -422,6 +424,20 @@ export async function runQoder(opts: {
       }
 
       case 'event': {
+        if (msg.name === 'plan') {
+          const todos = qoderPlanTodos(msg.payload);
+          if (todos) {
+            const signature = JSON.stringify(todos);
+            if (signature !== lastPlanSignature) {
+              lastPlanSignature = signature;
+              flushResponse();
+              const callId = `qoder-plan-${randomUUID()}`;
+              session.sendAgentMessage('qoder', { type: 'tool-call', name: 'TodoWrite', callId, input: { todos }, id: randomUUID() });
+              session.sendAgentMessage('qoder', { type: 'tool-result', callId, output: { newTodos: todos }, id: randomUUID() });
+            }
+          }
+          break;
+        }
         if (msg.name === 'config_options_update') {
           const configOptions = extractConfigOptionsFromPayload(msg.payload) ?? [];
           const current = (category: string) => configOptions.find((option) => option.type === 'select' && option.category === category)?.currentValue ?? null;
@@ -635,6 +651,7 @@ export async function runQoder(opts: {
         qoderBackend = null;
         permissionHandler.reset();
         isFirstMessage = true;
+        lastPlanSignature = null;
         sendReady();
         continue;
       }

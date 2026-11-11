@@ -125,6 +125,7 @@ type ExtendedSessionNotification = SessionNotification & {
       textDelta?: string;
     };
     plan?: unknown;
+    entries?: unknown;
     thinking?: unknown;
     [key: string]: unknown;
   };
@@ -1180,6 +1181,7 @@ export class AcpBackend implements AgentBackend {
         !handledTypes.includes(updateType) &&
         !update.messageChunk &&
         !update.plan &&
+        !update.entries &&
         !update.thinking) {
       logger.debug(`[AcpBackend] Unhandled session update type: ${updateType}`, JSON.stringify(update, null, 2));
     }
