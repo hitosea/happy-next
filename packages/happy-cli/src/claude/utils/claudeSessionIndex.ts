@@ -152,7 +152,7 @@ function extractUpdatedAt(entry: any): number | undefined {
 
 function extractTitle(entry: any): string | null {
     if (!entry || typeof entry !== 'object') return null;
-    const candidates = [entry.title, entry.summary, entry.firstPrompt, entry.prompt];
+    const candidates = [entry.title, entry.customTitle, entry.aiTitle, entry.summary, entry.firstPrompt, entry.prompt];
     for (const candidate of candidates) {
         if (typeof candidate === 'string' && candidate.trim()) {
             return candidate.trim();
@@ -324,6 +324,11 @@ async function parseClaudeSessionFileMetadata(jsonlPath: string, cleanUserText: 
     const nodes = new Map<string, ClaudeConversationNode>();
     const parentUuids = new Set<string>();
     const summariesByLeaf = new Map<string, string>();
+    // Claude Code names a conversation itself. `custom-title` is a rename the reader made inside
+    // Claude, `ai-title` the name it keeps updating; both beat the first user prompt, which is all
+    // the graph below can offer. Records carry no uuid and are outside the conversation graph.
+    let customTitle: string | null = null;
+    let aiTitle: string | null = null;
     let messageCount = 0;
     let latestTimestamp: number | undefined;
     let gitBranch: string | null = null;
@@ -343,6 +348,20 @@ async function parseClaudeSessionFileMetadata(jsonlPath: string, cleanUserText: 
                 const rawSummary = typeof entry?.summary === 'string' ? entry.summary.trim() : '';
                 if (rawSummary) {
                     summariesByLeaf.set(entry.leafUuid, rawSummary);
+                }
+                continue;
+            }
+
+            if (entry?.type === 'ai-title') {
+                if (typeof entry.aiTitle === 'string' && entry.aiTitle.trim()) {
+                    aiTitle = entry.aiTitle.trim();
+                }
+                continue;
+            }
+
+            if (entry?.type === 'custom-title') {
+                if (typeof entry.customTitle === 'string' && entry.customTitle.trim()) {
+                    customTitle = entry.customTitle.trim();
                 }
                 continue;
             }
@@ -392,7 +411,9 @@ async function parseClaudeSessionFileMetadata(jsonlPath: string, cleanUserText: 
         fileStream.destroy();
     }
 
-    const title = pickConversationTitleFromGraph(nodes, parentUuids, summariesByLeaf, cleanUserText);
+    const graphTitle = pickConversationTitleFromGraph(nodes, parentUuids, summariesByLeaf, cleanUserText);
+    const named = customTitle ?? aiTitle;
+    const title = named ? normalizeSessionTitle(named) : graphTitle;
     return {
         title,
         messageCount,

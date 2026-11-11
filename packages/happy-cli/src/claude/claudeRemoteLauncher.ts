@@ -1,4 +1,5 @@
 import { render } from "ink";
+import { randomUUID } from "node:crypto";
 import { Session } from "./session";
 import { MessageBuffer } from "@/ui/ink/messageBuffer";
 import { RemoteModeDisplay } from "@/ui/ink/RemoteModeDisplay";
@@ -294,6 +295,20 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
             syncContextWindowSize(currentQuery);
         }
 
+        // Claude changes the conversation's name as the work moves on. Keep the app's copy in step,
+        // but a title the reader pinned through the app wins, exactly as it does for Codex.
+        if (message.type === 'system' && (message as { subtype?: string }).subtype === 'session_title_changed') {
+            const title = (message as { title?: unknown }).title;
+            if (typeof title === 'string' && title.trim()) {
+                const nextTitle = title.trim();
+                session.client.updateMetadata((currentMetadata) => (
+                    currentMetadata.summaryPinned || currentMetadata.summary?.text === nextTitle
+                        ? currentMetadata
+                        : { ...currentMetadata, summary: { text: nextTitle, updatedAt: Date.now() } }
+                ));
+            }
+        }
+
         // Handle result messages with errors - send as session event
         if (message.type === 'result') {
             const resultMsg = message as SDKResultMessage;
@@ -314,6 +329,19 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                 } else {
                     session.client.sendSessionEvent({ type: 'message', message: 'An error occurred during execution' });
                 }
+            } else if (resultMsg.subtype === 'error_max_turns') {
+                // The turn hit --max-turns and stopped mid-way. Without a row the chat just ends, and
+                // nothing says why. Sent as a system record so it survives a reload like any message.
+                const stopNotice = {
+                    type: 'system',
+                    subtype: 'happy_notice',
+                    content: 'Reached the maximum number of turns; this turn was stopped.',
+                    uuid: randomUUID(),
+                    sessionId: session.sessionId ?? '',
+                    cwd: session.path,
+                    timestamp: new Date().toISOString(),
+                } as unknown as RawJSONLines;
+                messageQueue.enqueue(stopNotice);
             } else if (!hadAssistantMessage && typeof resultMsg.result === 'string' && resultMsg.result.length > 0) {
                 // Unknown slash command path: Claude Code returns only a result with text
                 // and no assistant stream, leaving the chat blank. Surface the text.

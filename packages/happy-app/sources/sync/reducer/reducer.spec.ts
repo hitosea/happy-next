@@ -3069,4 +3069,101 @@ describe('reducer', () => {
             expect(toolMsgId).toBe(permMsgId); // Same message - properly matched!
         });
     });
+
+    describe('Claude background tasks and repeated notices', () => {
+        function toolCall(overrides: Record<string, unknown>): NormalizedMessage {
+            return {
+                id: overrides.id as string,
+                localId: null,
+                createdAt: overrides.createdAt as number,
+                role: 'agent',
+                isSidechain: false,
+                content: [{
+                    type: 'tool-call',
+                    id: 'tool-1',
+                    name: 'Task',
+                    input: overrides.input,
+                    description: (overrides.description as string | null) ?? null,
+                    uuid: overrides.id as string,
+                    parentUUID: null,
+                    ...(overrides.progress ? { progress: true } : {}),
+                    ...(overrides.taskStatus ? { taskStatus: overrides.taskStatus as string } : {}),
+                    ...(overrides.taskSummary !== undefined ? { taskSummary: overrides.taskSummary as string | null } : {}),
+                }],
+            };
+        }
+
+        it('refreshes the task card without restarting its clock', () => {
+            const state = createReducer();
+            const result = reducer(state, [
+                toolCall({
+                    id: 'm1',
+                    createdAt: 1000,
+                    input: { prompt: 'do it', subagent_type: 'Explore', description: 'Old task' },
+                    description: 'Old task',
+                }),
+                toolCall({
+                    id: 'm2',
+                    createdAt: 2000,
+                    input: { description: 'Finding routes' },
+                    description: 'Finding routes',
+                    progress: true,
+                }),
+            ]);
+
+            expect(result.messages).toHaveLength(1);
+            const message = result.messages[0];
+            if (message.kind !== 'tool-call') throw new Error('expected a tool call');
+            const tool = message.tool;
+            expect(tool.input.description).toBe('Finding routes');
+            expect(tool?.input.prompt).toBe('do it');
+            expect(tool?.startedAt).toBe(1000);
+        });
+
+        it('closes the task card from its notification', () => {
+            const state = createReducer();
+            const result = reducer(state, [
+                toolCall({ id: 'm1', createdAt: 1000, input: { description: 'Old task' }, description: 'Old task' }),
+                toolCall({
+                    id: 'm2',
+                    createdAt: 3000,
+                    input: undefined,
+                    description: null,
+                    progress: true,
+                    taskStatus: 'failed',
+                    taskSummary: 'crashed',
+                }),
+            ]);
+
+            const message = result.messages[0];
+            if (message.kind !== 'tool-call') throw new Error('expected a tool call');
+            expect(message.tool.state).toBe('error');
+            expect(message.tool.completedAt).toBe(3000);
+            expect(message.tool.result).toEqual({ error: 'crashed' });
+        });
+
+        it('shows a keyed notice once', () => {
+            const state = createReducer();
+            const event = (id: string, key: string): NormalizedMessage => ({
+                id,
+                localId: null,
+                createdAt: 1000,
+                role: 'event',
+                isSidechain: false,
+                content: { type: 'message', message: 'Claude usage: weekly limit 95% used.', key },
+            });
+
+            const first = reducer(state, [event('e1', 'claude-usage:seven_day:1')]);
+            expect(first.messages).toHaveLength(1);
+            expect(first.messages[0].kind).toBe('agent-event');
+
+            const second = reducer(state, [event('e2', 'claude-usage:seven_day:1')]);
+            expect(second.messages).toHaveLength(0);
+            expect(state.messages.size).toBe(1);
+
+            const nextWindow = reducer(state, [event('e3', 'claude-usage:seven_day:2')]);
+            expect(nextWindow.messages).toHaveLength(1);
+            expect(state.messages.size).toBe(2);
+        });
+    });
 });

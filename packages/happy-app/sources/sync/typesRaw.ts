@@ -2,6 +2,7 @@ import * as z from 'zod';
 import { isCuid } from '@paralleldrive/cuid2';
 import { MessageMetaSchema, MessageMeta } from './typesMessageMeta';
 import { limitNoticeTimeStart, rejectedLimitResetsAt } from './usageLimitNotice';
+import { claudeSystemNotice, rateLimitWarning } from './claudeSystemNotices';
 
 //
 // Raw types
@@ -33,6 +34,9 @@ const agentEventSchema = z.discriminatedUnion('type', [z.object({
 }), z.object({
     type: z.literal('message'),
     message: z.string(),
+    // Names the notice's subject when the same warning may arrive many times (a rate-limit window);
+    // the reducer shows only the first per key. Not rendered.
+    key: z.string().optional(),
 }), z.object({
     type: z.literal('limit-reached'),
     endsAt: z.number(),
@@ -533,6 +537,11 @@ type NormalizedAgentContent =
         description: string | null;
         uuid: string;
         parentUUID: string | null;
+        /** A background-task progress update: refresh the card, not a new call. */
+        progress?: boolean;
+        /** The background task's final status, when this update reports it. */
+        taskStatus?: string;
+        taskSummary?: string | null;
     } | {
         type: 'tool-result'
         tool_use_id: string;
@@ -915,10 +924,23 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                 return null;
             }
 
-            // A rejected rate_limit_event carries the reset time of the usage-limit notice after it
+            // A rejected rate_limit_event carries the reset time of the usage-limit notice after it;
+            // an allowed_warning one is its own notice that a window is running low.
             if (raw.content.data.type === 'rate_limit_event') {
-                const endsAt = rejectedLimitResetsAt((raw.content.data as { rate_limit_info?: unknown }).rate_limit_info);
-                if (endsAt === null) {
+                const info = (raw.content.data as { rate_limit_info?: unknown }).rate_limit_info;
+                const endsAt = rejectedLimitResetsAt(info);
+                if (endsAt !== null) {
+                    return {
+                        id,
+                        localId,
+                        createdAt,
+                        role: 'event',
+                        content: { type: 'limit-resets', endsAt },
+                        isSidechain: false,
+                    };
+                }
+                const warning = rateLimitWarning(info);
+                if (!warning) {
                     return null;
                 }
                 return {
@@ -926,8 +948,69 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                     localId,
                     createdAt,
                     role: 'event',
-                    content: { type: 'limit-resets', endsAt },
+                    content: warning,
                     isSidechain: false,
+                };
+            }
+
+            // Claude's system channel: the notices worth showing, and the background-task updates.
+            if (raw.content.data.type === 'system') {
+                const data = raw.content.data as Record<string, unknown>;
+                const notice = claudeSystemNotice(data);
+                if (!notice) {
+                    return null;
+                }
+                if (notice.kind === 'event') {
+                    return {
+                        id,
+                        localId,
+                        createdAt,
+                        role: 'event',
+                        content: notice.event,
+                        isSidechain: false,
+                    };
+                }
+                const uuid = typeof data.uuid === 'string' ? data.uuid : id;
+                const parentUUID = typeof data.parentUuid === 'string' ? data.parentUuid : null;
+                if (notice.kind === 'task-progress') {
+                    return {
+                        id,
+                        localId,
+                        createdAt,
+                        role: 'agent',
+                        isSidechain: false,
+                        content: [{
+                            type: 'tool-call',
+                            id: notice.toolUseId,
+                            name: 'Task',
+                            input: { description: notice.description },
+                            description: notice.description,
+                            uuid,
+                            parentUUID,
+                            progress: true,
+                        }],
+                        meta: raw.meta,
+                    };
+                }
+                return {
+                    id,
+                    localId,
+                    createdAt,
+                    role: 'agent',
+                    isSidechain: false,
+                    content: [{
+                        type: 'tool-call',
+                        id: notice.toolUseId,
+                        name: 'Task',
+                        input: undefined,
+                        description: null,
+                        uuid,
+                        parentUUID,
+                        progress: true,
+                        taskStatus: notice.status,
+                        taskSummary: notice.summary,
+                    }],
+                    meta: raw.meta,
                 };
             }
 

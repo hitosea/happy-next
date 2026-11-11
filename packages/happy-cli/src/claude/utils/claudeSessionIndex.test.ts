@@ -86,6 +86,34 @@ describe('listClaudeSessionsFromIndex', () => {
         expect(cache.lastRun.extra.indexFilesRead).toBe(1);
     });
 
+    it('uses Claude’s own ai-title for the list, and a rename on top of it', async () => {
+        const projectId = 'project-ai-title';
+        const projectDir = join(claudeConfigDir, 'projects', projectId);
+        mkdirSync(projectDir, { recursive: true });
+
+        writeFileSync(
+            join(projectDir, 'sessions-index.json'),
+            JSON.stringify({ originalPath: '/repo/work', entries: [{ sessionId: 'session-ai' }] })
+        );
+
+        const lines = [
+            { type: 'user', uuid: 'u1', parentUuid: null, isSidechain: false, timestamp: '2026-03-10T10:00:00.000Z', message: { content: [{ type: 'text', text: 'Fix the login flow' }] } },
+            { type: 'ai-title', aiTitle: 'Login flow repair', sessionId: 'session-ai' },
+        ];
+        const path = join(projectDir, 'session-ai.jsonl');
+        writeFileSync(path, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
+
+        vi.resetModules();
+        const { listClaudeSessionsFromIndex } = await import('./claudeSessionIndex');
+        const sessions = await listClaudeSessionsFromIndex();
+        expect(sessions[0].title).toBe('Login flow repair');
+
+        writeFileSync(path, [...lines, { type: 'custom-title', customTitle: 'Auth rewrite', sessionId: 'session-ai' }]
+            .map((line) => JSON.stringify(line)).join('\n') + '\n');
+        const reparsed = await listClaudeSessionsFromIndex();
+        expect(reparsed[0].title).toBe('Auth rewrite');
+    });
+
     it('keeps user messages on both sides of a compaction summary available for fork resolution', async () => {
         const projectId = 'project-compacted';
         const projectDir = join(claudeConfigDir, 'projects', projectId);

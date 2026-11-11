@@ -166,6 +166,7 @@ export type ReducerState = {
     sidechains: Map<string, ReducerMessage[]>;
     tracerState: TracerState; // Tracer state for sidechain processing
     limitResets: { createdAt: number; endsAt: number }[]; // Rejected rate_limit_events, paired with usage-limit notices
+    notifiedNoticeKeys: Set<string>; // Notice keys already shown, so a repeated warning is said once
     latestUsage?: {
         inputTokens: number;
         outputTokens: number;
@@ -188,6 +189,7 @@ export function createReducer(): ReducerState {
         sidechains: new Map(),
         tracerState: createTracer(),
         limitResets: [],
+        notifiedNoticeKeys: new Set(),
     }
 };
 
@@ -269,6 +271,17 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                 }
             }
             continue;
+        }
+
+        // A notice carrying a key is news only the first time. Claude re-emits a rate-limit warning
+        // each time a rounded percentage moves, and a history replay carries every one of them.
+        if (msg.role === 'event' && msg.content.type === 'message' && msg.content.key) {
+            const key = msg.content.key;
+            state.messageIds.set(msg.id, msg.id);
+            if (state.notifiedNoticeKeys.has(key)) {
+                continue;
+            }
+            state.notifiedNoticeKeys.add(key);
         }
 
         // Handle context reset events - reset state and let the message be shown
@@ -680,11 +693,28 @@ export function reducer(state: ReducerState, messages: NormalizedMessage[], agen
                         if (message?.tool) {
                             message.realID = msg.id;
                             message.localId = msg.localId ?? message.localId ?? null;
-                            message.tool.description = c.description;
+                            if (c.description !== null) {
+                                message.tool.description = c.description;
+                            }
                             message.tool.callId = c.id;
-                            message.tool.startedAt = msg.createdAt;
-                            // If permission was approved and shown as completed (no tool), now it's running
-                            if (message.tool.permission?.status === 'approved' && message.tool.state === 'completed') {
+                            // A background-task update only refreshes what the card says; the call
+                            // started when it started, and its timer must not restart.
+                            if (!c.progress) {
+                                message.tool.startedAt = msg.createdAt;
+                            } else if (c.input && typeof c.input === 'object' && message.tool.input && typeof message.tool.input === 'object') {
+                                message.tool.input = { ...message.tool.input, ...c.input };
+                            }
+                            if (c.taskStatus) {
+                                message.tool.state = c.taskStatus === 'completed' ? 'completed' : 'error';
+                                message.tool.completedAt = msg.createdAt;
+                                if (c.taskStatus !== 'completed' && c.taskSummary) {
+                                    message.tool.result = { error: c.taskSummary };
+                                }
+                            }
+                            // If permission was approved and shown as completed (no tool), now it's running.
+                            // A background-task update is about a call that already ran, so it must not
+                            // reopen a card the task has just closed.
+                            if (!c.progress && message.tool.permission?.status === 'approved' && message.tool.state === 'completed') {
                                 message.tool.state = 'running';
                                 message.tool.completedAt = null;
                                 message.tool.result = undefined;
