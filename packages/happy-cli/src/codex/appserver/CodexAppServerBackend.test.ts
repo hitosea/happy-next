@@ -1190,4 +1190,137 @@ describe('CodexAppServerBackend thread metadata and 0.167.1 items', () => {
       { type: 'event', name: 'review_mode', payload: { entered: false, review: 'uncommitted changes' } },
     ]);
   });
+
+  it('shows a generated image as a completed step carrying its saved path', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: {
+        id: 'img-1',
+        type: 'imageGeneration',
+        status: 'completed',
+        savedPath: '/tmp/generated.png',
+        revisedPrompt: 'a red bicycle',
+      },
+    });
+    expect(messages).toEqual([
+      {
+        type: 'tool-call',
+        toolName: 'image_generation',
+        callId: 'img-1',
+        args: { path: '/tmp/generated.png', prompt: 'a red bicycle' },
+      },
+      {
+        type: 'tool-result',
+        toolName: 'image_generation',
+        callId: 'img-1',
+        result: { status: 'completed', path: '/tmp/generated.png', prompt: 'a red bicycle' },
+      },
+    ]);
+  });
+
+  it('reports the completed plan text', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'plan-1', type: 'plan', text: '1. read the reducer\n2. fold the steps' },
+    });
+    expect(messages).toEqual([
+      {
+        type: 'event',
+        name: 'plan_item',
+        payload: { id: 'plan-1', text: '1. read the reducer\n2. fold the steps' },
+      },
+    ]);
+  });
+
+  it('ignores a blank plan', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_ITEM_COMPLETED, {
+      item: { id: 'plan-2', type: 'plan', text: '   ' },
+    });
+    expect(messages).toEqual([]);
+  });
+
+  it('shows a hook run as a step with how it ended', () => {
+    const { messages, anyBackend } = collect();
+    const run = { id: 'hook-1', eventName: 'preToolUse', status: 'running', handlerType: 'command', executionMode: 'sync' };
+    anyBackend.handleNotification(Methods.NOTIFY_HOOK_STARTED, { threadId: 't1', run });
+    anyBackend.handleNotification(Methods.NOTIFY_HOOK_COMPLETED, {
+      threadId: 't1',
+      run: {
+        ...run,
+        status: 'completed',
+        durationMs: 1200,
+        entries: [{ kind: 'warning', text: 'careful' }],
+      },
+    });
+    expect(messages).toEqual([
+      {
+        type: 'tool-call',
+        toolName: 'Hook',
+        callId: 'hook-1',
+        args: { event: 'preToolUse', handler: 'command', mode: 'sync' },
+      },
+      {
+        type: 'tool-result',
+        toolName: 'Hook',
+        callId: 'hook-1',
+        result: { status: 'completed', duration_ms: 1200, entries: [{ kind: 'warning', text: 'careful' }] },
+      },
+    ]);
+  });
+
+  it('opens a hook that arrives completed only', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_HOOK_COMPLETED, {
+      threadId: 't1',
+      run: { id: 'hook-2', eventName: 'sessionEnd', status: 'stopped', handlerType: 'command' },
+    });
+    expect(messages.map((m) => m.type)).toEqual(['tool-call', 'tool-result']);
+  });
+
+  it('stays silent on an ordinary auto-review approval', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_AUTO_REVIEW_COMPLETED, {
+      threadId: 't1',
+      reviewId: 'r1',
+      review: { status: 'approved', riskLevel: 'medium' },
+      action: { type: 'command', command: 'ls', cwd: '/tmp', source: 'shell' },
+    });
+    expect(messages).toEqual([]);
+  });
+
+  it('reports a denied auto-review with the action and reason', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_AUTO_REVIEW_COMPLETED, {
+      threadId: 't1',
+      reviewId: 'r2',
+      review: { status: 'denied', riskLevel: 'high', rationale: 'would delete the repo' },
+      action: { type: 'command', command: 'rm -rf .git', cwd: '/repo', source: 'shell' },
+    });
+    expect(messages).toEqual([
+      {
+        type: 'event',
+        name: 'auto_review',
+        payload: {
+          phase: 'completed',
+          status: 'denied',
+          riskLevel: 'high',
+          rationale: 'would delete the repo',
+          action: 'rm -rf .git',
+        },
+      },
+    ]);
+  });
+
+  it('asks the reader to review when auto-review will not decide', () => {
+    const { messages, anyBackend } = collect();
+    anyBackend.handleNotification(Methods.NOTIFY_STRICT_REVIEW_REQUIRED, {
+      threadId: 't1',
+      turnId: 'turn-1',
+      startedAtMs: 1,
+    });
+    expect(messages).toEqual([
+      { type: 'event', name: 'auto_review', payload: { phase: 'strict' } },
+    ]);
+  });
 });

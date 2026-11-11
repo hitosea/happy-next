@@ -5,6 +5,7 @@ describe('getToolImagePath', () => {
     it.each([
         ['view_image', { path: '/tmp/image' }, '/tmp/image'],
         ['view_image', { path: '/tmp/image.png' }, '/tmp/image.png'],
+        ['image_generation', { path: '/tmp/generated.png' }, '/tmp/generated.png'],
         ['Read', { file_path: '/tmp/image.png' }, '/tmp/image.png'],
         ['Read', { file_path: '/tmp/IMAGE.JPEG' }, '/tmp/IMAGE.JPEG'],
         ['read', { locations: [{ path: '/tmp/image.webp' }] }, '/tmp/image.webp'],

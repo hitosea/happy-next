@@ -14,6 +14,7 @@ export type OpenToolImagePreviewRequest = z.infer<typeof openToolImagePreviewReq
 // image" rather than a picture.
 const imageTools: Record<string, { field: string; imageExtensionRequired: boolean }> = {
     'view_image': { field: 'path', imageExtensionRequired: false },
+    'image_generation': { field: 'path', imageExtensionRequired: false },
     'Read': { field: 'file_path', imageExtensionRequired: true },
     'read': { field: 'file_path', imageExtensionRequired: true },
 };

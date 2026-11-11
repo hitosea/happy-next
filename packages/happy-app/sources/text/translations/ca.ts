@@ -1421,6 +1421,7 @@ export const ca: TranslationStructure = {
             enterPlanMode: 'Entra en mode pla',
             changeTitle: 'Canvia el títol',
             viewImage: "Mostra la imatge",
+            generatedImage: "Imatge generada",
             task: 'Tasca',
             terminal: 'Terminal',
             searchFiles: 'Cerca fitxers',

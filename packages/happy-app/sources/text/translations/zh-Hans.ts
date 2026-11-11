@@ -1423,6 +1423,7 @@ export const zhHans: TranslationStructure = {
             enterPlanMode: '进入计划模式',
             changeTitle: '更改标题',
             viewImage: "查看图片",
+            generatedImage: "生成的图片",
             task: '任务',
             terminal: '终端',
             searchFiles: '搜索文件',

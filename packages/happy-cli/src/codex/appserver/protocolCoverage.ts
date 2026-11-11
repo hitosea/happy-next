@@ -22,6 +22,8 @@ export const HANDLED_ITEM_TYPES = [
   'enteredReviewMode',
   'exitedReviewMode',
   'contextCompaction',
+  'plan',
+  'imageGeneration',
 ] as const;
 
 /** Item types deliberately not surfaced: hook prompt fragments are Codex's own bookkeeping, and
@@ -33,15 +35,11 @@ export const IGNORED_ITEM_TYPES = [
 
 /** Known gaps, each with a later batch that owns it. */
 export const PENDING_ITEM_TYPES = [
-  // Plan body, deduped against the TodoWrite checklist built from turn/plan/updated.
-  'plan',
   // New in 0.167.1; no captured session yet, so the pairing with its call is unverified.
   'functionCallOutput',
   // Codex multi-agent visibility.
   'collabAgentToolCall',
   'subAgentActivity',
-  // Generated images, registered for the existing tool image preview.
-  'imageGeneration',
 ] as const;
 
 /** Notifications that produce something in the conversation. */
@@ -56,6 +54,10 @@ export const HANDLED_NOTIFICATIONS = [
   'item/reasoning/textDelta',
   'item/reasoning/summaryTextDelta',
   'item/reasoning/summaryPartAdded',
+  'hook/started',
+  'hook/completed',
+  'item/autoApprovalReview/completed',
+  'autoApprovalReview/strictReviewRequired',
   'thread/closed',
   'thread/compacted',
   'thread/goal/updated',
@@ -90,6 +92,8 @@ export const IGNORED_NOTIFICATIONS = [
   'item/fileChange/patchUpdated',
   'item/mcpToolCall/progress',
   'item/plan/delta',
+  // The review's start carries no decision; only its completed outcome is surfaced.
+  'item/autoApprovalReview/started',
   'mcpServer/event/stream/notification',
   'mcpServer/oauthLogin/completed',
   'mcpServer/startupStatus/updated',
@@ -138,11 +142,4 @@ export const IGNORED_NOTIFICATIONS = [
 export const PENDING_NOTIFICATIONS = [
   // Account-wide usage limit, surfaced as a notice.
   'account/rateLimits/updated',
-  // "Approve for me" review trail.
-  'autoApprovalReview/strictReviewRequired',
-  'item/autoApprovalReview/started',
-  'item/autoApprovalReview/completed',
-  // Codex hooks.
-  'hook/started',
-  'hook/completed',
 ] as const;

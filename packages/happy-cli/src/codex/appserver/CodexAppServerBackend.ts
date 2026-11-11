@@ -41,6 +41,10 @@ import {
   type ReviewTarget,
   type SleepThreadItem,
   type ReviewModeThreadItem,
+  type PlanThreadItem,
+  type ImageGenerationThreadItem,
+  type HookRunSummary,
+  type GuardianApprovalReviewAction,
   type ThreadCompactStartParams,
   type ThreadGoalSetParams,
   type ThreadGoalGetParams,
@@ -195,6 +199,32 @@ function parseElicitationMeta(params: unknown): ElicitationMeta {
 
 // ─── Backend ─────────────────────────────────────────────────
 
+/** One line naming the action an auto-review judged, for the notice that reports its decision. */
+function describeReviewAction(action: GuardianApprovalReviewAction | undefined): string | null {
+  if (!action || typeof action !== 'object') return null;
+  const a = action as Record<string, any>;
+  switch (a.type) {
+    case 'command':
+      return typeof a.command === 'string' ? a.command : 'command';
+    case 'execve': {
+      const argv = Array.isArray(a.argv) ? a.argv.map(String) : [];
+      return [a.program, ...argv.slice(1)].filter(Boolean).join(' ') || 'execve';
+    }
+    case 'writeStdin':
+      return `stdin for process ${a.processId ?? 'unknown'}`;
+    case 'applyPatch':
+      return Array.isArray(a.files) && a.files.length > 0 ? `patch touching ${a.files.length} file(s)` : 'patch';
+    case 'networkAccess':
+      return `${a.protocol ?? 'network'} ${a.host ?? 'unknown'}:${a.port ?? ''}`;
+    case 'mcpToolCall':
+      return `${a.server ?? 'MCP'} tool ${a.toolName ?? 'unknown'}`;
+    case 'requestPermissions':
+      return 'permission request';
+    default:
+      return null;
+  }
+}
+
 export class CodexAppServerBackend implements AgentBackend {
   private peer: CodexJsonRpcPeer;
   private listeners: AgentMessageHandler[] = [];
@@ -206,6 +236,8 @@ export class CodexAppServerBackend implements AgentBackend {
   private unreadSteers = new Set<string>();
   /** Sleep items that already emitted their tool call, so a completed-only event still pairs */
   private openedSleeps = new Set<string>();
+  /** Hook runs that already emitted their tool call; a hook may outlive the turn, so this is not cleared */
+  private openedHooks = new Set<string>();
   private sessionId: string | null = null;
   private pendingApprovals = new Map<string, PendingApproval>();
   private feedbackQueue: string[] = [];
@@ -758,6 +790,70 @@ export class CodexAppServerBackend implements AgentBackend {
         this.emit({ type: 'event', name: 'goal_cleared', payload: p });
         break;
 
+      // ── Hooks ──
+      case Methods.NOTIFY_HOOK_STARTED:
+      case Methods.NOTIFY_HOOK_COMPLETED: {
+        const run = p.run as HookRunSummary | undefined;
+        if (!run?.id) break;
+        // A completed-only run still gets a call to pair with, so the step renders.
+        if (!this.openedHooks.delete(run.id)) {
+          this.openedHooks.add(run.id);
+          this.emit({
+            type: 'tool-call',
+            toolName: 'Hook',
+            callId: run.id,
+            args: { event: run.eventName, handler: run.handlerType, mode: run.executionMode },
+          });
+        }
+        if (method === Methods.NOTIFY_HOOK_COMPLETED) {
+          this.emit({
+            type: 'tool-result',
+            toolName: 'Hook',
+            callId: run.id,
+            result: {
+              status: run.status,
+              ...(typeof run.durationMs === 'number' ? { duration_ms: run.durationMs } : {}),
+              ...(run.statusMessage ? { message: run.statusMessage } : {}),
+              ...(Array.isArray(run.entries) && run.entries.length > 0 ? { entries: run.entries } : {}),
+            },
+          });
+        }
+        break;
+      }
+
+      // ── Approval auto-review ("Approve for me") ──
+      case Methods.NOTIFY_AUTO_REVIEW_STARTED:
+        // The review trail ends in a completed decision; the start alone is noise.
+        logger.debug(`[CodexBackend] Auto-review started: ${p.reviewId}`);
+        break;
+
+      case Methods.NOTIFY_AUTO_REVIEW_COMPLETED: {
+        const review = (p.review ?? {}) as Record<string, any>;
+        const status = typeof review.status === 'string' ? review.status : null;
+        const riskLevel = typeof review.riskLevel === 'string' ? review.riskLevel : null;
+        // Approvals at low/medium risk are the ordinary path; the ones worth telling the reader about
+        // are the refusals and the high-risk approvals.
+        const risky = riskLevel === 'high' || riskLevel === 'critical';
+        if (status && (status !== 'approved' || risky)) {
+          this.emit({
+            type: 'event',
+            name: 'auto_review',
+            payload: {
+              phase: 'completed',
+              status,
+              riskLevel,
+              rationale: typeof review.rationale === 'string' ? review.rationale : null,
+              action: describeReviewAction(p.action as GuardianApprovalReviewAction | undefined),
+            },
+          });
+        }
+        break;
+      }
+
+      case Methods.NOTIFY_STRICT_REVIEW_REQUIRED:
+        this.emit({ type: 'event', name: 'auto_review', payload: { phase: 'strict' } });
+        break;
+
       // ── Errors ──
       case Methods.NOTIFY_ERROR:
         this.handleErrorNotification(p);
@@ -1007,10 +1103,46 @@ export class CodexAppServerBackend implements AgentBackend {
         this.emit({ type: 'event', name: 'context_compacted', payload: item });
         break;
 
-      case 'plan':
+      case 'imageGeneration': {
+        const generation = item as ImageGenerationThreadItem;
+        const savedPath = typeof generation.savedPath === 'string' && generation.savedPath ? generation.savedPath : null;
+        const prompt = typeof generation.revisedPrompt === 'string' && generation.revisedPrompt ? generation.revisedPrompt : null;
+        // Emitted as one completed step: the generated file only exists now, and registering the
+        // call's `path` is what lets the app preview it.
+        this.emit({
+          type: 'tool-call',
+          toolName: 'image_generation',
+          callId: generation.id,
+          args: {
+            ...(savedPath ? { path: savedPath } : {}),
+            ...(prompt ? { prompt } : {}),
+          },
+        });
+        this.emit({
+          type: 'tool-result',
+          toolName: 'image_generation',
+          callId: generation.id,
+          result: {
+            status: generation.status,
+            ...(savedPath ? { path: savedPath } : {}),
+            ...(prompt ? { prompt } : {}),
+            ...(generation.failure ? { failure: generation.failure } : {}),
+          },
+        });
+        break;
+      }
+
+      case 'plan': {
+        const plan = item as PlanThreadItem;
+        // The completed item is the authoritative text; its deltas are partial.
+        if (typeof plan.text === 'string' && plan.text.trim()) {
+          this.emit({ type: 'event', name: 'plan_item', payload: { id: plan.id, text: plan.text } });
+        }
+        break;
+      }
+
       case 'userMessage':
       case 'imageView':
-      case 'imageGeneration':
         // Informational
         break;
 

@@ -1431,6 +1431,7 @@ export const ru: TranslationStructure = {
             enterPlanMode: 'Войти в режим планирования',
             changeTitle: 'Сменить заголовок',
             viewImage: "Просмотр изображения",
+            generatedImage: "Сгенерированное изображение",
             task: 'Задача',
             terminal: 'Терминал',
             searchFiles: 'Поиск файлов',

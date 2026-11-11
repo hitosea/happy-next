@@ -1422,6 +1422,7 @@ export const zhHant: TranslationStructure = {
             enterPlanMode: '進入計畫模式',
             changeTitle: '變更標題',
             viewImage: "檢視圖片",
+            generatedImage: "生成的圖片",
             task: '任務',
             terminal: '終端機',
             searchFiles: '搜尋檔案',

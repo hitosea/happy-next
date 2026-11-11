@@ -6,6 +6,7 @@ import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { t } from '@/text';
 import { getToolImageDisplayPath } from '@/utils/toolImagePath';
+import { formatCompactDuration } from '@/utils/messageTime';
 
 // Icon factory functions
 const ICON_TASK = (size: number = 24, color: string = '#000') => <Octicons name="rocket" size={size} color={color} />;
@@ -48,6 +49,36 @@ export const knownTools = {
         title: () => t('tools.names.viewImage'),
         extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => getToolImageDisplayPath('view_image', opts.tool.input, opts.metadata?.homeDir),
         icon: (size: number, color: string) => <Ionicons name="image-outline" size={size} color={color} />,
+        minimal: true,
+        isMutable: false,
+    },
+    // A Codex image generation saves the picture to disk; the row opens the same preview as view_image.
+    'image_generation': {
+        title: () => t('tools.names.generatedImage'),
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            const prompt = opts.tool.input?.prompt;
+            if (typeof prompt !== 'string' || !prompt) return null;
+            return prompt.length > 60 ? `${prompt.substring(0, 60)}...` : prompt;
+        },
+        icon: (size: number, color: string) => <Ionicons name="image-outline" size={size} color={color} />,
+        minimal: true,
+        isMutable: false,
+    },
+    // A Codex hook run, named by the event it fires on. It has no readable output, so the row is
+    // the event plus how it ended.
+    'Hook': {
+        title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            const event = opts.tool.input?.event;
+            return typeof event === 'string' && event ? `Hook: ${event}` : 'Hook';
+        },
+        extractSubtitle: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
+            const result = opts.tool.result as Record<string, any> | undefined;
+            if (typeof result?.message === 'string' && result.message) return result.message;
+            const status = typeof result?.status === 'string' ? result.status : null;
+            const duration = typeof result?.duration_ms === 'number' ? formatCompactDuration(result.duration_ms) : null;
+            return [status, duration].filter(Boolean).join(' · ') || null;
+        },
+        icon: (size: number, color: string) => <Ionicons name="flash-outline" size={size} color={color} />,
         minimal: true,
         isMutable: false,
     },

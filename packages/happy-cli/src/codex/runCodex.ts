@@ -77,6 +77,11 @@ export function emitReadyIfIdle({ pending, queueSize, shouldExit, sendReady, not
     return true;
 }
 
+/** Compare message bodies ignoring line wrapping and indentation. */
+function collapseWhitespace(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
 function formatUnknownCodexError(error: unknown): string {
     if (error instanceof Error) {
         return `${error.message}\n${error.stack ?? ''}`;
@@ -706,6 +711,10 @@ export async function runCodex(opts: {
     );
 
     let messageSentThisTurn = false;
+    /** The turn's latest plan item text, shown once at the end unless the answer already contains it. */
+    let pendingPlanText: string | null = null;
+    /** Assistant text this turn, used to avoid repeating a plan the answer already spelled out. */
+    const assistantTextsThisTurn: string[] = [];
 
     const reasoningProcessor = new ReasoningProcessor((message) => {
         session.sendAgentMessage('codex', message);
@@ -731,6 +740,7 @@ export async function runCodex(opts: {
             case 'model-output': {
                 if (msg.fullText) {
                     messageBuffer.addMessage(msg.fullText, 'assistant');
+                    assistantTextsThisTurn.push(msg.fullText);
                     session.sendAgentMessage('codex', {
                         type: 'message',
                         message: msg.fullText,
@@ -745,6 +755,8 @@ export async function runCodex(opts: {
                 if (msg.status === 'running') {
                     messageBuffer.addMessage('Starting task...', 'status');
                     messageSentThisTurn = false;
+                    pendingPlanText = null;
+                    assistantTextsThisTurn.length = 0;
                     if (!thinking) {
                         thinking = true;
                         sendRemoteKeepAlive(thinking);
@@ -753,6 +765,21 @@ export async function runCodex(opts: {
                 } else if (msg.status === 'idle') {
                     const isAborted = msg.detail === 'aborted';
                     messageBuffer.addMessage(isAborted ? 'Turn aborted' : 'Task completed', 'status');
+
+                    // The plan is the turn's answer when the reply itself never spelled it out. An
+                    // aborted turn's plan may be half-written, so it is dropped with the turn.
+                    const plan = pendingPlanText;
+                    pendingPlanText = null;
+                    if (!isAborted && plan) {
+                        const normalizedPlan = collapseWhitespace(plan);
+                        const alreadyInReply = assistantTextsThisTurn.some(
+                            (text) => collapseWhitespace(text).includes(normalizedPlan)
+                        );
+                        if (!alreadyInReply) {
+                            session.sendAgentMessage('codex', { type: 'message', message: plan });
+                            messageSentThisTurn = true;
+                        }
+                    }
 
                     if (isAborted) {
                         // Always surface an interrupt marker (mirrors Claude's
@@ -993,6 +1020,14 @@ export async function runCodex(opts: {
                         type: 'message',
                         message: `[Plan Update] ${JSON.stringify(msg.payload)}`,
                     });
+                } else if (msg.name === 'plan_item') {
+                    // Held until the turn ends: the plan is often the answer, and the assistant
+                    // message that follows may repeat it.
+                    const payload = msg.payload as { text?: string };
+                    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+                    if (text) {
+                        pendingPlanText = text;
+                    }
                 } else if (msg.name === 'context_compacted') {
                     messageBuffer.addMessage('Context compacted', 'status');
                     session.sendSessionEvent({ type: 'message', message: 'Context compacted' });
@@ -1031,6 +1066,31 @@ export async function runCodex(opts: {
                         type: 'message',
                         message: payload.review ? `${label}: ${payload.review}` : label,
                     });
+                } else if (msg.name === 'auto_review') {
+                    // "Approve for me" is invisible otherwise: the user only sees that a command ran.
+                    // Approval decisions of ordinary risk stay silent; refusals and high-risk approvals
+                    // are reported with the action and the reason.
+                    const payload = msg.payload as {
+                        phase?: 'strict' | 'completed';
+                        status?: string;
+                        riskLevel?: string | null;
+                        rationale?: string | null;
+                        action?: string | null;
+                    };
+                    if (payload.phase === 'strict') {
+                        session.sendSessionEvent({
+                            type: 'message',
+                            message: 'Approval needed: Codex auto-review will not decide this action.',
+                        });
+                    } else if (payload.phase === 'completed' && payload.status) {
+                        const action = payload.action ? ` for ${payload.action}` : '';
+                        const risk = payload.riskLevel ? ` (risk ${payload.riskLevel})` : '';
+                        const rationale = payload.rationale ? `: ${payload.rationale}` : '';
+                        session.sendSessionEvent({
+                            type: 'message',
+                            message: `Auto-review ${payload.status}${action}${risk}${rationale}`,
+                        });
+                    }
                 } else if (msg.name === 'goal_updated') {
                     logger.debug('[Codex] Goal updated', msg.payload);
                 } else if (msg.name === 'goal_cleared') {

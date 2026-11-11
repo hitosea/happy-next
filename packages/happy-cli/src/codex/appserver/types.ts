@@ -257,6 +257,91 @@ export interface ReviewModeThreadItem {
   review: string;
 }
 
+/** Codex's proposed plan; the completed item is the authoritative text. */
+export interface PlanThreadItem {
+  id: string;
+  type: 'plan';
+  text: string;
+}
+
+/** A generated image that Codex saved to disk. */
+export interface ImageGenerationThreadItem {
+  id: string;
+  type: 'imageGeneration';
+  status: string;
+  savedPath?: string | null;
+  revisedPrompt?: string | null;
+  failure?: unknown;
+}
+
+export type HookEventName =
+  | 'preToolUse'
+  | 'postToolUse'
+  | 'preModelRequest'
+  | 'postModelRequest'
+  | 'sessionStart'
+  | 'sessionEnd'
+  | 'userPromptSubmit'
+  | 'subagentStart'
+  | 'subagentStop'
+  | 'stop'
+  | 'interrupt'
+  | 'preCompact'
+  | 'postCompact'
+  | 'permissionRequest';
+
+export type HookRunStatus = 'running' | 'completed' | 'failed' | 'blocked' | 'stopped';
+
+export interface HookRunSummary {
+  id: string;
+  eventName: HookEventName;
+  status: HookRunStatus;
+  handlerType?: string;
+  executionMode?: string;
+  durationMs?: number | null;
+  statusMessage?: string | null;
+  entries?: Array<{ kind: string; text: string }>;
+}
+
+export interface HookNotificationParams {
+  threadId: string;
+  turnId?: string | null;
+  run: HookRunSummary;
+}
+
+export type GuardianRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+export type GuardianApprovalReviewStatus = 'inProgress' | 'approved' | 'denied' | 'timedOut' | 'aborted';
+
+export interface GuardianApprovalReview {
+  status: GuardianApprovalReviewStatus;
+  rationale?: string | null;
+  riskLevel?: GuardianRiskLevel | null;
+}
+
+/** The action an auto-review looked at; only `type` is relied on, the rest is per-action detail. */
+export type GuardianApprovalReviewAction = Record<string, unknown> & { type?: string };
+
+export interface AutoApprovalReviewStartedParams {
+  threadId: string;
+  turnId: string;
+  reviewId: string;
+  startedAtMs: number;
+  action: GuardianApprovalReviewAction;
+  review: GuardianApprovalReview;
+  targetItemId?: string | null;
+}
+
+export interface AutoApprovalReviewCompletedParams extends AutoApprovalReviewStartedParams {
+  completedAtMs: number;
+  decisionSource: string;
+}
+
+export interface StrictReviewRequiredParams {
+  threadId: string;
+  turnId: string;
+  startedAtMs: number;
+}
+
 // ─── Auth ──────────────────────────────────────────────────────
 
 export interface GetAuthStatusParams {
@@ -516,6 +601,11 @@ export const Methods = {
   NOTIFY_ERROR: 'error',
   NOTIFY_WARNING: 'warning',
   NOTIFY_GUARDIAN_WARNING: 'guardianWarning',
+  NOTIFY_HOOK_STARTED: 'hook/started',
+  NOTIFY_HOOK_COMPLETED: 'hook/completed',
+  NOTIFY_AUTO_REVIEW_STARTED: 'item/autoApprovalReview/started',
+  NOTIFY_AUTO_REVIEW_COMPLETED: 'item/autoApprovalReview/completed',
+  NOTIFY_STRICT_REVIEW_REQUIRED: 'autoApprovalReview/strictReviewRequired',
   NOTIFY_DEPRECATION: 'deprecationNotice',
   NOTIFY_CONFIG_WARNING: 'configWarning',
 } as const;

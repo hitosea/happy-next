@@ -1421,6 +1421,7 @@ export const es: TranslationStructure = {
             enterPlanMode: 'Entrar en modo plan',
             changeTitle: 'Cambiar título',
             viewImage: "Ver imagen",
+            generatedImage: "Imagen generada",
             task: 'Tarea',
             terminal: 'Terminal',
             searchFiles: 'Buscar archivos',

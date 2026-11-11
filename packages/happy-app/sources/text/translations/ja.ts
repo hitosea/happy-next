@@ -1437,6 +1437,7 @@ export const ja: TranslationStructure = {
             enterPlanMode: 'プランモードに入る',
             changeTitle: 'タイトルを変更',
             viewImage: "画像を表示",
+            generatedImage: "生成された画像",
             task: 'タスク',
             terminal: 'ターミナル',
             searchFiles: 'ファイル検索',
