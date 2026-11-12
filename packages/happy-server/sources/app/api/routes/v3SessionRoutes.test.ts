@@ -21,6 +21,7 @@ type MessageRecord = {
     sentBy: string | null;
     sentByName: string | null;
     kind?: string | null;
+    landmark?: string | null;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -125,11 +126,13 @@ const {
         sentBy?: string | null;
         sentByName?: string | null;
         kind?: string | null;
+        landmark?: string | null;
     }) => {
         const createdAt = new Date(state.nowMs);
         state.nowMs += 1;
         const msg: MessageRecord = {
             kind: input.kind ?? null,
+            landmark: input.landmark ?? null,
             id: `seed-${state.nextMessageId}`,
             sessionId: input.sessionId,
             seq: input.seq,
@@ -278,6 +281,11 @@ const {
             const kinds = new Set(args.where.OR.map((clause: { kind: string | null }) => clause.kind));
             rows = rows.filter((message) => kinds.has(message.kind ?? null));
         }
+        if (typeof args?.where?.landmark === "string") {
+            rows = rows.filter((message) => message.landmark === args.where.landmark);
+        } else if (args?.where?.landmark?.not === null) {
+            rows = rows.filter((message) => (message.landmark ?? null) !== null);
+        }
         if (args?.orderBy?.seq === "asc") {
             rows.sort((a, b) => a.seq - b.seq);
         }
@@ -322,6 +330,7 @@ const {
             sentBy: args?.data?.sentBy ?? null,
             sentByName: args?.data?.sentByName ?? null,
             kind: args?.data?.kind ?? null,
+            landmark: args?.data?.landmark ?? null,
             createdAt,
             updatedAt: createdAt
         };
@@ -853,6 +862,76 @@ describe("v3SessionRoutes", () => {
         });
         expect(response.statusCode).toBe(200);
         expect(state.messages.map((message) => message.kind)).toEqual(["text", "other", null]);
+    });
+
+    it("returns only landmark rows on landmark=any, saying the filter back", async () => {
+        seedSession({ id: "session-1", accountId: "user-1" });
+        seedMessage({ sessionId: "session-1", seq: 1, localId: "l1", content: { t: "encrypted", c: "a" } });
+        seedMessage({ sessionId: "session-1", seq: 2, localId: "l2", content: { t: "encrypted", c: "b" }, kind: "text", landmark: "prompt" });
+        seedMessage({ sessionId: "session-1", seq: 3, localId: "l3", content: { t: "encrypted", c: "c" }, kind: "other" });
+        seedMessage({ sessionId: "session-1", seq: 4, localId: "l4", content: { t: "encrypted", c: "d" }, kind: "other", landmark: "question" });
+        seedMessage({ sessionId: "session-1", seq: 5, localId: "l5", content: { t: "encrypted", c: "e" }, kind: "other", landmark: "question-answer" });
+
+        app = await createApp();
+        const any = await app.inject({
+            method: "GET",
+            url: "/v3/sessions/session-1/messages?landmark=any",
+            headers: { "x-user-id": "user-1" }
+        });
+        expect(any.json().messages.map((message: any) => message.seq)).toEqual([5, 4, 2]);
+        expect(any.json().messages.map((message: any) => message.landmark)).toEqual(["question-answer", "question", "prompt"]);
+        expect(any.json().landmark).toBe("any");
+
+        const oneKind = await app.inject({
+            method: "GET",
+            url: "/v3/sessions/session-1/messages?landmark=preview",
+            headers: { "x-user-id": "user-1" }
+        });
+        expect(oneKind.json().messages).toEqual([]);
+        expect(oneKind.json().landmark).toBe("preview");
+
+        const all = await app.inject({
+            method: "GET",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" }
+        });
+        expect(all.json().messages.map((message: any) => message.seq)).toEqual([5, 4, 3, 2, 1]);
+        expect(all.json().landmark).toBeUndefined();
+
+        const invalid = await app.inject({
+            method: "GET",
+            url: "/v3/sessions/session-1/messages?landmark=marker",
+            headers: { "x-user-id": "user-1" }
+        });
+        expect(invalid.statusCode).toBe(400);
+    });
+
+    it("stores the landmark a message is sent with, and none when unsaid", async () => {
+        seedSession({ id: "session-1", accountId: "user-1" });
+
+        app = await createApp();
+        const response = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: {
+                messages: [
+                    { localId: "l1", content: "a", landmark: "prompt" },
+                    { localId: "l2", content: "b", landmark: "preview" },
+                    { localId: "l3", content: "c" },
+                ],
+            },
+        });
+        expect(response.statusCode).toBe(200);
+        expect(state.messages.map((message) => message.landmark)).toEqual(["prompt", "preview", null]);
+
+        const invalid = await app.inject({
+            method: "POST",
+            url: "/v3/sessions/session-1/messages",
+            headers: { "x-user-id": "user-1" },
+            payload: { messages: [{ localId: "l4", content: "d", landmark: "any" }] },
+        });
+        expect(invalid.statusCode).toBe(400);
     });
 
     it("supports backward pagination with before_seq", async () => {

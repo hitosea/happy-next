@@ -2,6 +2,7 @@ import { buildMessageDeliveryErrorEphemeral, buildNewMessageUpdate, eventRouter,
 import { db } from "@/storage/db";
 import { allocateSessionSeqBatch } from "@/storage/seq";
 import { randomKeyNaked } from "@/utils/randomKeyNaked";
+import type { MessageLandmark } from "happy-wire";
 
 export type DispatchSessionMessageParams = {
     ownerId: string;
@@ -13,6 +14,8 @@ export type DispatchSessionMessageParams = {
     trackCliDelivery: boolean;
     /** The record's kind as its sender says, or null when unsaid (see `SessionMessage.kind`) */
     kind: SessionMessageKind | null;
+    /** The record's minimap landmark as its sender says, or null when unsaid */
+    landmark: MessageLandmark | null;
     /** A connection that already has the message, not to be sent it again: the CLI a steered message came through */
     skipSenderConnection?: ClientConnection;
 };
@@ -64,6 +67,7 @@ export async function dispatchSessionMessage(params: DispatchSessionMessageParam
                 sentBy: params.sentBy,
                 sentByName: params.sentByName,
                 kind: params.kind,
+                landmark: params.landmark,
             },
             select: {
                 id: true,

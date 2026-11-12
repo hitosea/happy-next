@@ -174,6 +174,7 @@ export async function handlePendingSteerResult(params: {
             // The CLI has it already: there is no delivery to track
             trackCliDelivery: false,
             kind: "text",
+            landmark: "prompt",
             skipSenderConnection: connection,
         });
     } catch (error) {

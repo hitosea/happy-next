@@ -13,7 +13,7 @@ import { delay } from "@/utils/delay";
 import { emitSessionCapabilitiesUpdate, updateSessionCapabilitiesAtomic } from "@/app/session/sessionCapabilities";
 import { sessionMessageKinds, type SessionMessageKind } from "@/app/session/sessionMessageDispatch";
 import { handlePendingSteerResult, releaseSteeringPendingMessages } from "@/app/session/pendingMessageSteer";
-import { PendingSteerResultSchema } from "happy-wire";
+import { PendingSteerResultSchema, messageLandmarks, type MessageLandmark } from "happy-wire";
 
 /**
  * Check if there's an active CLI (session-scoped) connection for a session.
@@ -450,7 +450,8 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     .map((item: any) => ({
                         message: item.message as string,
                         localId: typeof item.localId === 'string' ? item.localId : null,
-                        kind: (sessionMessageKinds as readonly unknown[]).includes(item.kind) ? item.kind as SessionMessageKind : null
+                        kind: (sessionMessageKinds as readonly unknown[]).includes(item.kind) ? item.kind as SessionMessageKind : null,
+                        landmark: (messageLandmarks as readonly unknown[]).includes(item.landmark) ? item.landmark as MessageLandmark : null,
                     }));
 
                 const count = sanitized.length;
@@ -516,6 +517,7 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                         } as PrismaJson.SessionMessageContent,
                         localId: item.localId,
                         kind: item.kind,
+                        landmark: item.landmark,
                         createdAt: new Date(baseTime + index),
                         updatedAt: new Date(baseTime + index)
                     }));

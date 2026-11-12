@@ -322,12 +322,17 @@ model SessionMessage {
   /// What the sender says the record is, in the clear beside its ciphertext: "text" for words the
   /// user or the agent wrote, "other" for the rest (tool calls, thinking, events); null when unsaid
   kind          String?
+  /// What the conversation rail marks this record as, in the clear: "prompt", "question",
+  /// "question-answer", "preview", "preview-answer"; null for the rest and for rows sent before
+  /// the field existed
+  landmark      String?
   deliveryIssue SessionMessageDeliveryIssue?
   createdAt     DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
 
   @@unique([sessionId, localId])
   @@index([sessionId, seq])
+  @@index([sessionId, landmark, seq])
 }
 
 model SessionPendingMessage {

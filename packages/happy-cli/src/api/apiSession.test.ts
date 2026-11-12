@@ -212,6 +212,27 @@ describe('ApiSessionClient v3 outbox', () => {
         expect(mockSocket.emit).not.toHaveBeenCalledWith('message', expect.anything());
     });
 
+    it('marks the records the minimap draws with a landmark', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32));
+
+        client.sendClaudeSessionMessage({ type: 'user', uuid: 'p', message: { role: 'user', content: 'hello' } } as any);
+        client.sendClaudeSessionMessage({
+            type: 'assistant', uuid: 'q', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'q1', name: 'AskUserQuestion', input: {} }] },
+        } as any);
+        client.sendClaudeSessionMessage({
+            type: 'user', uuid: 'a', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'q1', content: 'ok' }] },
+        } as any);
+        client.sendClaudeSessionMessage({
+            type: 'assistant', uuid: 'b', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'b1', name: 'Bash', input: {} }] },
+        } as any);
+        client.sendAgentMessage('gemini', { type: 'tool-call', callId: 'p1', name: 'mcp__happy__preview_html', input: {}, id: 'p1' });
+        client.sendAgentMessage('gemini', { type: 'tool-result', callId: 'p1', output: '', id: 'p1r' });
+
+        expect((client as any).pendingOutbox.map((message: any) => message.landmark))
+            .toEqual(['prompt', 'question', 'question-answer', null, 'preview', 'preview-answer']);
+        client.close();
+    });
+
     it('should use snake_case tool_use_result payloads when trimming Claude tool results', () => {
         const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32)) as any;
         const trimSpy = vi.spyOn(trimToolUseResultModule, 'trimToolUseResult').mockReturnValue({

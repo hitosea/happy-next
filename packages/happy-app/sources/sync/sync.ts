@@ -171,6 +171,61 @@ type SessionMessagesResponse = {
     messages?: ApiMessage[];
     hasMore?: boolean;
     oldestSeq?: number | null;
+    /** Said back by a server that filtered the page by it; absent one returned every record */
+    landmark?: string;
+};
+
+// The conversation minimap seeds itself with only the newest of each kind; older landmarks are
+// merged in unbounded as the list pages them in, so these caps only bound what is loaded up front.
+const MINIMAP_MAX_PROMPTS = 50;
+const MINIMAP_MAX_QUESTIONS = 50;
+const MINIMAP_MAX_PREVIEWS = 50;
+// Bounds pathological sparse sessions (few prompts among many tool-call rows). A remote row also
+// costs a download and a decrypt, so that walk is held to a smaller budget than the local one.
+const MINIMAP_MAX_LOCAL_SCAN = 5000;
+const MINIMAP_MAX_REMOTE_SCAN = 1500;
+// The largest page the v3 messages route serves, and so the cheapest way to walk a history.
+const MINIMAP_REMOTE_PAGE = 500;
+
+/** A question or preview call seen while scanning, waiting for the whole scan so its answer can attach. */
+type MinimapPendingLandmark = {
+    id: string;
+    localId: string | null;
+    createdAt: number;
+    seq?: number | null;
+    input: unknown;
+    toolUseId: string | null;
+};
+
+type MinimapCollector = {
+    prompts: UserTextMessage[];
+    questions: MinimapPendingLandmark[];
+    previews: MinimapPendingLandmark[];
+    /** Answers land in a newer record than the call they answer, so they are stashed until the scan ends. */
+    resultsByToolUseId: Map<string, unknown>;
+    /** Rows already collected, so a second pass over the same history adds nothing. */
+    seen: Set<string>;
+};
+
+/** What the local half of the minimap is: its result and where its scan stopped. */
+type MinimapLocalScan = {
+    signature: string;
+    messages: MinimapMessage[];
+    /** The seq the local scan last paged below; the remote scan continues from here. */
+    nextBeforeSeq: number | null;
+};
+
+/** What the remote half is: the older landmarks found so far, and how far the walk has come. */
+type MinimapRemoteProgress = {
+    messages: MinimapMessage[];
+    /** Where the next remote page starts; null means from the newest record. */
+    nextBeforeSeq: number | null;
+    /** The whole session's oldest seq, as the server last said. */
+    oldestSeq: number | null;
+    /** Nothing left to find: every kind is filled, the history is read, or the scan cap was hit. */
+    done: boolean;
+    /** The one full scan for rows older than the landmark field has already run. */
+    fullScanDone: boolean;
 };
 
 /**
@@ -261,7 +316,13 @@ class Sync {
     private messageCacheResetPromises = new Map<string, Promise<void>>();
     /** Memoized minimap message lists per session, keyed by a cache-state freshness signature,
      *  so refocusing a session doesn't re-decrypt its whole history. See getCachedMinimapMessages. */
-    private minimapMessagesCache = new Map<string, { signature: string; messages: MinimapMessage[] }>();
+    private minimapMessagesCache = new Map<string, MinimapLocalScan>();
+    /** The older landmarks the server had beyond the local cache, and how far the walk has come. */
+    private minimapRemoteCache = new Map<string, MinimapRemoteProgress>();
+    /** One remote walk per session at a time; refocusing joins the one under way. */
+    private minimapRemoteInFlight = new Map<string, Promise<MinimapMessage[]>>();
+    /** Bumped to abandon a walk (session switch); the run drops its result at the next boundary. */
+    private minimapRemoteGeneration = new Map<string, number>();
     // `normalizeRawMessage` runs Zod over the whole raw record, which is the bulk of a minimap
     // scan's cost, and a scan re-runs whenever the local message cache changes — i.e. on every new
     // message — so the result is memoized per message id. Raw records are immutable once persisted
@@ -656,6 +717,7 @@ class Sync {
         this.messageCacheGeneration.set(sessionId, next);
         // Any cache clear/invalidate must drop the memoized minimap list too.
         this.minimapMessagesCache.delete(sessionId);
+        this.minimapRemoteCache.delete(sessionId);
         this.cachedMessageSearchIndex.delete(sessionId);
         return next;
     }
@@ -1540,7 +1602,9 @@ class Sync {
                             localId,
                             trackCliDelivery: true,
                             // The user's words, so a reader asking for the conversation alone gets them
-                            kind: 'text'
+                            kind: 'text',
+                            // And a landmark, so the minimap can find them without the whole history
+                            landmark: 'prompt'
                         }]
                     })
                 }
@@ -3372,44 +3436,19 @@ class Sync {
             return memo.messages;
         }
 
-        // Proactively seed the minimap with only the newest MAX_USER_MESSAGES prompts, MAX_QUESTIONS
-        // questions and MAX_PREVIEWS previews. As the user scrolls the list, older landmarks are
-        // merged in unbounded (via the loaded messages), so the caps only limit what we load up
-        // front. Page backwards from the newest message and decrypt PER PAGE so we can stop as soon
-        // as we have enough — decryption is the dominant cost, and a long history would otherwise be
-        // decrypted in full just to keep the last handful of landmarks. MAX_SCAN bounds pathological
-        // sparse sessions (few prompts/questions among many tool-call messages).
-        const MAX_USER_MESSAGES = 50;
-        const MAX_QUESTIONS = 50;
-        const MAX_PREVIEWS = 50;
-        const MAX_SCAN = 5000;
+        // Seed the minimap with only the newest of each kind. Page backwards from the newest message
+        // and decrypt PER PAGE so the scan can stop as soon as each kind is filled — decryption is
+        // the dominant cost, and a long history would otherwise be decrypted in full just to keep
+        // the last handful of landmarks.
+        const collector = this.createMinimapCollector();
         const PAGE = Sync.INITIAL_MESSAGES_LIMIT;
-        const collectedUserMessages: UserTextMessage[] = [];
-        const pendingQuestions: {
-            id: string;
-            localId: string | null;
-            createdAt: number;
-            seq?: number | null;
-            input: unknown;
-            toolUseId: string | null;
-        }[] = [];
-        const pendingPreviews: {
-            id: string;
-            localId: string | null;
-            createdAt: number;
-            seq?: number | null;
-            input: unknown;
-            toolUseId: string | null;
-        }[] = [];
-        // Answers land in a NEWER record than the call that asked the question, and we scan
-        // newest→oldest, so the result is always seen before its call. Stash them and attach below.
-        const resultsByToolUseId = new Map<string, unknown>();
         let scanned = 0;
         let hitScanCap = false;
+        let nextBeforeSeq: number | null = null;
         try {
             let beforeSeq: number | null = null;
-            while (collectedUserMessages.length < MAX_USER_MESSAGES || pendingQuestions.length < MAX_QUESTIONS || pendingPreviews.length < MAX_PREVIEWS) {
-                if (scanned >= MAX_SCAN) {
+            while (!this.minimapKindsFilled(collector)) {
+                if (scanned >= MINIMAP_MAX_LOCAL_SCAN) {
                     hitScanCap = true;
                     break;
                 }
@@ -3427,62 +3466,9 @@ class Sync {
                     if (!normalized) {
                         continue;
                     }
-                    // Exclude sub-agent (sidechain) content, matching what the list shows at top level.
-                    // `isSidechain` is set at normalize time and is exactly what the reducer's tracer
-                    // keys on.
-                    if (normalized.isSidechain) {
-                        continue;
-                    }
-                    if (normalized.role === 'user') {
-                        // Post-compaction summaries are not minimap landmarks (see
-                        // shouldHideMessageInMinimap) — skip them here rather than let one burn a
-                        // MAX_USER_MESSAGES slot that a real prompt further back would have used.
-                        if (normalized.meta?.isCompactSummary) {
-                            continue;
-                        }
-                        collectedUserMessages.push({
-                            kind: 'user-text',
-                            id: normalized.id,
-                            localId: normalized.localId,
-                            createdAt: normalized.createdAt,
-                            seq: item.seq,
-                            text: normalized.content.text,
-                            ...(normalized.meta?.displayText ? { displayText: normalized.meta.displayText } : {}),
-                            ...(normalized.content.type === 'mixed' ? { images: normalized.content.images } : {}),
-                            meta: normalized.meta,
-                            sentBy: item.sentBy,
-                            sentByName: item.sentByName,
-                        });
-                        continue;
-                    }
-                    if (normalized.role !== 'agent') {
-                        continue;
-                    }
-                    for (const content of normalized.content) {
-                        if (content.type === 'tool-call' && content.name === ASK_USER_QUESTION_TOOL) {
-                            pendingQuestions.push({
-                                id: normalized.id,
-                                localId: normalized.localId,
-                                createdAt: normalized.createdAt,
-                                seq: item.seq,
-                                input: content.input,
-                                toolUseId: content.id ?? null,
-                            });
-                        } else if (content.type === 'tool-call' && normalizePreviewHtmlToolName(content.name) === PREVIEW_HTML_TOOL) {
-                            pendingPreviews.push({
-                                id: normalized.id,
-                                localId: normalized.localId,
-                                createdAt: normalized.createdAt,
-                                seq: item.seq,
-                                input: content.input,
-                                toolUseId: content.id ?? null,
-                            });
-                        } else if (content.type === 'tool-result' && content.tool_use_id) {
-                            resultsByToolUseId.set(content.tool_use_id, content.content);
-                        }
-                    }
+                    this.collectMinimapMessage(collector, normalized, item.seq, item.sentBy, item.sentByName);
                 }
-
+                nextBeforeSeq = page.minSeq;
                 if (!page.hasMoreLocal || page.minSeq === null) {
                     break;
                 }
@@ -3492,32 +3478,339 @@ class Sync {
             console.warn(`Failed to read cached messages for minimap ${sessionId}:`, error);
             return [];
         }
-        if (hitScanCap && collectedUserMessages.length < MAX_USER_MESSAGES) {
-            log.log(`💬 getCachedMinimapMessages scanned MAX_SCAN=${MAX_SCAN} cached messages for ${sessionId} without reaching ${MAX_USER_MESSAGES} prompts; older prompts are omitted from the minimap`);
+        if (hitScanCap && collector.prompts.length < MINIMAP_MAX_PROMPTS) {
+            log.log(`💬 getCachedMinimapMessages scanned MINIMAP_MAX_LOCAL_SCAN=${MINIMAP_MAX_LOCAL_SCAN} cached messages for ${sessionId} without reaching ${MINIMAP_MAX_PROMPTS} prompts; older prompts are omitted from the minimap`);
         }
 
-        // Now that the whole scan is done the answers are known, so the question views can be built.
-        const collectedQuestions = pendingQuestions
+        const messages = this.buildMinimapMessages(collector);
+        this.minimapMessagesCache.set(sessionId, { signature, messages, nextBeforeSeq });
+        return messages;
+    }
+
+    /**
+     * The minimap beyond the local cache: walk the server's older landmark rows and return the local
+     * landmarks together with those found. A screen calls this after `getCachedMinimapMessages` has
+     * put its half up; calling it again while a walk runs joins that walk, and once the walk is over
+     * it only reports what was found.
+     *
+     * A server that filters by `landmark` says so back in the response; one that predates the field
+     * returns every record, which is the same walk with more to decrypt per page. The landed rows are
+     * landmarks from before records were marked nothing at all, so if the marks stop short of the
+     * session's oldest record the history is read once more without the filter and what it finds is
+     * kept.
+     */
+    getRemoteMinimapMessages = async (sessionId: string): Promise<MinimapMessage[]> => {
+        const inFlight = this.minimapRemoteInFlight.get(sessionId);
+        if (inFlight) {
+            return inFlight;
+        }
+        const run = this.scanRemoteMinimap(sessionId)
+            .catch(async (error) => {
+                console.warn(`Failed to complete the minimap from the server for ${sessionId}:`, error);
+                const found = this.minimapRemoteCache.get(sessionId)?.messages ?? [];
+                return this.mergeMinimapMessages(await this.getCachedMinimapMessages(sessionId), found);
+            })
+            .finally(() => {
+                if (this.minimapRemoteInFlight.get(sessionId) === run) {
+                    this.minimapRemoteInFlight.delete(sessionId);
+                }
+            });
+        this.minimapRemoteInFlight.set(sessionId, run);
+        return run;
+    }
+
+    /** A screen that leaves abandons its walk; the pages already kept are resumed on the next focus. */
+    cancelRemoteMinimap = (sessionId: string) => {
+        if (!this.minimapRemoteInFlight.has(sessionId)) {
+            return;
+        }
+        this.minimapRemoteGeneration.set(sessionId, (this.minimapRemoteGeneration.get(sessionId) ?? 0) + 1);
+        this.minimapRemoteInFlight.delete(sessionId);
+    }
+
+    private scanRemoteMinimap = async (sessionId: string): Promise<MinimapMessage[]> => {
+        const generation = this.minimapRemoteGeneration.get(sessionId) ?? 0;
+        const isCurrent = () => (this.minimapRemoteGeneration.get(sessionId) ?? 0) === generation;
+        const local = await this.getCachedMinimapMessages(sessionId);
+        if (!isCurrent()) {
+            return local;
+        }
+        const scan = this.minimapMessagesCache.get(sessionId);
+        const encryption = this.encryption.getSessionEncryption(sessionId);
+        if (!scan || !encryption || !this.credentials) {
+            return local;
+        }
+
+        const progress: MinimapRemoteProgress = this.minimapRemoteCache.get(sessionId) ?? {
+            messages: [],
+            nextBeforeSeq: scan.nextBeforeSeq,
+            oldestSeq: null,
+            done: false,
+            fullScanDone: false,
+        };
+        this.minimapRemoteCache.set(sessionId, progress);
+        if (progress.done) {
+            return this.mergeMinimapMessages(local, progress.messages);
+        }
+
+        const collector = this.createMinimapCollector();
+        const fetchPage = (before: number | null, landmarkOnly: boolean): Promise<SessionMessagesResponse> => {
+            const params = new URLSearchParams({ limit: String(MINIMAP_REMOTE_PAGE) });
+            if (before !== null) {
+                params.set('before_seq', String(before));
+            }
+            if (landmarkOnly) {
+                params.set('landmark', 'any');
+            }
+            return this.fetchSessionMessages(
+                `${getServerUrl()}/v3/sessions/${sessionId}/messages?${params.toString()}`,
+                new AbortController(),
+                'Failed to fetch minimap messages',
+            );
+        };
+        const applyPage = async (data: SessionMessagesResponse): Promise<ApiMessage[]> => {
+            const rows = data.messages ?? [];
+            if (typeof data.oldestSeq === 'number') {
+                progress.oldestSeq = data.oldestSeq;
+            }
+            const decrypted = await encryption.decryptMessages(rows);
+            for (const message of decrypted) {
+                if (!message?.content) {
+                    continue;
+                }
+                const normalized = this.normalizeMessageCached(message.id, message.localId ?? null, message.createdAt, message.content);
+                if (!normalized) {
+                    continue;
+                }
+                this.collectMinimapMessage(collector, normalized, message.seq, message.sentBy ?? null, message.sentByName ?? null);
+            }
+            return rows;
+        };
+        const commit = () => {
+            progress.messages = this.mergeMinimapMessages(progress.messages, this.buildMinimapMessages(collector));
+        };
+
+        let scanned = 0;
+        let beforeSeq = progress.nextBeforeSeq;
+        let sawFilteredPage = false;
+        let reachedEnd = false;
+        try {
+            while (true) {
+                if (!isCurrent() || scanned >= MINIMAP_MAX_REMOTE_SCAN) {
+                    break;
+                }
+                if (this.minimapFilled(scan.messages, progress.messages, this.buildMinimapMessages(collector))) {
+                    break;
+                }
+                const data = await fetchPage(beforeSeq, true);
+                if (!isCurrent()) {
+                    return this.mergeMinimapMessages(local, progress.messages);
+                }
+                if (data.landmark === 'any') {
+                    sawFilteredPage = true;
+                }
+                const rows = await applyPage(data);
+                scanned += rows.length;
+                if (rows.length === 0) {
+                    reachedEnd = true;
+                    break;
+                }
+                beforeSeq = Math.min(...rows.map((row) => row.seq));
+                progress.nextBeforeSeq = beforeSeq;
+                commit();
+                if (!data.hasMore) {
+                    reachedEnd = true;
+                    break;
+                }
+            }
+        } catch (error) {
+            console.warn(`Failed to read remote messages for minimap ${sessionId}:`, error);
+        }
+
+        // The walk only sees marked rows, so marks older than the field stay buried until the history
+        // is read without the filter — once per session, and only when the marks stop short.
+        let fullScanDone = progress.fullScanDone;
+        if (isCurrent() && sawFilteredPage && reachedEnd && !fullScanDone) {
+            fullScanDone = true;
+            const marks = this.mergeMinimapMessages(scan.messages, progress.messages);
+            const oldestMarkSeq = marks.reduce<number | null>((oldest, message) => (
+                message.seq != null && (oldest === null || message.seq < oldest) ? message.seq : oldest
+            ), null);
+            const needsFullScan = progress.oldestSeq !== null
+                && !this.minimapFilled(marks)
+                && (oldestMarkSeq === null || oldestMarkSeq > progress.oldestSeq);
+            if (needsFullScan) {
+                let fullBefore: number | null = null;
+                try {
+                    while (scanned < MINIMAP_MAX_REMOTE_SCAN) {
+                        if (!isCurrent()) {
+                            break;
+                        }
+                        if (this.minimapFilled(marks, this.buildMinimapMessages(collector))) {
+                            break;
+                        }
+                        const data = await fetchPage(fullBefore, false);
+                        if (!isCurrent()) {
+                            break;
+                        }
+                        const rows = await applyPage(data);
+                        scanned += rows.length;
+                        if (rows.length === 0) {
+                            break;
+                        }
+                        const pageMin = Math.min(...rows.map((row) => row.seq));
+                        progress.nextBeforeSeq = pageMin;
+                        commit();
+                        if (!data.hasMore || (progress.oldestSeq !== null && pageMin <= progress.oldestSeq)) {
+                            break;
+                        }
+                        fullBefore = pageMin;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to read the full history for minimap ${sessionId}:`, error);
+                }
+                if (!isCurrent()) {
+                    // The pass was cut short; let the next focus run it again.
+                    fullScanDone = false;
+                }
+            }
+        }
+
+        if (isCurrent()) {
+            progress.fullScanDone = fullScanDone;
+            // An old server's pages hold every row, so reaching the end is the whole job; a filtered
+            // walk is only over once the one full pass for unmarked rows has had its say.
+            progress.done = this.minimapFilled(scan.messages, progress.messages)
+                || (reachedEnd && (fullScanDone || !sawFilteredPage));
+        }
+        return this.mergeMinimapMessages(local, progress.messages);
+    }
+
+    private createMinimapCollector(): MinimapCollector {
+        return { prompts: [], questions: [], previews: [], resultsByToolUseId: new Map(), seen: new Set() };
+    }
+
+    private minimapKindsFilled(collector: MinimapCollector): boolean {
+        return collector.prompts.length >= MINIMAP_MAX_PROMPTS
+            && collector.questions.length >= MINIMAP_MAX_QUESTIONS
+            && collector.previews.length >= MINIMAP_MAX_PREVIEWS;
+    }
+
+    private minimapCounts(messages: readonly MinimapMessage[]): { prompts: number; questions: number; previews: number } {
+        const counts = { prompts: 0, questions: 0, previews: 0 };
+        for (const message of messages) {
+            if (message.kind === 'user-text') {
+                counts.prompts += 1;
+            } else if (message.kind === 'ask-user-question') {
+                counts.questions += 1;
+            } else {
+                counts.previews += 1;
+            }
+        }
+        return counts;
+    }
+
+    private minimapFilled(...groups: readonly (readonly MinimapMessage[])[]): boolean {
+        let prompts = 0;
+        let questions = 0;
+        let previews = 0;
+        for (const messages of groups) {
+            const counts = this.minimapCounts(messages);
+            prompts += counts.prompts;
+            questions += counts.questions;
+            previews += counts.previews;
+        }
+        return prompts >= MINIMAP_MAX_PROMPTS
+            && questions >= MINIMAP_MAX_QUESTIONS
+            && previews >= MINIMAP_MAX_PREVIEWS;
+    }
+
+    private collectMinimapMessage(
+        collector: MinimapCollector,
+        normalized: NormalizedMessage,
+        seq: number | null,
+        sentBy: string | null | undefined,
+        sentByName: string | null | undefined,
+    ) {
+        // Exclude sub-agent (sidechain) content, matching what the list shows at top level.
+        // `isSidechain` is set at normalize time and is exactly what the reducer's tracer keys on.
+        if (normalized.isSidechain || collector.seen.has(normalized.id)) {
+            return;
+        }
+        collector.seen.add(normalized.id);
+        if (normalized.role === 'user') {
+            // Post-compaction summaries are not minimap landmarks (see shouldHideMessageInMinimap) —
+            // skip them here rather than let one burn a prompt slot a real prompt further back
+            // would have used.
+            if (normalized.meta?.isCompactSummary) {
+                return;
+            }
+            collector.prompts.push({
+                kind: 'user-text',
+                id: normalized.id,
+                localId: normalized.localId,
+                createdAt: normalized.createdAt,
+                seq,
+                text: normalized.content.text,
+                ...(normalized.meta?.displayText ? { displayText: normalized.meta.displayText } : {}),
+                ...(normalized.content.type === 'mixed' ? { images: normalized.content.images } : {}),
+                meta: normalized.meta,
+                sentBy,
+                sentByName,
+            });
+            return;
+        }
+        if (normalized.role !== 'agent') {
+            return;
+        }
+        for (const content of normalized.content) {
+            if (content.type === 'tool-call' && content.name === ASK_USER_QUESTION_TOOL) {
+                collector.questions.push({
+                    id: normalized.id,
+                    localId: normalized.localId,
+                    createdAt: normalized.createdAt,
+                    seq,
+                    input: content.input,
+                    toolUseId: content.id ?? null,
+                });
+            } else if (content.type === 'tool-call' && normalizePreviewHtmlToolName(content.name) === PREVIEW_HTML_TOOL) {
+                collector.previews.push({
+                    id: normalized.id,
+                    localId: normalized.localId,
+                    createdAt: normalized.createdAt,
+                    seq,
+                    input: content.input,
+                    toolUseId: content.id ?? null,
+                });
+            } else if (content.type === 'tool-result' && content.tool_use_id) {
+                collector.resultsByToolUseId.set(content.tool_use_id, content.content);
+            }
+        }
+    }
+
+    private buildMinimapMessages(collector: MinimapCollector): MinimapMessage[] {
+        // The whole scan is done, so the answers are known and the question views can be built.
+        const questions = collector.questions
             .map((pending) => buildAskUserQuestionMessage({
                 id: pending.id,
                 localId: pending.localId,
                 createdAt: pending.createdAt,
                 seq: pending.seq,
                 input: pending.input,
-                result: pending.toolUseId !== null ? resultsByToolUseId.get(pending.toolUseId) : undefined,
+                result: pending.toolUseId !== null ? collector.resultsByToolUseId.get(pending.toolUseId) : undefined,
             }))
             .filter((message): message is AskUserQuestionMessage => message !== null);
 
         // A preview only becomes a card once its call has a result; the scan is newest→oldest, so
         // the result is always seen before the call it belongs to.
-        const collectedPreviews = pendingPreviews
+        const previews = collector.previews
             .map((pending) => buildPreviewHtmlMessage({
                 id: pending.id,
                 localId: pending.localId,
                 createdAt: pending.createdAt,
                 seq: pending.seq,
                 input: pending.input,
-                completed: pending.toolUseId !== null && resultsByToolUseId.has(pending.toolUseId),
+                completed: pending.toolUseId !== null && collector.resultsByToolUseId.has(pending.toolUseId),
             }))
             .filter((message): message is PreviewHtmlMessage => message !== null);
 
@@ -3529,13 +3822,26 @@ class Sync {
         const keepNewest = (items: MinimapMessage[], cap: number) =>
             items.length > cap ? items.sort(byOldestFirst).slice(items.length - cap) : items;
         const result: MinimapMessage[] = [
-            ...keepNewest(collectedUserMessages, MAX_USER_MESSAGES),
-            ...keepNewest(collectedQuestions, MAX_QUESTIONS),
-            ...keepNewest(collectedPreviews, MAX_PREVIEWS),
+            ...keepNewest(collector.prompts, MINIMAP_MAX_PROMPTS),
+            ...keepNewest(questions, MINIMAP_MAX_QUESTIONS),
+            ...keepNewest(previews, MINIMAP_MAX_PREVIEWS),
         ];
         result.sort(byOldestFirst);
-        this.minimapMessagesCache.set(sessionId, { signature, messages: result });
         return result;
+    }
+
+    /** The two halves of the minimap as one list: the first copy of a row wins, oldest first. */
+    private mergeMinimapMessages(local: readonly MinimapMessage[], extra: readonly MinimapMessage[]): MinimapMessage[] {
+        const seen = new Set<string>();
+        const merged: MinimapMessage[] = [];
+        for (const message of [...local, ...extra]) {
+            if (seen.has(message.id)) {
+                continue;
+            }
+            seen.add(message.id);
+            merged.push(message);
+        }
+        return merged.sort((a, b) => a.createdAt - b.createdAt || (a.seq ?? 0) - (b.seq ?? 0));
     }
 
     private normalizeMessageCached(id: string, localId: string | null, createdAt: number, raw: RawRecord): NormalizedMessage | null {

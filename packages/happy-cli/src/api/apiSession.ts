@@ -21,7 +21,7 @@ import { registerToolImageForCall } from '../modules/common/toolImageStore';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
 import { MessageArchiveWriter } from '../modules/common/messageArchive';
-import { extractSearchableMessage, isThinkingOnly, messageKind, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
+import { extractSearchableMessage, isThinkingOnly, messageKind, messageLandmark, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageLandmark, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
 import { openOrchestratorResponse, openOrchestratorTitle, sealOrchestrator, sealTitle, type OrchestratorResumeEnvelope, type OrchestratorTaskEnvelope } from '@/orchestrator/seal';
 import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
 
@@ -183,7 +183,7 @@ export class ApiSessionClient extends EventEmitter {
     /** Maps tool_use_id → tool name for trimming tool results before sending to App */
     private toolIdToName = new Map<string, string>();
     /** Outbox of encrypted messages awaiting reliable HTTP delivery via v3 API */
-    private pendingOutbox: Array<{ content: string; localId: string; kind: MessageKind }> = [];
+    private pendingOutbox: Array<{ content: string; localId: string; kind: MessageKind; landmark: MessageLandmark | null }> = [];
     /** Searchable text of outbox messages by localId, archived once the server has given them an id and seq */
     private pendingArchive = new Map<string, { role: MessageSearchRole; text: string }>();
     private messageArchive: MessageArchiveWriter;
@@ -868,27 +868,31 @@ export class ApiSessionClient extends EventEmitter {
         return this.socket.connected;
     }
 
+    private rememberToolName(id: string, name: string) {
+        this.toolIdToName.set(id, name);
+        // Bound map size for long sessions
+        if (this.toolIdToName.size > 1000) {
+            const iter = this.toolIdToName.keys();
+            for (let i = 0; i < 500; i++) {
+                const key = iter.next().value;
+                if (key) this.toolIdToName.delete(key);
+            }
+        }
+    }
+
     private buildMessageContent(body: RawJSONLines): MessageContent {
         // Track tool_use_id → tool name from assistant messages, and trim Edit/Write/MultiEdit inputs
         if (body.type === 'assistant' && body.message?.content && Array.isArray(body.message.content)) {
             let needsInputTrim = false;
             for (const block of body.message.content) {
                 if (block.type === 'tool_use' && block.id && block.name) {
-                    this.toolIdToName.set(block.id, block.name);
+                    this.rememberToolName(block.id, block.name);
                     // Claude tool calls never pass through sendAgentMessage — register here so the
                     // app can preview images it reads, subagents included.
                     registerToolImageForCall(this.sessionId, this.metadata?.path, block.name, block.id, block.input);
                     if (INPUT_TRIMMABLE_TOOLS.has(block.name)) {
                         needsInputTrim = true;
                     }
-                }
-            }
-            // Bound map size for long sessions
-            if (this.toolIdToName.size > 1000) {
-                const iter = this.toolIdToName.keys();
-                for (let i = 0; i < 500; i++) {
-                    const key = iter.next().value;
-                    if (key) this.toolIdToName.delete(key);
                 }
             }
             // Trim large tool_use inputs (Edit/Write/MultiEdit) and save to diffStore
@@ -1172,7 +1176,8 @@ export class ApiSessionClient extends EventEmitter {
         this.pendingOutbox.push({
             content: encrypted,
             localId,
-            kind: messageKind(content)
+            kind: messageKind(content),
+            landmark: messageLandmark(content, this.toolIdToName),
         });
         this.sendSync.invalidate();
     }
@@ -1286,6 +1291,9 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     sendCodexMessage(body: any) {
+        if (body?.type === 'tool-call' && typeof body.callId === 'string' && typeof body.name === 'string') {
+            this.rememberToolName(body.callId, body.name);
+        }
         let content = {
             role: 'agent',
             content: {
@@ -1311,6 +1319,8 @@ export class ApiSessionClient extends EventEmitter {
     sendAgentMessage(provider: ACPProvider, body: ACPMessageData) {
         if (body.type === 'tool-call') {
             registerToolImageForCall(this.sessionId, this.metadata?.path, body.name, body.callId, body.input);
+            // A minimap landmark is decided at send time, and its result names a callId, not a tool
+            this.rememberToolName(body.callId, body.name);
         }
         if (body.type === 'token_count' && typeof body.model === 'string') {
             this.updateModelMetadata(body.model);
@@ -1355,12 +1365,14 @@ export class ApiSessionClient extends EventEmitter {
             return { result: 'error' as const };
         }
 
+        const toolNames = new Map<string, string>();
         const payload = messages.map((item) => {
             const encrypted = encodeBase64(encrypt(this.encryptionKey, this.encryptionVariant, item.content));
             return {
                 message: encrypted,
                 localId: item.localId,
                 kind: messageKind(item.content),
+                landmark: messageLandmark(item.content, toolNames),
             };
         });
 

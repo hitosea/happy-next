@@ -72,6 +72,7 @@ export async function dispatchNextPendingIfPossible(params: {
             trackCliDelivery: pending.trackCliDelivery,
             // A pending message is always the user's words
             kind: 'text',
+            landmark: 'prompt',
         });
 
         markDispatched(params.sessionId);

@@ -1223,9 +1223,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Tracks which session the cached minimap list currently belongs to, so we only blank it on a
     // real session switch (not on every refocus of the same session, which would flicker the rail).
     const cachedMinimapSessionRef = React.useRef<string | null>(null);
-    // Load all minimap landmarks (prompts and AskUserQuestion calls) from the persistent offline
-    // cache so the rail can display ones that haven't been paged into the message list yet.
-    // Refreshed on focus / session change.
+    // Load all minimap landmarks from the persistent offline cache first, so the rail has the
+    // prompts and questions this device already has; then let the server fill in the ones older
+    // than the cache in the background. Refreshed on focus / session change.
     useFocusEffect(
         React.useCallback(() => {
             let cancelled = false;
@@ -1233,17 +1233,22 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 cachedMinimapSessionRef.current = sessionId;
                 setMinimapCachedMessages([]);
             }
-            void sync.getCachedMinimapMessages(sessionId)
-                .then((messages) => {
+            void (async () => {
+                try {
+                    const cached = await sync.getCachedMinimapMessages(sessionId);
+                    if (cancelled) return;
+                    setMinimapCachedMessages(cached);
+                    const completed = await sync.getRemoteMinimapMessages(sessionId);
                     if (!cancelled) {
-                        setMinimapCachedMessages(messages);
+                        setMinimapCachedMessages(completed);
                     }
-                })
-                .catch(() => {
+                } catch {
                     // Minimap simply falls back to loaded messages; never surface an error.
-                });
+                }
+            })();
             return () => {
                 cancelled = true;
+                sync.cancelRemoteMinimap(sessionId);
             };
         }, [sessionId])
     );

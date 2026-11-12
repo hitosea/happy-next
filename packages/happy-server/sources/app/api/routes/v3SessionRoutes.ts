@@ -22,6 +22,7 @@ import { dispatchNextPendingIfPossible } from "@/app/session/pendingMessageAutoD
 import { steerPendingMessage } from "@/app/session/pendingMessageSteer";
 import { dispatchSessionMessage, sessionMessageKinds } from "@/app/session/sessionMessageDispatch";
 import { db } from "@/storage/db";
+import { messageLandmarks } from "happy-wire";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { type Fastify } from "../types";
@@ -33,6 +34,8 @@ const getMessagesQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(500).default(100),
     /** Only the records of this kind, and those of none said, which a reader then sorts itself */
     kind: z.enum(sessionMessageKinds).optional(),
+    /** Only landmark rows, and those of this one kind; a reader tells filtering apart by the echo */
+    landmark: z.union([z.literal("any"), z.enum(messageLandmarks)]).optional(),
 });
 
 const sendMessagesBodySchema = z.object({
@@ -41,6 +44,7 @@ const sendMessagesBodySchema = z.object({
         localId: z.string().min(1),
         trackCliDelivery: z.boolean().optional().default(false),
         kind: z.enum(sessionMessageKinds).optional(),
+        landmark: z.enum(messageLandmarks).optional(),
     })).min(1).max(200),
 });
 
@@ -63,6 +67,7 @@ type SelectedMessage = {
     localId: string | null;
     sentBy: string | null;
     sentByName: string | null;
+    landmark: string | null;
     deliveryIssue?: {
         status: "waiting" | "error";
         reason: string | null;
@@ -71,7 +76,7 @@ type SelectedMessage = {
     updatedAt: Date;
 };
 
-type SendResponseMessage = Omit<SelectedMessage, "content" | "deliveryIssue">;
+type SendResponseMessage = Omit<SelectedMessage, "content" | "deliveryIssue" | "landmark">;
 
 type ExistingSendMessage = {
     id: string;
@@ -91,6 +96,7 @@ function toResponseMessage(message: SelectedMessage) {
         localId: message.localId,
         sentBy: message.sentBy,
         sentByName: message.sentByName,
+        landmark: message.landmark,
         deliveryIssue: message.deliveryIssue
             ? {
                 status: message.deliveryIssue.status,
@@ -227,7 +233,7 @@ export function v3SessionRoutes(app: Fastify) {
     }, async (request, reply) => {
         const userId = request.userId;
         const { sessionId } = request.params;
-        const { after_seq, before_seq, limit, kind } = request.query;
+        const { after_seq, before_seq, limit, kind, landmark } = request.query;
 
         if (after_seq !== undefined && before_seq !== undefined) {
             return reply.code(400).send({ error: "Cannot specify both after_seq and before_seq" });
@@ -261,6 +267,8 @@ export function v3SessionRoutes(app: Fastify) {
                 sessionId,
                 ...(seqFilter ? { seq: seqFilter } : {}),
                 ...(kind ? { OR: [{ kind }, { kind: null }] } : {}),
+                ...(landmark === "any" ? { landmark: { not: null } } : {}),
+                ...(landmark && landmark !== "any" ? { landmark } : {}),
             },
             orderBy: { seq: orderBy },
             take: limit + 1,
@@ -271,6 +279,7 @@ export function v3SessionRoutes(app: Fastify) {
                 localId: true,
                 sentBy: true,
                 sentByName: true,
+                landmark: true,
                 deliveryIssue: {
                     select: {
                         status: true,
@@ -297,6 +306,7 @@ export function v3SessionRoutes(app: Fastify) {
             // Said back so a reader knows the server sorted by it: one before kinds were kept
             // ignores the parameter and returns every record
             ...(kind ? { kind } : {}),
+            ...(landmark ? { landmark } : {}),
         });
     });
 
@@ -371,6 +381,7 @@ export function v3SessionRoutes(app: Fastify) {
                 sentByName,
                 trackCliDelivery: message.trackCliDelivery,
                 kind: message.kind ?? null,
+                landmark: message.landmark ?? null,
             });
 
             if (dispatched.message.seq === 1 && dispatched.ownerSessionScopedDeliveries === 0) {
@@ -540,6 +551,7 @@ export function v3SessionRoutes(app: Fastify) {
                 trackCliDelivery,
                 // Sent from the app as the user's words, like a pending message
                 kind: "text",
+                landmark: "prompt",
             });
         } catch (error) {
             // A concurrent request sharing this localId (e.g. hedged retries) may
