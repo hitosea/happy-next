@@ -35,6 +35,15 @@ function oneLine(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
 
+// `toLocaleString`'s timeZoneName option glues the zone onto the hour in Chinese locales
+// ("2026/11/12 GMT+810:40:00"), so the offset is appended by hand instead.
+function utcOffsetSuffix(timestamp: number): string {
+    const offset = -new Date(timestamp * 1000).getTimezoneOffset();
+    const abs = Math.abs(offset);
+    const minutes = abs % 60;
+    return `UTC${offset >= 0 ? '+' : '-'}${Math.floor(abs / 60)}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+}
+
 function friendlyModel(value: unknown): string | null {
     const id = text(value);
     if (!id) return null;
@@ -67,7 +76,7 @@ export function rateLimitWarning(rateLimitInfo: unknown): AgentEvent | null {
                     : `${type.replace(/_/g, ' ')} limit`;
 
     const percent = utilization === null ? null : Math.round(utilization * 100);
-    const reset = resetsAt === null ? '' : `, resets ${new Date(resetsAt * 1000).toLocaleString()}`;
+    const reset = resetsAt === null ? '' : `, resets ${new Date(resetsAt * 1000).toLocaleString()} ${utcOffsetSuffix(resetsAt)}`;
     const used = percent === null ? '' : ` ${percent}% used`;
 
     return {

@@ -23,6 +23,17 @@ describe('rateLimitWarning', () => {
         expect(event.key).toBe('claude-usage:seven_day:1794816000');
     });
 
+    it('names the timezone the reset time is in', () => {
+        const event = rateLimitWarning({
+            status: 'allowed_warning',
+            rateLimitType: 'five_hour',
+            utilization: 0.95,
+            resetsAt: 1794816000,
+        });
+        if (event?.type !== 'message') throw new Error('expected a message');
+        expect(event.message).toMatch(/ UTC[+-]\d{1,2}(?::\d{2})?\.$/);
+    });
+
     it('says nothing for allowed or rejected windows', () => {
         expect(rateLimitWarning({ status: 'allowed', utilization: 0.9 })).toBeNull();
         expect(rateLimitWarning({ status: 'rejected', utilization: 1 })).toBeNull();
