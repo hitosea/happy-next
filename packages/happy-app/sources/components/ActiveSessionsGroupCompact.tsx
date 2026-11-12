@@ -236,8 +236,12 @@ const stylesheet = StyleSheet.create((theme) => ({
         alignItems: 'center',
         marginLeft: 8,
     },
+    taskMarkIcon: {
+        lineHeight: 14,
+    },
     taskMarkText: {
         fontSize: 11,
+        lineHeight: 14,
         marginLeft: 2,
         color: theme.colors.textSecondary,
         ...Typography.default('semiBold'),
@@ -644,7 +648,7 @@ const CompactSessionRow = React.memo(({ session, selected, registerSessionRowRef
                     {/* Delegated tasks running under this session, before the status mark. */}
                     {runningTaskCount > 0 && (
                         <View style={styles.taskMark}>
-                            <Ionicons name="layers-outline" size={12} color={theme.colors.textSecondary} />
+                            <Ionicons name="layers-outline" size={12} color={theme.colors.textSecondary} style={styles.taskMarkIcon} />
                             <Text style={styles.taskMarkText}>
                                 {runningTaskCount > 99 ? '99+' : runningTaskCount}
                             </Text>
