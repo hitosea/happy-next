@@ -44,7 +44,7 @@ const sendMessagesBodySchema = z.object({
         localId: z.string().min(1),
         trackCliDelivery: z.boolean().optional().default(false),
         kind: z.enum(sessionMessageKinds).optional(),
-        landmark: z.enum(messageLandmarks).optional(),
+        landmark: z.enum(messageLandmarks).nullish(),
     })).min(1).max(200),
 });
 
