@@ -35,6 +35,43 @@ export function messageKind(record: unknown): MessageKind {
     return 'other';
 }
 
+/**
+ * `true` when a record holds nothing a reader could display but the agent's thinking, so a sender
+ * may keep it off the wire entirely while its readers don't show thinking. Mixed records (thinking
+ * beside words, tool calls or results) stay false — dropping those would lose something visible.
+ */
+export function isThinkingOnly(record: unknown): boolean {
+    const message = record as { role?: unknown; content?: any } | null;
+    if (!message || typeof message !== 'object') return false;
+    if (message.role === 'session') return isThinkingEnvelope(message.content?.data);
+    if (message.role !== 'agent') return false;
+
+    const { type, data } = message.content ?? {};
+    if (type === 'output') {
+        if (data?.isSidechain === true || data?.type !== 'assistant') return false;
+        const content = data?.message?.content;
+        return Array.isArray(content) && content.length > 0 && content.every(isThinkingBlock);
+    }
+    if (type === 'acp') {
+        // Matches the reducer, which drops an empty thinking block
+        return data?.type === 'thinking' && typeof data.text === 'string' && data.text !== '';
+    }
+    if (type === 'session') return isThinkingEnvelope(data);
+    return false;
+}
+
+function isThinkingBlock(block: any): boolean {
+    return block?.type === 'thinking' || block?.type === 'redacted_thinking';
+}
+
+function isThinkingEnvelope(envelope: any): boolean {
+    return envelope?.ev?.t === 'text'
+        && envelope.ev.thinking === true
+        && typeof envelope.ev.text === 'string'
+        && envelope.ev.text !== ''
+        && !envelope.subagent;
+}
+
 function hasTextBlock(content: unknown): content is any[] {
     return Array.isArray(content) && content.some((block) => block?.type === 'text' && typeof block.text === 'string');
 }

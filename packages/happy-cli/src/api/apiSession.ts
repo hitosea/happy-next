@@ -21,7 +21,7 @@ import { registerToolImageForCall } from '../modules/common/toolImageStore';
 import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
 import { MessageArchiveWriter } from '../modules/common/messageArchive';
-import { extractSearchableMessage, messageKind, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
+import { extractSearchableMessage, isThinkingOnly, messageKind, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
 import { openOrchestratorResponse, openOrchestratorTitle, sealOrchestrator, sealTitle, type OrchestratorResumeEnvelope, type OrchestratorTaskEnvelope } from '@/orchestrator/seal';
 import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
 
@@ -217,6 +217,12 @@ export class ApiSessionClient extends EventEmitter {
      * on its SDK's `result` and `sendAgentMessage` on an ACP agent's `task_complete` or `turn_aborted`.
      */
     private turn: string | null = null;
+    /**
+     * Whether the turn in flight keeps its thinking off the server. Set by the user message that
+     * opened the turn (or steered into it) and cleared with it, so a turn nobody asked about
+     * uploads — an old app, an orchestrator callback or a local prompt never loses thinking.
+     */
+    private suppressThinkingUpload = false;
     /** The account's orchestrator key, which seals the tasks this session sends and opens what comes back */
     private readonly loadOrchestratorKey: () => Promise<Uint8Array>;
 
@@ -323,6 +329,8 @@ export class ApiSessionClient extends EventEmitter {
                 if (attachments?.length) {
                     message.content.text = appendAttachmentsToPrompt(message.content.text, attachments);
                 }
+                // A steer takes the preference into the running turn from here on
+                this.applyThinkingPolicy(message);
                 answer(await this.pendingSteerHandler(message, request.data.pendingId));
             } catch (error) {
                 logger.debug('[API] pending-steer failed:', error);
@@ -767,11 +775,23 @@ export class ApiSessionClient extends EventEmitter {
      * owed, whose `hooks` the agent's queue calls when it hands the message over or drops it.
      */
     onUserMessage(callback: (data: UserMessage, hooks?: MessageQueueItemHooks) => void) {
-        this.pendingMessageCallback = callback;
+        // Every message handed to the agent passes through here, so the turn's upload preference
+        // follows the message that opened it no matter how long it waited in the queue.
+        this.pendingMessageCallback = (message, hooks) => {
+            this.applyThinkingPolicy(message);
+            callback(message, hooks);
+        };
         while (this.pendingMessages.length > 0) {
             const { message, hooks } = this.pendingMessages.shift()!;
-            callback(message, hooks);
+            this.pendingMessageCallback(message, hooks);
         }
+    }
+
+    /** A message that states the preference sets it for its turn; one that stays silent (an old
+     *  app, an orchestrator callback) leaves the turn as it is. */
+    private applyThinkingPolicy(message: UserMessage) {
+        const suppress = message.meta?.suppressThinking;
+        if (typeof suppress === 'boolean') this.suppressThinkingUpload = suppress;
     }
 
     /**
@@ -1117,6 +1137,10 @@ export class ApiSessionClient extends EventEmitter {
      * together with it instead of on a later heartbeat), or TURN_END_HOLD_MAX_MS passes.
      */
     private enqueueMessage(content: unknown) {
+        // The turn's reader said it doesn't show thinking, so don't spend the upload on it
+        if (this.suppressThinkingUpload && isThinkingOnly(content)) {
+            return;
+        }
         if (this.heldText && isTurnBookkeeping(content)) {
             this.heldText.trailing.push(content);
             return;
@@ -1225,6 +1249,8 @@ export class ApiSessionClient extends EventEmitter {
     /** The agent has ended its turn: the next message it sends opens a new one. */
     endTurn() {
         this.turn = null;
+        // A turn nobody has opened yet starts from the default: thinking goes out
+        this.suppressThinkingUpload = false;
     }
 
     async sendClaudeSessionMessageBatch(messages: ClaudeBackfillItem[], mode: 'replace' | 'append' = 'append') {

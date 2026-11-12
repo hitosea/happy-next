@@ -519,6 +519,80 @@ describe('ApiSessionClient message receipt', () => {
             meta: { sentFrom: 'cli', isCompactSummary: true },
         });
     });
+
+    it('keeps a turn\'s thinking off the wire when the app asked for it, and only that turn', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32)) as any;
+        client.onUserMessage(() => {});
+        const pushOutbox = vi.spyOn(client, 'pushOutbox');
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1, 2, 3]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({
+            role: 'user',
+            content: { type: 'text', text: 'hello' },
+            meta: { sentFrom: 'ios', suppressThinking: true },
+        } as any);
+
+        getUpdateHandler()({
+            body: {
+                t: 'new-message',
+                sid: 'test-session-id',
+                message: { id: 'msg-1', localId: 'local-1', content: { t: 'encrypted', c: 'abc' } },
+            },
+        });
+
+        client.sendAgentMessage('gemini', { type: 'thinking', text: 'hmm' });
+        expect(pushOutbox).not.toHaveBeenCalled();
+
+        client.sendAgentMessage('gemini', { type: 'tool-call', callId: 'c1', name: 'Bash', input: {}, id: 't1' });
+        expect(pushOutbox).toHaveBeenCalledTimes(1);
+
+        // The next turn nobody asked about starts from the default: upload
+        client.endTurn();
+        client.sendAgentMessage('gemini', { type: 'thinking', text: 'next' });
+        expect(pushOutbox).toHaveBeenCalledTimes(2);
+    });
+
+    it('uploads thinking when the message says nothing about it', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32)) as any;
+        client.onUserMessage(() => {});
+        const pushOutbox = vi.spyOn(client, 'pushOutbox');
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1, 2, 3]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({
+            role: 'user',
+            content: { type: 'text', text: 'hello' },
+            meta: { sentFrom: 'web' },
+        } as any);
+
+        getUpdateHandler()({
+            body: {
+                t: 'new-message',
+                sid: 'test-session-id',
+                message: { id: 'msg-1', localId: 'local-1', content: { t: 'encrypted', c: 'abc' } },
+            },
+        });
+
+        client.sendAgentMessage('gemini', { type: 'thinking', text: 'hmm' });
+        expect(pushOutbox).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a steer change the thinking policy mid-turn', async () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32)) as any;
+        client.onPendingSteer(async () => ({ accepted: true }));
+        const pushOutbox = vi.spyOn(client, 'pushOutbox');
+        vi.spyOn(encryptionModule, 'decodeBase64').mockReturnValue(new Uint8Array([1, 2, 3]));
+        vi.spyOn(encryptionModule, 'decrypt').mockReturnValue({
+            role: 'user',
+            content: { type: 'text', text: 'wait' },
+            meta: { sentFrom: 'ios', suppressThinking: true },
+        } as any);
+
+        const steerHandler = mockSocket.on.mock.calls.find((args: any[]) => args[0] === 'pending-steer')![1];
+        const ack = vi.fn();
+        await steerHandler({ sid: 'test-session-id', pendingId: 'p1', localId: 'l1', content: 'abc' }, ack);
+
+        client.sendAgentMessage('gemini', { type: 'thinking', text: 'hmm' });
+        expect(ack).toHaveBeenCalledWith({ accepted: true });
+        expect(pushOutbox).not.toHaveBeenCalled();
+    });
 });
 
 describe('ApiSessionClient keepAlive', () => {

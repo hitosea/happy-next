@@ -269,6 +269,7 @@ export const MessageMetaSchema = z.object({
   allowedTools: z.array(z.string()).nullable().optional(), // Allowed tools for this message (null = reset)
   disallowedTools: z.array(z.string()).nullable().optional(), // Disallowed tools for this message (null = reset)
   attachments: z.array(messageAttachmentSchema).optional(), // Files the user attached, already on this machine
+  suppressThinking: z.boolean().optional(), // The sending device asked this turn's thinking stay off the server; absent = upload it
   turn: z.string().optional() // The Claude turn an agent message went out under (see ApiSession.turn)
 })
 

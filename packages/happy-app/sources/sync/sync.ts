@@ -1480,6 +1480,8 @@ class Sync {
                 ...(contextWindow ? { contextWindow } : {}),
                 fallbackModel,
                 appendSystemPrompt: this.buildSystemPrompt(sessionId),
+                // This turn's reader asked thinking stay off the server entirely
+                suppressThinking: !storage.getState().settings.showThinkingMessages,
                 ...(displayText && { displayText }),
                 ...(attachments?.length ? { attachments } : {})
             }
