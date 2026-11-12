@@ -298,6 +298,9 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - In-progress AskUserQuestion answers survive scrolling away, new messages, and reloads as drafts
 - Images opened by file-reading tools render as previews, and `preview_html` can read a document from a file path
 - Thinking and image placeholder rows are hidden, and "show thinking messages" now defaults to off for new users
+- The conversation minimap reaches prompts and questions a device never paged in, walking older marked messages from the server; hovering the rail opens a card listing every landmark, and hovering a row previews it in full
+- A device that hides thinking keeps the turn's thinking off the server, saving bandwidth and CPU
+- A usage-limit reset names its timezone, and the navigation scroll edge stays soft on iOS 27
 
 - A turn's process folds into one line — how long it took and how many tool calls it hid — that opens on a tap, with the line naming what the agent is doing while the turn runs
 - A compacted conversation's summary collapses to a single tap-to-view line, however short it is
@@ -408,6 +411,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 - Happy CLI v0.18.0 shows what Codex used to drop — generated images, plans, hook runs, review decisions, warnings, thread metadata, `/review` markers and sleeps — warns before a Codex quota runs out, and shows Qoder's plan as steps
 - Happy CLI v0.19.0 surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so an upgrade fails a test instead of dropping them
+- Happy CLI v0.20.0 keeps a turn's thinking off the server when the device that opened it hides thinking, and stamps landmarks on messages so the minimap can reach older ones
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing

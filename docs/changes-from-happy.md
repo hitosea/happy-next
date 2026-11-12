@@ -378,6 +378,9 @@ Extensive improvements to the chat and session management experience.
 - **`preview_html` from a file path**: the tool takes `filePath` as an alternative to an inline document — the CLI reads the file on the machine that owns it and folds the contents into the tool call args, so previews survive offline, archived, and shared sessions
 - **New session requires ownership**: "Start a session in this directory" is no longer offered from a session shared with you, on the context menu, the directory header, the session info screen, or the session header
 - **Thinking rows hidden**: thinking and image placeholder rows are hidden, and "show thinking messages" now defaults to off for new users
+- **Minimap beyond the cache**: the conversation minimap reaches prompts and questions the device never paged in — senders stamp a landmark on each record before it is encrypted, the server answers a walk over just those rows, and the app paints local landmarks first, then walks older ones. Hovering the rail opens a card listing every landmark, hovering a row previews it in full, and clicking jumps without closing the card
+- **Thinking stays off the server**: when the device that opened a turn hides thinking, the CLI drops thinking-only records before they are buffered or encrypted, saving bandwidth and CPU
+- **Small fixes**: a usage-limit reset names its timezone as UTC+8 instead of a glued GMT offset, and the navigation scroll edge stays soft on iOS 27
 
 - **Turn folding**: a long turn's tool calls, their output and the notes between them fold into one line reading how long the turn took and how many tool calls it hid; tapping opens it, and while the turn runs the line names the newest hidden step under a band of light travelling across it. A running turn folds from its first hidden row, while a settled one keeps the threshold — a rule about reading a turn, not about watching one work
 - **Compaction summary collapse**: a post-compaction summary — a machine record of what the context window dropped, not something anyone typed — collapses to a single tap-to-view line however short it is, opening in the text-selection screen's rendered and as-authored tabs
@@ -514,6 +517,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Happy CLI v0.18.0**: shows what Codex used to drop — generated images, finished plans, hook runs, review decisions, warnings, thread titles and `/model` switches, `/review` markers and sleeps — warns before a Codex account's quota runs out, and shows Qoder's plan as TodoWrite steps
 
 - **Happy CLI v0.19.0**: surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so a CLI upgrade fails a test instead of dropping them
+- **Happy CLI v0.20.0**: keeps a turn's thinking off the server when the device that opened it hides thinking, and stamps landmarks (prompt, question, answer, preview) on records so the minimap can reach messages a device never paged in
 
 ## Server
 

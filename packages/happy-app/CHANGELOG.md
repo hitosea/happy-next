@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 40 - 2026-11-12
+
+Happy Next v2.26.0 lets the conversation minimap reach messages a device never paged in, names every landmark in a hovering card, and keeps hidden thinking off the server.
+
+- Chat: the conversation minimap reaches prompts and questions the device never paged in, walking older marked messages from the server
+- Chat: hovering the minimap rail opens a card listing every landmark; hovering a row previews it in full, and clicking jumps without closing the card
+- Chat: a usage-limit reset names its timezone as UTC+8 instead of a glued GMT offset
+- iOS: the navigation scroll edge stays soft on iOS 27
+- Privacy: a device that hides thinking keeps the turn's thinking off the server
+- CLI: Happy CLI v0.20.0
+
 ## Version 39 - 2026-11-11
 
 Happy Next v2.25.0 shows the notices Claude sends and keeps its Task card and title in step, hangs the orchestrator's runs and tasks off one continuous timeline, and cuts folded lines where they still say which step is which. Session and settings pages open directly on the page, avatars read at small sizes, and Happy CLI is updated to v0.19.0.
