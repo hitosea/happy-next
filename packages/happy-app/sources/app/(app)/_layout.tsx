@@ -41,6 +41,7 @@ export default function RootLayout() {
                 header: shouldUseCustomHeader ? createHeader : undefined,
                 headerBackButtonDisplayMode: 'minimal',
                 headerShadowVisible: false,
+                scrollEdgeEffects: shouldUseCustomHeader ? undefined : { top: 'soft' },
                 contentStyle: {
                     backgroundColor: theme.colors.surface,
                 },

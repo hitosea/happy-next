@@ -83,6 +83,24 @@ index a9aedca..c61df89 100644
                                                                 getServerHost(bundleURL),
                                                                 escapedInspectorDeviceId]];
    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTEnhancedScrollView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTEnhancedScrollView.mm
+index c593d9e..b95db0e 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTEnhancedScrollView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTEnhancedScrollView.mm
+@@ -36,6 +36,13 @@
+     // and keeps it as an opt-in behavior.
+     self.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+ 
++#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
++    if (@available(iOS 26.0, *)) {
++      // Preserve the gradient rather than iOS 27's automatic edge appearance.
++      self.topEdgeEffect.style = UIScrollEdgeEffectStyle.softStyle;
++    }
++#endif
++
+     // We intentionally force `UIScrollView`s `semanticContentAttribute` to `LTR` here
+     // because this attribute affects a position of vertical scrollbar; we don't want this
+     // scrollbar flip because we also flip it with whole `UIScrollView` flip.
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
 index 9fb3400..409ce82 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/Text/RCTParagraphComponentView.mm
