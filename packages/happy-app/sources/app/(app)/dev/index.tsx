@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Item } from '@/components/Item';
 import { ItemGroup } from '@/components/ItemGroup';
@@ -16,6 +16,7 @@ import { getServerUrl, resolveServerConfig, setServerUrl, validateServerUrl } fr
 import { Switch } from '@/components/Switch';
 import { useUnistyles } from 'react-native-unistyles';
 import { setLastViewedVersion, getLatestVersion } from '@/changelog';
+import { touchDiagnostics } from '@/utils/touchDiagnostics';
 
 export default function DevScreen() {
     const router = useRouter();
@@ -24,6 +25,18 @@ export default function DevScreen() {
     const socketStatus = useSocketStatus();
     const anonymousId = sync.encryption?.anonID || 'N/A';
     const { theme } = useUnistyles();
+    const [touchDiagnosticsEnabled, setTouchDiagnosticsEnabled] = React.useState(() => touchDiagnostics?.isEnabled() ?? false);
+
+    const handleToggleTouchDiagnostics = async (enabled: boolean) => {
+        setTouchDiagnosticsEnabled(enabled);
+        await touchDiagnostics?.setEnabled(enabled);
+    };
+
+    const handleExportTouchDiagnostics = async () => {
+        if (!touchDiagnostics) return;
+        const report = await touchDiagnostics.exportReport();
+        await Share.share({ message: report });
+    };
 
     const handleEditServerUrl = async () => {
         const currentUrl = getServerUrl();
@@ -167,6 +180,31 @@ export default function DevScreen() {
                     onPress={() => router.push('/dev/logs')}
                 />
             </ItemGroup>
+
+            {/* Touch Diagnostics (iOS) */}
+            {touchDiagnostics && (
+                <ItemGroup
+                    title="Touch Diagnostics"
+                    footer="Keeps a log of recent taps. When taps need a second try, reproduce it a few times, then export here and send the report."
+                >
+                    <Item
+                        title="Touch Diagnostics"
+                        subtitle="Record recent taps in the background"
+                        rightElement={
+                            <Switch
+                                value={touchDiagnosticsEnabled}
+                                onValueChange={handleToggleTouchDiagnostics}
+                            />
+                        }
+                        showChevron={false}
+                    />
+                    <Item
+                        title="Export Touch Diagnostics"
+                        icon={<Ionicons name="share-outline" size={28} color="#007AFF" />}
+                        onPress={handleExportTouchDiagnostics}
+                    />
+                </ItemGroup>
+            )}
 
             {/* Component Demos */}
             <ItemGroup title="Component Demos">
