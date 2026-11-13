@@ -177,7 +177,12 @@ describe('trimToolUseResult', () => {
         });
     });
 
-    describe('Task — removes content and prompt', () => {
+    describe('Task / Agent — removes content and prompt', () => {
+        it('trims Agent (the newer name of Task) the same way', () => {
+            const trimmed = trimToolUseResult('Agent', { content: 'x'.repeat(50_000), prompt: 'Do something', status: 'completed' }) as any;
+            expect(trimmed).toEqual({ status: 'completed' });
+        });
+
         it('keeps metadata', () => {
             const result = {
                 content: 'x'.repeat(50_000),

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ToolViewProps } from './_all';
-import { Text, View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Text, View, ActivityIndicator, StyleSheet, Platform, Pressable } from 'react-native';
 import { knownTools } from '../../tools/knownTools';
 import { Ionicons } from '@expo/vector-icons';
 import { ToolCall } from '@/sync/typesMessage';
@@ -13,12 +13,16 @@ interface FilteredTool {
     state: 'running' | 'completed' | 'error';
 }
 
-export const TaskView = React.memo<ToolViewProps>(({ tool, metadata, messages }) => {
+// Lists the tools a subagent ran: the last few, with a toggle that unfolds the rest in place.
+// `showAll` (the detail page) lists every tool, with no toggle.
+export const TaskView = React.memo<ToolViewProps & { showAll?: boolean }>(({ tool, metadata, messages, showAll = false }) => {
     const { theme } = useUnistyles();
+    const [expanded, setExpanded] = React.useState(false);
     const filtered: FilteredTool[] = [];
 
     for (let m of messages) {
-        if (m.kind === 'tool-call') {
+        // SubagentHandback is how the subagent hands its report back, not work it did
+        if (m.kind === 'tool-call' && m.tool.name !== 'SubagentHandback') {
             const knownTool = knownTools[m.tool.name as keyof typeof knownTools] as any;
             
             // Extract title using extractDescription if available, otherwise use title
@@ -80,15 +84,36 @@ export const TaskView = React.memo<ToolViewProps>(({ tool, metadata, messages })
             fontSize: 14,
             color: theme.colors.textSecondary,
         },
-        moreToolsItem: {
-            paddingVertical: 4,
-            paddingHorizontal: 4,
+        // Detail page: the same rounded, row-divided box as the input and output sections
+        box: {
+            backgroundColor: theme.colors.surfaceHigh,
+            borderRadius: 6,
+            overflow: 'hidden',
         },
-        moreToolsText: {
-            fontSize: 14,
-            color: theme.colors.textSecondary,
-            fontStyle: 'italic',
-            opacity: 0.7,
+        boxRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+        },
+        boxRowBorder: {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.modal.border,
+        },
+        boxTitle: {
+            fontSize: 13,
+            color: theme.colors.text,
+            fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+            flex: 1,
+        },
+        toggle: {
+            alignItems: 'center',
+            paddingVertical: 8,
+        },
+        toggleText: {
+            fontSize: 13,
+            fontWeight: '600',
+            color: theme.colors.textLink,
         },
     });
 
@@ -96,14 +121,20 @@ export const TaskView = React.memo<ToolViewProps>(({ tool, metadata, messages })
         return null;
     }
 
-    const visibleTools = filtered.slice(filtered.length - 3);
-    const remainingCount = filtered.length - 3;
+    // Up to 5 tools are all shown; past that the card shows the last 3 and a toggle for the rest.
+    const foldable = !showAll && filtered.length > 5;
+    const visibleTools = foldable && !expanded ? filtered.slice(-3) : filtered;
 
     return (
-        <View style={styles.container}>
+        <View style={showAll ? styles.box : styles.container}>
             {visibleTools.map((item, index) => (
-                <View key={`${item.tool.name}-${index}`} style={styles.toolItem}>
-                    <Text style={styles.toolTitle}>{item.title}</Text>
+                <View
+                    key={`${item.tool.name}-${index}`}
+                    style={showAll
+                        ? [styles.boxRow, index < visibleTools.length - 1 && styles.boxRowBorder]
+                        : styles.toolItem}
+                >
+                    <Text style={showAll ? styles.boxTitle : styles.toolTitle}>{item.title}</Text>
                     <View style={styles.statusContainer}>
                         {item.state === 'running' && (
                             <ActivityIndicator size={Platform.OS === 'ios' ? "small" : 14 as any} color={theme.colors.warning} />
@@ -117,12 +148,18 @@ export const TaskView = React.memo<ToolViewProps>(({ tool, metadata, messages })
                     </View>
                 </View>
             ))}
-            {remainingCount > 0 && (
-                <View style={styles.moreToolsItem}>
-                    <Text style={styles.moreToolsText}>
-                        {t('tools.taskView.moreTools', { count: remainingCount })}
+            {/* Same toggle as the plan card's: one way, across cards, to unfold what a card cut */}
+            {foldable && (
+                <Pressable
+                    style={styles.toggle}
+                    onPress={() => setExpanded((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                >
+                    <Text style={styles.toggleText}>
+                        {expanded ? t('tools.taskView.collapse') : t('tools.taskView.expand', { count: filtered.length })}
                     </Text>
-                </View>
+                </Pressable>
             )}
         </View>
     );

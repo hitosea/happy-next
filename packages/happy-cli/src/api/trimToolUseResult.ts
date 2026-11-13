@@ -95,9 +95,10 @@ export function trimToolUseResult(
             break;
         }
 
-        // Task: TaskView reads child messages, not tool.result.content
+        // Task / Agent (Task's newer name): TaskView reads child messages, not tool.result.content
         // Remove subagent output (up to 55KB), keep metadata
-        case 'Task': {
+        case 'Task':
+        case 'Agent': {
             const { content, prompt, ...rest } = result;
             trimmed = rest;
             break;
@@ -146,7 +147,7 @@ const LOADABLE_TRIMMED_TOOLS = new Set([
 ]);
 
 const TRIMMABLE_TOOLS = new Set([
-    'Read', 'NotebookRead', 'Grep', 'Glob', 'LS', 'Task',
+    'Read', 'NotebookRead', 'Grep', 'Glob', 'LS', 'Task', 'Agent',
     'WebFetch', 'WebSearch', 'web_search', 'ToolSearch',
     'Skill', 'EnterPlanMode', 'enter_plan_mode',
 ]);

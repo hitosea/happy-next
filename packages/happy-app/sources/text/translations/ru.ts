@@ -1406,7 +1406,9 @@ export const ru: TranslationStructure = {
         },
         taskView: {
             initializing: 'Инициализация агента...',
-            moreTools: ({ count }: { count: number }) => `+${count} ещё ${plural({ count, one: 'инструмент', few: 'инструмента', many: 'инструментов' })}`,
+            expand: ({ count }: { count: number }) => `Показать все инструменты (${count})`,
+            collapse: 'Свернуть',
+            toolsTitle: 'Вызовы инструментов субагента',
         },
         multiEdit: {
             editNumber: ({ index, total }: { index: number; total: number }) => `Правка ${index} из ${total}`,

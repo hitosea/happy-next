@@ -120,6 +120,55 @@ describe('reducerTracer', () => {
             expect(state.uuidToSidechainId.get('sidechain-uuid')).toBe('task1');
         });
 
+        it('should link sidechains to Agent tools (the newer name of Task)', () => {
+            const state = createTracer();
+            const agentMessage: NormalizedMessage = {
+                id: 'agent1',
+                localId: null,
+                createdAt: 1000,
+                role: 'agent',
+                isSidechain: false,
+                content: [{
+                    type: 'tool-call',
+                    id: 'tool1',
+                    name: 'Agent',
+                    input: { prompt: 'Search for files', description: 'Find files' },
+                    description: null,
+                    uuid: 'agent-uuid',
+                    parentUUID: null
+                }]
+            };
+            const sidechainRoot: NormalizedMessage = {
+                id: 'sidechain1',
+                localId: null,
+                createdAt: 2000,
+                role: 'agent',
+                isSidechain: true,
+                content: [{
+                    type: 'sidechain',
+                    uuid: 'sidechain-uuid',
+                    prompt: 'Search for files'
+                }]
+            };
+            const sidechainChild: NormalizedMessage = {
+                id: 'child1',
+                localId: null,
+                createdAt: 3000,
+                role: 'agent',
+                isSidechain: true,
+                content: [{
+                    type: 'text',
+                    text: 'Searching...',
+                    uuid: 'child-uuid',
+                    parentUUID: 'sidechain-uuid'
+                }]
+            };
+
+            const traced = traceMessages(state, [agentMessage, sidechainRoot, sidechainChild]);
+
+            expect(traced.map((m) => m.sidechainId)).toEqual([undefined, 'agent1', 'agent1']);
+        });
+
         it('should handle sidechain messages with parent relationships', () => {
             const state = createTracer();
             

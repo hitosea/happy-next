@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeRawMessage } from './typesRaw';
+import { createTracer, traceMessages } from './reducer/reducerTracer';
 
 /**
  * WOLOG Content Normalization Tests
@@ -942,6 +943,37 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
                 expect(result.data.content.data.isSidechain).toBe(true);
                 expect(result.data.content.data.parent_tool_use_id).toBe('toolu_parent');
             }
+        });
+    });
+
+    describe('Agent subagent chain (as Claude Code sends it)', () => {
+        it('links every subagent message to the Agent call, through the text-block prompt message', () => {
+            const out = (data: any) => ({ role: 'agent', content: { type: 'output', data }, meta: { sentFrom: 'cli' } });
+            const prompt = 'Grep for isSidechain';
+            const raws = [
+                out({
+                    type: 'assistant', uuid: 'u-agent', parentUuid: null,
+                    message: { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_agent', name: 'Agent', input: { prompt, description: 'Survey' } }] },
+                }),
+                // Sidechain root the CLI inserts for the Agent call
+                out({ type: 'user', uuid: 'u-root', parentUuid: null, isSidechain: true, message: { role: 'user', content: prompt } }),
+                // The subagent's prompt, echoed back as text blocks
+                out({ type: 'user', uuid: 'u-prompt', parentUuid: 'u-root', isSidechain: true, message: { role: 'user', content: [{ type: 'text', text: prompt }] } }),
+                out({
+                    type: 'assistant', uuid: 'u-call', parentUuid: 'u-prompt', isSidechain: true,
+                    message: { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_grep', name: 'Bash', input: { command: 'grep -rn isSidechain' } }] },
+                }),
+            ];
+            const normalized = raws.map((raw, i) => normalizeRawMessage(`m${i}`, null, i, raw as any)!);
+
+            const traced = traceMessages(createTracer(), normalized);
+
+            expect(traced.map((m) => [m.id, m.sidechainId])).toEqual([
+                ['m0', undefined],
+                ['m1', 'm0'],
+                ['m2', 'm0'],
+                ['m3', 'm0'],
+            ]);
         });
     });
 

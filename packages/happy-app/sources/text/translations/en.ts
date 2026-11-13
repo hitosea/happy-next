@@ -1412,7 +1412,9 @@ export const en: TranslationStructure = {
         },
         taskView: {
             initializing: 'Initializing agent...',
-            moreTools: ({ count }: { count: number }) => `+${count} more ${plural({ count, singular: 'tool', plural: 'tools' })}`,
+            expand: ({ count }: { count: number }) => `Show all ${count} tools`,
+            collapse: 'Show less',
+            toolsTitle: 'Subagent tool calls',
         },
         multiEdit: {
             editNumber: ({ index, total }: { index: number; total: number }) => `Edit ${index} of ${total}`,

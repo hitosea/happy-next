@@ -22,6 +22,17 @@ const ICON_QUESTION = (size: number = 24, color: string = '#000') => <Ionicons n
 const ICON_SKILL = (size: number = 24, color: string = '#000') => <Ionicons name="construct-outline" size={size} color={color} />;
 const ICON_ROBOT = (size: number = 24, color: string = '#000') => <MaterialCommunityIcons name="robot-outline" size={size} color={color} />;
 
+// A subagent card (Claude's Task tool, renamed Agent in newer Claude Code) folds away until the
+// subagent has run a tool; from then on it lists those tools (TaskView).
+const isSubagentCardMinimal = (opts: { metadata: Metadata | null, tool: ToolCall, messages?: Message[] }) =>
+    !(opts.messages ?? []).some((m) => m.kind === 'tool-call'
+        && (m.tool.state === 'running' || m.tool.state === 'completed' || m.tool.state === 'error'));
+
+const subagentInput = z.object({
+    prompt: z.string().describe('The task for the agent to perform'),
+    subagent_type: z.string().optional().describe('The type of specialized agent to use')
+}).partial().passthrough();
+
 /** "45s" / "2m" / "1m 30s" — the length of a Codex sleep, which has nothing else to show. */
 function formatSleepDuration(durationMs: unknown): string | null {
     if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs <= 0) {
@@ -92,21 +103,8 @@ export const knownTools = {
         },
         icon: ICON_TASK,
         isMutable: true,
-        minimal: (opts: { metadata: Metadata | null, tool: ToolCall, messages?: Message[] }) => {
-            // Check if there would be any filtered tasks
-            const messages = opts.messages || [];
-            for (let m of messages) {
-                if (m.kind === 'tool-call' && 
-                    (m.tool.state === 'running' || m.tool.state === 'completed' || m.tool.state === 'error')) {
-                    return false; // Has active sub-tasks, show expanded
-                }
-            }
-            return true; // No active sub-tasks, render as minimal
-        },
-        input: z.object({
-            prompt: z.string().describe('The task for the agent to perform'),
-            subagent_type: z.string().optional().describe('The type of specialized agent to use')
-        }).partial().passthrough()
+        minimal: isSubagentCardMinimal,
+        input: subagentInput,
     },
     'Bash': {
         title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {
@@ -1118,7 +1116,9 @@ export const knownTools = {
             return title;
         },
         icon: ICON_ROBOT,
-        minimal: true
+        isMutable: true,
+        minimal: isSubagentCardMinimal,
+        input: subagentInput,
     },
     'ToolSearch': {
         title: (opts: { metadata: Metadata | null, tool: ToolCall }) => {

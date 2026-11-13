@@ -1395,7 +1395,9 @@ export const it: TranslationStructure = {
         },
         taskView: {
             initializing: 'Inizializzazione agente...',
-            moreTools: ({ count }: { count: number }) => `+${count} altri ${plural({ count, singular: 'strumento', plural: 'strumenti' })}`,
+            expand: ({ count }: { count: number }) => `Mostra tutti i ${count} strumenti`,
+            collapse: 'Mostra meno',
+            toolsTitle: 'Chiamate agli strumenti del subagente',
         },
         // A plan proposal is written to be read in full, so its view shows the shape of one
         // and keeps the rest behind this.

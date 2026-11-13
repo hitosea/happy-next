@@ -169,7 +169,7 @@ export function traceMessages(state: TracerState, messages: NormalizedMessage[])
             continue;
         }
         
-        // Extract Task tools and index them by message ID for later sidechain matching
+        // Extract Task / Agent (the newer name of Task) tools and index them by message ID for later sidechain matching
         if (message.role === 'agent') {
             for (const content of message.content) {
                 if (content.type === 'tool-call') {
@@ -182,7 +182,7 @@ export function traceMessages(state: TracerState, messages: NormalizedMessage[])
                         results.push(...subagentOrphans);
                     }
                 }
-                if (content.type === 'tool-call' && content.name === 'Task') {
+                if (content.type === 'tool-call' && (content.name === 'Task' || content.name === 'Agent')) {
                     if (content.input && typeof content.input === 'object' && 'prompt' in content.input) {
                         // Store Task info indexed by message ID (not tool ID)
                         state.taskTools.set(message.id, {

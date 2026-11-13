@@ -1398,7 +1398,9 @@ export const zhHans: TranslationStructure = {
         },
         taskView: {
             initializing: '正在初始化 agent...',
-            moreTools: ({ count }: { count: number }) => `+${count} 个更多${plural({ count, singular: '工具', plural: '工具' })}`,
+            expand: ({ count }: { count: number }) => `展开全部 ${count} 个工具`,
+            collapse: '收起',
+            toolsTitle: '子 agent 的工具调用',
         },
         multiEdit: {
             editNumber: ({ index, total }: { index: number; total: number }) => `编辑 ${index}/${total}`,

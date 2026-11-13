@@ -5,7 +5,7 @@ import { ToolCall, Message } from '@/sync/typesMessage';
 import { CodeView } from '../CodeView';
 import { ToolInputView } from '../KeyValueView';
 import { Metadata } from '@/sync/storageTypes';
-import { getToolFullViewComponent } from './views/_all';
+import { getToolFullViewComponent, TaskView } from './views/_all';
 import { layout } from '../layout';
 import { useLocalSetting } from '@/sync/storage';
 import { StyleSheet } from 'react-native-unistyles';
@@ -77,6 +77,17 @@ export function ToolFullView({ tool, metadata, messages = [], sessionId }: ToolF
                                 <Text style={styles.sectionTitle}>{t('tools.fullView.inputParams')}</Text>
                             </View>
                             <ToolInputView input={tool.input} toolName={tool.name} />
+                        </View>
+                    )}
+
+                    {/* Every tool a subagent (Task / Agent) ran; the chat card lists only the last few */}
+                    {(tool.name === 'Task' || tool.name === 'Agent') && messages.some((m) => m.kind === 'tool-call' && m.tool.name !== 'SubagentHandback') && (
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Ionicons name="list" size={20} color="#5856D6" />
+                                <Text style={styles.sectionTitle}>{t('tools.taskView.toolsTitle')}</Text>
+                            </View>
+                            <TaskView tool={tool} metadata={metadata || null} messages={messages} showAll />
                         </View>
                     )}
 

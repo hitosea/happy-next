@@ -1135,6 +1135,17 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                     });
                 } else {
                     for (let c of raw.content.data.message.content) {
+                        // A subagent's prompt reaches us as a sidechain user message with text blocks.
+                        // Keep it: it links the subagent's first reply (parentUuid) to the sidechain
+                        // root, and without it every later subagent message is orphaned for good.
+                        if (c.type === 'text' && raw.content.data.isSidechain && typeof c.text === 'string') {
+                            content.push({
+                                type: 'text',
+                                text: c.text,
+                                uuid: raw.content.data.uuid,
+                                parentUUID: raw.content.data.parentUuid ?? null
+                            });
+                        }
                         if (c.type === 'tool_result') {
                             content.push({
                                 ...c,  // WOLOG: Preserve all fields including unknown ones

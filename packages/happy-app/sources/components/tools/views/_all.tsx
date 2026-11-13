@@ -56,6 +56,7 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     exit_plan_mode: ExitPlanToolView,
     MultiEdit: MultiEditView,
     Task: TaskView,
+    Agent: TaskView,
     AskUserQuestion: AskUserQuestionView,
     // Gemini tools (lowercase)
     edit: GeminiEditView,

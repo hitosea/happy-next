@@ -1396,7 +1396,9 @@ export const es: TranslationStructure = {
         },
         taskView: {
             initializing: 'Inicializando agente...',
-            moreTools: ({ count }: { count: number }) => `+${count} más ${plural({ count, singular: 'herramienta', plural: 'herramientas' })}`,
+            expand: ({ count }: { count: number }) => `Mostrar las ${count} herramientas`,
+            collapse: 'Mostrar menos',
+            toolsTitle: 'Llamadas a herramientas del subagente',
         },
         multiEdit: {
             editNumber: ({ index, total }: { index: number; total: number }) => `Edición ${index} de ${total}`,

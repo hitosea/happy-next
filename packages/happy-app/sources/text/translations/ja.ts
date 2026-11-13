@@ -1398,7 +1398,9 @@ export const ja: TranslationStructure = {
         },
         taskView: {
             initializing: 'エージェントを初期化中...',
-            moreTools: ({ count }: { count: number }) => `+${count} 個のツール`,
+            expand: ({ count }: { count: number }) => `${count} 件のツールをすべて表示`,
+            collapse: '折りたたむ',
+            toolsTitle: 'サブエージェントのツール呼び出し',
         },
         // A plan proposal is written to be read in full, so its view shows the shape of one
         // and keeps the rest behind this.
