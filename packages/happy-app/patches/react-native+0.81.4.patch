@@ -1,3 +1,91 @@
+diff --git a/node_modules/react-native/Libraries/Pressability/Pressability.js b/node_modules/react-native/Libraries/Pressability/Pressability.js
+index ff70d67..31e97f6 100644
+--- a/node_modules/react-native/Libraries/Pressability/Pressability.js
++++ b/node_modules/react-native/Libraries/Pressability/Pressability.js
+@@ -390,6 +390,10 @@ export default class Pressability {
+   }>;
+   _touchActivateTime: ?number;
+   _touchState: TouchState = 'NOT_RESPONDER';
++  // happy: how far native code has moved the pressed view from where layout put it (a view moved
++  // only natively, like the iOS keyboard dock lifting the composer over the keyboard). The region
++  // is measured from layout but touches arrive where the view is drawn, so the region is shifted.
++  _nativeShift: ?$ReadOnly<{x: number, y: number}> = null;
+ 
+   constructor(config: PressabilityConfig) {
+     this.configure(config);
+@@ -457,6 +461,7 @@ export default class Pressability {
+ 
+         this._responderID = event.currentTarget;
+         this._touchState = 'NOT_RESPONDER';
++        this._measureNativeShift(event);
+         this._receiveSignal('RESPONDER_GRANT', event);
+ 
+         const delayPressIn = normalizeDelay(this._config.delayPressIn);
+@@ -809,6 +814,49 @@ export default class Pressability {
+     }
+   }
+ 
++  _measureNativeShift(event: GestureResponderEvent): void {
++    this._nativeShift = null;
++    const target: $FlowFixMe = event.target;
++    const touch = getTouchFromPressEvent(event);
++    if (target == null || touch == null) {
++      return;
++    }
++    const {pageX, pageY, locationX, locationY} = touch;
++    if (
++      typeof pageX !== 'number' ||
++      typeof pageY !== 'number' ||
++      typeof locationX !== 'number' ||
++      typeof locationY !== 'number'
++    ) {
++      return;
++    }
++    const responderID = this._responderID;
++    const callback = (
++      left: number,
++      top: number,
++      width: number,
++      height: number,
++      targetPageX: number,
++      targetPageY: number,
++    ) => {
++      if (this._responderID !== responderID) {
++        return;
++      }
++      if (!left && !top && !width && !height && !targetPageX && !targetPageY) {
++        return;
++      }
++      const x = pageX - (targetPageX + locationX);
++      const y = pageY - (targetPageY + locationY);
++      this._nativeShift =
++        Math.abs(x) < 1 && Math.abs(y) < 1 ? null : {x, y};
++    };
++    if (typeof target === 'number') {
++      UIManager.measure(target, callback);
++    } else if (typeof target.measure === 'function') {
++      target.measure(callback);
++    }
++  }
++
+   _measureCallback = (
+     left: number,
+     top: number,
+@@ -866,6 +914,14 @@ export default class Pressability {
+     regionRight += pressRectOffset?.right ?? DEFAULT_PRESS_RECT_OFFSETS.right;
+     regionTop -= pressRectOffset?.top ?? DEFAULT_PRESS_RECT_OFFSETS.top;
+ 
++    const nativeShift = this._nativeShift;
++    if (nativeShift != null) {
++      regionLeft += nativeShift.x;
++      regionRight += nativeShift.x;
++      regionTop += nativeShift.y;
++      regionBottom += nativeShift.y;
++    }
++
+     return (
+       touch.pageX > regionLeft &&
+       touch.pageX < regionRight &&
 diff --git a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm b/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
 index a9aedca..c61df89 100644
 --- a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
