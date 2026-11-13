@@ -6,6 +6,7 @@ import {
     MARKER_HEIGHT,
     MARKER_SLOT_HEIGHT,
     MARKER_WIDTH,
+    getHoverScale,
     MIN_ITEMS,
     windowStartFor,
 } from './minimapScrubber';
@@ -55,24 +56,31 @@ export type ConversationMinimapProps = {
 };
 
 const HIT_WIDTH = 44;
+/**
+ * The container ends right at the chat list's scrollbar strip, so the rail's hit area reaches all
+ * the way to it; the marks are drawn this far in from that edge.
+ */
+const MARK_INSET = 8;
+/** Where the card's right edge sits, measured in from the container; the rail is to its right. */
+const CARD_RIGHT = 44;
+/** While the card is up the rail narrows to the strip right of it, so it never covers the card. */
+const HIT_WIDTH_BESIDE_CARD = CARD_RIGHT;
+/** At rest the rail catches the pointer from the strip to as far left as it did before the inset. */
+const HIT_WIDTH_AT_REST = HIT_WIDTH + MARK_INSET;
+/** The hovered mark stops just short of 4× so it stays clear of the card's edge beside it. */
+const MARK_MAX_WIDTH = MARKER_WIDTH * 4 - 2;
 const MIN_CONTENT_WIDTH = 840;
 /** Breathing room the rail keeps from the card's top and bottom edges, per side. */
 const RAIL_EDGE_INSET = 12;
 
-// The rail grows a mark only a little on hover: the hover card now runs under the rail, so a mark
-// that swelled to several times its resting width would reach across the card's rows.
-const RAIL_HOVER_SCALES = [1.8, 1.5, 1.25];
-function railHoverScale(distance: number) {
-    return RAIL_HOVER_SCALES[distance] ?? 1;
-}
-
 /**
- * The hover card's entrance and exit: the layer stays mounted through the fade-out so leaving the
- * rail is a transition rather than a pop. Coming straight back reverses the fade instead of
- * re-mounting, since an interrupted timing reports `finished: false`.
+ * The hover card's entrance and exit: a fade rather than a pop. The layer mounts on first show and
+ * then stays, so coming back only reverses the fade instead of rebuilding the card.
  */
 function HoverCardLayer({ visible, children }: { visible: boolean; children: React.ReactNode }) {
     const progress = React.useRef(new Animated.Value(0)).current;
+    // Once shown, the card stays mounted and only fades: building every row again on each hover is
+    // what made the card stutter in, and a hidden card costs nothing while nothing about it changes.
     const [mounted, setMounted] = React.useState(visible);
 
     React.useEffect(() => {
@@ -91,9 +99,7 @@ function HoverCardLayer({ visible, children }: { visible: boolean; children: Rea
             duration: 120,
             easing: Easing.in(Easing.cubic),
             useNativeDriver: false,
-        }).start(({ finished }) => {
-            if (finished) setMounted(false);
-        });
+        }).start();
     }, [visible, progress]);
 
     if (!mounted) {
@@ -103,6 +109,7 @@ function HoverCardLayer({ visible, children }: { visible: boolean; children: Rea
     return (
         <Animated.View
             pointerEvents={visible ? 'auto' : 'none'}
+            aria-hidden={!visible}
             style={{
                 opacity: progress,
                 transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
@@ -123,7 +130,9 @@ export const ConversationMinimap = React.memo(function ConversationMinimap(props
 });
 
 /**
- * Right-edge rail: the pointer is the scrubber, the preview follows the hovered mark. It sits just
+ * Right-edge rail with its hover card beside it. Reaching the rail brings up the card; running the
+ * pointer along the rail scrubs, and the card glides to the hovered mark's row. Scrolling the card
+ * moves the other way: the rail follows, lighting the marks of the rows the card shows. It sits just
  * inside the chat list's scrollbar strip, which it would otherwise cover and take the drags of.
  */
 function WebMinimap(props: ConversationMinimapProps) {
@@ -133,6 +142,14 @@ function WebMinimap(props: ConversationMinimapProps) {
     const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
     const [cardVisible, setCardVisible] = React.useState(false);
     const [availableHeight, setAvailableHeight] = React.useState(0);
+    // The rows the card shows, as indexes into `props.userMessages`; null while the card is away.
+    const [cardRange, setCardRange] = React.useState<{ first: number; last: number } | null>(null);
+    // The pointer is on the rail: it leads, the card follows it, and the rail's window holds still
+    // so the marks do not slide from under the pointer as the card scrolls.
+    const [pointerOnRail, setPointerOnRail] = React.useState(false);
+    const handleVisibleRange = React.useCallback((first: number, last: number) => {
+        setCardRange((prev) => (prev && prev.first === first && prev.last === last ? prev : { first, last }));
+    }, []);
 
     // Moving from the rail into the card crosses a gap, so the card outlives the rail's leave for a
     // moment; entering it cancels the hide.
@@ -143,15 +160,24 @@ function WebMinimap(props: ConversationMinimapProps) {
             hideTimer.current = null;
         }
     }, []);
+    // A drag on the card's scroll thumb may carry the pointer outside the card; it stays up until
+    // the drag lets go, and hides then only if the pointer let go outside it.
+    const thumbDraggingRef = React.useRef(false);
     const scheduleHide = React.useCallback(() => {
         cancelHide();
+        if (thumbDraggingRef.current) return;
         hideTimer.current = setTimeout(() => {
             hideTimer.current = null;
             setHoveredIndex(null);
             setCardVisible(false);
+            setCardRange(null);
         }, 180);
     }, [cancelHide]);
     React.useEffect(() => cancelHide, [cancelHide]);
+    const handleThumbDrag = React.useCallback((dragging: boolean, pointerInside: boolean) => {
+        thumbDraggingRef.current = dragging;
+        if (!dragging && !pointerInside) scheduleHide();
+    }, [scheduleHide]);
 
     // Where the rail rests: the landmark the reader is on, or the newest one when the list has not
     // named it yet — the rail is read from the bottom of the conversation far more often than not.
@@ -160,43 +186,59 @@ function WebMinimap(props: ConversationMinimapProps) {
         return index >= 0 ? index : Math.max(0, props.userMessages.length - 1);
     }, [props.userMessages, props.activeMessageId]);
 
+    const listMessages = React.useMemo(() => props.userMessages.map((item) => item.message), [props.userMessages]);
+    const onJumpRef = React.useRef(props.onJumpToMessage);
+    onJumpRef.current = props.onJumpToMessage;
+    const handleJump = React.useCallback((message: MinimapMessage) => {
+        onJumpRef.current(message);
+    }, []);
+
     const cardMaxHeight = Math.max(180, Math.min(availableHeight, 420));
-    // The rail is the card's index, so the two share one height: the card's own (its rows plus
-    // padding, capped) is what the rail has to cover. Few landmarks leave the 10px pitch too short,
-    // so the slots stretch evenly over that height; once more marks arrive than a 10px pitch can
-    // lay out, the pitch returns to 10 and the window slides instead.
+    // The rail keeps one pitch whatever the count: few landmarks make a short rail rather than marks
+    // stretched apart to fill the card. It fits inside the card (its rows plus padding, capped) with
+    // a narrow band of card left above and below; more marks than that band holds slide the window.
     const cardHeight = Math.min(
         LIST_CARD_VERTICAL_PADDING * 2 + props.userMessages.length * LIST_ROW_HEIGHT,
         cardMaxHeight,
     );
-    const railSlots = Math.min(props.userMessages.length, Math.max(1, Math.floor(cardHeight / MARKER_SLOT_HEIGHT)));
-    // Spread the slots over the card, but never wider than one card row, and leave a narrow band of
-    // card above and below: a rail that touches both edges reads as a border rather than an index.
     const railBand = Math.max(MARKER_SLOT_HEIGHT, cardHeight - RAIL_EDGE_INSET * 2);
-    const railPitch = Math.min(LIST_ROW_HEIGHT, railBand / railSlots);
+    const railSlots = Math.min(props.userMessages.length, Math.max(1, Math.floor(railBand / MARKER_SLOT_HEIGHT)));
+    const railPitch = MARKER_SLOT_HEIGHT;
     const railHeight = railPitch * railSlots;
 
+    // While the card is up the rail follows the card's scroll, centred on the rows it shows; at rest
+    // it follows the reader.
+    const railFocus = cardVisible && cardRange !== null
+        ? Math.floor((cardRange.first + cardRange.last) / 2)
+        : activeIndex;
+
+    const frozenStartRef = React.useRef(0);
     const visibleWindow = React.useMemo(() => {
         const total = props.userMessages.length;
-        const start = windowStartFor(activeIndex, railSlots, total);
+        const maxStart = Math.max(0, total - railSlots);
+        const start = pointerOnRail
+            ? Math.min(frozenStartRef.current, maxStart)
+            : windowStartFor(railFocus, railSlots, total);
         return { start, end: start + railSlots, items: props.userMessages.slice(start, start + railSlots) };
-    }, [props.userMessages, activeIndex, railSlots]);
+    }, [props.userMessages, railFocus, railSlots, pointerOnRail]);
+    frozenStartRef.current = visibleWindow.start;
 
-    React.useEffect(() => {
-        setHoveredIndex(null);
-    }, [visibleWindow.start, visibleWindow.end]);
-
+    const railHitWidth = cardVisible ? HIT_WIDTH_BESIDE_CARD : HIT_WIDTH_AT_REST;
     const webHoverHandlers = {
         onMouseMove: (event: any) => {
             const rect = event.currentTarget?.getBoundingClientRect?.();
             if (!rect || visibleWindow.items.length === 0) return;
             cancelHide();
             setCardVisible(true);
+            setPointerOnRail(true);
             const y = event.clientY - rect.top;
             const nextIndex = Math.max(0, Math.min(visibleWindow.items.length - 1, Math.floor(y / railPitch)));
             setHoveredIndex(visibleWindow.start + nextIndex);
         },
-        onMouseLeave: scheduleHide,
+        onMouseLeave: () => {
+            setPointerOnRail(false);
+            scheduleHide();
+        },
     };
 
     if (props.contentWidth < MIN_CONTENT_WIDTH || props.userMessages.length < MIN_ITEMS) {
@@ -211,7 +253,7 @@ function WebMinimap(props: ConversationMinimapProps) {
                 position: 'absolute',
                 top: '15%',
                 bottom: '15%',
-                right: proxyStripWidthPx() + 8,
+                right: proxyStripWidthPx(),
                 width: HIT_WIDTH + LIST_CARD_WIDTH + 16,
                 alignItems: 'flex-end',
                 marginTop: -56, // offset for the top bar
@@ -222,14 +264,10 @@ function WebMinimap(props: ConversationMinimapProps) {
             <View
                 {...webHoverHandlers}
                 style={{
-                    width: HIT_WIDTH,
+                    width: railHitWidth,
                     height: railHeight,
                     alignItems: 'flex-end',
                     justifyContent: 'center',
-                    // Sits a little in from the card's right edge rather than on the very edge.
-                    marginRight: 4,
-                    // The hover card runs under the rail; the rail stays on top so its marks —
-                    // and their hovered state — remain visible over the card.
                     zIndex: 1,
                 }}
             >
@@ -239,7 +277,7 @@ function WebMinimap(props: ConversationMinimapProps) {
                         position: 'absolute',
                         top: 0,
                         bottom: 0,
-                        right: 0,
+                        right: MARK_INSET,
                         width: 1,
                         borderRadius: 1,
                         backgroundColor: theme.colors.transparent,
@@ -249,12 +287,11 @@ function WebMinimap(props: ConversationMinimapProps) {
 
                 {visibleWindow.items.map((item, itemIndex) => {
                     const index = visibleWindow.start + itemIndex;
+                    // As before the card: the reader's mark is lit only while nothing is hovered,
+                    // and while the pointer is on the rail only the hovered mark is.
                     const isActive = hoveredIndex === null && item.message.id === props.activeMessageId;
-                    const hoverScale = hoveredIndex === null ? 1 : railHoverScale(Math.abs(hoveredIndex - index));
                     const isHovered = hoveredIndex === index;
-                    const markerWidth = MARKER_WIDTH * hoverScale;
-                    // AskUserQuestion markers are drawn exactly like prompts: the rail is a neutral
-                    // map of landmarks, and hovering is what tells you which mark is a question.
+                    const hoverScale = hoveredIndex === null ? 1 : getHoverScale(Math.abs(hoveredIndex - index));
                     // Every landmark is drawn as the same mark; hovering — or the screen reader —
                     // is what tells a question and a preview apart from a prompt.
                     const jumpLabel = item.message.kind === 'ask-user-question'
@@ -263,34 +300,34 @@ function WebMinimap(props: ConversationMinimapProps) {
                             ? 'Jump to preview'
                             : 'Jump to user message';
                     return (
-                        <View key={item.message.id} style={{ position: 'relative', width: HIT_WIDTH, height: railPitch, alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <Pressable
-                                onPress={() => props.onJumpToMessage(item.message)}
-                                onHoverIn={() => setHoveredIndex(index)}
-                                accessibilityRole="button"
-                                accessibilityLabel={jumpLabel}
+                        <Pressable
+                            key={item.message.id}
+                            onPress={() => props.onJumpToMessage(item.message)}
+                            onHoverIn={() => setHoveredIndex(index)}
+                            accessibilityRole="button"
+                            accessibilityLabel={jumpLabel}
+                            style={{
+                                width: railHitWidth,
+                                height: railPitch,
+                                paddingRight: MARK_INSET,
+                                alignItems: 'flex-end',
+                                justifyContent: 'center',
+                                cursor: 'pointer' as any,
+                            }}
+                        >
+                            <View
                                 style={{
-                                    width: HIT_WIDTH,
-                                    height: railPitch,
-                                    alignItems: 'flex-end',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer' as any,
-                                }}
-                            >
-                                <View
-                                    style={{
-                                        width: markerWidth,
-                                        height: MARKER_HEIGHT,
-                                        borderRadius: 4,
-                                        backgroundColor: isActive || isHovered ? theme.colors.text : theme.colors.textSecondary,
-                                        opacity: isActive ? 0.95 : isHovered ? 0.9 : 0.45,
-                                        transitionProperty: 'width, opacity, background-color',
-                                        transitionDuration: '140ms',
-                                        transitionTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-                                    } as any}
-                                />
-                            </Pressable>
-                        </View>
+                                    width: Math.min(MARK_MAX_WIDTH, MARKER_WIDTH * hoverScale),
+                                    height: MARKER_HEIGHT,
+                                    borderRadius: 4,
+                                    backgroundColor: isActive || isHovered ? theme.colors.text : theme.colors.textSecondary,
+                                    opacity: isActive ? 0.95 : isHovered ? 0.9 : 0.45,
+                                    transitionProperty: 'width, opacity, background-color',
+                                    transitionDuration: '140ms',
+                                    transitionTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                                } as any}
+                            />
+                        </Pressable>
                     );
                 })}
             </View>
@@ -298,11 +335,9 @@ function WebMinimap(props: ConversationMinimapProps) {
             <View
                 style={{
                     position: 'absolute',
-                    // The card runs to the rail's own edge and under it; the rail is drawn on
-                    // top, so the marks read as part of the card rather than beside it. The
-                    // negative offset spends the gap the container keeps from the scrollbar,
-                    // bringing the card up to the strip without touching it.
-                    right: -8,
+                    // Beside the rail rather than under it, ending where the narrowed rail begins,
+                    // so the pointer crosses straight from one to the other.
+                    right: CARD_RIGHT,
                     top: 0,
                     bottom: 0,
                     justifyContent: 'center',
@@ -312,12 +347,16 @@ function WebMinimap(props: ConversationMinimapProps) {
                 <HoverCardLayer visible={cardVisible}>
                     <View {...{ onMouseEnter: cancelHide, onMouseLeave: scheduleHide }}>
                         <MinimapListCard
-                            messages={props.userMessages.map((item) => item.message)}
+                            messages={listMessages}
                             activeMessageId={props.activeMessageId}
                             hoveredIndex={hoveredIndex}
                             onHoverIndex={setHoveredIndex}
-                            onJump={(message) => props.onJumpToMessage(message)}
+                            onJump={handleJump}
                             maxHeight={cardMaxHeight}
+                            visible={cardVisible}
+                            followHovered={pointerOnRail}
+                            onVisibleRange={handleVisibleRange}
+                            onThumbDrag={handleThumbDrag}
                         />
                     </View>
                 </HoverCardLayer>
