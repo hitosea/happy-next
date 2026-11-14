@@ -232,21 +232,6 @@
             "contextWindow": 1050000
         },
         {
-            "id": "gpt-6.1-terra",
-            "agent": "codex",
-            "status": "active",
-            "label": "GPT-6.1-Terra",
-            "shortLabel": "6.1-Terra",
-            "displayName": "GPT-6.1-Terra",
-            "description": "Fast, efficient model for clear writing, visual understanding and computer use.",
-            "descriptionTranslations": {
-                "zh-Hans": "快速高效，适合清晰写作、视觉理解和计算机操作",
-                "zh-Hant": "快速高效，適合清晰寫作、視覺理解和電腦操作"
-            },
-            "efforts": ["max", "xhigh", "high", "medium", "low"],
-            "contextWindow": 1050000
-        },
-        {
             "id": "gpt-6-astra",
             "agent": "codex",
             "status": "active",
@@ -307,6 +292,17 @@
             "contextWindow": 272000
         },
         {
+            "id": "gpt-6.1-terra",
+            "agent": "codex",
+            "status": "active",
+            "label": "GPT-6.1 Terra",
+            "shortLabel": "6.1 Terra",
+            "displayName": "GPT-6.1 Terra",
+            "description": "GPT-6.1 Terra Codex model.",
+            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1050000
+        },
+        {
             "id": "gpt-5.6-terra",
             "agent": "codex",
             "status": "active",
@@ -339,7 +335,7 @@
         {
             "id": "gpt-5.5",
             "agent": "codex",
-            "status": "retired",
+            "status": "active",
             "label": "GPT-5.5",
             "shortLabel": "5.5",
             "displayName": "GPT-5.5",
