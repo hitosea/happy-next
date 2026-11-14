@@ -49,6 +49,8 @@ import { SessionHoverCardHost } from '@/components/SessionHoverCard';
 import { ActionMenuOverlayProvider } from '@/components/ActionMenuOverlayProvider';
 import { getNotificationSessionId } from '@/utils/notificationData';
 import { featureFlags } from 'react-native-screens';
+// Installs the press log hook for iOS touch diagnostics when the switch was left on.
+import '@/utils/touchDiagnostics';
 
 // iOS: once a back swipe or the back button has popped a screen natively, JS only learns of it
 // asynchronously. A stack update that lands in between (a screen's options changing, say) is

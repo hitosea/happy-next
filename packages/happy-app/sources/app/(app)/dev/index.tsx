@@ -16,7 +16,7 @@ import { getServerUrl, resolveServerConfig, setServerUrl, validateServerUrl } fr
 import { Switch } from '@/components/Switch';
 import { useUnistyles } from 'react-native-unistyles';
 import { setLastViewedVersion, getLatestVersion } from '@/changelog';
-import { touchDiagnostics } from '@/utils/touchDiagnostics';
+import { syncTouchDiagnosticsPressLog, touchDiagnostics } from '@/utils/touchDiagnostics';
 
 export default function DevScreen() {
     const router = useRouter();
@@ -30,6 +30,7 @@ export default function DevScreen() {
     const handleToggleTouchDiagnostics = async (enabled: boolean) => {
         setTouchDiagnosticsEnabled(enabled);
         await touchDiagnostics?.setEnabled(enabled);
+        syncTouchDiagnosticsPressLog(enabled);
     };
 
     const handleExportTouchDiagnostics = async () => {

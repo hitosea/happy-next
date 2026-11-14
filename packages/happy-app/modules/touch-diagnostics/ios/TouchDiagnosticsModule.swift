@@ -34,6 +34,12 @@ public class TouchDiagnosticsModule: Module {
       }
     }.runOnQueue(.main)
 
+    // A line from JS (the press handling in React Native's Pressability), stamped when it is called.
+    Function("log") { (message: String) in
+      let at = Date()
+      DispatchQueue.main.async { TouchDiagnostics.shared.logFromJS(message, at: at) }
+    }
+
     AsyncFunction("exportReport") { () -> String in
       TouchDiagnostics.shared.report()
     }.runOnQueue(.main)
@@ -101,8 +107,13 @@ final class TouchDiagnostics: NSObject {
 
   // MARK: - Log
 
-  private func log(_ message: String) {
-    let line = "\(timeFormatter.string(from: Date())) \(message)"
+  func logFromJS(_ message: String, at date: Date) {
+    guard isRecording else { return }
+    log("JS " + message, at: date)
+  }
+
+  private func log(_ message: String, at date: Date = Date()) {
+    let line = "\(timeFormatter.string(from: date)) \(message)"
     entries.append(line)
     if entries.count > Self.maxEntries {
       let overflow = entries.count - Self.maxEntries

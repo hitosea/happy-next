@@ -5,6 +5,8 @@ type TouchDiagnosticsNative = {
     isEnabled(): boolean;
     setEnabled(enabled: boolean): Promise<void>;
     exportReport(): Promise<string>;
+    /** Missing from a binary built before it was added. */
+    log?(message: string): void;
 };
 
 /**
@@ -14,3 +16,20 @@ type TouchDiagnosticsNative = {
  */
 export const touchDiagnostics: TouchDiagnosticsNative | null =
     Platform.OS === 'ios' ? requireOptionalNativeModule<TouchDiagnosticsNative>('TouchDiagnostics') : null;
+
+/**
+ * Our patch of React Native's Pressability reports each press (who was asked, granted, every state
+ * change, the measured region, moves read as outside it, onPress) to `global.__happyPressLog` when
+ * it is set, so the export shows where a swallowed tap is lost on the JS side.
+ */
+export function syncTouchDiagnosticsPressLog(enabled: boolean): void {
+    const native = touchDiagnostics;
+    const g = globalThis as { __happyPressLog?: (message: string) => void };
+    if (enabled && native && typeof native.log === 'function') {
+        g.__happyPressLog = (message: string) => native.log?.(message);
+    } else {
+        delete g.__happyPressLog;
+    }
+}
+
+syncTouchDiagnosticsPressLog(touchDiagnostics?.isEnabled() ?? false);

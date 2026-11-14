@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native/Libraries/Pressability/Pressability.js b/node_modules/react-native/Libraries/Pressability/Pressability.js
-index ff70d67..31e97f6 100644
+index ff70d67..462ae1f 100644
 --- a/node_modules/react-native/Libraries/Pressability/Pressability.js
 +++ b/node_modules/react-native/Libraries/Pressability/Pressability.js
 @@ -390,6 +390,10 @@ export default class Pressability {
@@ -13,15 +13,68 @@ index ff70d67..31e97f6 100644
  
    constructor(config: PressabilityConfig) {
      this.configure(config);
-@@ -457,6 +461,7 @@ export default class Pressability {
+@@ -447,6 +451,7 @@ export default class Pressability {
+     const responderEventHandlers = {
+       onStartShouldSetResponder: (): boolean => {
+         const {disabled} = this._config;
++        pressLog(this, 'asked disabled=' + String(disabled));
+         return !disabled ?? true;
+       },
+ 
+@@ -457,6 +462,8 @@ export default class Pressability {
  
          this._responderID = event.currentTarget;
          this._touchState = 'NOT_RESPONDER';
++        pressLog(this, 'grant ' + pressPoint(event));
 +        this._measureNativeShift(event);
          this._receiveSignal('RESPONDER_GRANT', event);
  
          const delayPressIn = normalizeDelay(this._config.delayPressIn);
-@@ -809,6 +814,49 @@ export default class Pressability {
+@@ -510,6 +517,11 @@ export default class Pressability {
+         if (this._isTouchWithinResponderRegion(touch, responderRegion)) {
+           this._receiveSignal('ENTER_PRESS_RECT', event);
+         } else {
++          pressLog(
++            this,
++            'move outside ' + pressPoint(event) + ' region=' + JSON.stringify(responderRegion) +
++              ' shift=' + JSON.stringify(this._nativeShift),
++          );
+           this._cancelLongPressDelayTimeout();
+           this._receiveSignal('LEAVE_PRESS_RECT', event);
+         }
+@@ -520,11 +532,13 @@ export default class Pressability {
+       },
+ 
+       onResponderTerminate: (event: GestureResponderEvent): void => {
++        pressLog(this, 'terminated');
+         this._receiveSignal('RESPONDER_TERMINATED', event);
+       },
+ 
+       onResponderTerminationRequest: (): boolean => {
+         const {cancelable} = this._config;
++        pressLog(this, 'termination requested cancelable=' + String(cancelable));
+         return cancelable ?? true;
+       },
+ 
+@@ -692,6 +706,9 @@ export default class Pressability {
+         ? this._responderID
+         : '<<host component>>',
+     );
++    if (signal !== 'ENTER_PRESS_RECT' && signal !== 'LEAVE_PRESS_RECT' || prevState !== nextState) {
++      pressLog(this, signal + ' ' + prevState + ' -> ' + nextState);
++    }
+     if (prevState !== nextState) {
+       this._performTransitionSideEffects(prevState, nextState, signal, event);
+       this._touchState = nextState;
+@@ -754,6 +771,7 @@ export default class Pressability {
+           if (Platform.OS === 'android' && android_disableSound !== true) {
+             SoundManager.playTouchSound();
+           }
++          pressLog(this, 'onPress');
+           onPress(event);
+         }
+       }
+@@ -809,6 +827,51 @@ export default class Pressability {
      }
    }
  
@@ -54,10 +107,12 @@ index ff70d67..31e97f6 100644
 +        return;
 +      }
 +      if (!left && !top && !width && !height && !targetPageX && !targetPageY) {
++        pressLog(this, 'target measure empty');
 +        return;
 +      }
 +      const x = pageX - (targetPageX + locationX);
 +      const y = pageY - (targetPageY + locationY);
++      pressLog(this, 'target at (' + Math.round(targetPageX) + ',' + Math.round(targetPageY) + ') shift=(' + Math.round(x) + ',' + Math.round(y) + ')');
 +      this._nativeShift =
 +        Math.abs(x) < 1 && Math.abs(y) < 1 ? null : {x, y};
 +    };
@@ -71,7 +126,15 @@ index ff70d67..31e97f6 100644
    _measureCallback = (
      left: number,
      top: number,
-@@ -866,6 +914,14 @@ export default class Pressability {
+@@ -826,6 +889,7 @@ export default class Pressability {
+       right: pageX + width,
+       top: pageY,
+     };
++    pressLog(this, 'region ' + JSON.stringify(this._responderRegion));
+   };
+ 
+   _isTouchWithinResponderRegion(
+@@ -866,6 +930,14 @@ export default class Pressability {
      regionRight += pressRectOffset?.right ?? DEFAULT_PRESS_RECT_OFFSETS.right;
      regionTop -= pressRectOffset?.top ?? DEFAULT_PRESS_RECT_OFFSETS.top;
  
@@ -86,6 +149,42 @@ index ff70d67..31e97f6 100644
      return (
        touch.pageX > regionLeft &&
        touch.pageX < regionRight &&
+@@ -927,6 +999,35 @@ function normalizeDelay(
+   return Math.max(min, delay ?? fallback);
+ }
+ 
++// happy: touch diagnostics hook (set by the app while iOS touch diagnostics record).
++function pressLog(pressability: $FlowFixMe, message: string): void {
++  const hook = (global: $FlowFixMe).__happyPressLog;
++  if (typeof hook !== 'function') {
++    return;
++  }
++  try {
++    const id: $FlowFixMe = pressability._responderID;
++    const tag =
++      id == null
++        ? '-'
++        : typeof id === 'number'
++          ? id
++          : (id.__nativeTag ?? id._nativeTag ?? '?');
++    hook('press#' + String(tag) + ' ' + message);
++  } catch (e) {}
++}
++
++function pressPoint(event: $FlowFixMe): string {
++  const t: $FlowFixMe = getTouchFromPressEvent(event);
++  if (t == null) {
++    return 'touch=nil';
++  }
++  const r = (n: mixed) => (typeof n === 'number' ? Math.round(n) : String(n));
++  return (
++    'page=(' + r(t.pageX) + ',' + r(t.pageY) + ') loc=(' + r(t.locationX) + ',' + r(t.locationY) + ')'
++  );
++}
++
+ const getTouchFromPressEvent = (event: GestureResponderEvent) => {
+   const {changedTouches, touches} = event.nativeEvent;
+ 
 diff --git a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm b/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
 index a9aedca..c61df89 100644
 --- a/node_modules/react-native/React/DevSupport/RCTInspectorDevServerHelper.mm
