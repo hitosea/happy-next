@@ -1,3 +1,29 @@
+diff --git a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+index 1e95eb6..f04005d 100644
+--- a/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
++++ b/node_modules/react-native/Libraries/Components/TextInput/TextInput.js
+@@ -161,6 +161,7 @@ type LastNativeSelection = {
+ };
+ 
+ const emptyFunctionThatReturnsTrue = () => true;
++const emptyFunctionThatReturnsFalse = () => false;
+ 
+ /**
+  * This hook handles the synchronization between the state of the text input
+@@ -700,7 +701,12 @@ function InternalTextInput(props: TextInputProps): React.Node {
+         onFocus={_onFocus}
+         onScroll={_onScroll}
+         onSelectionChange={_onSelectionChange}
+-        onSelectionChangeShouldSetResponder={emptyFunctionThatReturnsTrue}
++        // happy: never take the JS responder on a selection change. The responder plugin asks for
++        // it whenever its count of touches in progress is above zero, and that count never comes
++        // back down once a touch's end is lost (until the app restarts), so from then on every
++        // keystroke made the input the responder with no finger down, and the next tap anywhere
++        // was spent releasing it. Real taps on the input still take it on touch start.
++        onSelectionChangeShouldSetResponder={emptyFunctionThatReturnsFalse}
+         selection={selection}
+         selectionColor={selectionColor}
+         style={StyleSheet.compose(
 diff --git a/node_modules/react-native/Libraries/Pressability/Pressability.js b/node_modules/react-native/Libraries/Pressability/Pressability.js
 index ff70d67..462ae1f 100644
 --- a/node_modules/react-native/Libraries/Pressability/Pressability.js
