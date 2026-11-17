@@ -116,6 +116,8 @@ describe.skipIf(!tmuxInstalled)('reading back what tmux holds', () => {
         socket = join(socketDir, 'terminal.sock');
         process.env.HAPPY_TERMINAL_TMUX_SOCKET = socket;
         prepareTerminalTmuxServer();
+        // Startup files must not move the shell away from the directory under test.
+        writeFileSync(join(socketDir, '.bashrc'), 'cd /\n');
     });
 
     afterAll(() => {
@@ -130,9 +132,16 @@ describe.skipIf(!tmuxInstalled)('reading back what tmux holds', () => {
 
     /** Runs one shell under tmux and reads the listing back. */
     async function listOne(id: string, cwd: string, title: string) {
-        const args = terminalTmuxAttachArgs({ id, cwd, shell: '/bin/bash', args: [], rows: 24, cols: 80 });
+        const prompt = 'happy-tmux-ready>';
+        const args = terminalTmuxAttachArgs({ id, cwd, shell: '/bin/bash', args: ['--norc', '--noprofile'], rows: 24, cols: 80 });
         args.splice(args.indexOf('new-session') + 1, 0, '-d');
-        expect(spawnSync(terminalTmuxBinary(), args).status).toBe(0);
+        expect(spawnSync(terminalTmuxBinary(), args, {
+            env: { ...process.env, HOME: socketDir, PS1: prompt, PROMPT_COMMAND: '' },
+        }).status).toBe(0);
+        // Session creation can finish before the child changes directory and starts its shell.
+        await expect.poll(() => spawnSync(terminalTmuxBinary(), [
+            '-S', socket, 'capture-pane', '-p', '-t', id,
+        ], { encoding: 'utf8', timeout: 1000 }).stdout, { timeout: 3000, interval: 50 }).toContain(prompt);
         expect(spawnSync(terminalTmuxBinary(), ['-S', socket, 'select-pane', '-t', id, '-T', title]).status).toBe(0);
 
         return (await listTerminalSessions()).find((entry) => entry.id === id);
