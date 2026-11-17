@@ -1,15 +1,18 @@
 # Changelog
 
-## Version 40 - 2026-11-12
+## Version 40 - 2026-11-17
 
-Happy Next v2.26.0 lets the conversation minimap reach messages a device never paged in, names every landmark in a hovering card, and keeps hidden thinking off the server.
+Happy Next v2.27.0 keeps subagent cards working after Claude Code renamed Task to Agent, gives the web minimap a hover card that scrubs and scrolls with the rail, and makes the first tap after typing — and on the composer's buttons with the keyboard up — land again. It also includes the minimap landmarks, hidden-thinking privacy and iOS scroll-edge fixes introduced in v2.26.0.
 
+- Claude: subagent cards work with the Agent tool — the card lists up to five tools, past that the last three with a "Show all N tools" toggle, and the detail page lists every tool between input and output
 - Chat: the conversation minimap reaches prompts and questions the device never paged in, walking older marked messages from the server
-- Chat: hovering the minimap rail opens a card listing every landmark; hovering a row previews it in full, and clicking jumps without closing the card
+- Chat: hovering the minimap rail opens a card listing every landmark; hovering a row previews it in full, and clicking jumps without closing the card. The card sits beside the rail, follows the pointer as it scrubs, scrolls on its own draggable thumb, and moves the rail with it
 - Chat: a usage-limit reset names its timezone as UTC+8 instead of a glued GMT offset
+- iOS: the first tap after typing fires again, and the composer's buttons answer on the first tap with the keyboard up
 - iOS: the navigation scroll edge stays soft on iOS 27
 - Privacy: a device that hides thinking keeps the turn's thinking off the server
-- CLI: Happy CLI v0.20.0
+- Developer tools: Touch Diagnostics on iOS records taps, keyboard and app-lifecycle events and exports a report, without recording text
+- CLI: Happy CLI v0.20.1
 
 ## Version 39 - 2026-11-11
 

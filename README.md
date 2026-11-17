@@ -274,6 +274,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Web desktop: hover-to-show copy button on chat messages and right-click on options reusing the mobile long-press behavior
 - Mobile text selection: in-app selection page uses browser-native long-press with static syntax highlighting (Lezer) for reliable first-tap selection on Android
 - Pull-to-refresh, inset dividers, Agent tool display with robot icon
+- Subagent cards work with Claude Code's renamed Agent tool — the card lists the tools it ran, up to five with a "Show all N tools" toggle, and the detail page lists every tool between input and output
 - Tool input/output formatted as key-value pairs instead of raw JSON
 - Unrecognized tool calls render as a generic 'other' block with a dynamic title and icon, instead of an empty placeholder
 - Agent event messages strip ANSI escape codes from child-CLI stderr so subprocess banner color sequences no longer leak into the chat as raw `[90m…[0m`
@@ -298,7 +299,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - In-progress AskUserQuestion answers survive scrolling away, new messages, and reloads as drafts
 - Images opened by file-reading tools render as previews, and `preview_html` can read a document from a file path
 - Thinking and image placeholder rows are hidden, and "show thinking messages" now defaults to off for new users
-- The conversation minimap reaches prompts and questions a device never paged in, walking older marked messages from the server; hovering the rail opens a card listing every landmark, and hovering a row previews it in full
+- The conversation minimap reaches prompts and questions a device never paged in, walking older marked messages from the server; hovering the rail opens a card listing every landmark, and hovering a row previews it in full. The card sits beside the rail, follows the pointer as you scrub, scrolls on its own draggable thumb, and moves the rail with it
 - A device that hides thinking keeps the turn's thinking off the server, saving bandwidth and CPU
 - A usage-limit reset names its timezone, and the navigation scroll edge stays soft on iOS 27
 
@@ -412,6 +413,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.18.0 shows what Codex used to drop — generated images, plans, hook runs, review decisions, warnings, thread metadata, `/review` markers and sleeps — warns before a Codex quota runs out, and shows Qoder's plan as steps
 - Happy CLI v0.19.0 surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so an upgrade fails a test instead of dropping them
 - Happy CLI v0.20.0 keeps a turn's thinking off the server when the device that opened it hides thinking, and stamps landmarks on messages so the minimap can reach older ones
+- Happy CLI v0.20.1 keeps subagent cards working after Claude Code renamed Task to Agent, so a subagent's prompt and later messages stay under its card
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing
@@ -435,6 +437,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - i18n improvements (Chinese Simplified/Traditional, CJK input handling)
 - Markdown rendering: tables, inline code, nested fences, clickable file paths
 - Keyboard handling, loading states, navigation stability, icon font preloading
+- iOS: the first tap after typing works again, and the composer's buttons answer on the first tap with the keyboard up
 - Text is set in the system font, so Chinese takes the same weights as Latin, and the inbox, DooTask and GitHub lists lie flat like the session list
 
 Full changelog: [docs/changes-from-happy.md](docs/changes-from-happy.md)

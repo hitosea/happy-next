@@ -327,6 +327,7 @@ Extensive improvements to the chat and session management experience.
 - **Pull-to-refresh** for session list and inbox
 - **Inset dividers** for cleaner list layouts
 - **Agent tool display** with robot icon in known tools list
+- **Agent subagent cards**: subagent cards work with Claude Code's renamed Agent tool — the card lists the tools it ran, up to five with a "Show all N tools" toggle, and the detail page lists every tool between input and output
 - **Tool input/output** formatted as key-value pairs instead of raw JSON
 - **AskUserQuestion** supports choices, custom "Other" values, free-form text, masked sensitive answers, and markdown preview
 - **In-memory SWR cache** and search for agent session history
@@ -378,7 +379,7 @@ Extensive improvements to the chat and session management experience.
 - **`preview_html` from a file path**: the tool takes `filePath` as an alternative to an inline document — the CLI reads the file on the machine that owns it and folds the contents into the tool call args, so previews survive offline, archived, and shared sessions
 - **New session requires ownership**: "Start a session in this directory" is no longer offered from a session shared with you, on the context menu, the directory header, the session info screen, or the session header
 - **Thinking rows hidden**: thinking and image placeholder rows are hidden, and "show thinking messages" now defaults to off for new users
-- **Minimap beyond the cache**: the conversation minimap reaches prompts and questions the device never paged in — senders stamp a landmark on each record before it is encrypted, the server answers a walk over just those rows, and the app paints local landmarks first, then walks older ones. Hovering the rail opens a card listing every landmark, hovering a row previews it in full, and clicking jumps without closing the card
+- **Minimap beyond the cache**: the conversation minimap reaches prompts and questions the device never paged in — senders stamp a landmark on each record before it is encrypted, the server answers a walk over just those rows, and the app paints local landmarks first, then walks older ones. Hovering the rail opens a card listing every landmark, hovering a row previews it in full, and clicking jumps without closing the card. The card sits beside the rail, follows the pointer as it scrubs, scrolls on its own draggable thumb, and moves the rail with it
 - **Thinking stays off the server**: when the device that opened a turn hides thinking, the CLI drops thinking-only records before they are buffered or encrypted, saving bandwidth and CPU
 - **Small fixes**: a usage-limit reset names its timezone as UTC+8 instead of a glued GMT offset, and the navigation scroll edge stays soft on iOS 27
 
@@ -518,6 +519,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 
 - **Happy CLI v0.19.0**: surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so a CLI upgrade fails a test instead of dropping them
 - **Happy CLI v0.20.0**: keeps a turn's thinking off the server when the device that opened it hides thinking, and stamps landmarks (prompt, question, answer, preview) on records so the minimap can reach messages a device never paged in
+- **Happy CLI v0.20.1**: keeps subagent cards working after Claude Code renamed Task to Agent, so a subagent's prompt and later messages stay under its card
 
 ## Server
 
@@ -541,6 +543,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Dark mode** fixes throughout (text contrast, chips, status badges, input fields)
 - **i18n**: Chinese Simplified/Traditional system locale declaration, CJK input height handling, internationalized pickers
 - **Keyboard handling**: content follows keyboard smoothly, no jitter
+- **First tap on iOS**: the first tap after typing works again, and the composer's buttons answer on the first tap with the keyboard up
 - **Loading states**: skeleton screens, inline indicators, timeout feedback
 - **Navigation**: static route fix for dynamic `[id]` matching, reset on login/logout
 - **Header alignment**: unified back buttons and aligned header actions across session and machine screens
