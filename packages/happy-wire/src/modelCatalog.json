@@ -235,9 +235,9 @@
             "id": "gpt-6.1-terra",
             "agent": "codex",
             "status": "active",
-            "label": "GPT-6.1-Terra",
-            "shortLabel": "6.1-Terra",
-            "displayName": "GPT-6.1-Terra",
+            "label": "GPT-6.1 Terra",
+            "shortLabel": "6.1 Terra",
+            "displayName": "GPT-6.1 Terra",
             "description": "Fast, efficient model for clear writing, visual understanding and computer use.",
             "descriptionTranslations": {
                 "zh-Hans": "快速高效，适合清晰写作、视觉理解和计算机操作",
