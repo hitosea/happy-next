@@ -8,20 +8,46 @@
  *
  * Both speak ACP with `--acp`. The installers put the entry point in ~/.local/bin,
  * which a daemon started outside a login shell often does not have on PATH.
+ *
+ * To users they are two products, Qoder and Qoder CN, and a machine may have both:
+ * a session names its build, and everything it touches (the executable, its config
+ * directory, the account's models) follows that build.
  */
 
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { basename, delimiter, join } from 'node:path';
 
 /** Overrides which Qoder executable Happy spawns. */
 export const QODER_PATH_ENV = 'HAPPY_QODER_PATH';
 
+/** Set by the daemon on a session the app started on a chosen build (`intl` or `cn`). */
+export const QODER_BUILD_ENV = 'HAPPY_QODER_BUILD';
+
 /** Set by the daemon to restore a Qoder conversation through ACP `session/load`. */
 export const QODER_RESUME_SESSION_ID_ENV = 'HAPPY_QODER_RESUME_SESSION_ID';
 
-const QODER_INTL_COMMAND = 'qodercli';
-const QODER_CN_COMMAND = 'qoderclicn';
+export type QoderBuild = 'intl' | 'cn';
+
+const QODER_COMMANDS: Record<QoderBuild, string> = { intl: 'qodercli', cn: 'qoderclicn' };
+
+/** Each build's name in Happy's own files and logs (`qoder-models.json`, `qoder-cn-models.json`, ...). */
+export const QODER_SLUGS: Record<QoderBuild, string> = { intl: 'qoder', cn: 'qoder-cn' };
+
+/** Where a build keeps its sign-in, conversations and caches: `$QODER_CONFIG_DIR` / `$QODERCN_CONFIG_DIR`, else `~/.qoder` / `~/.qoder-cn`. */
+export function qoderConfigDir(build: QoderBuild, env: NodeJS.ProcessEnv = process.env): string {
+  return (build === 'cn' ? env.QODERCN_CONFIG_DIR : env.QODER_CONFIG_DIR) || join(homedir(), `.${QODER_SLUGS[build]}`);
+}
+
+/** `value` as a build, or undefined when it names none (absent, or from an unknown client). */
+export function parseQoderBuild(value: unknown): QoderBuild | undefined {
+  return value === 'intl' || value === 'cn' ? value : undefined;
+}
+
+/** The build an executable belongs to; a custom `HAPPY_QODER_PATH` counts as international unless named like the China build. */
+export function qoderBuildOf(command: string): QoderBuild {
+  return basename(command) === QODER_COMMANDS.cn ? 'cn' : 'intl';
+}
 
 /**
  * A Qoder desktop app or Agent SDK launch exports these. With the entrypoint set,
@@ -45,14 +71,16 @@ function isQoderCnHost(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
- * Executable to spawn: `HAPPY_QODER_PATH`, else the preferred build found on PATH or
- * in ~/.local/bin, else the preferred build's bare name so the spawn error names it.
+ * Executable to spawn. A chosen build (`build`, else `HAPPY_QODER_BUILD`) is that build
+ * only. Without one: `HAPPY_QODER_PATH`, else the preferred build. Either way it is looked
+ * for on PATH and in ~/.local/bin, falling back to the bare name so the spawn error names it.
  */
-export function resolveQoderCommand(env: NodeJS.ProcessEnv = process.env): string {
+export function resolveQoderCommand(env: NodeJS.ProcessEnv = process.env, build = parseQoderBuild(env[QODER_BUILD_ENV])): string {
   const override = env[QODER_PATH_ENV]?.trim();
-  if (override) return override;
+  if (override && !build) return override;
 
-  const candidates = isQoderCnHost(env) ? [QODER_CN_COMMAND, QODER_INTL_COMMAND] : [QODER_INTL_COMMAND, QODER_CN_COMMAND];
+  const preferred: QoderBuild[] = isQoderCnHost(env) ? ['cn', 'intl'] : ['intl', 'cn'];
+  const candidates = (build ? [build] : preferred).map((candidate) => QODER_COMMANDS[candidate]);
   const searchDirs = [...(env.PATH ?? '').split(delimiter).filter(Boolean), join(env.HOME?.trim() || homedir(), '.local', 'bin')];
   for (const name of candidates) {
     const dir = searchDirs.find((candidateDir) => existsSync(join(candidateDir, name)));
@@ -66,5 +94,5 @@ export function isQoderAuthError(text: string): boolean {
 }
 
 export function qoderAuthErrorMessage(command: string): string {
-  return `Qoder CLI is not signed in. Run \`${command} login\` in a terminal, then start the session again. The international (qodercli) and China (qoderclicn) builds sign in separately.`;
+  return `Qoder CLI is not signed in. Run \`${command} login\` in a terminal, then start the session again. Qoder (qodercli) and Qoder CN (qoderclicn) sign in separately.`;
 }

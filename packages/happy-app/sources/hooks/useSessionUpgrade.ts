@@ -71,7 +71,7 @@ export function useSessionUpgrade(session: Session | null | undefined) {
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
             } else if (flavor === 'qoder' && session.metadata?.qoderSessionId) {
-                const forkResult = await machineForkQoderSession(machineId, session.metadata.qoderSessionId, session.metadata.path || '');
+                const forkResult = await machineForkQoderSession(machineId, session.metadata.qoderSessionId, session.metadata.path || '', session.metadata.qoderBuild);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
                     return;
@@ -96,6 +96,7 @@ export function useSessionUpgrade(session: Session | null | undefined) {
                 machineId,
                 directory: session.metadata?.path || '',
                 agent,
+                qoderBuild: session.metadata?.qoderBuild,
                 resumeSessionId,
                 skipForkSession: true,
                 sessionTitle: session.metadata?.summary?.text,

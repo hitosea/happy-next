@@ -23,13 +23,14 @@ import { SessionHistoryCard } from '@/components/SessionHistoryCard';
 import { useSessionFork } from '@/hooks/useSessionFork';
 import { compareSessionsByLastMessage, sessionLastMessageAt } from '@/utils/sessionLastMessageAt';
 import { SearchField } from '@/components/SearchField';
+import { agentChoiceOf, isAgentChoice, resolveAgentChoice, type AgentChoice, type AgentType } from '@/utils/agentChoice';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'session-history-selected-machine';
 const SELECTED_AGENT_KEY = 'session-history-selected-agent';
 const OLDER_SESSIONS_PAGE_SIZE = 150;
 
-type AgentFilter = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder';
+type AgentFilter = 'all' | AgentChoice;
 
 const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'all', label: () => t('sessionHistory.allAgents') },
@@ -37,9 +38,10 @@ const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'qoder', label: () => t('agentHistory.tabQoder') },
+    { key: 'qodercn', label: () => t('agentHistory.tabQoderCn') },
 ];
 
-const agentIcons: Record<string, any> = {
+const agentIcons: Record<AgentType, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
@@ -227,9 +229,10 @@ function SessionHistory() {
     }, [machineIdParam]);
     const [selectedAgent, setSelectedAgent] = React.useState<AgentFilter>(() => {
         const saved = mmkv.getString(SELECTED_AGENT_KEY);
-        if (saved === 'claude' || saved === 'gemini' || saved === 'codex' || saved === 'qoder') return saved;
+        if (isAgentChoice(saved)) return saved;
         return 'all';
     });
+    const selectedFlavor = selectedAgent === 'all' ? null : resolveAgentChoice(selectedAgent).agent;
     const [machineMenuVisible, setMachineMenuVisible] = React.useState(false);
     const [agentMenuVisible, setAgentMenuVisible] = React.useState(false);
     const [paginationCursor, setPaginationCursor] = React.useState<{ updatedAt: number; id: string } | null>(null);
@@ -292,7 +295,8 @@ function SessionHistory() {
         }
 
         if (selectedAgent !== 'all') {
-            result = result.filter(s => s.metadata?.flavor === selectedAgent);
+            // Qoder and Qoder CN sessions share the flavor; the build tells them apart
+            result = result.filter(s => (s.metadata?.flavor === 'qoder' ? agentChoiceOf('qoder', s.metadata.qoderBuild) : s.metadata?.flavor) === selectedAgent);
         }
 
         const query = searchQuery.trim().toLowerCase();
@@ -461,12 +465,12 @@ function SessionHistory() {
                     onFallbackOpen={() => setAgentMenuVisible(true)}
                 >
                     <View style={styles.filterTrigger}>
-                        {selectedAgent !== 'all' ? (
+                        {selectedFlavor ? (
                             <Image
-                                source={agentIcons[selectedAgent]}
+                                source={agentIcons[selectedFlavor]}
                                 style={{ width: 16, height: 16, marginRight: 6 }}
                                 contentFit="contain"
-                                tintColor={selectedAgent === 'codex' || selectedAgent === 'qoder' ? theme.colors.text : undefined}
+                                tintColor={selectedFlavor === 'codex' || selectedFlavor === 'qoder' ? theme.colors.text : undefined}
                             />
                         ) : (
                             <Ionicons name="grid-outline" size={16} color={theme.colors.textSecondary} style={{ marginRight: 6 }} />

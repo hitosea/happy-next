@@ -11,12 +11,12 @@ happy qoder
 
 ## 前置条件
 
-安装 [Qoder CLI](https://qoder.com)。Qoder 提供同一 CLI 的两个版本，按所在地区安装其一：
+安装 [Qoder CLI](https://qoder.com)。Qoder 提供同一 CLI 的两个版本，Happy 将它们显示为两个 Agent。可以安装其一，也可以都装：
 
-| 版本 | 命令 | 安装 |
-|------|------|------|
-| 国际版 | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
-| 中国版 | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
+| Happy 中的 Agent | 命令 | 安装 |
+|------------------|------|------|
+| **Qoder**（国际版） | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
+| **Qoder CN**（中国版） | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
 
 然后在终端中登录一次：
 
@@ -26,15 +26,27 @@ qodercli login    # 或：qoderclicn login
 
 Qoder 使用你的 Qoder 账号登录，因此没有 `happy connect qoder` 这一步。两个版本需要分别登录。
 
-Happy 会在 `PATH` 和 `~/.local/bin` 中查找可执行文件。如需指定某个二进制，设置 `HAPPY_QODER_PATH`：
+## Qoder 与 Qoder CN
+
+新建会话页会把机器上装了的每个版本列为单独的 Agent：**Qoder** 或 **Qoder CN**。会话始终使用启动时的版本，复制、恢复、升级或 duplicate 时沿用同一版本。
+
+Happy 会在 `PATH` 和 `~/.local/bin` 中查找可执行文件。在终端运行 `happy qoder` 时使用 `qodercli`，只装了 `qoderclicn` 时使用后者（从 Qoder CN 中启动时优先 `qoderclicn`）。如需指定版本，将 `HAPPY_QODER_BUILD` 设为 `intl` 或 `cn`：
+
+```bash
+HAPPY_QODER_BUILD=cn happy qoder
+```
+
+如需指定某个二进制，设置 `HAPPY_QODER_PATH`。它仅在未选定版本（应用中未选，也未设置 `HAPPY_QODER_BUILD`）时生效：
 
 ```bash
 HAPPY_QODER_PATH=/path/to/qodercli happy qoder
 ```
 
+编排任务、语音和 PR 审查启动 Qoder 时使用默认版本。
+
 ## 模型
 
-Qoder 的模型列表因账号而异，Happy 会向你机器上的 CLI 查询。在应用的模型选择器中选择模型；新会话默认使用 Qoder 的 **Auto**。支持推理控制的模型还会显示 **推理强度** 一栏，初始值为 Qoder 为该模型选定的强度。
+Qoder 的模型列表因账号而异，Happy 会向你机器上的 CLI 查询。Qoder 与 Qoder CN 的列表各自独立。在应用的模型选择器中选择模型；新会话默认使用 Qoder 的 **Auto**。支持推理控制的模型还会显示 **推理强度** 一栏，初始值为 Qoder 为该模型选定的强度。
 
 模型描述来自 Qoder 自身。Happy 先显示 `qodercli` 上次下载的文案（`~/.qoder/.auth/dynamic-texts.json`，`qoderclicn` 则为 `~/.qoder-cn/`），下载到 Qoder 的最新文案后再替换。两者都没有时显示模型标签。
 
@@ -52,7 +64,7 @@ Qoder 的模型列表因账号而异，Happy 会向你机器上的 CLI 查询。
 
 Happy 会保存 Qoder 会话 ID（显示在会话信息页）。复制、恢复或升级 Qoder 会话时会在 Qoder 中分叉对话，新会话保留上下文，原会话不受影响。
 
-会话历史的 **Qoder** 标签列出机器上保存的对话（`~/.qoder/projects`，`qoderclicn` 为 `~/.qoder-cn/`），包括不是通过 Happy 启动的对话。`/duplicate` 或消息上的分叉按钮可以从对话中较早的位置开始新会话。
+会话历史的 **Qoder** 和 **Qoder CN** 标签列出机器上保存的对话（`~/.qoder/projects`，`qoderclicn` 为 `~/.qoder-cn/`），包括不是通过 Happy 启动的对话。`/duplicate` 或消息上的分叉按钮可以从对话中较早的位置开始新会话。
 
 ## 工作原理
 

@@ -3,6 +3,7 @@ import { storage } from '@/sync/storage';
 import { Session } from '@/sync/storageTypes';
 import { sessionLastViewedAt, sync } from '@/sync/sync';
 import { sessionUpdateMetadataFields } from '@/sync/ops';
+import { agentChoiceOf } from '@/utils/agentChoice';
 import { t } from '@/text';
 import { hasUnreadCompletionSince } from '@/utils/sessionAttention';
 
@@ -370,7 +371,7 @@ export function copySessionModeSettings(
     newSessionId: string,
 ): void {
     const flavor = originalSession.metadata?.flavor;
-    const agentType: 'claude' | 'codex' | 'gemini' | 'qoder' = (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') ? flavor : 'claude';
+    const agentType = agentChoiceOf((flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') ? flavor : 'claude', originalSession.metadata?.qoderBuild);
     sync.queueSessionModeConfigUpdate({
         sessionId: newSessionId,
         agentType,

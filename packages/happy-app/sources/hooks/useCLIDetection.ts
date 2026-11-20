@@ -5,7 +5,8 @@ interface CLIAvailability {
     claude: boolean | null; // null = unknown/loading, true = installed, false = not installed
     codex: boolean | null;
     gemini: boolean | null;
-    qoder: boolean | null;
+    qoder: boolean | null; // Qoder (qodercli)
+    qodercn: boolean | null; // Qoder CN (qoderclicn)
     isDetecting: boolean; // Explicit loading state
     timestamp: number; // When detection completed
     error?: string; // Detection error message (for debugging)
@@ -15,17 +16,21 @@ const CLI_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true" || echo "claude:false") && ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true" || echo "codex:false") && ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true" || echo "gemini:false") && ' +
-    // Qoder's installer puts qodercli (or the China build qoderclicn) in ~/.local/bin, which the daemon's PATH may lack
-    '((command -v qodercli || command -v qoderclicn || test -x ~/.local/bin/qodercli || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qoder:true" || echo "qoder:false")';
+    // Qoder's installers put qodercli (Qoder) and qoderclicn (Qoder CN) in ~/.local/bin, which the daemon's PATH may lack
+    '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true" || echo "qoder:false") && ' +
+    '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true" || echo "qodercn:false")';
+
+/** Every CLI unknown: before detection, and when it fails. */
+const UNKNOWN_CLIS: CLIAvailability = { claude: null, codex: null, gemini: null, qoder: null, qodercn: null, isDetecting: false, timestamp: 0 };
 
 function parseCLIOutput(stdout: string): CLIAvailability {
     const lines = stdout.trim().split('\n');
-    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; qoder?: boolean } = {};
+    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; qoder?: boolean; qodercn?: boolean } = {};
 
     lines.forEach(line => {
         const [cli, status] = line.split(':');
         if (cli && status) {
-            cliStatus[cli.trim() as 'claude' | 'codex' | 'gemini' | 'qoder'] = status.trim() === 'true';
+            cliStatus[cli.trim() as keyof typeof cliStatus] = status.trim() === 'true';
         }
     });
 
@@ -34,13 +39,14 @@ function parseCLIOutput(stdout: string): CLIAvailability {
         codex: cliStatus.codex ?? null,
         gemini: cliStatus.gemini ?? null,
         qoder: cliStatus.qoder ?? null,
+        qodercn: cliStatus.qodercn ?? null,
         isDetecting: false,
         timestamp: Date.now(),
     };
 }
 
 /**
- * Detects which CLI tools (claude, codex, gemini, qoder) are installed on a remote machine.
+ * Detects which CLI tools (claude, codex, gemini, qoder, qodercn) are installed on a remote machine.
  *
  * NON-BLOCKING: Detection runs asynchronously in useEffect. UI shows all profiles
  * while detection is in progress, then updates when results arrive.
@@ -53,7 +59,7 @@ function parseCLIOutput(stdout: string): CLIAvailability {
  * User discovers CLI availability when attempting to spawn.
  *
  * @param machineId - The machine to detect CLIs on (null = no detection)
- * @returns CLI availability status for claude, codex, gemini and qoder
+ * @returns CLI availability status for claude, codex, gemini, qoder and qodercn
  *
  * @example
  * const cliAvailability = useCLIDetection(selectedMachineId);
@@ -62,18 +68,11 @@ function parseCLIOutput(stdout: string): CLIAvailability {
  * }
  */
 export function useCLIDetection(machineId: string | null): CLIAvailability {
-    const [availability, setAvailability] = useState<CLIAvailability>({
-        claude: null,
-        codex: null,
-        gemini: null,
-        qoder: null,
-        isDetecting: false,
-        timestamp: 0,
-    });
+    const [availability, setAvailability] = useState<CLIAvailability>(UNKNOWN_CLIS);
 
     useEffect(() => {
         if (!machineId) {
-            setAvailability({ claude: null, codex: null, gemini: null, qoder: null, isDetecting: false, timestamp: 0 });
+            setAvailability(UNKNOWN_CLIS);
             return;
         }
 
@@ -95,8 +94,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 } else {
                     console.log('[useCLIDetection] Detection failed (success=false or exitCode!=0):', result);
                     setAvailability({
-                        claude: null, codex: null, gemini: null, qoder: null,
-                        isDetecting: false, timestamp: 0,
+                        ...UNKNOWN_CLIS,
                         error: `Detection failed: ${result.stderr || 'Unknown error'}`,
                     });
                 }
@@ -104,8 +102,7 @@ export function useCLIDetection(machineId: string | null): CLIAvailability {
                 if (cancelled) return;
                 console.log('[useCLIDetection] Network/RPC error:', error);
                 setAvailability({
-                    claude: null, codex: null, gemini: null, qoder: null,
-                    isDetecting: false, timestamp: 0,
+                    ...UNKNOWN_CLIS,
                     error: error instanceof Error ? error.message : 'Detection error',
                 });
             }
@@ -147,7 +144,7 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
         // Mark all as detecting synchronously
         const detecting: Record<string, CLIAvailability> = {};
         for (const id of ids) {
-            detecting[id] = { claude: null, codex: null, gemini: null, qoder: null, isDetecting: true, timestamp: 0 };
+            detecting[id] = { ...UNKNOWN_CLIS, isDetecting: true };
         }
         setAvailabilityMap(detecting);
 
@@ -158,17 +155,11 @@ export function useCLIDetectionBatch(machineIds: string[]): Record<string, CLIAv
                 if (result.success && result.exitCode === 0) {
                     setAvailabilityMap(prev => ({ ...prev, [machineId]: parseCLIOutput(result.stdout) }));
                 } else {
-                    setAvailabilityMap(prev => ({
-                        ...prev,
-                        [machineId]: { claude: null, codex: null, gemini: null, qoder: null, isDetecting: false, timestamp: 0 },
-                    }));
+                    setAvailabilityMap(prev => ({ ...prev, [machineId]: UNKNOWN_CLIS }));
                 }
             }).catch(() => {
                 if (cancelled) return;
-                setAvailabilityMap(prev => ({
-                    ...prev,
-                    [machineId]: { claude: null, codex: null, gemini: null, qoder: null, isDetecting: false, timestamp: 0 },
-                }));
+                setAvailabilityMap(prev => ({ ...prev, [machineId]: UNKNOWN_CLIS }));
             });
         }
 

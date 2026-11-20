@@ -1,6 +1,11 @@
 import type { PermissionMode } from '@/components/PermissionModeSelector';
+import type { AgentChoice } from '@/utils/agentChoice';
 
-export type SessionModeAgentType = 'claude' | 'codex' | 'gemini' | 'qoder';
+// Modes are remembered per agent as the new-session picker offers them: Qoder and Qoder CN each
+// keep their own, as their accounts offer different models.
+export type SessionModeAgentType = AgentChoice;
+// Listed here, not imported: this module stays free of the app's UI code, which agentChoice pulls in
+const SESSION_MODE_AGENTS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn'] as const satisfies readonly AgentChoice[];
 
 export const SESSION_MODE_CONFIG_KV_KEY = 'session-mode-config:v1';
 export const SESSION_MODE_CONFIG_SCHEMA_VERSION = 1 as const;
@@ -161,7 +166,7 @@ export function normalizeSessionModeConfig(input: unknown, now: number = Date.no
     const rawLastUsed = raw.lastUsedByAgent;
     const lastUsedByAgent: SessionModeConfigDocument['lastUsedByAgent'] = {};
     if (rawLastUsed && typeof rawLastUsed === 'object') {
-        (['claude', 'codex', 'gemini', 'qoder'] as const).forEach((agent) => {
+        SESSION_MODE_AGENTS.forEach((agent) => {
             const entry = normalizeLastUsedEntry((rawLastUsed as Record<string, unknown>)[agent]);
             if (entry) {
                 lastUsedByAgent[agent] = entry;

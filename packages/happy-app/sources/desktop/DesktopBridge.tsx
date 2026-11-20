@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { storage, useLocalSetting } from '@/sync/storage';
 import { Modal } from '@/modal';
 import { t } from '@/text';
+import { agentDisplayName } from '@/utils/agentChoice';
 import { getSessionName } from '@/utils/sessionUtils';
 import { isTauriDesktop } from '@/utils/tauri';
 import { subscribeToDesktopMessages, subscribeToDesktopPermissionRequests } from './desktopEvents';
@@ -487,13 +488,7 @@ export function DesktopBridge() {
             const state = storage.getState();
             const session = state.sessions[sessionId] ?? state.sharedSessions[sessionId];
             const title = session ? getSessionName(session) : 'Permission Request';
-            const agentName = session?.metadata?.flavor === 'codex'
-                ? 'Codex'
-                : session?.metadata?.flavor === 'gemini'
-                    ? 'Gemini'
-                    : session?.metadata?.flavor === 'qoder'
-                        ? 'Qoder'
-                        : 'Claude';
+            const agentName = agentDisplayName(session?.metadata?.flavor, session?.metadata?.qoderBuild);
             const id = notificationId(sessionId);
             notificationSessionsRef.current.set(id, sessionId);
             rememberDesktopNotificationRoute(id, sessionId);

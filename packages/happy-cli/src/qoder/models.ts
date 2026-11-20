@@ -3,7 +3,7 @@
  *
  * Models are per account and only qodercli knows them, so asking means starting
  * qodercli (about 2s, plus a run log under ~/.qoder*). The daemon keeps one list
- * per machine, on disk too, and starts qodercli only when that list is old:
+ * per machine and build, on disk too, and starts qodercli only when that list is old:
  *
  *   under 5 min   served as is
  *   5 min to 1 h  served, and refreshed in the background for the next ask
@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { configuration } from '@/configuration';
 import { logger } from '@/ui/logger';
 import type { AcpModel } from '@/agent/acp/listAcpModels';
-import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
+import { QODER_SDK_ISOLATION_ENV, QODER_SLUGS, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { listQoderModelsOverAcp } from '@/qoder/sessions';
 import { createRefreshingCache } from '@/utils/refreshingCache';
 import { withShortLivedProcess } from '@/utils/shortLivedProcess';
@@ -109,9 +109,9 @@ function controlRequest(requestId: string, request: Record<string, unknown>): st
  * catalog may be empty). qodercli answers requests concurrently, so the list is asked
  * for once the handshake is answered. No session is opened, so none is saved.
  */
-export async function listQoderModelsOverSdk(cwd: string, timeoutMs: number): Promise<QoderModel[]> {
+export async function listQoderModelsOverSdk(cwd: string, build: QoderBuild, timeoutMs: number): Promise<QoderModel[]> {
   const env = { ...process.env, ...QODER_SDK_ISOLATION_ENV };
-  return withShortLivedProcess(resolveQoderCommand(), ['--sdk'], { cwd, env, timeoutMs }, async (child) => {
+  return withShortLivedProcess(resolveQoderCommand(process.env, build), ['--sdk'], { cwd, env, timeoutMs }, async (child) => {
     child.stdin.write(controlRequest('initialize', {
       subtype: 'daemon.initialize',
       daemon_protocol_version: SDK_PROTOCOL_VERSION,
@@ -136,28 +136,32 @@ export async function listQoderModelsOverSdk(cwd: string, timeoutMs: number): Pr
   });
 }
 
-async function fetchQoderModels(): Promise<QoderModel[]> {
+async function fetchQoderModels(build: QoderBuild): Promise<QoderModel[]> {
   // One fixed directory, so what qodercli keeps per directory stays in one place
   const cwd = join(configuration.happyHomeDir, 'qoder');
   await mkdir(cwd, { recursive: true });
   const deadline = Date.now() + QODER_MODELS_BUDGET_MS;
   try {
-    return await listQoderModelsOverSdk(cwd, QODER_MODELS_BUDGET_MS);
+    return await listQoderModelsOverSdk(cwd, build, QODER_MODELS_BUDGET_MS);
   } catch (error) {
     logger.debug('[Qoder] daemon.get_models failed, listing models over ACP', error);
   }
-  return listQoderModelsOverAcp(cwd, Math.max(deadline - Date.now(), 0));
+  return listQoderModelsOverAcp(cwd, build, Math.max(deadline - Date.now(), 0));
 }
 
-const qoderModels = createRefreshingCache({
-  file: join(configuration.happyHomeDir, 'qoder-models.json'),
-  fetch: fetchQoderModels,
-  freshMs: 5 * MINUTE_MS,
-  maxAgeMs: 60 * MINUTE_MS,
-  failureCooldownMs: 5 * MINUTE_MS,
-  emptyFailureCooldownMs: MINUTE_MS,
-});
+// Qoder and Qoder CN sign in to different accounts, so each build keeps its own list.
+function createQoderModelsCache(build: QoderBuild) {
+  return createRefreshingCache({
+    file: join(configuration.happyHomeDir, `${QODER_SLUGS[build]}-models.json`),
+    fetch: () => fetchQoderModels(build),
+    freshMs: 5 * MINUTE_MS,
+    maxAgeMs: 60 * MINUTE_MS,
+    failureCooldownMs: 5 * MINUTE_MS,
+    emptyFailureCooldownMs: MINUTE_MS,
+  });
+}
+const qoderModels = { intl: createQoderModelsCache('intl'), cn: createQoderModelsCache('cn') };
 
-export function listQoderModels(): Promise<QoderModel[]> {
-  return qoderModels.get();
+export function listQoderModels(build: QoderBuild): Promise<QoderModel[]> {
+  return qoderModels[build].get();
 }

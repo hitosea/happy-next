@@ -336,7 +336,7 @@ export function saveSessionLastViewedAt(map: Map<string, number>) {
 
 const QODER_MODELS_KEY = 'qoder-models-by-machine';
 
-/** Each machine's last Qoder model list, so the picker has the real models and efforts right after a reload. */
+/** Each machine's last Qoder model list (keyed `machineId`, or `machineId:cn` for Qoder CN), so the picker has the real models and efforts right after a reload. */
 export function loadQoderModelsByMachine(): Record<string, QoderModel[]> {
     const raw = mmkv.getString(QODER_MODELS_KEY);
     if (!raw) return {};

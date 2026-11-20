@@ -33,6 +33,7 @@ import { useSessionUpgrade } from '@/hooks/useSessionUpgrade';
 import { useUnistyles } from 'react-native-unistyles';
 import { layout } from '@/components/layout';
 import { t } from '@/text';
+import { agentDisplayName } from '@/utils/agentChoice';
 import { CodeView } from '@/components/CodeView';
 import { Session } from '@/sync/storageTypes';
 import { useHappyAction } from '@/hooks/useHappyAction';
@@ -261,7 +262,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         if (!hasForkableId || !directory || !machineId) return;
 
         const isOnline = session.active;
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
+        const provider = agentDisplayName(flavor, session.metadata?.qoderBuild);
         const confirmTitle = isOnline ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
         const confirmMessage = isOnline ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
         const confirmed = await Modal.confirm(confirmTitle, confirmMessage, {
@@ -298,7 +299,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
             } else if (flavor === 'qoder' && qoderSessionId) {
-                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory, session.metadata?.qoderBuild);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
                     return;
@@ -322,6 +323,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 directory,
                 approvedNewDirectoryCreation: false,
                 agent,
+                qoderBuild: session.metadata?.qoderBuild,
                 resumeSessionId,
                 sessionTitle,
                 forkedFrom: { sessionId: session.id, title: originalTitle, contextWindowSize: session.agentState?.contextWindowSize ?? undefined },
@@ -1002,15 +1004,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                         )}
                         <Item
                             title={t('sessionInfo.aiProvider')}
-                            subtitle={(() => {
-                                const flavor = session.metadata.flavor || 'claude';
-                                if (flavor === 'claude') return 'Claude';
-                                if (flavor === 'codex') return 'Codex';
-                                if (flavor === 'gpt' || flavor === 'openai') return 'Codex';
-                                if (flavor === 'gemini') return 'Gemini';
-                                if (flavor === 'qoder') return 'Qoder';
-                                return flavor;
-                            })()}
+                            subtitle={agentDisplayName(session.metadata.flavor, session.metadata.qoderBuild)}
                             icon={<Ionicons name="sparkles-outline" size={29} color="#5856D6" />}
                             showChevron={false}
                             onPress={() => session.metadata?.flavor && copyValue(session.metadata.flavor)}

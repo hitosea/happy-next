@@ -13,6 +13,7 @@ import { promptRenameSession } from '@/utils/sessionRename';
 import { showToast } from './Toast';
 import { useRouter } from 'expo-router';
 import { t } from '@/text';
+import { agentDisplayName } from '@/utils/agentChoice';
 import { Modal } from '@/modal';
 import { useHappyAction } from '@/hooks/useHappyAction';
 import { HappyError } from '@/utils/errors';
@@ -236,7 +237,7 @@ function useSessionQuickActions(session: Session) {
         const directory = session.metadata?.path;
         if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId)) return;
 
-        const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
+        const provider = agentDisplayName(flavor, session.metadata?.qoderBuild);
         const confirmed = await Modal.confirm(
             session.active ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle'),
             session.active
@@ -270,7 +271,7 @@ function useSessionQuickActions(session: Session) {
                 resumeSessionId = forkResult.newFilePath;
                 agent = 'codex';
             } else if (flavor === 'qoder' && qoderSessionId) {
-                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+                const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory, session.metadata?.qoderBuild);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
                     return;
@@ -291,6 +292,7 @@ function useSessionQuickActions(session: Session) {
                 directory,
                 approvedNewDirectoryCreation: false,
                 agent,
+                qoderBuild: session.metadata?.qoderBuild,
                 resumeSessionId,
                 sessionTitle,
                 forkedFrom: { sessionId: session.id, title: originalTitle, contextWindowSize: session.agentState?.contextWindowSize ?? undefined },

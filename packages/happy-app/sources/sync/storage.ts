@@ -46,6 +46,7 @@ import {
 } from "./pendingQueue";
 import { compareSessionsByLastMessage, sessionLastMessageAt, updateSessionDisplayOrder } from '@/utils/sessionLastMessageAt';
 import { isSessionDisconnected } from '@/utils/sessionLifecycle';
+import { agentChoiceOf, type QoderBuild } from '@/utils/agentChoice';
 
 // Debounce timer for realtimeMode changes
 let realtimeModeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -115,9 +116,10 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
     return session.active;
 }
 
-function resolveSessionModeAgentType(flavor: string | null | undefined): SessionModeAgentType {
+function resolveSessionModeAgentType(metadata: Metadata | null | undefined): SessionModeAgentType {
+    const flavor = metadata?.flavor;
     if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') {
-        return flavor;
+        return agentChoiceOf(flavor, metadata?.qoderBuild);
     }
     return 'claude';
 }
@@ -1592,7 +1594,7 @@ export const storage = create<StorageState>()((set, get) => {
             const s = get();
             const session = s.sessions[sessionId] ?? s.sharedSessions[sessionId];
             if (!session || session.fastMode === fastMode) return;
-            const agentType = resolveSessionModeAgentType(session.metadata?.flavor);
+            const agentType = resolveSessionModeAgentType(session.metadata);
 
             set((state) => {
                 const isShared = sessionId in state.sharedSessions;
@@ -1641,7 +1643,7 @@ export const storage = create<StorageState>()((set, get) => {
             const session = s.sessions[sessionId] ?? s.sharedSessions[sessionId];
             if (!session) return;
             const flavor = session.metadata?.flavor;
-            const agentType = resolveSessionModeAgentType(flavor);
+            const agentType = resolveSessionModeAgentType(session.metadata);
             if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder') {
                 void sync.changePermissionMode(sessionId, mode);
             }
@@ -1708,7 +1710,7 @@ export const storage = create<StorageState>()((set, get) => {
                 const isShared = sessionId in state.sharedSessions;
                 const existing = state.sessions[sessionId] ?? state.sharedSessions[sessionId];
                 if (!existing) return state;
-                const agentType = resolveSessionModeAgentType(existing.metadata?.flavor);
+                const agentType = resolveSessionModeAgentType(existing.metadata);
 
                 const updatedSession = { ...existing, modelMode: normalizedMode };
                 const updatedConfig = applySessionModeConfigPatch(state.sessionModeConfig, {
@@ -2535,13 +2537,14 @@ export function useSessionModeLastUsed(agentType: SessionModeAgentType) {
 
 /**
  * Qoder lists its models per account over ACP, so a new Qoder session offers the
- * models the most recently updated Qoder session reported.
+ * models the most recently updated Qoder session of the same build reported.
  */
-export function useLatestQoderModels(): Metadata['models'] {
+export function useLatestQoderModels(build: QoderBuild): Metadata['models'] {
     return storage((state) => {
         let latest: Session | null = null;
         for (const session of Object.values(state.sessions)) {
             if (session.metadata?.flavor !== 'qoder' || !session.metadata.models?.length) continue;
+            if ((session.metadata.qoderBuild ?? 'intl') !== build) continue;
             if (!latest || session.updatedAt > latest.updatedAt) latest = session;
         }
         return latest?.metadata?.models;

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { qoderConfigDir } from '@/qoder/constants';
 import { logger } from '@/ui/logger';
 import { getCodexHomeDir } from '@/codex/utils/codexHome';
 import { shouldEnableOrchestratorTools } from './prompt';
@@ -67,10 +68,7 @@ export function syncOrchestratorAssets(): void {
   // Qoder — same layout as Claude: <config dir>/skills shows up as /orchestrator, and the
   // commands/ subdirectory yields /orchestrator:<command>.
   // qodercli uses $QODER_CONFIG_DIR or ~/.qoder; the China build qoderclicn keeps its own directory.
-  const qoderRoots = [
-    process.env.QODER_CONFIG_DIR || join(homedir(), '.qoder'),
-    process.env.QODERCN_CONFIG_DIR || join(homedir(), '.qoder-cn'),
-  ];
+  const qoderRoots = [qoderConfigDir('intl'), qoderConfigDir('cn')];
   for (const qoderRoot of qoderRoots.filter((root) => existsSync(root))) {
     writeIfChanged(join(qoderRoot, 'skills', 'orchestrator', 'SKILL.md'), ORCHESTRATOR_SKILL_MD);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'claude.md'), ORCHESTRATOR_COMMAND_CLAUDE);

@@ -12,6 +12,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/text';
 import { layout } from '@/components/layout';
 import { SearchableListSelector } from '@/components/SearchableListSelector';
+import { AGENT_CHOICES } from '@/utils/agentChoice';
 
 const stylesheet = StyleSheet.create((theme) => ({
     container: {
@@ -149,12 +150,7 @@ export default function MachinePickerScreen() {
                                     if (!avail) return undefined;
                                     if (avail.isDetecting) return t('wizard.detectingClis');
                                     if (avail.timestamp === 0) return undefined; // detection failed
-                                    const installed = [
-                                        avail.claude && 'claude',
-                                        avail.codex && 'codex',
-                                        avail.gemini && 'gemini',
-                                        avail.qoder && 'qoder',
-                                    ].filter(Boolean);
+                                    const installed = AGENT_CHOICES.filter((choice) => avail[choice]);
                                     if (installed.length === 0) return t('wizard.noClisDetected');
                                     return installed.join(', ');
                                 },
