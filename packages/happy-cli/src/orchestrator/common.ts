@@ -1,6 +1,13 @@
-export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini', 'qoder'] as const;
+// Qoder and Qoder CN are one CLI on two builds that sign in separately, so like the new-session
+// picker the orchestrator names them apart: `qoder` runs qodercli, `qodercn` runs qoderclicn.
+export const ORCHESTRATOR_PROVIDERS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn'] as const;
 
 export type OrchestratorProvider = (typeof ORCHESTRATOR_PROVIDERS)[number];
+
+/** The Qoder build each Qoder provider runs. */
+export const QODER_PROVIDER_BUILDS = { qoder: 'intl', qodercn: 'cn' } as const;
+
+export type QoderProvider = keyof typeof QODER_PROVIDER_BUILDS;
 
 export type OrchestratorFinishStatus = 'completed' | 'failed' | 'cancelled' | 'timeout';
 

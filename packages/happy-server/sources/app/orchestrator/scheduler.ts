@@ -726,8 +726,8 @@ async function buildRunActions(run: {
                                 },
                             });
                             const attempt = (latestExecution?.attempt ?? 0) + 1;
-                            // Claude and Qoder accept a caller-chosen session id (--session-id); others report theirs.
-                            const initialChildSessionId = task.provider === 'claude' || task.provider === 'qoder' ? randomUUID() : null;
+                            // Claude and Qoder (either build) accept a caller-chosen session id (--session-id); others report theirs.
+                            const initialChildSessionId = task.provider === 'claude' || task.provider === 'qoder' || task.provider === 'qodercn' ? randomUUID() : null;
                             return tx.orchestratorExecution.create({
                                 data: {
                                     runId: task.runId,

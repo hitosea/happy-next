@@ -8,6 +8,7 @@ import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants'
 import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseClaudeModelMode, resolveModelSelectionForFlavor, splitFastModeSuffix } from 'happy-wire';
 import {
   ORCHESTRATOR_ENV_KEYS,
+  QODER_PROVIDER_BUILDS,
   type OrchestratorProvider,
   decodePromptFromBase64,
   isOrchestratorProvider,
@@ -161,7 +162,8 @@ export function buildSpawnPlan(
         env: { ...process.env },
       };
     }
-    case 'qoder': {
+    case 'qoder':
+    case 'qodercn': {
       // Like Claude: the scheduler assigns the session id up front and stdout is the plain answer.
       const qoderArgs = ['--dangerously-skip-permissions'];
       if (executionType === 'resume') {
@@ -172,7 +174,7 @@ export function buildSpawnPlan(
       }
       qoderArgs.push('-p', prompt);
       return {
-        command: resolveQoderCommand(),
+        command: resolveQoderCommand(process.env, QODER_PROVIDER_BUILDS[provider]),
         args: qoderArgs,
         cwd: workingDirectory,
         env: { ...process.env, ...QODER_SDK_ISOLATION_ENV },

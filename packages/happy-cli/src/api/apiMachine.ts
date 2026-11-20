@@ -28,7 +28,7 @@ import { executeSessionArchive } from '@/daemon/executeSessionArchive';
 import type { CheckResult, CliUpdatePreflight, UpdateNowResult } from '@/daemon/cliUpdater';
 import { discoverCapabilities, type DiscoverCapabilitiesAgent } from '@/daemon/discoverCapabilities';
 import { remoteShell } from '@/daemon/orchestratorShell';
-import type { OrchestratorShellDispatchPayload, OrchestratorTransferDispatchPayload, OrchestratorTransferSourceParams } from '@/orchestrator/common';
+import { isOrchestratorProvider, type OrchestratorProvider, type OrchestratorShellDispatchPayload, type OrchestratorTransferDispatchPayload, type OrchestratorTransferSourceParams } from '@/orchestrator/common';
 import { AsyncLock } from '@/utils/lock';
 import { SessionCache, matchFields, type SessionCacheRuntimeStats } from '@/cache/SessionCache';
 import { encodeBase64, decodeBase64, encrypt, decrypt } from './encryption';
@@ -48,7 +48,9 @@ const PROVIDER_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true"); ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true"); ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true"); ' +
-    '((command -v qodercli || command -v qoderclicn || test -x ~/.local/bin/qodercli || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qoder:true"); ' +
+    // Qoder (qodercli) and Qoder CN (qoderclicn) are separate providers; their installers use ~/.local/bin
+    '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true"); ' +
+    '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
     'true';
 
 function createSessionCacheStatsReporter(
@@ -176,7 +178,7 @@ type MachineRpcHandlers = {
         runId: string;
         taskId: string;
         dispatchToken: string;
-        provider: 'claude' | 'codex' | 'gemini' | 'qoder';
+        provider: OrchestratorProvider;
         executionType: 'initial' | 'resume';
         childSessionId?: string;
         model?: string;
@@ -472,7 +474,7 @@ export class ApiMachineClient {
             if (!provider || typeof provider !== 'string') {
                 throw new Error('provider is required');
             }
-            if (provider !== 'claude' && provider !== 'codex' && provider !== 'gemini' && provider !== 'qoder') {
+            if (!isOrchestratorProvider(provider)) {
                 throw new Error(`Unsupported provider: ${provider}`);
             }
             if (executionType !== 'initial' && executionType !== 'resume') {

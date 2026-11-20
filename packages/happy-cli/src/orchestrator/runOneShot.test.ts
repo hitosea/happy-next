@@ -120,6 +120,12 @@ describe('runOneShot spawn plan', () => {
     expect(plan.env?.QODER_AGENT_SDK_ENTRYPOINT).toBe('');
   });
 
+  it('runs qodercn on the China build', () => {
+    const plan = buildSpawnPlan('qodercn', 'hello', '/tmp/workdir', undefined, 'initial', 'session-uuid');
+    expect(plan.command).toMatch(/qoderclicn$/);
+    expect(plan.args).toEqual(['--dangerously-skip-permissions', '--session-id', 'session-uuid', '-p', 'hello']);
+  });
+
   it('resumes qoder by session id without a model override', () => {
     const plan = buildSpawnPlan('qoder', 'continue', '/tmp/workdir', 'performance', 'resume', 'session-uuid');
     expect(plan.args).toEqual(['--dangerously-skip-permissions', '--resume', 'session-uuid', '-p', 'continue']);
