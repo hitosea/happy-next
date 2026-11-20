@@ -16,7 +16,7 @@ import { logger } from "@/ui/logger";
 import { ApiSessionClient } from "@/api/apiSession";
 import { randomUUID } from "node:crypto";
 import { shouldEnableOrchestratorTools } from '@/orchestrator/prompt';
-import { applyDefaultWorkingDirectory, compactShellTasks } from '@/orchestrator/common';
+import { ORCHESTRATOR_PROVIDERS, applyDefaultWorkingDirectory, compactShellTasks } from '@/orchestrator/common';
 import {
     ORCHESTRATOR_CANCEL_TOOL_SCHEMA,
     ORCHESTRATOR_EXEC_TOOL_SCHEMA,
@@ -214,12 +214,13 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         retryMaxAttempts: 1,
                         retryBackoffMs: 0,
                     },
-                    providers: ['claude', 'codex', 'gemini', 'qoder'],
+                    providers: ORCHESTRATOR_PROVIDERS,
                     modelModes: {
                         claude: getValidModelModesForAgent('claude'),
                         codex: getValidModelModesForAgent('codex'),
                         gemini: getValidModelModesForAgent('gemini'),
                         qoder: getValidModelModesForAgent('qoder'),
+                        qodercn: getValidModelModesForAgent('qoder'),
                     },
                     machines: [],
                 };

@@ -3,7 +3,7 @@ title: "Orchestrator"
 description: "Dispatch multi-agent workflows with dependency graphs."
 ---
 
-The Orchestrator lets you define multi-step tasks and dispatch them across multiple AI agents (Claude, Codex, Gemini, Qoder) with dependency management.
+The Orchestrator lets you define multi-step tasks and dispatch them across multiple AI agents (Claude, Codex, Gemini, Qoder, Qoder CN) with dependency management.
 
 ## What is it?
 
@@ -15,7 +15,7 @@ Orchestrator runs are created through the **mobile app** or the **API**. Each ru
 
 - **Tasks** — Individual units of work, each with:
   - A prompt describing what to do
-  - A provider (Claude, Codex, Gemini, or Qoder)
+  - A provider (Claude, Codex, Gemini, Qoder or Qoder CN)
   - A model selection
   - An optional working directory
   - Dependencies on other tasks
@@ -27,7 +27,7 @@ There are two ways to start orchestrating from a Happy session.
 
 ### Slash commands
 
-Four commands are auto-installed the first time an orchestrating session starts (after upgrading the CLI). Invoke them from a **Claude**, **Codex**, or **Qoder** session:
+Five commands are auto-installed the first time an orchestrating session starts (after upgrading the CLI). Invoke them from a **Claude**, **Codex**, or **Qoder** session:
 
 | Command | Delegates primarily to |
 |---------|------------------------|
@@ -35,6 +35,7 @@ Four commands are auto-installed the first time an orchestrating session starts 
 | `/orchestrator:codex [task]` | Codex |
 | `/orchestrator:gemini [task]` | Gemini |
 | `/orchestrator:qoder [task]` | Qoder |
+| `/orchestrator:qodercn [task]` | Qoder CN |
 
 Pass the work to delegate as the argument, e.g. `/orchestrator:claude review auth.ts for security issues`. The named provider is only the default — a single run can still mix providers and add dependencies.
 

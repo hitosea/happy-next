@@ -24,6 +24,7 @@ import { MessageArchiveWriter } from '../modules/common/messageArchive';
 import { extractSearchableMessage, isThinkingOnly, messageKind, messageLandmark, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageLandmark, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
 import { openOrchestratorResponse, openOrchestratorTitle, sealOrchestrator, sealTitle, type OrchestratorResumeEnvelope, type OrchestratorTaskEnvelope } from '@/orchestrator/seal';
 import type { MessageQueueItemHooks } from '@/utils/MessageQueue2';
+import type { OrchestratorProvider } from '@/orchestrator/common';
 
 
 function stripCapabilitiesFromMetadata(metadata: Metadata): Metadata {
@@ -84,7 +85,6 @@ export type ACPMessageData =
 
 export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode' | 'qoder';
 
-type OrchestratorProvider = 'claude' | 'codex' | 'gemini' | 'qoder';
 
 type OrchestratorSubmitTask = {
     taskKey?: string;
