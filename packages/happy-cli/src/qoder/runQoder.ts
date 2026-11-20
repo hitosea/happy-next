@@ -59,6 +59,7 @@ import {
   QODER_RESUME_SESSION_ID_ENV,
   isQoderAuthError,
   qoderAuthErrorMessage,
+  qoderBuildOf,
   resolveQoderCommand,
 } from '@/qoder/constants';
 
@@ -103,6 +104,8 @@ export async function runQoder(opts: {
   // A resumed session's history is backfilled into the app once qodercli has restored it
   const resumeSessionId = process.env[QODER_RESUME_SESSION_ID_ENV]?.trim() || undefined;
   const { state, metadata } = createSessionMetadata({ flavor: 'qoder', machineId, startedBy: opts.startedBy, historyBackfill: !!resumeSessionId });
+  // The build actually started, so copying or resuming the session reaches the same Qoder
+  metadata.qoderBuild = qoderBuildOf(qoderCommand);
   const response = await api.getOrCreateSession({ tag: sessionTag, metadata, state });
 
   let session: ApiSessionClient;

@@ -10,6 +10,7 @@ import { SessionCapabilitiesSchema, type MachineMetadata, type Metadata, type Se
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
 import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
+import type { QoderBuild } from '@/utils/agentChoice';
 
 export async function sessionOpenFileDownload(sessionId: string, request: OpenFileDownloadRequest) {
     return apiSocket.sessionRPC<OpenFileDownloadResponse, OpenFileDownloadRequest>(sessionId, 'openFileDownload', request, 65000);
@@ -186,6 +187,8 @@ export interface SpawnSessionOptions {
     approvedNewDirectoryCreation?: boolean;
     token?: string;
     agent?: 'codex' | 'claude' | 'gemini' | 'qoder';
+    // Qoder (`intl`) or Qoder CN (`cn`) for a Qoder session; without it the daemon starts the build it finds first
+    qoderBuild?: QoderBuild;
     resumeSessionId?: string;
     sessionTitle?: string;
     // The session this one is a copy of, named at the top of its backfilled history; its context
@@ -262,6 +265,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 export interface AgentSessionIndexEntry {
     sessionId: string;
     agent: 'claude' | 'gemini' | 'codex' | 'qoder';
+    qoderBuild?: QoderBuild; // Qoder only: which build's directory the conversation is saved in
     originalPath: string | null;
     title?: string | null;
     updatedAt?: number;
@@ -280,12 +284,12 @@ export type SessionPreviewMessage = ClaudeSessionPreviewMessage;
  */
 export async function machineSpawnNewSession(options: SpawnSessionOptions): Promise<SpawnSessionResult> {
 
-    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
+    const { machineId, directory, approvedNewDirectoryCreation = false, token, agent, qoderBuild, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts } = options;
 
     try {
         const result = await apiSocket.machineSpawnHTTP<SpawnSessionResult | { error: string }>(
             machineId,
-            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
+            { type: 'spawn-in-directory', directory, approvedNewDirectoryCreation, token, agent, qoderBuild, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, environmentVariables, worktreeBasePath, worktreeBranchName, mcpServers, workspaceRepos, workspacePath, repoScripts }
         );
         if ('error' in result) {
             return { type: 'error', errorMessage: result.error };
@@ -309,12 +313,13 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
 export async function machineDiscoverCapabilities(
     machineId: string,
     agent: 'claude' | 'codex' | 'gemini' | 'qoder',
-    directory: string
+    directory: string,
+    qoderBuild?: QoderBuild
 ): Promise<SessionCapabilities> {
-    const result = await apiSocket.machineRPC<unknown, { agent: string; directory: string }>(
+    const result = await apiSocket.machineRPC<unknown, { agent: string; directory: string; qoderBuild?: QoderBuild }>(
         machineId,
         'discover-capabilities',
-        { agent, directory },
+        { agent, directory, qoderBuild },
         10000
     );
     return SessionCapabilitiesSchema.parse(result);
@@ -1552,6 +1557,7 @@ export async function machineForkCodexSession(
 }
 
 // --- Qoder session operations ---
+// Each takes the build (Qoder or Qoder CN) whose conversations, models and texts it reaches.
 
 /**
  * Copy a Qoder conversation into a new Qoder session (ACP session/fork in the session's directory)
@@ -1559,13 +1565,14 @@ export async function machineForkCodexSession(
 export async function machineForkQoderSession(
     machineId: string,
     sessionId: string,
-    directory: string
+    directory: string,
+    build: QoderBuild | undefined
 ): Promise<{ success: boolean; newSessionId?: string; errorMessage?: string }> {
     try {
-        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string }>(
+        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string; build?: QoderBuild }>(
             machineId,
             'qoder-fork-session',
-            { sessionId, directory },
+            { sessionId, directory, build },
             60000
         );
 
@@ -1595,11 +1602,12 @@ export async function machineDuplicateQoderSession(
     machineId: string,
     sessionId: string,
     directory: string,
-    truncateBeforeUuid: string
+    truncateBeforeUuid: string,
+    build: QoderBuild | undefined
 ): Promise<{ success: boolean; newSessionId?: string; errorMessage?: string }> {
     try {
-        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string; truncateBeforeUuid: string }>(
-            machineId, 'qoder-duplicate-session', { sessionId, directory, truncateBeforeUuid }, 60000
+        const result = await apiSocket.machineRPC<any, { sessionId: string; directory: string; truncateBeforeUuid: string; build?: QoderBuild }>(
+            machineId, 'qoder-duplicate-session', { sessionId, directory, truncateBeforeUuid, build }, 60000
         );
         if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
         if (result.error) return { success: false, errorMessage: result.error };
@@ -1612,10 +1620,11 @@ export async function machineDuplicateQoderSession(
 export async function machineGetQoderSessionUserMessages(
     machineId: string,
     sessionId: string,
+    build: QoderBuild | undefined,
     options?: { limit?: number; beforeIndex?: number }
 ): Promise<UserMessagePage> {
-    const result = await apiSocket.machineRPC<any, { sessionId: string; limit: number; beforeIndex?: number; preview: boolean }>(
-        machineId, 'qoder-session-user-messages', { sessionId, limit: options?.limit ?? 100, beforeIndex: options?.beforeIndex, preview: true }, 15000
+    const result = await apiSocket.machineRPC<any, { sessionId: string; build?: QoderBuild; limit: number; beforeIndex?: number; preview: boolean }>(
+        machineId, 'qoder-session-user-messages', { sessionId, build, limit: options?.limit ?? 100, beforeIndex: options?.beforeIndex, preview: true }, 15000
     );
     if (!result) throw new Error('RPC returned empty response');
     if (result.error) throw new Error(result.error);
@@ -1626,14 +1635,14 @@ export async function machineGetQoderSessionUserMessages(
     };
 }
 
-export async function machineResolveQoderForkTarget(machineId: string, sessionId: string, text: string, createdAt: number): Promise<ResolvedForkTarget | null> {
-    const result = await apiSocket.machineRPC<any, { sessionId: string; text: string; createdAt: number }>(machineId, 'qoder-resolve-fork-target', { sessionId, text, createdAt });
+export async function machineResolveQoderForkTarget(machineId: string, sessionId: string, build: QoderBuild | undefined, text: string, createdAt: number): Promise<ResolvedForkTarget | null> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; build?: QoderBuild; text: string; createdAt: number }>(machineId, 'qoder-resolve-fork-target', { sessionId, build, text, createdAt });
     if (result?.error) throw new Error(result.error);
     return result?.message ?? null;
 }
 
-export async function machineGetQoderSessionUserMessage(machineId: string, sessionId: string, uuid: string): Promise<UserMessageWithUuid | null> {
-    const result = await apiSocket.machineRPC<any, { sessionId: string; uuid: string }>(machineId, 'qoder-session-user-message', { sessionId, uuid });
+export async function machineGetQoderSessionUserMessage(machineId: string, sessionId: string, build: QoderBuild | undefined, uuid: string): Promise<UserMessageWithUuid | null> {
+    const result = await apiSocket.machineRPC<any, { sessionId: string; build?: QoderBuild; uuid: string }>(machineId, 'qoder-session-user-message', { sessionId, build, uuid });
     if (result?.error) throw new Error(result.error);
     return result?.message ?? null;
 }
@@ -1643,25 +1652,28 @@ export async function machineGetQoderSessionUserMessage(machineId: string, sessi
  */
 export async function machineListQoderSessions(
     machineId: string,
+    build: QoderBuild,
     options?: { offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }
 ): Promise<{ sessions: AgentSessionIndexEntry[]; total: number; fromCache?: boolean }> {
-    const result = await apiSocket.machineRPC<any, { offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }>(
-        machineId, 'qoder-list-sessions', { offset: options?.offset, limit: options?.limit, query: options?.query, waitForRefresh: options?.waitForRefresh }, 30000
+    const result = await apiSocket.machineRPC<any, { build: QoderBuild; offset?: number; limit?: number; query?: string; waitForRefresh?: boolean }>(
+        machineId, 'qoder-list-sessions', { build, offset: options?.offset, limit: options?.limit, query: options?.query, waitForRefresh: options?.waitForRefresh }, 30000
     );
     if (!result) throw new Error('RPC returned empty response');
     if (result.error) throw new Error(result.error);
     if (!Array.isArray(result.sessions)) return { sessions: [], total: 0 };
-    const sessions: AgentSessionIndexEntry[] = result.sessions.map((s: any) => ({ ...s, agent: 'qoder' as const }));
+    const sessions: AgentSessionIndexEntry[] = result.sessions.map((s: any) => ({ ...s, agent: 'qoder' as const, qoderBuild: build }));
     return { sessions, total: typeof result.total === 'number' ? result.total : sessions.length, fromCache: result.fromCache };
 }
 
 export async function machineGetQoderSessionPreview(
     machineId: string,
     sessionId: string,
+    // undefined: the machine's default build, which orchestrator tasks run on
+    build: QoderBuild | undefined,
     options?: { limit?: number }
 ): Promise<{ messages: SessionPreviewMessage[] }> {
-    const result = await apiSocket.machineRPC<any, { sessionId: string; limit: number }>(
-        machineId, 'qoder-session-preview', { sessionId, limit: options?.limit ?? 10 }, 10000
+    const result = await apiSocket.machineRPC<any, { sessionId: string; build?: QoderBuild; limit: number }>(
+        machineId, 'qoder-session-preview', { sessionId, build, limit: options?.limit ?? 10 }, 10000
     );
     if (!result) throw new Error('RPC returned empty response');
     if (result.error) throw new Error(result.error);
@@ -1683,9 +1695,9 @@ export type QoderModel = NonNullable<Metadata['models']>[number] & {
 /** Model code → description from Qoder's text bundle, per language it carries. */
 export type QoderModelDescriptions = { version: string; en: Record<string, string>; zh: Record<string, string> };
 
-export async function machineListQoderModels(machineId: string, directory: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
+export async function machineListQoderModels(machineId: string, build: QoderBuild, directory: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
     try {
-        const result = await apiSocket.machineRPC<any, { directory: string }>(machineId, 'qoder-list-models', { directory }, 60000);
+        const result = await apiSocket.machineRPC<any, { build: QoderBuild; directory: string }>(machineId, 'qoder-list-models', { build, directory }, 60000);
         if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
         if (result.error) return { success: false, errorMessage: result.error };
         return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
@@ -1695,9 +1707,9 @@ export async function machineListQoderModels(machineId: string, directory: strin
 }
 
 /** `cache` reads what qodercli last downloaded; `latest` downloads Qoder's current text bundle. */
-export async function machineQoderModelDescriptions(machineId: string, source: 'cache' | 'latest'): Promise<QoderModelDescriptions | null> {
+export async function machineQoderModelDescriptions(machineId: string, build: QoderBuild, source: 'cache' | 'latest'): Promise<QoderModelDescriptions | null> {
     try {
-        const result = await apiSocket.machineRPC<any, { source: string }>(machineId, 'qoder-model-descriptions', { source }, 30000);
+        const result = await apiSocket.machineRPC<any, { build: QoderBuild; source: string }>(machineId, 'qoder-model-descriptions', { build, source }, 30000);
         return result?.success ? result.descriptions : null;
     } catch {
         return null;

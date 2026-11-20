@@ -12,6 +12,7 @@ import { discoverClaudeSlashCommandMetadata } from '@/claude/utils/slashCommandM
 import { discoverCodexSkills } from '@/codex/utils/skillDiscovery';
 import { addBuiltinSlashCommands } from '@/commands/builtinCommands';
 import { addOrchestratorSlashCommands } from '@/orchestrator/slashCommands';
+import type { QoderBuild } from '@/qoder/constants';
 import { listQoderCommands } from '@/qoder/sessions';
 import { logger } from '@/ui/logger';
 
@@ -21,6 +22,7 @@ export async function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,
     directory: string,
     homeDir = os.homedir(),
+    qoderBuild?: QoderBuild,
 ): Promise<SessionCapabilities> {
     // Claude picks up the built-in and orchestrator commands from ~/.claude/commands, which the
     // disk scan already covers; Codex, Gemini and Qoder get them registered by their runners instead.
@@ -32,7 +34,7 @@ export async function discoverCapabilities(
         })),
         gemini: () => addBuiltinSlashCommands({}),
         qoder: async () => {
-            const commands = await listQoderCommands(directory).catch((error) => {
+            const commands = await listQoderCommands(directory, qoderBuild).catch((error) => {
                 logger.debug('[Qoder] Could not list commands', error);
                 return [];
             });

@@ -6,7 +6,7 @@ import { ApiClient } from '@/api/api';
 import { startModelCatalogSync } from '@/api/modelCatalog';
 import { TrackedSession } from './types';
 import { getUnexpandedSessionAuthVariables } from './sessionAuth';
-import { QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
+import { QODER_BUILD_ENV, QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -613,6 +613,11 @@ export async function startDaemon(): Promise<void> {
         }
         if (resumeSessionId && options.agent === 'qoder') {
           extraEnv[QODER_RESUME_SESSION_ID_ENV] = resumeSessionId;
+        }
+        // Qoder or Qoder CN, as picked in the app; without it the session starts the build found first
+        const qoderBuild = options.agent === 'qoder' ? options.qoderBuild : undefined;
+        if (qoderBuild) {
+          extraEnv[QODER_BUILD_ENV] = qoderBuild;
         }
         if (resumeSessionId && options.agent === 'codex') {
           extraEnv.HAPPY_CODEX_RESUME_FILE = resumeSessionId;

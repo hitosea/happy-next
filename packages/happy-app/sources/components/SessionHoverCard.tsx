@@ -12,6 +12,7 @@ import { useLocalSetting, useMachine, useOrchestratorRunningTaskCount, useSessio
 import { sync } from '@/sync/sync';
 import type { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
+import { agentDisplayName } from '@/utils/agentChoice';
 import { agentModelName, formatLastSeen, formatPathRelativeToHome, getSessionName, useSessionStatus } from '@/utils/sessionUtils';
 import { StatusDot } from './StatusDot';
 import { getMachineDisplayName } from './sessionListScope';
@@ -90,14 +91,6 @@ function HoverCardSession({ sessionId, anchor }: { sessionId: string; anchor: Ho
     const session = useSession(sessionId);
     if (!session) return null;
     return <SessionHoverCard session={session} anchor={anchor} />;
-}
-
-function providerName(flavor: string | null | undefined): string {
-    if (!flavor || flavor === 'claude') return 'Claude';
-    if (flavor === 'codex' || flavor === 'gpt' || flavor === 'openai') return 'Codex';
-    if (flavor === 'gemini') return 'Gemini';
-    if (flavor === 'qoder') return 'Qoder';
-    return flavor;
 }
 
 const providerIcons = {
@@ -263,7 +256,7 @@ function SessionHoverCard({ session, anchor }: { session: Session; anchor: Hover
     const local = resolveLocalModelDisplay(session.modelMode);
     const model = formatModelDisplay(agentModelName(metadata, metadata?.model), metadata?.reasoningEffort)
         || formatModelDisplay(agentModelName(metadata, local.model), local.reasoningEffort);
-    const agent = [providerName(metadata?.flavor), model].filter(Boolean).join(' · ');
+    const agent = [agentDisplayName(metadata?.flavor, metadata?.qoderBuild), model].filter(Boolean).join(' · ');
     const provider = resolveProviderIcon(metadata?.flavor);
 
     // The gap to the row is transparent padding on the card's own box, which starts a pixel inside

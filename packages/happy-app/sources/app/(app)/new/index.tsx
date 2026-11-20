@@ -51,6 +51,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleFilePasteEvent } from '@/utils/filePaste';
 import { splitComposerFiles } from '@/utils/fileDrop';
 import { getDooTaskProjectId, getRecentDooTaskProjectConfig } from '@/utils/dootaskSessionDefaults';
+import { AGENT_CHOICES, isAgentChoice, resolveAgentChoice, type AgentChoice } from '@/utils/agentChoice';
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -149,25 +150,25 @@ function NewSessionWizard() {
         machineIds,
     )));
 
-    const [agentType, setAgentType] = React.useState<'claude' | 'codex' | 'gemini' | 'qoder'>(() => {
+    // The picker offers Qoder and Qoder CN as two agents; underneath both are the `qoder` flavor on a build.
+    const [agentChoice, setAgentChoice] = React.useState<AgentChoice>(() => {
         // Check if agent type was provided in temp data
         if (tempSessionData?.agentType) {
             return tempSessionData.agentType;
         }
-        if (lastUsedAgent === 'claude' || lastUsedAgent === 'codex' || lastUsedAgent === 'gemini' || lastUsedAgent === 'qoder') {
-            return lastUsedAgent;
-        }
-        return 'claude';
+        return isAgentChoice(lastUsedAgent) ? lastUsedAgent : 'claude';
     });
-    const lastUsedSessionMode = useSessionModeLastUsed(agentType);
-    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', PermissionMode>>>({});
-    const manualModelModeByAgentRef = React.useRef<Partial<Record<'claude' | 'codex' | 'gemini' | 'qoder', ModelMode>>>({});
+    const { agent: agentType, qoderBuild } = resolveAgentChoice(agentChoice);
+    // Modes are remembered per choice, so Qoder and Qoder CN keep their own models
+    const lastUsedSessionMode = useSessionModeLastUsed(agentChoice);
+    const manualPermissionModeByAgentRef = React.useRef<Partial<Record<AgentChoice, PermissionMode>>>({});
+    const manualModelModeByAgentRef = React.useRef<Partial<Record<AgentChoice, ModelMode>>>({});
 
     // Persist agent selection changes (separate from setState to avoid race condition)
     // This runs after agentType state is updated, ensuring the value is stable
     React.useEffect(() => {
-        sync.applySettings({ lastUsedAgent: agentType });
-    }, [agentType]);
+        sync.applySettings({ lastUsedAgent: agentChoice });
+    }, [agentChoice]);
 
     const [sessionType, setSessionType] = React.useState<'simple' | 'worktree'>(persistedDraft?.sessionType || 'simple');
     const [selectedRepos, setSelectedRepos] = React.useState<SelectedRepo[]>([]);
@@ -203,13 +204,13 @@ function NewSessionWizard() {
     });
     const [fastMode, setFastMode] = React.useState(() => lastUsedSessionMode?.fastMode ?? false);
     const applyManualPermissionMode = React.useCallback((mode: PermissionMode) => {
-        manualPermissionModeByAgentRef.current[agentType] = mode;
+        manualPermissionModeByAgentRef.current[agentChoice] = mode;
         setPermissionMode(mode);
-    }, [agentType]);
+    }, [agentChoice]);
     const applyManualModelMode = React.useCallback((mode: ModelMode) => {
-        manualModelModeByAgentRef.current[agentType] = mode;
+        manualModelModeByAgentRef.current[agentChoice] = mode;
         setModelMode(mode);
-    }, [agentType]);
+    }, [agentChoice]);
 
     // Session details state
     const tabDefaultSelectionRef = React.useRef(false);
@@ -249,38 +250,38 @@ function NewSessionWizard() {
     const handlePermissionModeChange = React.useCallback((mode: PermissionMode) => {
         applyManualPermissionMode(mode);
         sync.queueSessionModeConfigUpdate({
-            agentType,
+            agentType: agentChoice,
             permissionMode: mode,
             modelMode: modelMode || MODEL_MODE_DEFAULT,
             fastMode,
             includeSessionEntry: false,
             includeLastUsed: true,
         });
-    }, [agentType, applyManualPermissionMode, modelMode, fastMode]);
+    }, [agentChoice, applyManualPermissionMode, modelMode, fastMode]);
 
     const handleFastModeChange = React.useCallback((enabled: boolean) => {
         setFastMode(enabled);
         sync.queueSessionModeConfigUpdate({
-            agentType,
+            agentType: agentChoice,
             permissionMode: permissionMode || 'default',
             modelMode: modelMode || MODEL_MODE_DEFAULT,
             fastMode: enabled,
             includeSessionEntry: false,
             includeLastUsed: true,
         });
-    }, [agentType, permissionMode, modelMode]);
+    }, [agentChoice, permissionMode, modelMode]);
 
     const handleModelModeChange = React.useCallback((mode: ModelMode) => {
         applyManualModelMode(mode);
         sync.queueSessionModeConfigUpdate({
-            agentType,
+            agentType: agentChoice,
             permissionMode: permissionMode || 'default',
             modelMode: mode,
             fastMode,
             includeSessionEntry: false,
             includeLastUsed: true,
         });
-    }, [agentType, applyManualModelMode, permissionMode, fastMode]);
+    }, [agentChoice, applyManualModelMode, permissionMode, fastMode]);
 
     //
     // Path selection
@@ -356,6 +357,7 @@ function NewSessionWizard() {
         selectedMachineId,
         sessionType === 'worktree' && selectedRepos.length > 0 ? selectedRepos[0].repo.path : selectedPath,
         agentType,
+        qoderBuild,
     );
 
     const { inputHistory, rememberSentInput } = useInputHistory();
@@ -523,9 +525,8 @@ function NewSessionWizard() {
     // machine (picking one would make the auto-correct below jump back to the first available agent).
     // Note: Does NOT persist immediately - persistence is handled by useEffect above
     const availableAgents = React.useMemo(() => (
-        (['claude', 'codex', 'gemini', 'qoder'] as const)
-            .filter((agent) => agent === agentType || cliAvailability[agent] !== false)
-    ), [cliAvailability, agentType]);
+        AGENT_CHOICES.filter((choice) => choice === agentChoice || cliAvailability[choice] !== false)
+    ), [cliAvailability, agentChoice]);
 
     // Auto-correct invalid agent selection after CLI detection completes
     // This handles the case where lastUsedAgent was 'codex' but codex is not installed
@@ -534,28 +535,24 @@ function NewSessionWizard() {
         if (cliAvailability.timestamp === 0) return;
 
         // Check if currently selected agent is available
-        const agentAvailable = cliAvailability[agentType];
+        const agentAvailable = cliAvailability[agentChoice];
 
         if (agentAvailable === false) {
             // Current agent not available - find first available
-            const availableAgent: 'claude' | 'codex' | 'gemini' | 'qoder' =
-                cliAvailability.claude === true ? 'claude' :
-                cliAvailability.codex === true ? 'codex' :
-                cliAvailability.gemini === true ? 'gemini' :
-                cliAvailability.qoder === true ? 'qoder' :
-                'claude'; // Fallback to claude (will fail at spawn with clear error)
+            // (falls back to claude, which will fail at spawn with a clear error)
+            const availableAgent = AGENT_CHOICES.find((choice) => cliAvailability[choice] === true) ?? 'claude';
 
-            console.warn(`[AgentSelection] ${agentType} not available, switching to ${availableAgent}`);
-            setAgentType(availableAgent);
+            console.warn(`[AgentSelection] ${agentChoice} not available, switching to ${availableAgent}`);
+            setAgentChoice(availableAgent);
         }
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder, agentType]);
+    }, [cliAvailability, agentChoice]);
 
     const selectedMachine = React.useMemo(() => {
         if (!selectedMachineId) return null;
         return machines.find(m => m.id === selectedMachineId);
     }, [selectedMachineId, machines]);
 
-    const { models: qoderModels, pending: qoderModelsPending } = useQoderModels(selectedMachineId, selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
+    const { models: qoderModels, pending: qoderModelsPending } = useQoderModels(selectedMachineId, qoderBuild ?? 'intl', selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
     // Qoder models are per account and not in the catalog: a saved one is kept while the account still offers it.
     // Until the machine lists them, the stand-ins can't tell, so the saved one is kept rather than flashing Auto.
     const isModelModeAvailable = (agent: 'claude' | 'codex' | 'gemini' | 'qoder', mode: string) => {
@@ -695,7 +692,7 @@ function NewSessionWizard() {
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
         const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'yolo'];
         const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : validClaudeModes;
-        const manualMode = manualPermissionModeByAgentRef.current[agentType];
+        const manualMode = manualPermissionModeByAgentRef.current[agentChoice];
 
         if (manualMode && validModes.includes(manualMode)) {
             setPermissionMode((prev) => (prev === manualMode ? prev : manualMode));
@@ -708,11 +705,11 @@ function NewSessionWizard() {
         } else {
             setPermissionMode((prev) => (prev === 'default' ? prev : 'default'));
         }
-    }, [agentType, lastUsedSessionMode?.permissionMode]);
+    }, [agentType, agentChoice, lastUsedSessionMode?.permissionMode]);
 
     // Restore saved model mode when agent type changes
     React.useEffect(() => {
-        const manualMode = manualModelModeByAgentRef.current[agentType];
+        const manualMode = manualModelModeByAgentRef.current[agentChoice];
         if (manualMode && isModelModeAvailable(agentType, manualMode)) {
             setModelMode((prev) => (prev === manualMode ? prev : manualMode));
             return;
@@ -724,13 +721,13 @@ function NewSessionWizard() {
         } else {
             setModelMode((prev) => (prev === fallbackModelMode ? prev : fallbackModelMode));
         }
-    }, [agentType, lastUsedSessionMode?.modelMode, qoderModels, qoderModelsPending]);
+    }, [agentType, agentChoice, lastUsedSessionMode?.modelMode, qoderModels, qoderModelsPending]);
 
     // Restore saved fast mode when agent type changes
     React.useEffect(() => {
         const next = lastUsedSessionMode?.fastMode ?? false;
         setFastMode((prev) => (prev === next ? prev : next));
-    }, [agentType, lastUsedSessionMode?.fastMode]);
+    }, [agentChoice, lastUsedSessionMode?.fastMode]);
 
     // Handle machine and path selection callbacks
     React.useEffect(() => {
@@ -852,7 +849,7 @@ function NewSessionWizard() {
             const updatedPaths = [{ machineId: selectedMachineId, path: selectedPath }, ...recentMachinePaths.filter(rp => rp.machineId !== selectedMachineId)].slice(0, 10);
             sync.applySettings({
                 recentMachinePaths: updatedPaths,
-                lastUsedAgent: agentType,
+                lastUsedAgent: agentChoice,
             });
 
             const result = await machineSpawnNewSession({
@@ -860,6 +857,7 @@ function NewSessionWizard() {
                 directory: actualPath,
                 approvedNewDirectoryCreation: true,
                 agent: agentType,
+                qoderBuild,
                 ...(tempSessionData?.environmentVariables ? { environmentVariables: tempSessionData.environmentVariables } : {}),
                 // Pass worktree metadata so CLI includes it in initial metadata (avoids race condition)
                 ...(sessionType === 'worktree' && worktreeBranchName ? {
@@ -912,7 +910,7 @@ function NewSessionWizard() {
                 }
                 sync.queueSessionModeConfigUpdate({
                     sessionId: result.sessionId,
-                    agentType,
+                    agentType: agentChoice,
                     permissionMode,
                     modelMode: modelMode || MODEL_MODE_DEFAULT,
                     fastMode,
@@ -957,7 +955,7 @@ function NewSessionWizard() {
             Modal.alert(t('common.error'), errorMessage);
             setIsCreating(false);
         }
-    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, permissionMode, modelMode, fastMode, recentMachinePaths, router, images, clearImages, fileAttachments.files.length, fileAttachments.clearFiles, uploadStaged, tempSessionData, selectedRepos]);
+    }, [selectedMachineId, selectedPath, sessionPrompt, sessionType, agentType, agentChoice, qoderBuild, permissionMode, modelMode, fastMode, recentMachinePaths, router, images, clearImages, fileAttachments.files.length, fileAttachments.clearFiles, uploadStaged, tempSessionData, selectedRepos]);
 
     const screenWidth = useWindowDimensions().width;
 
@@ -1122,9 +1120,10 @@ function NewSessionWizard() {
                         autocompletePrefixes={autocomplete.prefixes}
                         autocompleteSuggestions={autocomplete.suggestions}
                         agentType={agentType}
+                        qoderBuild={qoderBuild}
                         agentModels={agentType === 'qoder' ? qoderModels : undefined}
                         availableAgents={availableAgents}
-                        onAgentChange={setAgentType}
+                        onAgentChange={setAgentChoice}
                         permissionMode={permissionMode}
                         onPermissionModeChange={handlePermissionModeChange}
                         modelMode={modelMode}

@@ -11,12 +11,12 @@ happy qoder
 
 ## Prerequisites
 
-Install [Qoder CLI](https://qoder.com). Qoder ships two builds of the same CLI; install the one for your region:
+Install [Qoder CLI](https://qoder.com). Qoder ships two builds of the same CLI, which Happy shows as two agents. Install either or both:
 
-| Build | Command | Install |
-|-------|---------|---------|
-| International | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
-| China | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
+| Agent in Happy | Command | Install |
+|----------------|---------|---------|
+| **Qoder** (international) | `qodercli` | `curl -fsSL https://qoder.com/install \| bash` |
+| **Qoder CN** (China) | `qoderclicn` | `curl -fsSL https://qoder.com.cn/install \| bash` |
 
 Then sign in once in a terminal:
 
@@ -26,15 +26,27 @@ qodercli login    # or: qoderclicn login
 
 Qoder signs in with your Qoder account, so there is no `happy connect qoder` step. The two builds sign in separately.
 
-Happy looks for the executable on `PATH` and in `~/.local/bin`. To use a specific binary, set `HAPPY_QODER_PATH`:
+## Qoder or Qoder CN
+
+The new-session screen offers each build installed on the machine as its own agent, **Qoder** or **Qoder CN**. A session stays on the build it started with: copying, resuming, upgrading or duplicating it uses the same build.
+
+Happy looks for the executables on `PATH` and in `~/.local/bin`. From a terminal, `happy qoder` uses `qodercli`, or `qoderclicn` when only that is installed (when started from Qoder CN, it prefers `qoderclicn`). To pick one, set `HAPPY_QODER_BUILD` to `intl` or `cn`:
+
+```bash
+HAPPY_QODER_BUILD=cn happy qoder
+```
+
+To use a specific binary, set `HAPPY_QODER_PATH`. It applies only when no build is chosen, in the app or with `HAPPY_QODER_BUILD`:
 
 ```bash
 HAPPY_QODER_PATH=/path/to/qodercli happy qoder
 ```
 
+Orchestrator tasks, voice and PR reviews that start Qoder use the default build.
+
 ## Models
 
-Qoder's model list depends on your account, so Happy asks the CLI on your machine for it. Pick a model in the app's model selector; new sessions start on Qoder's **Auto**. Models with reasoning control also show a **Reasoning Effort** column, starting on the effort Qoder picks for that model.
+Qoder's model list depends on your account, so Happy asks the CLI on your machine for it. Qoder and Qoder CN keep separate lists. Pick a model in the app's model selector; new sessions start on Qoder's **Auto**. Models with reasoning control also show a **Reasoning Effort** column, starting on the effort Qoder picks for that model.
 
 Model descriptions are Qoder's own. Happy shows the copy `qodercli` last downloaded (`~/.qoder/.auth/dynamic-texts.json`, or `~/.qoder-cn/` for `qoderclicn`), then replaces it with Qoder's current text once downloaded. Without either, the model's tags are shown.
 
@@ -52,7 +64,7 @@ Model descriptions are Qoder's own. Happy shows the copy `qodercli` last downloa
 
 Happy stores the Qoder session ID, shown on the session info screen. Copying, resuming, or upgrading a Qoder session forks the conversation in Qoder, so the new session keeps the context and the original stays untouched.
 
-The **Qoder** tab of the session history lists the conversations saved on the machine (`~/.qoder/projects`, or `~/.qoder-cn/` for `qoderclicn`), including ones started outside Happy. `/duplicate` or the fork button on a message starts a new session from an earlier point of the conversation.
+The **Qoder** and **Qoder CN** tabs of the session history list the conversations saved on the machine (`~/.qoder/projects`, or `~/.qoder-cn/` for `qoderclicn`), including ones started outside Happy. `/duplicate` or the fork button on a message starts a new session from an earlier point of the conversation.
 
 ## How it works
 

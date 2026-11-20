@@ -1,3 +1,4 @@
+import type { QoderBuild } from '@/qoder/constants';
 import { z } from 'zod'
 import { UsageSchema } from '@/claude/types'
 import {
@@ -402,6 +403,7 @@ export type Metadata = {
   claudeSessionId?: string, // Claude Code session ID
   codexSessionId?: string,
   qoderSessionId?: string, // Qoder ACP session id, restored with session/load
+  qoderBuild?: QoderBuild, // Qoder or Qoder CN: which build (and config directory) the session runs on
   tools?: string[],
   slashCommands?: string[],
   slashCommandMetadata?: Array<{

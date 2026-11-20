@@ -6,27 +6,25 @@
  * Happy's session instructions, which are stripped before it is shown.
  */
 
-import { homedir } from 'node:os';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { findClaudeProjectId, readAllClaudeSessionUserMessages, type ClaudeUserMessageWithUuid, type TranscriptStore } from '@/claude/utils/claudeSessionIndex';
 import { truncateSessionFile } from '@/claude/utils/claudeSessionFork';
 import { forkQoderSession } from '@/qoder/sessions';
 import { stripQoderSessionInstructions } from '@/qoder/prompt';
-import { resolveQoderCommand } from '@/qoder/constants';
+import { QODER_SLUGS, qoderBuildOf, qoderConfigDir, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 
-/** The China build `qoderclicn` keeps its own directory, `~/.qoder-cn`. */
-export function qoderTranscriptStore(): TranscriptStore {
-  const cn = basename(resolveQoderCommand()) === 'qoderclicn';
+/** Qoder CN (`qoderclicn`) keeps its own directory, `~/.qoder-cn`. Without a build, the one Happy would start. */
+export function qoderTranscriptStore(build: QoderBuild = qoderBuildOf(resolveQoderCommand())): TranscriptStore {
   return {
-    configDir: (cn ? process.env.QODERCN_CONFIG_DIR : process.env.QODER_CONFIG_DIR) || join(homedir(), cn ? '.qoder-cn' : '.qoder'),
-    cacheFileName: 'qoder-session-metadata-cache.json',
+    configDir: qoderConfigDir(build),
+    cacheFileName: `${QODER_SLUGS[build]}-session-metadata-cache.json`,
     cleanUserText: stripQoderSessionInstructions,
   };
 }
 
 /** The user messages of a Qoder conversation, oldest first. */
-export async function readAllQoderSessionUserMessages(sessionId: string): Promise<ClaudeUserMessageWithUuid[]> {
-  const store = qoderTranscriptStore();
+export async function readAllQoderSessionUserMessages(sessionId: string, build: QoderBuild): Promise<ClaudeUserMessageWithUuid[]> {
+  const store = qoderTranscriptStore(build);
   const projectId = await findClaudeProjectId(sessionId, store);
   if (!projectId) throw new Error('Session not found');
   return readAllClaudeSessionUserMessages(projectId, sessionId, store);
@@ -37,9 +35,9 @@ export async function readAllQoderSessionUserMessages(sessionId: string): Promis
  * and returns the new session id. qodercli's own fork keeps message uuids, so its copy
  * is cut at the same message.
  */
-export async function duplicateQoderSession(sessionId: string, cwd: string, truncateBeforeUuid: string): Promise<string> {
-  const newSessionId = await forkQoderSession(sessionId, cwd);
-  const store = qoderTranscriptStore();
+export async function duplicateQoderSession(sessionId: string, cwd: string, truncateBeforeUuid: string, build: QoderBuild): Promise<string> {
+  const newSessionId = await forkQoderSession(sessionId, cwd, build);
+  const store = qoderTranscriptStore(build);
   const projectId = await findClaudeProjectId(newSessionId, store);
   if (!projectId) throw new Error(`Qoder session ${newSessionId} not found`);
   const truncated = await truncateSessionFile(join(store.configDir, 'projects', projectId, `${newSessionId}.jsonl`), truncateBeforeUuid);

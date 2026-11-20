@@ -13,6 +13,7 @@ import { getToolOutputRecord } from './toolOutputStore';
 import { createFilePreviewHandlers, createFileDownloadHandlers } from './filePreview';
 import { createToolImagePreviewHandlers } from './toolImagePreview';
 import { createFileUploadHandlers } from './fileUpload';
+import type { QoderBuild } from '@/qoder/constants';
 
 const execAsync = promisify(exec);
 
@@ -132,6 +133,8 @@ export interface SpawnSessionOptions {
     skipForkSession?: boolean;
     approvedNewDirectoryCreation?: boolean;
     agent?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    // Qoder (`intl`) or Qoder CN (`cn`) for a Qoder session; absent, the build found first
+    qoderBuild?: QoderBuild;
     token?: string;
     // Extra environment variables for the agent process (e.g. a GitHub token)
     environmentVariables?: Record<string, string>;

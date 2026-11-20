@@ -67,6 +67,7 @@ import {
     parseQoderModelMode,
 } from 'happy-wire';
 import type { QoderPickerModel } from '@/hooks/useQoderModels';
+import { agentChoiceOf, resolveAgentChoice, type AgentChoice, type QoderBuild } from '@/utils/agentChoice';
 
 // Room the text keeps clear on its right for the expand button over the field's corner.
 const EXPAND_BUTTON_TEXT_INSET = Platform.OS === 'web' ? 24 : 32;
@@ -120,12 +121,14 @@ interface AgentInputProps {
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
     agentType?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    // New sessions only: the build a Qoder agentType runs on, which the picker shows as Qoder or Qoder CN.
+    qoderBuild?: QoderBuild;
     // Models offered by the agent itself (Qoder lists them per account over ACP), as the machine reports
     // them: with each model's efforts and Qoder's own description. A session's list still comes from metadata.models.
     agentModels?: QoderPickerModel[];
     // New sessions only: the agents to choose from, offered as the first tab of the settings overlay.
-    availableAgents?: readonly ('claude' | 'codex' | 'gemini' | 'qoder')[];
-    onAgentChange?: (agent: 'claude' | 'codex' | 'gemini' | 'qoder') => void;
+    availableAgents?: readonly AgentChoice[];
+    onAgentChange?: (agent: AgentChoice) => void;
     machineName?: string | null;
     onMachineClick?: () => void;
     currentPath?: string | null;
@@ -1102,6 +1105,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Claude reports its /autocompact-aware window via agentState), fall back to static lookup
     // by model/agent flavor
     const agentFlavor = props.metadata?.flavor || props.agentType || null;
+    const agentChoice = props.agentType ? agentChoiceOf(props.agentType, props.qoderBuild) : null;
     const maxContextSize = props.usageData?.contextWindowSize || getMaxContextSize(props.modelMode, agentFlavor, props.metadata?.model, props.usageData?.contextSize);
     const contextWarning = props.usageData?.contextSize
         ? getContextWarning(props.usageData.contextSize, maxContextSize, props.alwaysShowContextSize ?? false, theme)
@@ -2059,7 +2063,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             ? <>{currentModelLabel} <MaterialCommunityIcons name="lightning-bolt" size={10} color={FAST_MODE_ICON_COLOR} /></>
                                             : currentModelLabel;
                                         const tabInfo: Record<'agent' | 'model' | 'permission', { label: string; subtitle: React.ReactNode }> = {
-                                            agent: { label: t('agentInput.agent.title'), subtitle: props.agentType ? t(`agentInput.agent.${props.agentType}`) : null },
+                                            agent: { label: t('agentInput.agent.title'), subtitle: agentChoice ? t(`agentInput.agent.${agentChoice}`) : null },
                                             model: { label: t('agentInput.model.title'), subtitle: currentModelSubtitle },
                                             permission: { label: t('agentInput.permissionMode.title'), subtitle: permissionLabel },
                                         };
@@ -2111,7 +2115,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     {/* Agent Section */}
                                     {shownSettingsTab === 'agent' && <ScrollView style={styles.modelListScroll} contentContainerStyle={styles.overlaySection} keyboardShouldPersistTaps="always">
                                         {(props.availableAgents ?? []).map((agent) => {
-                                            const isSelected = props.agentType === agent;
+                                            const isSelected = agentChoice === agent;
+                                            const flavor = resolveAgentChoice(agent).agent;
                                             return (
                                                 <Pressable
                                                     key={agent}
@@ -2149,10 +2154,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                     </View>
                                                     <View style={{ width: AGENT_ICON_SLOT, height: AGENT_ICON_SLOT, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
                                                         <Image
-                                                            source={agentFlavorIcons[agent]}
-                                                            style={{ width: agentIconArtworkSize[agent], height: agentIconArtworkSize[agent] }}
+                                                            source={agentFlavorIcons[flavor]}
+                                                            style={{ width: agentIconArtworkSize[flavor], height: agentIconArtworkSize[flavor] }}
                                                             contentFit="contain"
-                                                            tintColor={agent === 'codex' || agent === 'qoder' ? theme.colors.text : undefined}
+                                                            tintColor={flavor === 'codex' || flavor === 'qoder' ? theme.colors.text : undefined}
                                                         />
                                                     </View>
                                                     <View style={{ flexShrink: 1 }}>
@@ -2635,7 +2640,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             fontWeight: '600',
                                             ...Typography.default('semiBold'),
                                         }}>
-                                            {props.agentType === 'claude' ? t('agentInput.agent.claude') : props.agentType === 'codex' ? t('agentInput.agent.codex') : props.agentType === 'qoder' ? t('agentInput.agent.qoder') : t('agentInput.agent.gemini')}
+                                            {t(`agentInput.agent.${agentChoice ?? 'claude'}`)}
                                         </Text>
                                     </Pressable>
                                 )}

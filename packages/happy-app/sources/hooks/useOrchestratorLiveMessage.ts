@@ -21,7 +21,7 @@ async function fetchPreviewMessages(machineId: string, provider: Provider, child
         case 'gemini':
             return (await machineGetGeminiSessionPreview(machineId, childSessionId, options)).messages;
         case 'qoder':
-            return (await machineGetQoderSessionPreview(machineId, childSessionId, options)).messages;
+            return (await machineGetQoderSessionPreview(machineId, childSessionId, undefined, options)).messages;
     }
 }
 
