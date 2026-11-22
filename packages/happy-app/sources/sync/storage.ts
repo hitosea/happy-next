@@ -1645,7 +1645,15 @@ export const storage = create<StorageState>()((set, get) => {
             const flavor = session.metadata?.flavor;
             const agentType = resolveSessionModeAgentType(session.metadata);
             if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder') {
-                void sync.changePermissionMode(sessionId, mode);
+                const previousMode = session.permissionMode || 'default';
+                void sync.changePermissionMode(sessionId, mode).then((result) => {
+                    // The CLI refused a mode it cannot run: go back to the one it keeps running,
+                    // unless the user has picked another mode meanwhile
+                    const current = get().sessions[sessionId] ?? get().sharedSessions[sessionId];
+                    if (result === 'refused' && current?.permissionMode === mode && previousMode !== mode) {
+                        get().updateSessionPermissionMode(sessionId, previousMode);
+                    }
+                });
             }
             set((state) => {
                 const isShared = sessionId in state.sharedSessions;

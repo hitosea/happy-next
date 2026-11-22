@@ -23,6 +23,7 @@ import type { PermissionMode } from "@/api/types";
 import type { QueueMessageContent } from "./runClaude";
 import { buildClaudeSlashCommandMetadata } from "./utils/slashCommandMetadata";
 import { enhancedModeRestartHash, withRunningContextWindow } from "./utils/enhancedModeHash";
+import { isClaudeMode, toRunnableClaudeMode } from "./utils/permissionMode";
 import { inlinePreviewHtmlFileArgs, previewHtmlFilePath } from "@/utils/previewHtmlFile";
 
 interface PermissionsField {
@@ -73,6 +74,30 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
     let abortFuture: Future<void> | null = null;
     let currentQuery: Query | null = null;
 
+    /**
+     * Run a control request (interrupt / set_model / set_permission_mode) against the live subprocess.
+     * Resolves true only when the subprocess confirmed it within 3s; every failure is logged.
+     * A mode change the subprocess did not take must never be treated as applied: Happy would
+     * show one mode while Claude runs another.
+     */
+    const applyLiveControl = async (request: Promise<void>, label: string): Promise<boolean> => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            await Promise.race([
+                request,
+                new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => reject(new Error(`${label} timeout`)), 3000);
+                }),
+            ]);
+            return true;
+        } catch (e) {
+            logger.debug(`[remote]: ${label} failed`, e);
+            return false;
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+
     // Queued messages steered into the running turn go to the Claude running it, once it has shown
     // it can take them
     let currentSteer: ClaudeSteer | null = null;
@@ -97,21 +122,7 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
 
         // Interrupt the current turn. The SDK also cancels in-flight can_use_tool
         // requests, rejecting pending permission prompts so Claude isn't blocked.
-        let interrupted = false;
-        if (query) {
-            try {
-                await Promise.race([
-                    query.interrupt(),
-                    new Promise<void>((_, reject) =>
-                        setTimeout(() => reject(new Error('interrupt timeout')), 3000)
-                    ),
-                ]);
-                interrupted = true;
-                logger.debug('[remote]: interrupt() succeeded');
-            } catch (e) {
-                logger.debug('[remote]: interrupt() failed or timed out, falling back to SIGTERM', e);
-            }
-        }
+        const interrupted = query !== null && await applyLiveControl(query.interrupt(), 'interrupt');
 
         // Graceful: leave the process running — claudeRemote() handles the result,
         // calls onReady(), and waits on nextMessage() on the same warm process.
@@ -148,20 +159,40 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
 
     // Create permission handler
     const permissionHandler = new PermissionHandler(session);
-    const claudeModes = ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'] as const;
-    const isClaudeMode = (m: PermissionMode | undefined): m is typeof claudeModes[number] =>
-        !!m && (claudeModes as readonly string[]).includes(m);
+
+    /**
+     * Apply a model / permission-mode change (incl. plan) to the warm subprocess — no respawn, no
+     * context reload. False when anything else changed (effort, system prompt, tools) or the
+     * subprocess refused or did not answer a request; the caller then restarts in the new mode.
+     */
+    const tryHotSwap = async (query: Query, from: EnhancedMode, to: EnhancedMode): Promise<boolean> => {
+        if (enhancedModeRestartHash(from) !== enhancedModeRestartHash(to) || !isClaudeMode(to.permissionMode)) return false;
+        const requests: Promise<boolean>[] = [];
+        if (from.model !== to.model) {
+            requests.push(applyLiveControl(query.setModel(to.model), 'set_model'));
+        }
+        const permissionMode = toRunnableClaudeMode(to.permissionMode);
+        if (toRunnableClaudeMode(from.permissionMode) !== permissionMode) {
+            requests.push(applyLiveControl(query.setPermissionMode(permissionMode), 'set_permission_mode'));
+        }
+        return (await Promise.all(requests)).every(Boolean);
+    };
 
     session.client.rpcHandlerManager.registerHandler<{ mode?: PermissionMode }, boolean>(
         'permission-mode-changed',
         async (payload) => {
-            const mode = payload?.mode;
-            if (!isClaudeMode(mode)) {
-                logger.debug('[remote]: invalid permission mode via rpc', { mode });
+            const requested = payload?.mode;
+            // Refused (false) only when Claude cannot run the mode at all — bypassPermissions as root
+            // outside a sandbox — so the app keeps showing the mode Claude actually runs
+            if (!isClaudeMode(requested) || toRunnableClaudeMode(requested) !== requested) {
+                logger.debug('[remote]: permission mode via rpc refused', { mode: requested });
                 return false;
             }
-            permissionHandler.handleModeChange(mode);
-            logger.debug(`[remote]: permission mode updated via rpc to ${mode}`);
+            permissionHandler.handleModeChange(requested);
+            logger.debug(`[remote]: permission mode updated via rpc to ${requested}`);
+            // Apply it to the running turn too. If the subprocess refuses, the next message
+            // still carries this mode and its hot-swap falls back to a restart.
+            if (currentQuery) void applyLiveControl(currentQuery.setPermissionMode(requested), 'set_permission_mode');
             return true;
         }
     );
@@ -620,28 +651,19 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                             const modeChanged = (modeHash !== null && msg.hash !== modeHash) || msg.isolate;
                             const incomingMode = withRunningContextWindow(msg.mode, mode, currentSyncedContextWindowSize);
                             if (modeChanged) {
-                                // Model and permission mode (incl. plan) changes are applied to the
-                                // warm subprocess — set_model here, set_permission_mode via
-                                // handleModeChange below — no respawn, no context reload. Any other
-                                // change (effort, system prompt, tools) or a failed/hung set_model
-                                // still goes through the restart path.
-                                const hotSwapped = !msg.isolate && mode !== null && currentQuery !== null
-                                    && enhancedModeRestartHash(mode) === enhancedModeRestartHash(incomingMode)
-                                    && (mode.model === msg.mode.model || await Promise.race([
-                                        currentQuery.setModel(msg.mode.model),
-                                        new Promise<never>((_, reject) =>
-                                            setTimeout(() => reject(new Error('set_model timeout')), 3000)
-                                        ),
-                                    ]).then(() => true, (e) => {
-                                        logger.debug('[remote]: set_model failed, falling back to restart', e);
-                                        return false;
-                                    }));
+                                const query = currentQuery;
+                                const hotSwapped = !msg.isolate && mode !== null && query !== null
+                                    && await tryHotSwap(query, mode, incomingMode);
                                 if (!hotSwapped) {
                                     logger.debug('[remote]: mode has changed, pending message');
                                     pending = msg;
                                     return null;
                                 }
                                 logger.debug(`[remote]: mode hot-swapped (model: ${msg.mode.model ?? 'default'}, permissionMode: ${msg.mode.permissionMode})`);
+                            } else if (currentQuery && isClaudeMode(incomingMode.permissionMode)) {
+                                // Re-assert the mode with every message: the subprocess can change its own
+                                // mode (e.g. EnterPlanMode), or have missed an RPC switch, without Happy knowing
+                                void applyLiveControl(currentQuery.setPermissionMode(toRunnableClaudeMode(incomingMode.permissionMode)), 'set_permission_mode');
                             }
                             modeHash = msg.hash;
                             mode = incomingMode;
@@ -682,9 +704,6 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                     onSteerResult: (pendingId, outcome) => session.client.reportPendingSteer(pendingId, outcome),
                     onQueryCreated: (q) => {
                         currentQuery = q;
-                        permissionHandler.setModeForwarder(async (mode) => {
-                            if (isClaudeMode(mode)) await q.setPermissionMode(mode);
-                        });
                     },
                     onReady: () => {
                         if (!pending && session.queue.size() === 0) {
@@ -727,7 +746,6 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
 
                 logger.debug('[remote]: launch finally');
                 currentQuery = null;
-                permissionHandler.setModeForwarder(undefined);
 
                 // Terminate all ongoing tool calls
                 for (let [toolCallId, { parentToolCallId }] of ongoingToolCalls) {
