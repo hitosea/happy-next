@@ -234,6 +234,8 @@ export interface QueryOptions {
     autoCompactWindow?: number
     fallbackModel?: string
     strictMcpConfig?: boolean
+    /** Pass --allow-dangerously-skip-permissions: launch in any mode, yet able to switch to bypassPermissions later. */
+    allowDangerouslySkipPermissions?: boolean
     canCallTool?: CanCallToolCallback
     /** Path to a settings JSON file to pass to Claude via --settings */
     settingsPath?: string

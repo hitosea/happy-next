@@ -107,7 +107,11 @@ export class Query implements AsyncIterableIterator<SDKMessage> {
                             }
                             continue
                         } else if (message.type === 'control_request') {
-                            await this.handleControlRequest(message as unknown as CanUseToolControlRequest)
+                            // Not awaited: a can_use_tool request waits on the user, and the read loop must
+                            // keep delivering control responses (set_model, set_permission_mode, interrupt)
+                            // and cancel requests for it in the meantime
+                            void this.handleControlRequest(message as unknown as CanUseToolControlRequest)
+                                .catch((error) => logger.debug(`[Claude SDK] control request failed: ${error}`))
                             continue
                         } else if (message.type === 'control_cancel_request') {
                             this.handleControlCancelRequest(message as unknown as ControlCancelRequest)
@@ -352,6 +356,7 @@ export function query(config: {
             autoCompactWindow,
             fallbackModel,
             strictMcpConfig,
+            allowDangerouslySkipPermissions,
             canCallTool,
             settingsPath
         } = {}
@@ -387,6 +392,7 @@ export function query(config: {
     }
     if (strictMcpConfig) args.push('--strict-mcp-config')
     if (permissionMode) args.push('--permission-mode', permissionMode)
+    if (allowDangerouslySkipPermissions) args.push('--allow-dangerously-skip-permissions')
     if (settingsPath) args.push('--settings', settingsPath)
 
     if (fallbackModel) {
@@ -443,6 +449,9 @@ export function query(config: {
     } else {
         streamToStdin(prompt, child.stdin, config.options?.abort)
         childStdin = child.stdin
+        // A write after Claude exits (e.g. the answer to a permission prompt it no longer waits for)
+        // fails with EPIPE as an 'error' event; unhandled, that would take Happy down with it
+        child.stdin.on('error', (error) => logger.debug(`[Claude SDK] stdin write failed: ${error.message}`))
     }
 
     // Capture stderr for diagnostics and error reporting

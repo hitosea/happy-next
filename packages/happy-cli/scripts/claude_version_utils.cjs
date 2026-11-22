@@ -417,14 +417,18 @@ function findGlobalClaudeCliPath() {
  * @returns {string|null} Version string or null
  */
 function getVersion(cliPath) {
-    try {
-        const pkgPath = path.join(path.dirname(cliPath), 'package.json');
-        if (fs.existsSync(pkgPath)) {
-            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-            return pkg.version;
-        }
-    } catch (e) {}
-    return null;
+    const resolved = resolvePathSafe(cliPath) || cliPath;
+    // npm: package.json sits next to cli.js, or a level or two above the binary in newer builds (bin/)
+    let dir = path.dirname(resolved);
+    for (let level = 0; level < 3; level++, dir = path.dirname(dir)) {
+        try {
+            const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+            if (pkg.name === '@anthropic-ai/claude-code' || (level === 0 && pkg.version)) return pkg.version;
+        } catch (e) {}
+    }
+    // Native installer and Homebrew keep each build in a directory named after its version
+    // (~/.local/share/claude/versions/<version>, Caskroom/claude-code/<version>/claude)
+    return resolved.split(/[\\/]/).reverse().find((segment) => /^\d+\.\d+\.\d+$/.test(segment)) || null;
 }
 
 /**

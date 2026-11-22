@@ -1962,17 +1962,21 @@ class Sync {
         });
     }
 
-    async changePermissionMode(sessionId: string, mode: PermissionMode): Promise<boolean> {
+    /**
+     * 'refused' means the CLI answered that it cannot run the mode (e.g. Claude's bypass as root);
+     * 'failed' means it could not be reached, and the mode still applies when the session next starts.
+     */
+    async changePermissionMode(sessionId: string, mode: PermissionMode): Promise<'applied' | 'refused' | 'failed'> {
         try {
-            await apiSocket.sessionRPC<boolean, { mode: PermissionMode }>(
+            const accepted = await apiSocket.sessionRPC<boolean, { mode: PermissionMode }>(
                 sessionId,
                 'permission-mode-changed',
                 { mode }
             );
-            return true;
+            return accepted === false ? 'refused' : 'applied';
         } catch (error) {
             log.log(`Failed to change permission mode for ${sessionId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            return false;
+            return 'failed';
         }
     }
 

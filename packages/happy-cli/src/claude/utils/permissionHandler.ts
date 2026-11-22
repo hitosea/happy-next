@@ -80,7 +80,6 @@ export class PermissionHandler {
     private permissionMode: PermissionMode = 'default';
     private lastNonPlanPermissionMode: Exclude<PermissionMode, 'plan'> = 'default';
     private onPermissionRequestCallback?: (toolCallId: string) => void;
-    private modeForwarder?: (mode: PermissionMode) => Promise<void>;
 
     constructor(session: Session) {
         this.session = session;
@@ -94,20 +93,11 @@ export class PermissionHandler {
         this.onPermissionRequestCallback = callback;
     }
 
-    setModeForwarder(forwarder?: (mode: PermissionMode) => Promise<void>) {
-        this.modeForwarder = forwarder;
-    }
-
     handleModeChange(mode: PermissionMode) {
         this.permissionMode = mode;
         if (mode !== 'plan') {
             this.lastNonPlanPermissionMode = mode;
         }
-        // Keep the subprocess's toolPermissionContext in sync, otherwise tools
-        // the CLI auto-decides (e.g. Write under bypassPermissions) use stale mode.
-        this.modeForwarder?.(mode).catch((err) => {
-            logger.debug(`[permissionHandler] set_permission_mode forward failed: ${err}`);
-        });
     }
 
     private getResumeModeAfterPlan(responseMode?: PermissionResponse['mode']): Exclude<PermissionMode, 'plan'> {
