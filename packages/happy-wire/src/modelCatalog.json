@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "codexCli": {
         "package": "@openai/codex",
-        "version": "0.167.2"
+        "version": "0.171.0"
     },
     "effortDescriptions": {
         "low": "Fast responses",
@@ -217,6 +217,36 @@
             "pricing": { "input": 1, "output": 5, "cacheWrite": 1.25, "cacheRead": 0.1 }
         },
         {
+            "id": "gpt-6.2-astra",
+            "agent": "codex",
+            "status": "active",
+            "label": "GPT-6.2-Astra",
+            "shortLabel": "6.2-Astra",
+            "displayName": "GPT-6.2-Astra",
+            "description": "Our most capable model for your hardest projects, from start to finish.",
+            "descriptionTranslations": {
+                "zh-Hans": "最强能力模型，从头到尾应对最艰巨的项目",
+                "zh-Hant": "最強能力模型，從頭到尾應對最艱鉅的專案"
+            },
+            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1050000
+        },
+        {
+            "id": "gpt-6.2-sol",
+            "agent": "codex",
+            "status": "active",
+            "label": "GPT-6.2-Sol",
+            "shortLabel": "6.2-Sol",
+            "displayName": "GPT-6.2-Sol",
+            "description": "Our go-to model for everyday work, from coding to powering agents at scale.",
+            "descriptionTranslations": {
+                "zh-Hans": "日常主力模型，从编程到大规模运行智能体",
+                "zh-Hant": "日常主力模型，從程式設計到大規模執行智慧體"
+            },
+            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1050000
+        },
+        {
             "id": "gpt-6.1-sol",
             "agent": "codex",
             "status": "active",
@@ -402,6 +432,34 @@
             "descriptionTranslations": {
                 "zh-Hans": "最强大，适合复杂编程和智能体任务",
                 "zh-Hant": "最強大，適合複雜程式設計和智慧體任務"
+            },
+            "efforts": [],
+            "contextWindow": 1048576
+        },
+        {
+            "id": "gemini-4-neon",
+            "agent": "gemini",
+            "status": "active",
+            "label": "4 Neon",
+            "displayName": "Gemini 4 Neon",
+            "description": "Frontier-level intelligence with fast end-to-end task completion",
+            "descriptionTranslations": {
+                "zh-Hans": "前沿级智能，端到端快速完成任务",
+                "zh-Hant": "前沿級智慧，端到端快速完成任務"
+            },
+            "efforts": [],
+            "contextWindow": 1048576
+        },
+        {
+            "id": "gemini-4-hydrogen",
+            "agent": "gemini",
+            "status": "active",
+            "label": "4 Hydrogen",
+            "displayName": "Gemini 4 Hydrogen",
+            "description": "Cutting-edge intelligence for everyday coding and agentic workflows",
+            "descriptionTranslations": {
+                "zh-Hans": "前沿智能，适合日常编程和智能体工作流",
+                "zh-Hant": "前沿智慧，適合日常程式設計和智慧體工作流程"
             },
             "efforts": [],
             "contextWindow": 1048576
