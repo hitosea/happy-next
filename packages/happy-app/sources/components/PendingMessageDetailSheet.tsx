@@ -15,9 +15,9 @@
 
 import * as Clipboard from 'expo-clipboard';
 import { Octicons, Ionicons } from '@expo/vector-icons';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import * as React from 'react';
-import { Platform, Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppBottomSheet } from '@/components/AppBottomSheet';
@@ -36,6 +36,34 @@ const TEXT_FLOOR = 48;
 const TEXT_MAX_SHARE = 0.4;
 // The bottom sheet's text input handles the keyboard natively; on the web it is a plain one.
 const SheetTextInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
+
+function SheetContent({ children, bottomPadding, maxHeight }: {
+    children: React.ReactNode;
+    bottomPadding: number;
+    maxHeight: number;
+}) {
+    const contentContainerStyle = { paddingBottom: bottomPadding };
+    if (Platform.OS === 'web') {
+        // Measure the content independently of the sheet's animated viewport and over-drag padding.
+        // A plain scroll view still allows long messages and small browser windows to scroll.
+        return (
+            <BottomSheetView>
+                <ScrollView
+                    style={{ maxHeight }}
+                    contentContainerStyle={contentContainerStyle}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {children}
+                </ScrollView>
+            </BottomSheetView>
+        );
+    }
+    return (
+        <BottomSheetScrollView contentContainerStyle={contentContainerStyle} keyboardShouldPersistTaps="handled">
+            {children}
+        </BottomSheetScrollView>
+    );
+}
 
 interface PendingMessageDetailSheetProps {
     sessionId: string;
@@ -82,8 +110,8 @@ export function PendingMessageDetailSheet({
     const isPaused = m.pausedAt !== null;
     const schedule = getPendingScheduleInfo(m.deliverAt);
 
-    const [editing, setEditing] = React.useState(false);
-    const [draft, setDraft] = React.useState(m.previewText);
+    const [editing, setEditing] = React.useState(startEditing && canManage);
+    const [draft, setDraft] = React.useState(() => getPendingPreviewText(m.previewText, ''));
     // Real content height reported by SelectableTextView; null until first measure.
     const [measuredText, setMeasuredText] = React.useState<number | null>(null);
     // Tracks whether *we* paused on entering edit, so cancel can revert it.
@@ -189,11 +217,9 @@ export function PendingMessageDetailSheet({
 
     return (
         <AppBottomSheet ref={sheetRef} enableDynamicSizing onDismiss={handleDismiss}>
-            {/* Everything sits in the scroll view: only its content is measured for the sheet's height. */}
-            <BottomSheetScrollView
-                keyboardShouldPersistTaps="handled"
-                // Plain object: the sheet's scroll view drops a stylesheet entry in an array on the web.
-                contentContainerStyle={{ paddingBottom: sheetSafeAreaBottom(safeArea.bottom) + 16 }}
+            <SheetContent
+                bottomPadding={sheetSafeAreaBottom(safeArea.bottom) + 16}
+                maxHeight={Math.max(0, windowHeight - safeArea.top - 24)}
             >
                 {header}
                 {editing ? (
@@ -271,7 +297,7 @@ export function PendingMessageDetailSheet({
                         )}
                     </View>
                 )}
-            </BottomSheetScrollView>
+            </SheetContent>
         </AppBottomSheet>
     );
 }

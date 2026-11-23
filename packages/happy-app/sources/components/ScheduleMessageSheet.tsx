@@ -396,7 +396,13 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
                         // While saving it stays at full strength with a spinner, unlike when there is nothing to send.
                         style={[styles.submit, !canSubmit && !submitting && styles.submitDisabled]}
                     >
-                        {submitting && <ActivityIndicator size="small" color={theme.colors.button.primary.tint} />}
+                        {/* Reserve the spinner's space so loading never changes the button's layout. */}
+                        <ActivityIndicator
+                            size="small"
+                            color={theme.colors.button.primary.tint}
+                            animating={submitting}
+                            style={{ opacity: submitting ? 1 : 0 }}
+                        />
                         <Text style={styles.submitText}>
                             {mode === 'create' ? t('scheduleMessage.confirm') : t('scheduleMessage.save')}
                         </Text>
