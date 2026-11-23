@@ -111,12 +111,12 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 ### Orchestrator
 - Define task dependency graphs (DAGs) with per-task model and working directory
-- Auto-schedule execution across Claude, Codex, Gemini, and Qoder agents
+- Auto-schedule execution across Claude, Codex, Gemini, and Qoder agents, with Qoder and Qoder CN available separately
 - Real-time status badges, an activity count that includes queued (not just running) tasks, and status-colored progress bars
 - Clear task execution history, streamlined run navigation, and direct links from Orchestrator messages to their runs
 - Follow up on completed tasks via session resume
 - MCP tool integration with auto-filled working directory
-- Happy CLI auto-installs the orchestrator skill and `/orchestrator` slash commands on startup — fan a task out to parallel or dependency-ordered Claude / Codex / Gemini / Qoder agents straight from the CLI
+- Happy CLI auto-installs the orchestrator skill and `/orchestrator` slash commands on startup — fan a task out to parallel or dependency-ordered Claude / Codex / Gemini / Qoder / Qoder CN agents straight from the CLI, with `/orchestrator:qodercn` beside the other per-agent commands
 - Built-in `/preview-html` slash command — generate a self-contained HTML document from the CLI and preview it directly in the app
 - Runs and tasks show how long they take, run filters are simplified to All, Active, Completed, Failed and Cancelled, and a task's result is just the agent's final message, followed live while it runs
 - A resumed task reports back to the session that sent the follow-up, and the run is listed in both sessions
@@ -134,12 +134,13 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Reconnect sync and concurrent dispatch safety, and the next queued message goes out as soon as the turn ends
 - Steer a queued message into the running turn without interrupting it (Claude, Codex and Qoder), next to "send now (interrupt)"; the queue is a floating stack above the composer with a per-message menu
 - Schedule a message to send later from the composer's add menu — in 30 minutes, in an hour, after the usage limit resets, or at a time you pick
+- Editing a scheduled message and rescheduling it share one flow, and the scheduled message button and the web edit sheet stay in place while you use them
 
 ### Multi-Agent (Claude Code + Codex + Gemini + Qoder)
 - All four agents are first-class citizens with session resume, duplicate/fork, and history
 - Multi-agent history page with per-provider tabs, device and agent filter dropdowns
 - Per-agent model selection, cost tracking, and context window display
-- ACP and App-Server (JSON-RPC) backends for Codex, with Codex v0.155.1 and fast mode
+- ACP and App-Server (JSON-RPC) backends for Codex, with Codex v0.171.0 and fast mode
 - Codex archive actions synchronize with native history, show archived state consistently, and support restoring archived sessions when continuing work
 - Reliable Codex duplication and forking, with clear active-session conflict errors
 - Codex interactive questions and approval requests render in the app, including choices, custom Other values, free-form text, and masked sensitive answers
@@ -148,11 +149,13 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Claude Opus 5 and Claude Sonnet 5 with 1M context, current reasoning-effort presets, fast-mode capability detection, and updated cost tracking
 - Streamlined model picker: one entry per Claude model at its full context window, reasoning-effort presets side by side on wide screens, and Claude defaults to High effort; the context bar follows the window Claude Code actually uses
 - Pick the context window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings; Claude Fable 5.2 joins the model list
-- GPT-6 Astra catalog support plus GPT-5.6 Sol, Terra, and Luna with their current reasoning-effort and context settings
-- Gemini 3.8 Flash joins the refreshed Gemini catalog alongside the existing Gemini models
+- Switching a Claude session to bypass permissions takes effect: Claude launches with the capability, a model or permission-mode switch Claude refuses or does not answer restarts the session in the new mode, and every message re-asserts the permission mode; as root outside a sandbox Claude stays in default and the switch is refused and reverted
+- GPT-6.2 Astra and Sol join GPT-6.1 Sol and Terra with their current reasoning-effort and context settings
+- Gemini 4 Neon and Hydrogen join Gemini 4 Argon and Carbon in the Gemini catalog
 - Qoder CLI over ACP, with the account's models and reasoning efforts, permission modes and plan mode, and context usage for Qoder and Gemini sessions
+- Qoder and Qoder CN are two separate agents — a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart
 - "Don't ask again" on a shell command picks which programs or subcommands it covers, for all four agents
-- The model catalog is served by the server, so new models show up without an app update — now with Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.1-Sol, GPT-6-Sol, and GPT-6-Luna
+- The model catalog is served by the server, so new models show up without an app update — now with Claude Opus 5.5, Claude Sonnet 5.5, GPT-6.2-Sol, GPT-6.2-Astra, GPT-6.1-Sol, GPT-6-Sol, Gemini 4 Neon and Gemini 4 Hydrogen
 - The settings popover explains each permission mode and AI vendor, and model descriptions follow the app language, including Simplified and Traditional Chinese
 - Codex's "Approve for Me" mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
 - Codex warns before an account's quota runs out, and no longer drops a generated image, a finished plan, hook runs or review decisions; its own title, `/model` switches, warnings, `/review` markers and sleeps reach the session
@@ -333,7 +336,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Machines get preset avatars, can be reordered by dragging in the sidebar from its right-click menu, and idle machines can be hidden from the rail and the switcher
 - The machine page opens a terminal in the machine's home directory, and its recent sessions link to that machine's full session history
 
-- Qoder CLI is a fourth agent (`happy qoder`), with its account's models and reasoning efforts, permission modes and plan mode, session history, resume, forks and `/duplicate`, image input and context usage
+- Qoder CLI is a fourth agent (`happy qoder`) in two builds, Qoder and Qoder CN, each with its own account's models and reasoning efforts, permission modes and plan mode, session history, resume, forks and `/duplicate`, image input and context usage
 - The command palette searches every machine's message history, groups hits by session, keeps a search history, and shows its commands as tiles when idle
 - A terminal panel docks along the bottom of the app on web and desktop, holding every shell under whatever page is open
 - On iOS, terminal tabs can be dragged along the tab strip into a new order, and long-pressing an inactive tab no longer switches to it
@@ -414,6 +417,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.19.0 surfaces the notices Claude already sends, keeps the Task card and session title in step, and classifies 76 Claude system subtypes so an upgrade fails a test instead of dropping them
 - Happy CLI v0.20.0 keeps a turn's thinking off the server when the device that opened it hides thinking, and stamps landmarks on messages so the minimap can reach older ones
 - Happy CLI v0.20.1 keeps subagent cards working after Claude Code renamed Task to Agent, so a subagent's prompt and later messages stay under its card
+- Happy CLI v0.21.0 separates Qoder and Qoder CN into two agents, lets an orchestrator task run on Qoder CN, and makes a Claude session's switch to bypass permissions take effect; new Codex sessions start on Codex v0.171.0
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing

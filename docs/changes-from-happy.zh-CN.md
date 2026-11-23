@@ -12,7 +12,7 @@
 | Apple Watch | 可直接操作的权限通知，手表 App 查看会话和消息并用听写或快捷回复回复，表盘复杂功能显示需要你处理的会话数 |
 | 编排器 | 多 Agent DAG 任务调度，按任务指定模型、工作目录，支持实时监控、执行历史和关联运行导航 |
 | 待发队列 | 服务端消息队列，自动分发、队列面板 UI、立即发送，以及排队消息的编辑和暂停/草稿 |
-| 多 Agent | Claude Code、Codex、Gemini 和 Qoder 均为一等公民 |
+| 多 Agent | Claude Code、Codex、Gemini 和 Qoder（Qoder 或 Qoder CN）均为一等公民 |
 | GitHub | 关联仓库、Issue 与 PR 管理、评论和关联 AI 会话 |
 | 语音 | 火山引擎（豆包）实时语音网关，流式语音、iOS 原生语音通话、可选音色/语速、端到端加密设置同步，并支持流式朗读（TTS）AI 回复,配全局播放队列与悬浮播放器 |
 | 工作区 | 多仓库工作树创建、切换、归档和 PR 流程 |
@@ -73,7 +73,8 @@ Happy Next 现在提供原生体验的桌面客户端，不再要求用户一直
 - **MCP 工具集成**：编排器工具注册为 MCP 工具，自动填充工作目录
 - **工具描述重写**：编排器重写工具描述以提升 Agent 理解
 - **完整 i18n**：所有编排器 UI 完全国际化
-- **CLI 自动安装**：Happy CLI 启动时安装编排器 skill 和 `/orchestrator` 斜杠命令，可直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder agent
+- **CLI 自动安装**：Happy CLI 启动时安装编排器 skill 和 `/orchestrator` 斜杠命令，可直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder / Qoder CN agent
+- **Qoder CN 执行器**：任务可以在 Qoder 之外运行在 Qoder CN（`qodercn`）上——机器分别上报两个版本，`/orchestrator:qodercn` 与其他按 Agent 命令一致，上下文中列出各版本自己的账号模型，运行中任务的实时消息读取其对应版本的会话
 - **`/preview-html` 内置命令**：内置 CLI 斜杠命令,生成自包含 HTML 文档并直接在 app 内预览
 - **运行与任务耗时**：运行和任务显示耗时，运行中实时计时
 - **简化的运行筛选**：全部、进行中、已完成、失败、已取消，各项相加即为全部
@@ -102,11 +103,12 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **插话进运行中的回合**：排队消息可以在不打断的情况下送进正在运行的回合（Claude、Codex 和 Qoder），与「立即发送（打断）」并列；在 Agent 读取之前显示为「等待读取」
 - **浮动队列**：队列是输入框上方的浮动卡片堆——收起时是胶囊，展开时是卡片，每条消息有带图标的菜单，详情在底部面板中打开
 - **定时发送消息**：从输入框的添加菜单定时发送消息——30 分钟后、1 小时后、用量限制重置后，或自选时间
+- **编辑与重新安排**：编辑定时消息和重新安排发送时间共用同一套流程，使用定时消息按钮和 Web 端编辑面板时不再跳动
 - **持久化消息缓存**：会话消息存储在本地，重新打开会话时可更快显示已有历史
 
 ## 多 Agent 支持
 
-原版 Happy 只支持 Claude Code。Happy Next 将 Claude Code、Codex、Gemini 和 Qoder 视为平等的一等公民。
+原版 Happy 只支持 Claude Code。Happy Next 将 Claude Code、Codex、Gemini 和 Qoder——包括 Qoder 和 Qoder CN 两个版本——视为平等的一等公民。
 
 - **多 Agent 历史页面**，按供应商分标签页（Claude / Codex / Gemini / Qoder）
 - **会话恢复和复制/分叉**，支持全部四个 Agent
@@ -117,17 +119,19 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **模型目录新增 Claude Opus 4.8**
 - **模型目录新增 Claude Fable 5.1 和 Fable 5**，提供 1M 上下文及 low / medium / high / xhigh / max 五档推理强度
 - **模型目录新增 Claude Opus 5 和 Claude Sonnet 5**，支持 1M 上下文、当前推理强度预设、快速模式能力识别和更新后的费用追踪
-- **刷新 Gemini 模型目录**，加入 Gemini 3.8 Flash，并保留现有 Gemini 模型
-- **远程模型目录**：模型由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.1-Sol、GPT-6-Sol 和 GPT-6-Luna
+- **刷新 Gemini 模型目录**，新增 Gemini 4 Neon 和 Hydrogen，与 Gemini 4 Argon、Carbon 并列
+- **远程模型目录**：模型由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.2-Sol、GPT-6.2-Astra、GPT-6.1-Sol、GPT-6-Sol、Gemini 4 Neon 和 Gemini 4 Hydrogen
 - **设置附带说明**：设置弹层为每种权限模式和 AI 厂商附上说明，模型描述跟随 App 语言，包括简体中文和繁体中文
 - **Codex“帮我批准”**：Codex 的审批模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
 - **精简模型选择器**：每个 Claude 模型只有一项并使用完整上下文窗口；宽屏下推理强度并排显示，Claude 默认 High 强度
 - **上下文窗口选择**：创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的窗口——200K、1M 或自定义大小；模型列表新增 Claude Fable 5.2
 - **Claude 上下文窗口**：上下文条按 Claude Code 实际使用的窗口计算，Qoder 和 Gemini 会话显示上下文用量
 - **通过 ACP 接入 Qoder**：账号模型与推理强度、Qoder 的权限模式，以及与之分开显示的 plan 模式
+- **Qoder 与 Qoder CN 两个 Agent**：机器同时装有两个版本时，新建会话可任选其一，各自使用自己的模型；会话在复制、恢复、升级、分叉或复制为新会话时保留原来的版本，历史记录、最近会话和会话名称可区分两者
+- **Claude bypass 权限**：Claude 会话切换到 bypass 权限会真正生效——Claude 启动时带上该能力，模型或权限模式切换被 Claude 拒绝或 3 秒内无响应时以新模式重启，每条消息都会重申权限模式；在非沙箱环境下以 root 运行时 Claude 保持 default，切换会被拒绝并回退
 - **Shell 命令规则**：对 shell 命令选择“不再询问”时可选择覆盖哪些程序或子命令，四个 Agent 均支持
-- **GPT-6 Astra 与 GPT-5.6 模型目录支持**：当前模型家族包含对应的推理强度和上下文配置
-- **Codex v0.155.1**：内置 Codex CLI 升级，并支持当前 App-Server 交互
+- **GPT-6.2 Astra 与 Sol 模型目录支持**：当前模型家族包含对应的推理强度和上下文配置
+- **Codex v0.171.0**：内置 Codex CLI 升级，加入 GPT-6.2 Sol 和 Astra，并支持当前 App-Server 交互
 - **费用追踪**，Claude 模型的精确 token 用量（缓存 token、推理 token）
 - **Codex 推理强度**配置（low / medium / high / xhigh）
 - **ACP（Agent Client Protocol）后端**：JSON-RPC Agent 协议（最初为 Codex 引入以替代 MCP 客户端方案，现用于 Gemini）
@@ -418,7 +422,7 @@ Happy Next 添加了一等自托管路径。
 - **机器右键菜单与隐藏空闲机器**：右键机器可新建会话、打开终端或查看详情，并可在机器栏和切换面板中隐藏空闲机器
 - **机器页面**：重新排列并为各行加上图标，可在机器的主目录打开终端，最近会话可跳转到该机器的完整会话历史
 
-- **Qoder Agent**：Qoder CLI 成为第四个 Agent（`happy qoder`），支持账号模型与推理强度、权限模式与 plan 模式、会话历史、恢复、分叉和 `/duplicate`、图片输入和上下文用量
+- **Qoder Agent**：Qoder CLI 成为第四个 Agent（`happy qoder`），分 Qoder 和 Qoder CN 两个版本，各自支持账号模型与推理强度、权限模式与 plan 模式、会话历史、恢复、分叉和 `/duplicate`、图片输入和上下文用量
 - **命令面板检索**：检索所有机器的消息历史，命中结果按会话归组，保留搜索历史，空闲时以磁贴显示命令
 - **终端面板**：Web 和桌面端可在应用底部停靠终端面板，在任何页面下都能使用所有 shell
 - **终端标签排序**：iOS 上终端标签可以沿标签栏拖动排序，长按未激活的标签不再切换过去
@@ -520,6 +524,7 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **Happy CLI v0.19.0**：展示 Claude 已经发送但此前被丢弃的通知，让 Task 卡片和会话标题保持同步，并分类了 76 种 Claude 系统子类型，CLI 升级时由测试发现遗漏而不是静默丢弃
 - **Happy CLI v0.20.0**：在打开该轮的设备隐藏思考时，不再把该轮思考上传到服务器，并给记录标记地标（提问、问题、回答、预览），让缩略图能到达设备从未分页加载的消息
 - **Happy CLI v0.20.1**：让 Claude Code 把 Task 改名为 Agent 后的子代理卡继续工作，子代理的提示词与后续消息仍归在这张卡下
+- **Happy CLI v0.21.0**：把 Qoder 和 Qoder CN 拆成两个 Agent，编排任务可运行在 Qoder CN 上，Claude 会话切换到 bypass 权限会真正生效；新 Codex 会话使用 Codex v0.171.0
 
 ## 服务端
 

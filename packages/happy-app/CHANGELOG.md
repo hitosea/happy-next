@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 41 - 2026-11-23
+
+Happy Next v2.28.0 lets you pick Qoder or Qoder CN as separate agents, lets the orchestrator delegate to Qoder CN, makes switching a Claude session to bypass permissions take effect, and unifies editing and rescheduling scheduled messages.
+
+- Qoder: Qoder and Qoder CN are two agents to choose from — a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart
+- Orchestrator: a task can run on Qoder CN (`qodercn`) beside Qoder — machines report the two builds separately, `/orchestrator:qodercn` works like the other providers, the context lists each build's own account models, and a running task's live message reads its build's conversation
+- Claude: switching a session to bypass permissions now takes effect — Claude launches with the capability, a model or permission-mode switch it refuses or does not answer restarts in the new mode, and every message re-asserts the session's permission mode; as root outside a sandbox, Claude stays in default and the switch is refused and reverted
+- Chat: editing a scheduled message and rescheduling it share one flow, and the scheduled message button and the web edit sheet stay in place while you use them
+- Models: Codex sessions run on Codex CLI 0.171.0 with GPT-6.2 Sol and Astra in the model list, and Gemini 4 Neon and Hydrogen join the Gemini list
+- CLI: Happy CLI v0.21.0
+
 ## Version 40 - 2026-11-17
 
 Happy Next v2.27.0 keeps subagent cards working after Claude Code renamed Task to Agent, gives the web minimap a hover card that scrubs and scrolls with the rail, and makes the first tap after typing — and on the composer's buttons with the keyboard up — land again. It also includes the minimap landmarks, hidden-thinking privacy and iOS scroll-edge fixes introduced in v2.26.0.

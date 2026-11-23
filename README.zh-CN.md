@@ -113,12 +113,12 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ### 编排器（Orchestrator）
 - 定义任务依赖图（DAG），支持按任务指定模型和工作目录
-- 跨 Claude、Codex、Gemini 和 Qoder 自动调度执行
+- 跨 Claude、Codex、Gemini 和 Qoder 自动调度执行，Qoder 与 Qoder CN 两个版本可分别选用
 - 实时状态徽章、活动计数（含排队任务，而不仅是运行中的任务）和状态颜色进度条
 - 清晰的任务执行历史、更顺畅的运行导航，以及从编排器消息直达对应运行的链接
 - 通过会话恢复跟进已完成任务
 - MCP 工具集成，自动填充工作目录
-- Happy CLI 启动时自动安装编排器 skill 和 `/orchestrator` 斜杠命令——直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder agent
+- Happy CLI 启动时自动安装编排器 skill 和 `/orchestrator` 斜杠命令——直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder / Qoder CN agent，并新增与其他按 Agent 命令并列的 `/orchestrator:qodercn`
 - 内置 `/preview-html` 斜杠命令——在 CLI 里生成自包含 HTML 文档并直接在 app 内预览
 - 编排运行和任务显示耗时，运行筛选简化为全部、进行中、已完成、失败、已取消；任务结果只保留 agent 的最终回复，运行中可实时跟进
 - 恢复的任务会回报给发送跟进消息的会话，该运行在两个会话中都会列出
@@ -136,12 +136,13 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 重连同步和并发分发安全，回合结束后立即发出下一条排队消息
 - 排队消息可以「插话」进正在运行的回合而不打断它（Claude、Codex 和 Qoder），与「立即发送（打断）」并列；队列是输入框上方的浮动卡片堆，每条消息有自己的菜单
 - 从输入框的添加菜单定时发送消息——30 分钟后、1 小时后、用量限制重置后，或自选时间
+- 编辑定时消息和重新安排发送时间共用同一套流程，使用定时消息按钮和 Web 端编辑面板时不再跳动
 
 ### 多 Agent 支持（Claude Code + Codex + Gemini + Qoder）
 - 四个 Agent 均为一等公民，支持会话恢复、复制/分叉和历史记录
 - 多 Agent 历史页面，按供应商分标签页，支持设备和 Agent 类型筛选
 - 按 Agent 选择模型、费用追踪和上下文窗口显示
-- Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，内置 Codex v0.155.1 并支持 fast mode
+- Codex 支持 ACP 和 App-Server（JSON-RPC）两种后端，内置 Codex v0.171.0 并支持 fast mode
 - Codex 归档操作同步到原生历史，保持归档状态显示一致，并可在继续工作时恢复已归档会话
 - 更可靠的 Codex 会话复制和分叉，并明确提示活动会话冲突
 - Codex 交互式问题和审批请求可直接在应用中处理，支持选项、自定义“其他”、自由文本和敏感回答掩码
@@ -150,11 +151,13 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 新增 Claude Opus 5 和 Claude Sonnet 5，支持 1M 上下文、当前推理强度预设、快速模式能力识别和更新后的费用追踪
 - 精简模型选择器：每个 Claude 模型只有一项并使用完整上下文窗口，宽屏下推理强度并排显示，Claude 默认 High 强度；上下文条按 Claude Code 实际使用的窗口计算
 - 创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的上下文窗口——200K、1M 或自定义大小；模型列表新增 Claude Fable 5.2
-- 模型目录支持 GPT-6 Astra，并更新 GPT-5.6 Sol、Terra、Luna 的推理强度和上下文配置
-- 刷新 Gemini 模型目录，加入 Gemini 3.8 Flash，并保留现有 Gemini 模型
+- Claude 会话切换到 bypass 权限现在会生效：Claude 启动时带上该能力，模型或权限模式切换被 Claude 拒绝或 3 秒内无响应时以新模式重启，每条消息都会重申会话的权限模式；在非沙箱环境下以 root 运行时 Claude 保持 default，切换会被拒绝并回退
+- 模型目录新增 GPT-6.2 Astra 和 Sol，与 GPT-6.1 Sol、Terra 一起提供当前的推理强度和上下文配置
+- Gemini 模型目录新增 Gemini 4 Neon 和 Hydrogen，与 Gemini 4 Argon、Carbon 并列
 - 通过 ACP 接入 Qoder CLI，支持账号模型与推理强度、权限模式与 plan 模式，Qoder 和 Gemini 会话显示上下文用量
+- Qoder 与 Qoder CN 是两个独立 Agent——机器同时装有两个版本时，新建会话可任选其一，各自使用自己的模型；会话在复制、恢复、升级、分叉或复制为新会话时保留原来的版本，历史记录、最近会话和会话名称可区分两者
 - 对 shell 命令选择“不再询问”时可选择覆盖哪些程序或子命令，四个 Agent 均支持
-- 模型目录由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.1-Sol、GPT-6-Sol 和 GPT-6-Luna
+- 模型目录由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.2-Sol、GPT-6.2-Astra、GPT-6.1-Sol、GPT-6-Sol、Gemini 4 Neon 和 Gemini 4 Hydrogen
 - 设置弹层为每种权限模式和 AI 厂商附上说明，模型描述跟随 App 语言，包括简体中文和繁体中文
 - Codex 的“帮我批准”模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
 - Codex 会在账号配额用完前预警，并不再丢弃生成图片、完成的 plan、hook 运行和审批决定；Codex 自己的标题、`/model` 切换、警告、`/review` 标记和 sleep 也会显示在会话里
@@ -335,7 +338,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 机器可设置预设头像，可在侧栏右键菜单中拖动排序，并可在机器栏和切换面板中隐藏空闲机器
 - 机器页面可在机器的主目录打开终端，最近会话可跳转到该机器的完整会话历史
 
-- Qoder CLI 成为第四个 Agent（`happy qoder`），支持账号模型与推理强度、权限模式与 plan 模式、会话历史、恢复、分叉和 `/duplicate`、图片输入和上下文用量
+- Qoder CLI 成为第四个 Agent（`happy qoder`），分 Qoder 和 Qoder CN 两个版本，各自支持账号模型与推理强度、权限模式与 plan 模式、会话历史、恢复、分叉和 `/duplicate`、图片输入和上下文用量
 - 命令面板可检索所有机器的消息历史，按会话归组命中结果，保留搜索历史，空闲时以磁贴显示命令
 - Web 和桌面端可在应用底部停靠终端面板，在任何页面下都能使用所有 shell
 - iOS 上终端标签可以沿标签栏拖动排序，长按未激活的标签不再切换过去
@@ -416,6 +419,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Happy CLI v0.19.0 展示 Claude 已经发送但此前被丢弃的通知，让 Task 卡片和会话标题保持同步，并分类了 76 种 Claude 系统子类型，升级时由测试发现遗漏而不是静默丢弃
 - Happy CLI v0.20.0 在打开该轮的设备隐藏思考时，不再把该轮思考上传到服务器，并在消息上标记地标，让缩略图能到达更早的消息
 - Happy CLI v0.20.1 让 Claude Code 把 Task 改名为 Agent 后的子代理卡继续工作，子代理的提示词与后续消息仍归在这张卡下
+- Happy CLI v0.21.0 把 Qoder 和 Qoder CN 拆成两个 Agent，编排任务可运行在 Qoder CN 上，Claude 会话切换到 bypass 权限会真正生效；新 Codex 会话使用 Codex v0.171.0
 
 ### Bug 修复和稳定性
 - 255+ Bug 修复：消息发送可靠性、会话生命周期、Markdown 渲染、导航、语音、DooTask、共享

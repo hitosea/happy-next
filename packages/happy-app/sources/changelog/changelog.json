@@ -1,6 +1,20 @@
 {
   "entries": [
     {
+      "version": 41,
+      "date": "2026-11-23",
+      "summary": "Happy Next v2.28.0 lets you pick Qoder or Qoder CN as separate agents, lets the orchestrator delegate to Qoder CN, makes switching a Claude session to bypass permissions take effect, and unifies editing and rescheduling scheduled messages.",
+      "changes": [
+        "Qoder: Qoder and Qoder CN are two agents to choose from — a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart",
+        "Orchestrator: a task can run on Qoder CN (`qodercn`) beside Qoder — machines report the two builds separately, `/orchestrator:qodercn` works like the other providers, the context lists each build's own account models, and a running task's live message reads its build's conversation",
+        "Claude: switching a session to bypass permissions now takes effect — Claude launches with the capability, a model or permission-mode switch it refuses or does not answer restarts in the new mode, and every message re-asserts the session's permission mode; as root outside a sandbox, Claude stays in default and the switch is refused and reverted",
+        "Chat: editing a scheduled message and rescheduling it share one flow, and the scheduled message button and the web edit sheet stay in place while you use them",
+        "Models: Codex sessions run on Codex CLI 0.171.0 with GPT-6.2 Sol and Astra in the model list, and Gemini 4 Neon and Hydrogen join the Gemini list",
+        "CLI: Happy CLI v0.21.0"
+      ],
+      "rawMarkdown": "## Version 41 - 2026-11-23\n\n\nHappy Next v2.28.0 lets you pick Qoder or Qoder CN as separate agents, lets the orchestrator delegate to Qoder CN, makes switching a Claude session to bypass permissions take effect, and unifies editing and rescheduling scheduled messages.\n\n- Qoder: Qoder and Qoder CN are two agents to choose from — a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart\n- Orchestrator: a task can run on Qoder CN (`qodercn`) beside Qoder — machines report the two builds separately, `/orchestrator:qodercn` works like the other providers, the context lists each build's own account models, and a running task's live message reads its build's conversation\n- Claude: switching a session to bypass permissions now takes effect — Claude launches with the capability, a model or permission-mode switch it refuses or does not answer restarts in the new mode, and every message re-asserts the session's permission mode; as root outside a sandbox, Claude stays in default and the switch is refused and reverted\n- Chat: editing a scheduled message and rescheduling it share one flow, and the scheduled message button and the web edit sheet stay in place while you use them\n- Models: Codex sessions run on Codex CLI 0.171.0 with GPT-6.2 Sol and Astra in the model list, and Gemini 4 Neon and Hydrogen join the Gemini list\n- CLI: Happy CLI v0.21.0"
+    },
+    {
       "version": 40,
       "date": "2026-11-17",
       "summary": "Happy Next v2.27.0 keeps subagent cards working after Claude Code renamed Task to Agent, gives the web minimap a hover card that scrubs and scrolls with the rail, and makes the first tap after typing — and on the composer's buttons with the keyboard up — land again. It also includes the minimap landmarks, hidden-thinking privacy and iOS scroll-edge fixes introduced in v2.26.0.",
@@ -773,5 +787,5 @@
       "rawMarkdown": "## Version 1 - 2025-05-12\n\n\nWelcome to Happy - your secure, encrypted mobile companion for Claude Code. This inaugural release establishes the foundation for private, powerful AI interactions on the go.\n\n- Implemented end-to-end encrypted session management ensuring complete privacy\n- Integrated intelligent voice assistant with natural conversation capabilities\n- Added experimental file manager with syntax highlighting and tree navigation\n- Built seamless real-time synchronization across all your devices\n- Established native support for iOS, Android, and responsive web interfaces"
     }
   ],
-  "latestVersion": 40
+  "latestVersion": 41
 }
