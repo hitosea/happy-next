@@ -9,19 +9,20 @@ import { Readable, Writable } from 'node:stream';
 import { ClientSideConnection, ndJsonStream, type AvailableCommand, type SessionNotification } from '@agentclientprotocol/sdk';
 import { logger } from '@/ui/logger';
 import { listAcpModels, type AcpModel } from '@/agent/acp/listAcpModels';
-import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
+import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { withShortLivedProcess } from '@/utils/shortLivedProcess';
 
 const QODER_SESSION_OP_TIMEOUT_MS = 30_000;
 
 async function withQoderConnection<T>(
   cwd: string,
+  build: QoderBuild | undefined,
   run: (connection: ClientSideConnection) => Promise<T>,
   onSessionUpdate: (notification: SessionNotification) => void = () => {},
   timeoutMs = QODER_SESSION_OP_TIMEOUT_MS,
 ): Promise<T> {
   const env = { ...process.env, ...QODER_SDK_ISOLATION_ENV };
-  return withShortLivedProcess(resolveQoderCommand(), ['--acp'], { cwd, env, timeoutMs }, async (child) => {
+  return withShortLivedProcess(resolveQoderCommand(process.env, build), ['--acp'], { cwd, env, timeoutMs }, async (child) => {
     const connection = new ClientSideConnection(
       () => ({
         sessionUpdate: async (notification) => onSessionUpdate(notification),
@@ -38,8 +39,8 @@ async function withQoderConnection<T>(
 }
 
 /** Copies a Qoder conversation into a new session and returns the new session id. */
-export async function forkQoderSession(sessionId: string, cwd: string): Promise<string> {
-  return withQoderConnection(cwd, async (connection) => {
+export async function forkQoderSession(sessionId: string, cwd: string, build?: QoderBuild): Promise<string> {
+  return withQoderConnection(cwd, build, async (connection) => {
     const forked = await connection.unstable_forkSession({ sessionId, cwd, mcpServers: [] });
     logger.debug(`[Qoder] Forked session ${sessionId} into ${forked.sessionId}`);
     return forked.sessionId;
@@ -50,8 +51,8 @@ export async function forkQoderSession(sessionId: string, cwd: string): Promise<
  * Lists the models the signed-in account offers over ACP. A session that never
  * gets a prompt is not saved by qodercli, so this leaves no trace in Qoder's history.
  */
-export async function listQoderModelsOverAcp(cwd: string, timeoutMs: number): Promise<AcpModel[]> {
-  return withQoderConnection(cwd, (connection) => listAcpModels(connection, cwd), undefined, timeoutMs);
+export async function listQoderModelsOverAcp(cwd: string, build: QoderBuild, timeoutMs: number): Promise<AcpModel[]> {
+  return withQoderConnection(cwd, build, (connection) => listAcpModels(connection, cwd), undefined, timeoutMs);
 }
 
 /**
@@ -59,11 +60,12 @@ export async function listQoderModelsOverAcp(cwd: string, timeoutMs: number): Pr
  * them nowhere Happy can read and only announces them once a session exists,
  * so a throwaway session is opened and its first announcement returned.
  */
-export async function listQoderCommands(cwd: string): Promise<AvailableCommand[]> {
+export async function listQoderCommands(cwd: string, build?: QoderBuild): Promise<AvailableCommand[]> {
   let announced: (commands: AvailableCommand[]) => void = () => {};
   const commands = new Promise<AvailableCommand[]>((resolve) => { announced = resolve; });
   return withQoderConnection(
     cwd,
+    build,
     async (connection) => {
       await connection.newSession({ cwd, mcpServers: [] });
       return commands;

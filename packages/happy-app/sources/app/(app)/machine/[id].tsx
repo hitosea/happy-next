@@ -49,17 +49,10 @@ import { useSessionFork } from '@/hooks/useSessionFork';
 import { useMachineCliUpdate } from '@/hooks/useMachineCliUpdate';
 import { requestCliUpdateCheck } from '@/utils/cliUpdate';
 import { SessionProjectLabelsContext, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
+import { AGENT_CHOICES, resolveAgentChoice, type AgentChoice } from '@/utils/agentChoice';
 
-type AgentType = 'claude' | 'codex' | 'gemini' | 'qoder';
 
-const AGENT_LABELS: Record<AgentType, string> = {
-    claude: 'Claude',
-    codex: 'Codex',
-    gemini: 'Gemini',
-    qoder: 'Qoder',
-};
-
-function resolveSessionModeForAgent(agent: AgentType) {
+function resolveSessionModeForAgent(agent: AgentChoice) {
     const lastUsed = storage.getState().sessionModeConfig.lastUsedByAgent[agent];
     return {
         permissionMode: (lastUsed?.permissionMode ?? 'default') as PermissionMode,
@@ -272,15 +265,11 @@ export default function MachineDetailScreen() {
         && customPath.trim().length > 0
         && directoryCompletions.length > 0;
 
-    const availableAgents = useMemo<AgentType[]>(() => {
+    const availableAgents = useMemo<AgentChoice[]>(() => {
         if (cliAvailability.timestamp === 0) return ['claude'];
-        const agents: AgentType[] = [];
-        if (cliAvailability.claude === true) agents.push('claude');
-        if (cliAvailability.codex === true) agents.push('codex');
-        if (cliAvailability.gemini === true) agents.push('gemini');
-        if (cliAvailability.qoder === true) agents.push('qoder');
+        const agents = AGENT_CHOICES.filter((choice) => cliAvailability[choice] === true);
         return agents.length > 0 ? agents : ['claude'];
-    }, [cliAvailability.timestamp, cliAvailability.claude, cliAvailability.codex, cliAvailability.gemini, cliAvailability.qoder]);
+    }, [cliAvailability]);
 
     const pathsToShow = useMemo<string[]>(() => {
         if (isShowingCompletions) return directoryCompletions;
@@ -383,8 +372,9 @@ export default function MachineDetailScreen() {
         }
     };
 
-    const handleStartSession = useCallback(async (agent?: AgentType, approvedNewDirectoryCreation: boolean = false): Promise<void> => {
+    const handleStartSession = useCallback(async (choice?: AgentChoice, approvedNewDirectoryCreation: boolean = false): Promise<void> => {
         if (!machine || !machineId) return;
+        const { agent, qoderBuild } = choice ? resolveAgentChoice(choice) : { agent: undefined, qoderBuild: undefined };
         try {
             const pathToUse = (customPath.trim() || '~');
             if (!isMachineOnline(machine)) return;
@@ -457,13 +447,14 @@ export default function MachineDetailScreen() {
                 }
             }
 
-            const sessionMode = resolveSessionModeForAgent(agent ?? 'claude');
+            const sessionMode = resolveSessionModeForAgent(choice ?? 'claude');
 
             const result = await machineSpawnNewSession({
                 machineId: machineId!,
                 directory: actualPath,
                 approvedNewDirectoryCreation,
                 agent,
+                qoderBuild,
                 // Pass worktree metadata so CLI includes it in initial metadata (avoids race condition)
                 ...(sessionType === 'worktree' && worktreeBranchName ? {
                     worktreeBasePath: absolutePath,
@@ -481,7 +472,7 @@ export default function MachineDetailScreen() {
                     }
                     sync.queueSessionModeConfigUpdate({
                         sessionId: result.sessionId,
-                        agentType: agent ?? 'claude',
+                        agentType: choice ?? 'claude',
                         permissionMode: sessionMode.permissionMode,
                         modelMode: sessionMode.modelMode || MODEL_MODE_DEFAULT,
                         fastMode: sessionMode.fastMode,
@@ -493,7 +484,7 @@ export default function MachineDetailScreen() {
                 case 'requestToApproveDirectoryCreation': {
                     const approved = await Modal.confirm('Create Directory?', `The directory '${result.directory}' does not exist. Would you like to create it?`, { cancelText: t('common.cancel'), confirmText: t('common.create') });
                     if (approved) {
-                        await handleStartSession(agent, true);
+                        await handleStartSession(choice, true);
                     }
                     break;
                 }
@@ -521,7 +512,7 @@ export default function MachineDetailScreen() {
         setAgentMenu({
             visible: true,
             items: availableAgents.map((agent) => ({
-                label: AGENT_LABELS[agent],
+                label: t(`agentInput.agent.${agent}`),
                 onPress: () => {
                     setAgentMenu({ visible: false, items: [] });
                     void handleStartSession(agent);
@@ -531,7 +522,7 @@ export default function MachineDetailScreen() {
     }, [availableAgents, handleStartSession]);
 
     const agentMenuItems = useMemo<ActionMenuItem[]>(() => availableAgents.map((agent) => ({
-        label: AGENT_LABELS[agent],
+        label: t(`agentInput.agent.${agent}`),
         onPress: () => {
             setAgentMenu({ visible: false, items: [] });
             void handleStartSession(agent);

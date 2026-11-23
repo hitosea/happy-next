@@ -105,6 +105,16 @@ describe('sessionModeConfig', () => {
         });
     });
 
+    it('keeps Qoder and Qoder CN apart, through a round trip too', () => {
+        let doc = createEmptySessionModeConfig(0);
+        doc = applySessionModeConfigPatch(doc, patch({ agentType: 'qoder', includeLastUsed: true, modelMode: 'performance', updatedAt: 100 }));
+        doc = applySessionModeConfigPatch(doc, patch({ agentType: 'qodercn', includeLastUsed: true, modelMode: 'qwen3-coder', updatedAt: 200 }));
+        const decoded = decodeSessionModeConfigValue(encodeSessionModeConfigValue(doc));
+
+        expect(getLastUsedForAgent(decoded, 'qoder')).toMatchObject({ modelMode: 'performance' });
+        expect(getLastUsedForAgent(decoded, 'qodercn')).toMatchObject({ modelMode: 'qwen3-coder' });
+    });
+
     it('preserves default values in session entries (new session case)', () => {
         const doc = applySessionModeConfigPatch(
             createEmptySessionModeConfig(0),

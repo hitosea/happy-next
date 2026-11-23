@@ -1888,6 +1888,7 @@ describe('orchestrator integration paths', () => {
             codex: getValidModelModesForAgent('codex'),
             gemini: getValidModelModesForAgent('gemini'),
             qoder: getValidModelModesForAgent('qoder'),
+            qodercn: getValidModelModesForAgent('qoder'),
         });
         expect(body.data.defaults).toEqual(expect.objectContaining({
             retryMaxAttempts: 1,

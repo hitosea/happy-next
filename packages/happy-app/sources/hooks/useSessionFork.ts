@@ -5,6 +5,7 @@ import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSes
 import { sync } from '@/sync/sync';
 import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { t } from '@/text';
+import { agentDisplayName } from '@/utils/agentChoice';
 import { copySessionMetadata, copySessionModeSettings, generateCopyTitle, getSessionName } from '@/utils/sessionUtils';
 import { useNavigateToSession } from '@/hooks/useNavigateToSession';
 
@@ -40,7 +41,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
         return;
     }
 
-    const provider = flavor === 'gemini' ? 'Gemini' : flavor === 'codex' ? 'Codex' : flavor === 'qoder' ? 'Qoder' : 'Claude';
+    const provider = agentDisplayName(flavor, session.metadata?.qoderBuild);
     const confirmTitle = mode === 'copy' ? t('sessionHistory.copyConfirmTitle') : t('sessionHistory.resumeConfirmTitle');
     const confirmMessage = mode === 'copy' ? t('sessionHistory.copyConfirmMessage', { provider }) : t('sessionHistory.resumeConfirmMessage', { provider });
     const confirmed = await Modal.confirm(
@@ -78,7 +79,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
             resumeSessionId = forkResult.newFilePath;
             agent = 'codex';
         } else if (flavor === 'qoder' && qoderSessionId) {
-            const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory);
+            const forkResult = await machineForkQoderSession(machineId, qoderSessionId, directory, session.metadata?.qoderBuild);
             if (!forkResult.success || !forkResult.newSessionId) {
                 Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
                 return;
@@ -102,6 +103,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
             directory,
             approvedNewDirectoryCreation: false,
             agent,
+            qoderBuild: session.metadata?.qoderBuild,
             resumeSessionId,
             sessionTitle,
             forkedFrom: { sessionId: session.id, title: originalTitle, contextWindowSize: session.agentState?.contextWindowSize ?? undefined },

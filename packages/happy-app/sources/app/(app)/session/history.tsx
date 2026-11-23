@@ -39,21 +39,22 @@ import { MMKV } from 'react-native-mmkv';
 import { NativeMenu } from '@/components/NativeMenu';
 import type { ActionMenuItem } from '@/components/ActionMenu';
 import { SearchField } from '@/components/SearchField';
+import { agentChoiceOf, isAgentChoice, resolveAgentChoice, type AgentChoice, type AgentType } from '@/utils/agentChoice';
 
 const mmkv = new MMKV();
 const SELECTED_MACHINE_KEY = 'agent-history-selected-machine';
 const SELECTED_TAB_KEY = 'agent-history-selected-tab';
 
-type AgentTab = 'claude' | 'codex' | 'gemini' | 'qoder';
-
-const AGENT_TABS: { key: AgentTab; label: () => string }[] = [
+// Qoder and Qoder CN keep their conversations apart, so each has a tab
+const AGENT_TABS: { key: AgentChoice; label: () => string }[] = [
     { key: 'claude', label: () => t('agentHistory.tabClaude') },
     { key: 'codex', label: () => t('agentHistory.tabCodex') },
     { key: 'gemini', label: () => t('agentHistory.tabGemini') },
     { key: 'qoder', label: () => t('agentHistory.tabQoder') },
+    { key: 'qodercn', label: () => t('agentHistory.tabQoderCn') },
 ];
 
-const agentIcons: Record<AgentTab, any> = {
+const agentIcons: Record<AgentType, any> = {
     claude: require('@/assets/images/icon-claude.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
@@ -261,11 +262,11 @@ export default function AgentHistoryPage() {
     const loadMoreInFlightRef = React.useRef(false);
     const lastRequestedOffsetRef = React.useRef<number | null>(null);
 
-    const [activeTab, setActiveTab] = React.useState<AgentTab>(() => {
+    const [activeTab, setActiveTab] = React.useState<AgentChoice>(() => {
         const saved = mmkv.getString(SELECTED_TAB_KEY);
-        if (saved === 'claude' || saved === 'gemini' || saved === 'codex' || saved === 'qoder') return saved;
-        return 'claude';
+        return isAgentChoice(saved) ? saved : 'claude';
     });
+    const { agent: activeAgent, qoderBuild: activeQoderBuild } = resolveAgentChoice(activeTab);
     const [selectedMachineId, setSelectedMachineId] = React.useState<string | null>(null);
     const [sessions, setSessions] = React.useState<AgentSessionIndexEntry[] | null>(null);
     const [loading, setLoading] = React.useState(false);
@@ -351,8 +352,8 @@ export default function AgentHistoryPage() {
                     data = await machineListClaudeSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
                 } else if (activeTab === 'gemini') {
                     data = await machineListGeminiSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
-                } else if (activeTab === 'qoder') {
-                    data = await machineListQoderSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
+                } else if (activeQoderBuild) {
+                    data = await machineListQoderSessions(selectedMachineId, activeQoderBuild, { offset: 0, limit: pageSize, query: searchQuery || undefined });
                 } else {
                     data = await machineListCodexSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined });
                 }
@@ -373,8 +374,8 @@ export default function AgentHistoryPage() {
                         freshData = await machineListClaudeSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
                     } else if (activeTab === 'gemini') {
                         freshData = await machineListGeminiSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
-                    } else if (activeTab === 'qoder') {
-                        freshData = await machineListQoderSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
+                    } else if (activeQoderBuild) {
+                        freshData = await machineListQoderSessions(selectedMachineId, activeQoderBuild, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
                     } else {
                         freshData = await machineListCodexSessions(selectedMachineId, { offset: 0, limit: pageSize, query: searchQuery || undefined, waitForRefresh: true });
                     }
@@ -430,8 +431,8 @@ export default function AgentHistoryPage() {
                     const data = await machineListGeminiSessions(selectedMachineId, { offset, limit: pageSize, query: searchQuery || undefined });
                     setSessions(prev => prev ? prev.concat(data.sessions) : data.sessions);
                     setTotalCount(data.total);
-                } else if (activeTab === 'qoder') {
-                    const data = await machineListQoderSessions(selectedMachineId, { offset, limit: pageSize, query: searchQuery || undefined });
+                } else if (activeQoderBuild) {
+                    const data = await machineListQoderSessions(selectedMachineId, activeQoderBuild, { offset, limit: pageSize, query: searchQuery || undefined });
                     setSessions(prev => prev ? prev.concat(data.sessions) : data.sessions);
                     setTotalCount(data.total);
                 } else {
@@ -488,7 +489,7 @@ export default function AgentHistoryPage() {
                 );
             } else if (entry.agent === 'qoder') {
                 result = await machineGetQoderSessionPreview(
-                    selectedMachineId, entry.sessionId, { limit: 30 }
+                    selectedMachineId, entry.sessionId, entry.qoderBuild ?? 'intl', { limit: 30 }
                 );
             } else {
                 result = await machineGetCodexSessionPreview(
@@ -527,7 +528,7 @@ export default function AgentHistoryPage() {
             Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
             return;
         }
-        const provider = entry.agent === 'gemini' ? 'Gemini' : entry.agent === 'codex' ? 'Codex' : entry.agent === 'qoder' ? 'Qoder' : 'Claude';
+        const provider = t(`agentInput.agent.${agentChoiceOf(entry.agent, entry.qoderBuild)}`);
         const confirmed = await Modal.confirm(
             t('sessionHistory.resumeConfirmTitle'),
             t('sessionHistory.resumeConfirmMessage', { provider }),
@@ -556,7 +557,7 @@ export default function AgentHistoryPage() {
                 }
                 resumeSessionId = forkResult.newSessionId;
             } else if (agent === 'qoder') {
-                const forkResult = await machineForkQoderSession(selectedMachineId, entry.sessionId, entry.originalPath);
+                const forkResult = await machineForkQoderSession(selectedMachineId, entry.sessionId, entry.originalPath, entry.qoderBuild);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('agentHistory.resumeFailed'));
                     return;
@@ -576,6 +577,7 @@ export default function AgentHistoryPage() {
                 directory: entry.originalPath,
                 approvedNewDirectoryCreation: false,
                 agent,
+                qoderBuild: entry.qoderBuild,
                 resumeSessionId,
                 sessionTitle: sessionTitle || undefined,
                 forkedFrom: sessionTitle ? { title: sessionTitle } : undefined,
@@ -674,10 +676,10 @@ export default function AgentHistoryPage() {
                         onFallbackOpen={() => setAgentMenuVisible(true)}
                     >
                         <Image
-                            source={agentIcons[activeTab]}
+                            source={agentIcons[activeAgent]}
                             style={{ width: 16, height: 16, marginRight: 6 }}
                             contentFit="contain"
-                            tintColor={activeTab === 'codex' || activeTab === 'qoder' ? theme.colors.text : undefined}
+                            tintColor={activeAgent === 'codex' || activeAgent === 'qoder' ? theme.colors.text : undefined}
                         />
                         <Text style={filterStyles.filterTriggerText} numberOfLines={1}>
                             {AGENT_TABS.find(tab => tab.key === activeTab)?.label() || activeTab}

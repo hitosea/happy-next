@@ -44,7 +44,7 @@ describe('Qoder transcripts', () => {
     });
 
     it('reads user messages without Happy\'s session instructions', async () => {
-        const messages = await readAllQoderSessionUserMessages('qoder-session');
+        const messages = await readAllQoderSessionUserMessages('qoder-session', 'intl');
 
         expect(messages.map((message) => [message.uuid, message.content])).toEqual([['u1', 'Fix the login bug'], ['u2', 'Thanks']]);
     });

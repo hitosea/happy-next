@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { qoderConfigDir } from '@/qoder/constants';
 import { logger } from '@/ui/logger';
 import { getCodexHomeDir } from '@/codex/utils/codexHome';
 import { shouldEnableOrchestratorTools } from './prompt';
@@ -10,6 +11,7 @@ import {
   ORCHESTRATOR_COMMAND_CODEX,
   ORCHESTRATOR_COMMAND_GEMINI,
   ORCHESTRATOR_COMMAND_QODER,
+  ORCHESTRATOR_COMMAND_QODERCN,
 } from './skillAssets';
 
 let didSync = false;
@@ -27,7 +29,7 @@ function writeIfChanged(filePath: string, content: string): void {
 
 /**
  * Sync the bundled orchestrator skill + commands into the Claude, Codex and Qoder config dirs so the
- * controller session can use /orchestrator:claude|codex|gemini|qoder and the orchestrator skill out of
+ * controller session can use /orchestrator:claude|codex|gemini|qoder|qodercn and the orchestrator skill out of
  * the box.
  *
  * - Idempotent: each file is written only when its content differs (no churn).
@@ -55,6 +57,7 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'codex.md'), ORCHESTRATOR_COMMAND_CODEX);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
+    writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
   }
 
   // Codex — $CODEX_HOME/skills, defaulting to ~/.codex/skills.
@@ -67,15 +70,13 @@ export function syncOrchestratorAssets(): void {
   // Qoder — same layout as Claude: <config dir>/skills shows up as /orchestrator, and the
   // commands/ subdirectory yields /orchestrator:<command>.
   // qodercli uses $QODER_CONFIG_DIR or ~/.qoder; the China build qoderclicn keeps its own directory.
-  const qoderRoots = [
-    process.env.QODER_CONFIG_DIR || join(homedir(), '.qoder'),
-    process.env.QODERCN_CONFIG_DIR || join(homedir(), '.qoder-cn'),
-  ];
+  const qoderRoots = [qoderConfigDir('intl'), qoderConfigDir('cn')];
   for (const qoderRoot of qoderRoots.filter((root) => existsSync(root))) {
     writeIfChanged(join(qoderRoot, 'skills', 'orchestrator', 'SKILL.md'), ORCHESTRATOR_SKILL_MD);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'claude.md'), ORCHESTRATOR_COMMAND_CLAUDE);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'codex.md'), ORCHESTRATOR_COMMAND_CODEX);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
+    writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
   }
 }

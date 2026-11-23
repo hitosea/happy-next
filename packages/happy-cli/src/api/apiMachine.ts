@@ -17,6 +17,7 @@ import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProject
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
 import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, saveGeminiSessionCacheStats } from '@/gemini/utils/sessionReader';
 import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/sessionFork';
+import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { forkQoderSession } from '@/qoder/sessions';
 import { listQoderModels } from '@/qoder/models';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
@@ -27,7 +28,7 @@ import { executeSessionArchive } from '@/daemon/executeSessionArchive';
 import type { CheckResult, CliUpdatePreflight, UpdateNowResult } from '@/daemon/cliUpdater';
 import { discoverCapabilities, type DiscoverCapabilitiesAgent } from '@/daemon/discoverCapabilities';
 import { remoteShell } from '@/daemon/orchestratorShell';
-import type { OrchestratorShellDispatchPayload, OrchestratorTransferDispatchPayload, OrchestratorTransferSourceParams } from '@/orchestrator/common';
+import { isOrchestratorProvider, type OrchestratorProvider, type OrchestratorShellDispatchPayload, type OrchestratorTransferDispatchPayload, type OrchestratorTransferSourceParams } from '@/orchestrator/common';
 import { AsyncLock } from '@/utils/lock';
 import { SessionCache, matchFields, type SessionCacheRuntimeStats } from '@/cache/SessionCache';
 import { encodeBase64, decodeBase64, encrypt, decrypt } from './encryption';
@@ -47,7 +48,9 @@ const PROVIDER_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true"); ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true"); ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true"); ' +
-    '((command -v qodercli || command -v qoderclicn || test -x ~/.local/bin/qodercli || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qoder:true"); ' +
+    // Qoder (qodercli) and Qoder CN (qoderclicn) are separate providers; their installers use ~/.local/bin
+    '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true"); ' +
+    '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
     'true';
 
 function createSessionCacheStatsReporter(
@@ -152,6 +155,20 @@ interface DaemonToServerEvents {
     'terminal-frame': (data: TerminalFrame) => void;
 }
 
+function createQoderSessionCache(build: QoderBuild) {
+    return new SessionCache({
+        loader: () => listClaudeSessionsFromIndex(qoderTranscriptStore(build)),
+        staleTTL: 30_000,
+        matchFn: (s, q) => matchFields(q, [s.sessionId, s.title, s.originalPath]),
+        onStatsChanged: createSessionCacheStatsReporter((stats) => saveClaudeSessionCacheStats(stats, qoderTranscriptStore(build)), QODER_SLUGS[build]),
+    });
+}
+
+/** The build a `qoder-*` request names; one without (an older app) means the build Happy starts by default. */
+function requestedQoderBuild(params: { build?: unknown } | null | undefined): QoderBuild {
+    return parseQoderBuild(params?.build) ?? qoderBuildOf(resolveQoderCommand());
+}
+
 type MachineRpcHandlers = {
     spawnSession: (options: SpawnSessionOptions) => Promise<SpawnSessionResult>;
     stopSession: (sessionId: string) => boolean;
@@ -161,7 +178,7 @@ type MachineRpcHandlers = {
         runId: string;
         taskId: string;
         dispatchToken: string;
-        provider: 'claude' | 'codex' | 'gemini' | 'qoder';
+        provider: OrchestratorProvider;
         executionType: 'initial' | 'resume';
         childSessionId?: string;
         model?: string;
@@ -238,12 +255,8 @@ export class ApiMachineClient {
         onStatsChanged: createSessionCacheStatsReporter(saveCodexSessionCacheStats, 'codex'),
     });
 
-    private qoderCache = new SessionCache({
-        loader: () => listClaudeSessionsFromIndex(qoderTranscriptStore()),
-        staleTTL: 30_000,
-        matchFn: (s, q) => matchFields(q, [s.sessionId, s.title, s.originalPath]),
-        onStatsChanged: createSessionCacheStatsReporter((stats) => saveClaudeSessionCacheStats(stats, qoderTranscriptStore()), 'qoder'),
-    });
+    // Qoder and Qoder CN keep their conversations apart, so the app lists each on its own tab
+    private qoderCaches = { intl: createQoderSessionCache('intl'), cn: createQoderSessionCache('cn') };
 
     private codexArchiveLock = new AsyncLock();
 
@@ -320,21 +333,21 @@ export class ApiMachineClient {
 
         // Register spawn session handler
         this.rpcHandlerManager.registerHandler('spawn-happy-session', async (params: any) => {
-            const { directory, sessionId, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, machineId, approvedNewDirectoryCreation, agent, token, environmentVariables, worktreeBasePath, worktreeBranchName, workspaceRepos, workspacePath, repoScripts, mcpServers } = params || {};
+            const { directory, sessionId, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, machineId, approvedNewDirectoryCreation, agent, qoderBuild, token, environmentVariables, worktreeBasePath, worktreeBranchName, workspaceRepos, workspacePath, repoScripts, mcpServers } = params || {};
             logger.debug(`[API MACHINE] Spawning session with params: ${JSON.stringify(params)}`);
 
             if (!directory) {
                 throw new Error('Directory is required');
             }
 
-            const result = await spawnSession({ directory, sessionId, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, machineId, approvedNewDirectoryCreation, agent, token, environmentVariables, worktreeBasePath, worktreeBranchName, workspaceRepos, workspacePath, repoScripts, mcpServers });
+            const result = await spawnSession({ directory, sessionId, resumeSessionId, sessionTitle, forkedFrom, skipForkSession, machineId, approvedNewDirectoryCreation, agent, qoderBuild: parseQoderBuild(qoderBuild), token, environmentVariables, worktreeBasePath, worktreeBranchName, workspaceRepos, workspacePath, repoScripts, mcpServers });
 
             switch (result.type) {
                 case 'success':
                     this.claudeCache.invalidate();
                     this.geminiCache.invalidate();
                     this.codexCache.invalidate();
-                    this.qoderCache.invalidate();
+                    Object.values(this.qoderCaches).forEach((cache) => cache.invalidate());
                     logger.debug(`[API MACHINE] Spawned session ${result.sessionId}`);
                     return { type: 'success', sessionId: result.sessionId };
 
@@ -423,7 +436,7 @@ export class ApiMachineClient {
             this.claudeCache.invalidate();
             this.geminiCache.invalidate();
             this.codexCache.invalidate();
-            this.qoderCache.invalidate();
+            Object.values(this.qoderCaches).forEach((cache) => cache.invalidate());
 
             logger.debug(`[API MACHINE] Stopped session ${sessionId}`);
             return { message: 'Session stopped' };
@@ -461,7 +474,7 @@ export class ApiMachineClient {
             if (!provider || typeof provider !== 'string') {
                 throw new Error('provider is required');
             }
-            if (provider !== 'claude' && provider !== 'codex' && provider !== 'gemini' && provider !== 'qoder') {
+            if (!isOrchestratorProvider(provider)) {
                 throw new Error(`Unsupported provider: ${provider}`);
             }
             if (executionType !== 'initial' && executionType !== 'resume') {
@@ -627,7 +640,7 @@ export class ApiMachineClient {
             if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder') {
                 throw new Error(`Unsupported agent: ${agent}`);
             }
-            return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory);
+            return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory, undefined, parseQoderBuild(params?.qoderBuild));
         });
 
         // List Claude sessions from local index
@@ -817,7 +830,7 @@ export class ApiMachineClient {
                 throw new Error('sessionId and directory are required');
             }
             try {
-                return { success: true, newSessionId: await forkQoderSession(sessionId, directory) };
+                return { success: true, newSessionId: await forkQoderSession(sessionId, directory, requestedQoderBuild(params)) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }
@@ -832,12 +845,13 @@ export class ApiMachineClient {
             if (!truncateBeforeUuid || typeof truncateBeforeUuid !== 'string') {
                 throw new Error('truncateBeforeUuid is required');
             }
+            const build = requestedQoderBuild(params);
             try {
-                return { success: true, newSessionId: await duplicateQoderSession(sessionId, directory, truncateBeforeUuid) };
+                return { success: true, newSessionId: await duplicateQoderSession(sessionId, directory, truncateBeforeUuid, build) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             } finally {
-                this.qoderCache.invalidate();
+                this.qoderCaches[build].invalidate();
             }
         });
 
@@ -847,7 +861,7 @@ export class ApiMachineClient {
             const limit = typeof params?.limit === 'number' && params.limit > 0 ? Math.floor(params.limit) : 50;
             const query = typeof params?.query === 'string' ? params.query : undefined;
             const waitForRefresh = params?.waitForRefresh === true;
-            return this.qoderCache.list({ offset, limit, query, waitForRefresh });
+            return this.qoderCaches[requestedQoderBuild(params)].list({ offset, limit, query, waitForRefresh });
         });
 
         this.rpcHandlerManager.registerHandler('qoder-session-preview', async (params: any) => {
@@ -855,7 +869,7 @@ export class ApiMachineClient {
             if (!sessionId || typeof sessionId !== 'string') {
                 throw new Error('sessionId is required');
             }
-            const store = qoderTranscriptStore();
+            const store = qoderTranscriptStore(requestedQoderBuild(params));
             const projectId = await findClaudeProjectId(sessionId, store);
             if (!projectId) {
                 return { messages: [] };
@@ -870,14 +884,14 @@ export class ApiMachineClient {
                 throw new Error('sessionId is required');
             }
             const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 100) : 100;
-            return paginateSessionUserMessages(await readAllQoderSessionUserMessages(sessionId), messageLimit, beforeIndex, preview === true);
+            return paginateSessionUserMessages(await readAllQoderSessionUserMessages(sessionId, requestedQoderBuild(params)), messageLimit, beforeIndex, preview === true);
         });
 
         this.rpcHandlerManager.registerHandler('qoder-resolve-fork-target', async (params: any) => {
             const { sessionId, text, createdAt } = params || {};
             if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
             if (typeof text !== 'string') throw new Error('text is required');
-            const message = resolveSessionUserMessage(await readAllQoderSessionUserMessages(sessionId), { text, createdAt });
+            const message = resolveSessionUserMessage(await readAllQoderSessionUserMessages(sessionId, requestedQoderBuild(params)), { text, createdAt });
             return { message: message ? { uuid: message.uuid, timestamp: message.timestamp, index: message.index } : null };
         });
 
@@ -885,15 +899,16 @@ export class ApiMachineClient {
             const { sessionId, uuid } = params || {};
             if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
             if (!uuid || typeof uuid !== 'string') throw new Error('uuid is required');
-            const messages = await readAllQoderSessionUserMessages(sessionId);
+            const messages = await readAllQoderSessionUserMessages(sessionId, requestedQoderBuild(params));
             return { message: messages.find((message) => message.uuid === uuid) ?? null };
         });
 
         // Models the signed-in Qoder account offers, with their efforts, for the app's model picker and
-        // orchestrator_get_context. They are per account, so the `directory` older apps send is not needed.
-        this.rpcHandlerManager.registerHandler('qoder-list-models', async () => {
+        // orchestrator_get_context. They are per account (Qoder and Qoder CN have their own), so the
+        // `directory` older apps send is not needed.
+        this.rpcHandlerManager.registerHandler('qoder-list-models', async (params: any) => {
             try {
-                return { success: true, models: await listQoderModels() };
+                return { success: true, models: await listQoderModels(requestedQoderBuild(params)) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }
@@ -903,9 +918,10 @@ export class ApiMachineClient {
         // last downloaded, `latest` downloads the current text bundle.
         this.rpcHandlerManager.registerHandler('qoder-model-descriptions', async (params: any) => {
             try {
+                const build = requestedQoderBuild(params);
                 const descriptions = params?.source === 'latest'
-                    ? await fetchLatestQoderModelDescriptions()
-                    : await readCachedQoderModelDescriptions();
+                    ? await fetchLatestQoderModelDescriptions(build)
+                    : await readCachedQoderModelDescriptions(build);
                 return { success: !!descriptions, descriptions };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };

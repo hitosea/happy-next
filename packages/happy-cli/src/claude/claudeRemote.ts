@@ -1,6 +1,6 @@
 import { EnhancedMode } from "./loop";
 import { Query, query, type QueryOptions, type SDKMessage, type SDKSystemMessage, AbortError, SDKUserMessage } from '@/claude/sdk'
-import { mapToClaudeMode } from "./utils/permissionMode";
+import { canUseBypassPermissions, toRunnableClaudeMode } from "./utils/permissionMode";
 import { claudeCheckSession } from "./utils/claudeCheckSession";
 import { join, resolve } from 'node:path';
 import { projectPath } from "@/projectPath";
@@ -177,7 +177,8 @@ export async function claudeRemote(opts: {
         resume: startFrom ?? undefined,
         forkSession: forkSession || undefined,
         mcpServers: opts.mcpServers,
-        permissionMode: mapToClaudeMode(initial.mode.permissionMode),
+        permissionMode: toRunnableClaudeMode(initial.mode.permissionMode),
+        allowDangerouslySkipPermissions: canUseBypassPermissions(),
         model: initial.mode.model,
         effort: initial.mode.reasoningEffort,
         autoCompactWindow: initial.mode.contextWindow,

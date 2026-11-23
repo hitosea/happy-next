@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import {
   findGlobalClaudeCliPath,
   findClaudeInPath,
@@ -369,5 +371,34 @@ describe('HAPPY_CLAUDE_PATH env var', () => {
     process.env.HAPPY_CLAUDE_PATH = '/nonexistent/path/claude';
     const result = findGlobalClaudeCliPath();
     expect(result?.source).not.toBe('HAPPY_CLAUDE_PATH');
+  });
+});
+describe('getVersion', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(join(tmpdir(), 'claude-version-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('reads the version from package.json next to the CLI', () => {
+    fs.writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '2.0.30' }));
+    expect(getVersion(join(dir, 'cli.js'))).toBe('2.0.30');
+  });
+
+  it('reads it from the package root above the binary (npm builds without cli.js)', () => {
+    fs.writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: '@anthropic-ai/claude-code', version: '2.1.325' }));
+    fs.mkdirSync(join(dir, 'bin'));
+    fs.writeFileSync(join(dir, 'bin', 'claude'), '');
+    expect(getVersion(join(dir, 'bin', 'claude'))).toBe('2.1.325');
+  });
+
+  it('reads it from a version-named directory (native installer, Homebrew)', () => {
+    const binary = join(dir, 'versions', '2.1.325');
+    fs.mkdirSync(join(dir, 'versions'));
+    fs.writeFileSync(binary, '');
+    expect(getVersion(binary)).toBe('2.1.325');
+  });
+
+  it('returns null when neither says', () => {
+    fs.writeFileSync(join(dir, 'claude'), '');
+    expect(getVersion(join(dir, 'claude'))).toBeNull();
   });
 });
