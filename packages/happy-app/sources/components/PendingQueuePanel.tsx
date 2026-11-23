@@ -10,7 +10,7 @@ import { DropdownMenu } from './DropdownMenu';
 import { GlassSurface } from './GlassSurface';
 import { hapticsLight } from './haptics';
 import { layout } from './layout';
-import { PendingMessageDetailSheet } from './PendingMessageDetailSheet';
+import { PendingMessageDetailSheet, type PendingMessageDetailMode } from './PendingMessageDetailSheet';
 import { Tooltip } from './Tooltip';
 import { getPendingPreviewText, getPendingScheduleInfo, truncatePendingPreview } from './pendingQueuePanelUtils';
 
@@ -31,7 +31,7 @@ type PendingQueuePanelProps = {
     onDelete: (pendingId: string) => Promise<void> | void;
     onPause: (pendingId: string) => Promise<void> | void;
     onSaveEdit: (pendingId: string, newText: string) => Promise<void> | void;
-    onReschedule?: (pendingId: string) => void;
+    onReschedule?: (pendingId: string, deliverAt: number) => Promise<boolean>;
 };
 
 const BAR_HEIGHT = 46;
@@ -111,9 +111,9 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
     React.useEffect(() => () => clearTimeout(shieldTimerRef.current), []);
 
     // The message whose detail sheet is up; the sheet unmounts once it has gone.
-    const [detail, setDetail] = React.useState<{ message: PendingMessage; startEditing: boolean } | null>(null);
-    const openDetail = React.useCallback((message: PendingMessage, startEditing = false) => {
-        setDetail({ message, startEditing });
+    const [detail, setDetail] = React.useState<{ message: PendingMessage; mode: PendingMessageDetailMode } | null>(null);
+    const openDetail = React.useCallback((message: PendingMessage, mode: PendingMessageDetailMode = 'view') => {
+        setDetail({ message, mode });
     }, []);
     const closeDetail = React.useCallback(() => setDetail(null), []);
 
@@ -191,7 +191,7 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
         items.push({
             label: t('pendingQueue.edit'),
             icon: { ionicon: 'create-outline', sfSymbol: 'pencil' },
-            onPress: () => openDetail(message, true),
+            onPress: () => openDetail(message, 'edit'),
         });
         items.push({
             label: isPaused ? t('pendingQueue.resume') : t('pendingQueue.pause'),
@@ -202,7 +202,7 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
             items.push({
                 label: t('pendingQueue.reschedule'),
                 icon: { ionicon: 'time-outline', sfSymbol: 'clock' },
-                onPress: () => onReschedule(message.id),
+                onPress: () => openDetail(message, 'reschedule'),
             });
         }
         items.push({
@@ -471,7 +471,7 @@ export const PendingQueuePanel: React.FC<PendingQueuePanelProps> = React.memo((p
                     sessionId={sessionId}
                     message={detail.message}
                     canManage={canManage}
-                    startEditing={detail.startEditing}
+                    initialMode={detail.mode}
                     onSendNow={onSendNow}
                     onPin={onPin}
                     onDelete={onDelete}

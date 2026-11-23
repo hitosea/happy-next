@@ -16,6 +16,8 @@ import { GLASS_SHEET_FILL, GLASS_SHEET_MARGIN, GLASS_SHEET_RADIUS, glassSheetFra
 
 export type ScheduleMessageSheetProps = {
     visible: boolean;
+    /** Render inside an existing sheet instead of presenting another modal. */
+    embedded?: boolean;
     /** `create` edits the text to schedule; `reschedule` only changes the time of an existing message. */
     mode: 'create' | 'reschedule';
     /** Text prefilled into the editor (create mode). */
@@ -97,6 +99,7 @@ function defaultCustomDate(): Date {
 // Memoized: it stays mounted while closed, under a session view that re-renders on every keystroke.
 export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
     visible,
+    embedded = false,
     mode,
     initialText = '',
     imageCount = 0,
@@ -166,8 +169,11 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
             setSubmitting(false);
 
             setMounted(true);
+            if (embedded) return;
             progress.value = 0;
             progress.value = withTiming(1, { duration: ANIMATION_DURATION });
+        } else if (embedded) {
+            setMounted(false);
         } else if (mounted) {
             progress.value = withTiming(0, { duration: ANIMATION_DURATION }, (finished) => {
                 if (finished) {
@@ -176,7 +182,7 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [visible]);
+    }, [visible, embedded]);
 
     React.useEffect(() => {
         if (!mounted) return;
@@ -248,8 +254,154 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
         }
     };
 
-    if (!mounted) {
+    if (!mounted && !embedded) {
         return null;
+    }
+
+    const form = (
+        <>
+            <View style={styles.header}>
+                <Text style={styles.title}>
+                    {mode === 'create' ? t('scheduleMessage.title') : t('scheduleMessage.rescheduleTitle')}
+                </Text>
+                <Pressable onPress={onClose} hitSlop={10}>
+                    <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+                </Pressable>
+            </View>
+
+            {mode === 'create' && (
+                <>
+                    <TextInput
+                        autoFocus={autoFocus}
+                        multiline
+                        value={text}
+                        onChangeText={setText}
+                        // The keyboard takes the room the date picker and finer times need, so typing closes them.
+                        onFocus={handleEditorFocus}
+                        placeholder={t('scheduleMessage.placeholder')}
+                        placeholderTextColor={theme.colors.textSecondary}
+                        style={styles.editor}
+                    />
+                    {imageCount > 0 && (
+                        <Text style={styles.sectionTitle}>{t('scheduleMessage.imagesAttached', { count: imageCount })}</Text>
+                    )}
+                    {fileCount > 0 && (
+                        <Text style={styles.sectionTitle}>{t('scheduleMessage.filesAttached', { count: fileCount })}</Text>
+                    )}
+                </>
+            )}
+
+            <Text style={styles.sectionTitle}>{t('scheduleMessage.sendTime')}</Text>
+            {/* The picker floats above this row on web, so it stays inside the same parent. */}
+            <View style={styles.timeSection}>
+                {/* `handled`: picking a quick time keeps the editor focused and the keyboard up. */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={styles.options}
+                >
+                    {limitDate && (
+                        <Pressable
+                            style={[styles.option, selectedOption === 'limit' && styles.optionSelected]}
+                            onPress={() => chooseOption('limit')}
+                        >
+                            <Text style={styles.optionTitle}>{t('scheduleMessage.afterLimitReset')}</Text>
+                            <Text style={styles.optionSubtitle}>{formatSendTime(limitDate)}</Text>
+                        </Pressable>
+                    )}
+                    {(['minutes', 'hours'] as const).map((option) => (
+                        <Pressable
+                            key={option}
+                            style={[styles.option, selectedOption === option && styles.optionSelected]}
+                            onPress={() => pressRelativeOption(option)}
+                        >
+                            <View style={styles.optionTitleRow}>
+                                <Text style={styles.optionTitle}>{relativeTitle(option, relativeMinutes[option])}</Text>
+                                {/* Hints that a second tap offers finer times. */}
+                                {selectedOption === option && (
+                                    <Ionicons
+                                        name={expandedOption === option ? 'chevron-up' : 'chevron-down'}
+                                        size={13}
+                                        color={theme.colors.textSecondary}
+                                    />
+                                )}
+                            </View>
+                            <Text style={styles.optionSubtitle}>
+                                {formatSendTime(new Date(now + relativeMinutes[option] * 60_000))}
+                            </Text>
+                        </Pressable>
+                    ))}
+                    <Pressable
+                        style={[styles.option, selectedOption === 'custom' && styles.optionSelected]}
+                        onPress={() => {
+                            setSelectedOption('custom');
+                            setExpandedOption(null);
+                            // The date picker needs the room the keyboard takes.
+                            if (!showDatePicker) Keyboard.dismiss();
+                            setShowDatePicker((value) => !value);
+                        }}
+                    >
+                        <Text style={styles.optionTitle}>{t('scheduleMessage.custom')}</Text>
+                        <Text style={styles.optionSubtitle}>{formatDateTime(customDate)}</Text>
+                    </Pressable>
+                </ScrollView>
+                {expandedOption && (
+                    <View style={styles.choices}>
+                        {RELATIVE_CHOICES[expandedOption].map((minutes) => (
+                            <Pressable
+                                key={minutes}
+                                style={[styles.choice, relativeMinutes[expandedOption] === minutes && styles.optionSelected]}
+                                onPress={() => chooseRelativeMinutes(expandedOption, minutes)}
+                            >
+                                <Text style={styles.choiceText}>{relativeChoiceLabel(expandedOption, minutes)}</Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
+                <DatePickerPopover
+                    visible={showDatePicker}
+                    onClose={closeDatePicker}
+                    date={customDate}
+                    onChange={handleCustomDateChange}
+                    minDate={new Date(Date.now() + 60_000)}
+                    timePicker
+                />
+            </View>
+
+            <View style={styles.actions}>
+                {mode === 'reschedule' && (
+                    <Pressable
+                        onPress={onClose}
+                        disabled={submitting}
+                        style={[styles.submit, styles.actionButton, styles.cancel, submitting && styles.submitDisabled]}
+                    >
+                        <Text style={[styles.submitText, styles.cancelText]}>{t('common.cancel')}</Text>
+                    </Pressable>
+                )}
+                <Pressable
+                    onPress={() => void submit()}
+                    disabled={!canSubmit}
+                    // While saving it stays at full strength with a spinner, unlike when there is nothing to send.
+                    style={[styles.submit, styles.actionButton, !canSubmit && !submitting && styles.submitDisabled]}
+                >
+                    {/* Reserve the spinner's space so loading never changes the button's layout. */}
+                    <ActivityIndicator
+                        size="small"
+                        color={theme.colors.button.primary.tint}
+                        animating={submitting}
+                        style={{ opacity: submitting ? 1 : 0 }}
+                    />
+                    <Text style={styles.submitText}>
+                        {mode === 'create' ? t('scheduleMessage.confirm') : t('scheduleMessage.save')}
+                    </Text>
+                </Pressable>
+            </View>
+        </>
+    );
+
+    if (embedded) {
+        return visible ? <View style={styles.embedded}>{form}</View> : null;
     }
 
     // On iOS 26 the keyboard is a floating rounded panel, so the sheet floats too: a Liquid Glass
@@ -281,132 +433,7 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
                     {liquidGlassAvailable && (
                         <GlassView pointerEvents="none" glassEffectStyle="regular" style={styles.sheetGlass} />
                     )}
-                    <View style={styles.header}>
-                        <Text style={styles.title}>
-                            {mode === 'create' ? t('scheduleMessage.title') : t('scheduleMessage.rescheduleTitle')}
-                        </Text>
-                        <Pressable onPress={onClose} hitSlop={10}>
-                            <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
-                        </Pressable>
-                    </View>
-
-                    {mode === 'create' && (
-                        <>
-                            <TextInput
-                                autoFocus={autoFocus}
-                                multiline
-                                value={text}
-                                onChangeText={setText}
-                                // The keyboard takes the room the date picker and finer times need, so typing closes them.
-                                onFocus={handleEditorFocus}
-                                placeholder={t('scheduleMessage.placeholder')}
-                                placeholderTextColor={theme.colors.textSecondary}
-                                style={styles.editor}
-                            />
-                            {imageCount > 0 && (
-                                <Text style={styles.sectionTitle}>{t('scheduleMessage.imagesAttached', { count: imageCount })}</Text>
-                            )}
-                            {fileCount > 0 && (
-                                <Text style={styles.sectionTitle}>{t('scheduleMessage.filesAttached', { count: fileCount })}</Text>
-                            )}
-                        </>
-                    )}
-
-                    <Text style={styles.sectionTitle}>{t('scheduleMessage.sendTime')}</Text>
-                    {/* The picker floats above this row on web, so it stays inside the same parent. */}
-                    <View style={styles.timeSection}>
-                        {/* `handled`: picking a quick time keeps the editor focused and the keyboard up. */}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            contentContainerStyle={styles.options}
-                        >
-                            {limitDate && (
-                                <Pressable
-                                    style={[styles.option, selectedOption === 'limit' && styles.optionSelected]}
-                                    onPress={() => chooseOption('limit')}
-                                >
-                                    <Text style={styles.optionTitle}>{t('scheduleMessage.afterLimitReset')}</Text>
-                                    <Text style={styles.optionSubtitle}>{formatSendTime(limitDate)}</Text>
-                                </Pressable>
-                            )}
-                            {(['minutes', 'hours'] as const).map((option) => (
-                                <Pressable
-                                    key={option}
-                                    style={[styles.option, selectedOption === option && styles.optionSelected]}
-                                    onPress={() => pressRelativeOption(option)}
-                                >
-                                    <View style={styles.optionTitleRow}>
-                                        <Text style={styles.optionTitle}>{relativeTitle(option, relativeMinutes[option])}</Text>
-                                        {/* Hints that a second tap offers finer times. */}
-                                        {selectedOption === option && (
-                                            <Ionicons
-                                                name={expandedOption === option ? 'chevron-up' : 'chevron-down'}
-                                                size={13}
-                                                color={theme.colors.textSecondary}
-                                            />
-                                        )}
-                                    </View>
-                                    <Text style={styles.optionSubtitle}>
-                                        {formatSendTime(new Date(now + relativeMinutes[option] * 60_000))}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                            <Pressable
-                                style={[styles.option, selectedOption === 'custom' && styles.optionSelected]}
-                                onPress={() => {
-                                    setSelectedOption('custom');
-                                    setExpandedOption(null);
-                                    // The date picker needs the room the keyboard takes.
-                                    if (!showDatePicker) Keyboard.dismiss();
-                                    setShowDatePicker((value) => !value);
-                                }}
-                            >
-                                <Text style={styles.optionTitle}>{t('scheduleMessage.custom')}</Text>
-                                <Text style={styles.optionSubtitle}>{formatDateTime(customDate)}</Text>
-                            </Pressable>
-                        </ScrollView>
-                        {expandedOption && (
-                            <View style={styles.choices}>
-                                {RELATIVE_CHOICES[expandedOption].map((minutes) => (
-                                    <Pressable
-                                        key={minutes}
-                                        style={[styles.choice, relativeMinutes[expandedOption] === minutes && styles.optionSelected]}
-                                        onPress={() => chooseRelativeMinutes(expandedOption, minutes)}
-                                    >
-                                        <Text style={styles.choiceText}>{relativeChoiceLabel(expandedOption, minutes)}</Text>
-                                    </Pressable>
-                                ))}
-                            </View>
-                        )}
-                        <DatePickerPopover
-                            visible={showDatePicker}
-                            onClose={closeDatePicker}
-                            date={customDate}
-                            onChange={handleCustomDateChange}
-                            minDate={new Date(Date.now() + 60_000)}
-                            timePicker
-                        />
-                    </View>
-
-                    <Pressable
-                        onPress={() => void submit()}
-                        disabled={!canSubmit}
-                        // While saving it stays at full strength with a spinner, unlike when there is nothing to send.
-                        style={[styles.submit, !canSubmit && !submitting && styles.submitDisabled]}
-                    >
-                        {/* Reserve the spinner's space so loading never changes the button's layout. */}
-                        <ActivityIndicator
-                            size="small"
-                            color={theme.colors.button.primary.tint}
-                            animating={submitting}
-                            style={{ opacity: submitting ? 1 : 0 }}
-                        />
-                        <Text style={styles.submitText}>
-                            {mode === 'create' ? t('scheduleMessage.confirm') : t('scheduleMessage.save')}
-                        </Text>
-                    </Pressable>
+                    {form}
                 </Animated.View>
             </KeyboardAvoidingView>
         </View>
@@ -433,6 +460,10 @@ export const ScheduleMessageSheet = React.memo(function ScheduleMessageSheet({
 });
 
 const styles = StyleSheet.create((theme) => ({
+    embedded: {
+        paddingHorizontal: 16,
+        gap: 12,
+    },
     container: {
         flex: 1,
     },
@@ -534,6 +565,19 @@ const styles = StyleSheet.create((theme) => ({
         fontSize: 13,
         color: theme.colors.text,
         ...Typography.default('semiBold'),
+    },
+    actions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    actionButton: {
+        flex: 1,
+    },
+    cancel: {
+        backgroundColor: liquidGlassAvailable ? GLASS_SHEET_FILL : theme.colors.input.background,
+    },
+    cancelText: {
+        color: theme.colors.text,
     },
     submit: {
         flexDirection: 'row',

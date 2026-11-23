@@ -1,12 +1,13 @@
 /**
  * PendingMessageDetailSheet
  *
- * The bottom sheet a pending (queued) message opens in when its row is tapped. Two modes:
+ * The bottom sheet a pending (queued) message opens in when its row is tapped. Three modes:
  *  - view: the full text in the shared SelectableTextView (the text-selection screen's selectable,
  *    syntax-highlighted rendering) and the actions (copy, edit, reschedule, pause/resume, send now,
  *    pin, delete).
  *  - edit: in-place editing. Entering edit pauses the message so it cannot be dispatched mid-edit;
  *    saving keeps it as a draft (the user resumes or sends it explicitly).
+ *  - reschedule: the time form replaces the details in the same sheet, returning on cancel/save.
  *
  * It follows the live pending message by id, so pause and pin show at once, and it closes itself
  * when the message is dispatched or deleted. Mounted to show: it presents itself, and `onClosed`
@@ -21,6 +22,7 @@ import { Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimens
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppBottomSheet } from '@/components/AppBottomSheet';
+import { ScheduleMessageSheet } from '@/components/ScheduleMessageSheet';
 import { showCopiedToast, showToast } from '@/components/Toast';
 import { hapticsLight } from '@/components/haptics';
 import { SelectableTextView } from '@/components/SelectableTextView';
@@ -65,6 +67,8 @@ function SheetContent({ children, bottomPadding, maxHeight }: {
     );
 }
 
+export type PendingMessageDetailMode = 'view' | 'edit' | 'reschedule';
+
 interface PendingMessageDetailSheetProps {
     sessionId: string;
     message: PendingMessage;
@@ -74,9 +78,9 @@ interface PendingMessageDetailSheetProps {
     onDelete: (pendingId: string) => Promise<void> | void;
     onPause: (pendingId: string) => Promise<void> | void;
     onSaveEdit: (pendingId: string, newText: string) => Promise<void> | void;
-    onReschedule?: (pendingId: string) => void;
-    /** Open straight into editing, as the queue row's Edit action does. */
-    startEditing?: boolean;
+    onReschedule?: (pendingId: string, deliverAt: number) => Promise<boolean>;
+    /** Open directly in the action selected from the queue row's menu. */
+    initialMode?: PendingMessageDetailMode;
     /** The sheet has gone. */
     onClosed: () => void;
 }
@@ -91,7 +95,7 @@ export function PendingMessageDetailSheet({
     onPause,
     onSaveEdit,
     onReschedule,
-    startEditing = false,
+    initialMode = 'view',
     onClosed,
 }: PendingMessageDetailSheetProps) {
     const { theme } = useUnistyles();
@@ -110,8 +114,12 @@ export function PendingMessageDetailSheet({
     const isPaused = m.pausedAt !== null;
     const schedule = getPendingScheduleInfo(m.deliverAt);
 
-    const [editing, setEditing] = React.useState(startEditing && canManage);
-    const [draft, setDraft] = React.useState(() => getPendingPreviewText(m.previewText, ''));
+    const [mode, setMode] = React.useState<PendingMessageDetailMode>(canManage ? initialMode : 'view');
+    const editing = mode === 'edit';
+    // The modal forwards children through a portal effect. A controlled value updated here can
+    // reach the input a render late, restoring stale text and interrupting the caret or IME.
+    // Let the input own its text while editing; keep the latest draft only for saving.
+    const draftRef = React.useRef(getPendingPreviewText(m.previewText, ''));
     // Real content height reported by SelectableTextView; null until first measure.
     const [measuredText, setMeasuredText] = React.useState<number | null>(null);
     // Tracks whether *we* paused on entering edit, so cancel can revert it.
@@ -135,8 +143,8 @@ export function PendingMessageDetailSheet({
     }, [m.previewText, close]);
 
     const startEdit = React.useCallback(async () => {
-        setDraft(getPendingPreviewText(m.previewText, ''));
-        setEditing(true);
+        draftRef.current = getPendingPreviewText(m.previewText, '');
+        setMode('edit');
         if (!isPaused) {
             autoPausedRef.current = true;
             await onPause(m.id);
@@ -148,14 +156,14 @@ export function PendingMessageDetailSheet({
     // Mounted from the queue row's Edit action: enter editing once, as the Edit row here would.
     const startedEditingRef = React.useRef(false);
     React.useEffect(() => {
-        if (startEditing && !startedEditingRef.current && canManage) {
+        if (initialMode === 'edit' && !startedEditingRef.current && canManage) {
             startedEditingRef.current = true;
             void startEdit();
         }
-    }, [startEditing, canManage, startEdit]);
+    }, [initialMode, canManage, startEdit]);
 
     const cancelEdit = React.useCallback(async () => {
-        setEditing(false);
+        setMode('view');
         if (autoPausedRef.current) {
             autoPausedRef.current = false;
             await onPause(m.id); // toggle back to active — net no change
@@ -163,14 +171,14 @@ export function PendingMessageDetailSheet({
     }, [m.id, onPause]);
 
     const saveEdit = React.useCallback(async () => {
-        const text = draft.trim();
+        const text = draftRef.current.trim();
         if (text.length > 0) {
             await onSaveEdit(m.id, text); // stays paused (draft) per design
         }
         autoPausedRef.current = false;
-        setEditing(false);
+        setMode('view');
         showToast(t('pendingQueue.saved'));
-    }, [draft, m.id, onSaveEdit]);
+    }, [m.id, onSaveEdit]);
 
     // Swiped away mid-edit: the edit is dropped as Cancel would, un-pausing what editing paused.
     const handleDismiss = React.useCallback(() => {
@@ -221,81 +229,96 @@ export function PendingMessageDetailSheet({
                 bottomPadding={sheetSafeAreaBottom(safeArea.bottom) + 16}
                 maxHeight={Math.max(0, windowHeight - safeArea.top - 24)}
             >
-                {header}
-                {editing ? (
-                    <>
-                        <View style={styles.banner}>
-                            <Ionicons name="pause" size={14} color={theme.colors.textSecondary} />
-                            <Text style={styles.bannerText}>{t('pendingQueue.editingPausedNotice')}</Text>
-                        </View>
-                        {/* The input is the one card on the sheet, so it reads as the place to type. */}
-                        <SheetTextInput
-                            style={[styles.editor, { maxHeight: textMax, backgroundColor: boxFill }]}
-                            value={draft}
-                            onChangeText={setDraft}
-                            multiline
-                            autoFocus
-                            placeholder={t('pendingQueue.empty')}
-                            placeholderTextColor={theme.colors.textSecondary}
-                        />
-                        <View style={styles.editButtons}>
-                            <Pressable
-                                style={({ pressed }) => [styles.editButton, { backgroundColor: boxFill }, pressed && styles.pressed]}
-                                onPress={() => void cancelEdit()}
-                            >
-                                <Text style={styles.editCancel}>{t('common.cancel')}</Text>
-                            </Pressable>
-                            <Pressable
-                                style={({ pressed }) => [styles.editButton, styles.editSave, pressed && styles.pressed]}
-                                onPress={() => void saveEdit()}
-                            >
-                                <Text style={styles.editSaveText}>{t('pendingQueue.save')}</Text>
-                            </Pressable>
-                        </View>
-                    </>
+                {mode === 'reschedule' && onReschedule ? (
+                    <ScheduleMessageSheet
+                        visible
+                        embedded
+                        mode="reschedule"
+                        initialDeliverAt={m.deliverAt}
+                        onClose={() => setMode('view')}
+                        onSubmit={async (_text, deliverAt) => {
+                            if (await onReschedule(m.id, deliverAt)) setMode('view');
+                        }}
+                    />
                 ) : (
-                    // Straight on the sheet, which is the card: the text, then the actions under it.
-                    <View style={styles.box}>
-                        <View style={{ height: textHeight }}>
-                            <SelectableTextView
-                                key={fullText}
-                                text={fullText}
-                                backgroundColor={theme.colors.groupped.background}
-                                onMeasure={setMeasuredText}
-                            />
-                        </View>
-                        <Action icon="copy-outline" label={t('pendingQueue.copyText')} onPress={() => void handleCopy()} />
-                        {/* Steering into the running turn, it cannot be changed until the agent reads it */}
-                        {m.steeringAt !== null && (
-                            <Text style={styles.steeringHint}>{t('pendingQueue.steering')} · {t('pendingQueue.steeringHint')}</Text>
-                        )}
-                        {canManage && m.steeringAt === null && (
+                    <>
+                        {header}
+                        {editing ? (
                             <>
-                                <Action icon="create-outline" label={t('pendingQueue.edit')} onPress={() => void startEdit()} />
-                                {m.deliverAt !== null && onReschedule && (
-                                    <Action
-                                        icon="calendar-outline"
-                                        label={t('pendingQueue.reschedule')}
-                                        onPress={() => { onReschedule(m.id); close(); }}
-                                    />
-                                )}
-                                <Action
-                                    icon={isPaused ? 'play-outline' : 'pause-outline'}
-                                    label={isPaused ? t('pendingQueue.resume') : t('pendingQueue.pause')}
-                                    onPress={() => void onPause(m.id)}
+                                <View style={styles.banner}>
+                                    <Ionicons name="pause" size={14} color={theme.colors.textSecondary} />
+                                    <Text style={styles.bannerText}>{t('pendingQueue.editingPausedNotice')}</Text>
+                                </View>
+                                {/* The input is the one card on the sheet, so it reads as the place to type. */}
+                                <SheetTextInput
+                                    style={[styles.editor, { maxHeight: textMax, backgroundColor: boxFill }]}
+                                    defaultValue={draftRef.current}
+                                    onChangeText={(text) => { draftRef.current = text; }}
+                                    multiline
+                                    autoFocus
+                                    placeholder={t('pendingQueue.empty')}
+                                    placeholderTextColor={theme.colors.textSecondary}
                                 />
-                                <Action
-                                    icon="paper-plane-outline"
-                                    label={t('pendingQueue.sendNow')}
-                                    onPress={() => { void onSendNow(m.id); close(); }}
-                                />
-                                {!isPaused && (
-                                    <Action icon="arrow-up-circle-outline" label={t('pendingQueue.pin')} onPress={() => void onPin(m.id)} />
-                                )}
-                                <Action icon="trash-outline" label={t('pendingQueue.delete')} destructive onPress={() => void onDelete(m.id)} />
+                                <View style={styles.editButtons}>
+                                    <Pressable
+                                        style={({ pressed }) => [styles.editButton, { backgroundColor: boxFill }, pressed && styles.pressed]}
+                                        onPress={() => void cancelEdit()}
+                                    >
+                                        <Text style={styles.editCancel}>{t('common.cancel')}</Text>
+                                    </Pressable>
+                                    <Pressable
+                                        style={({ pressed }) => [styles.editButton, styles.editSave, pressed && styles.pressed]}
+                                        onPress={() => void saveEdit()}
+                                    >
+                                        <Text style={styles.editSaveText}>{t('pendingQueue.save')}</Text>
+                                    </Pressable>
+                                </View>
                             </>
+                        ) : (
+                            // Straight on the sheet, which is the card: the text, then the actions under it.
+                            <View style={styles.box}>
+                                <View style={{ height: textHeight }}>
+                                    <SelectableTextView
+                                        key={fullText}
+                                        text={fullText}
+                                        backgroundColor={theme.colors.groupped.background}
+                                        onMeasure={setMeasuredText}
+                                    />
+                                </View>
+                                <Action icon="copy-outline" label={t('pendingQueue.copyText')} onPress={() => void handleCopy()} />
+                                {/* Steering into the running turn, it cannot be changed until the agent reads it */}
+                                {m.steeringAt !== null && (
+                                    <Text style={styles.steeringHint}>{t('pendingQueue.steering')} · {t('pendingQueue.steeringHint')}</Text>
+                                )}
+                                {canManage && m.steeringAt === null && (
+                                    <>
+                                        <Action icon="create-outline" label={t('pendingQueue.edit')} onPress={() => void startEdit()} />
+                                        {m.deliverAt !== null && onReschedule && (
+                                            <Action
+                                                icon="calendar-outline"
+                                                label={t('pendingQueue.reschedule')}
+                                                onPress={() => setMode('reschedule')}
+                                            />
+                                        )}
+                                        <Action
+                                            icon={isPaused ? 'play-outline' : 'pause-outline'}
+                                            label={isPaused ? t('pendingQueue.resume') : t('pendingQueue.pause')}
+                                            onPress={() => void onPause(m.id)}
+                                        />
+                                        <Action
+                                            icon="paper-plane-outline"
+                                            label={t('pendingQueue.sendNow')}
+                                            onPress={() => { void onSendNow(m.id); close(); }}
+                                        />
+                                        {!isPaused && (
+                                            <Action icon="arrow-up-circle-outline" label={t('pendingQueue.pin')} onPress={() => void onPin(m.id)} />
+                                        )}
+                                        <Action icon="trash-outline" label={t('pendingQueue.delete')} destructive onPress={() => void onDelete(m.id)} />
+                                    </>
+                                )}
+                            </View>
                         )}
-                    </View>
+                    </>
                 )}
             </SheetContent>
         </AppBottomSheet>

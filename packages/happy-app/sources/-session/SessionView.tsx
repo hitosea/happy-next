@@ -640,7 +640,6 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Whether the composer had the cursor when the add (+) sheet was opened. The sheet's own
     // presentation can take focus from it, so it is read on the press, before the sheet opens.
     const composerFocusedOnAddRef = React.useRef(false);
-    const [reschedulePendingId, setReschedulePendingId] = React.useState<string | null>(null);
     const messagesRef = React.useRef(messages);
     messagesRef.current = messages;
 
@@ -1115,7 +1114,6 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const canAttachFiles = !session.accessLevel;
     const handleCloseImagePickerSheet = React.useCallback(() => setImagePickerSheetVisible(false), []);
     const handleCloseScheduleSheet = React.useCallback(() => setScheduleSheet((current) => ({ ...current, visible: false })), []);
-    const handleCloseRescheduleSheet = React.useCallback(() => setReschedulePendingId(null), []);
 
     const imagePickerMenuItems: ActionMenuItem[] = React.useMemo(() => [
         ...(Platform.OS === 'web' ? [] : [{ label: t('session.takePhoto'), icon: { ionicon: 'camera-outline', sfSymbol: 'camera' }, onPress: pickFromCamera, disabled: !supportsImages } satisfies ActionMenuItem]),
@@ -1359,18 +1357,13 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         }
     }, [clearDraft, clearImages, clearFiles, attachments, filesBlockSend, images, session.upgrading, sessionId]);
 
-    const rescheduleTarget = reschedulePendingId
-        ? pendingMessages.find((pending) => pending.id === reschedulePendingId) ?? null
-        : null;
-    const handleRescheduleSubmit = React.useCallback(async (_text: string, deliverAt: number) => {
-        if (!reschedulePendingId) return;
-        const success = await sync.updatePendingMessageDeliverAt(sessionId, reschedulePendingId, deliverAt);
+    const handleRescheduleSubmit = React.useCallback(async (pendingId: string, deliverAt: number) => {
+        const success = await sync.updatePendingMessageDeliverAt(sessionId, pendingId, deliverAt);
         if (!success) {
             Modal.alert(t('common.error'), t('status.operationFailed'));
-            return;
         }
-        setReschedulePendingId(null);
-    }, [reschedulePendingId, sessionId]);
+        return success;
+    }, [sessionId]);
 
     const handleSendNowPending = React.useCallback(async (pendingId: string) => {
         try {
@@ -1441,7 +1434,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             onDelete={handleDeletePending}
             onPause={handlePausePending}
             onSaveEdit={handleSaveEditPending}
-            onReschedule={setReschedulePendingId}
+            onReschedule={handleRescheduleSubmit}
         />
     ) : null;
 
@@ -1740,13 +1733,6 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 autoFocus={scheduleSheet.autoFocus}
                 onClose={handleCloseScheduleSheet}
                 onSubmit={handleScheduleSubmit}
-            />
-            <ScheduleMessageSheet
-                visible={rescheduleTarget !== null}
-                mode="reschedule"
-                initialDeliverAt={rescheduleTarget?.deliverAt}
-                onClose={handleCloseRescheduleSheet}
-                onSubmit={handleRescheduleSubmit}
             />
 
         </>
