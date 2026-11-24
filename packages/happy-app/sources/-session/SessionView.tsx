@@ -1306,7 +1306,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 <ChatList
                     session={session}
                     onFillInput={handleFillInput}
-                    onForkMessage={canForkSession(session) ? handleForkFromMessage : undefined}
+                    // Forking from a message truncates the copy, which agy cannot do yet
+                    onForkMessage={canForkSession(session) && session.metadata?.flavor !== 'antigravity' ? handleForkFromMessage : undefined}
                     forkingMessageId={forkingMessageId}
                     onLoadMore={handleLoadMore}
                     minimapCachedUserMessages={minimapCachedMessages}

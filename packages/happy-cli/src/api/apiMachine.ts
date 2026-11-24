@@ -21,6 +21,7 @@ import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type Q
 import { forkQoderSession } from '@/qoder/sessions';
 import { listQoderModels } from '@/qoder/models';
 import { listAntigravityModels } from '@/antigravity/models';
+import { forkAntigravitySession } from '@/antigravity/sessions';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
 import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
@@ -834,6 +835,19 @@ export class ApiMachineClient {
             }
             try {
                 return { success: true, newSessionId: await forkQoderSession(sessionId, directory, requestedQoderBuild(params)) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Copy an Antigravity conversation into a new agy session (agy has no ACP fork, so it is copied on disk)
+        this.rpcHandlerManager.registerHandler('antigravity-fork-session', async (params: any) => {
+            const { sessionId } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') {
+                throw new Error('sessionId is required');
+            }
+            try {
+                return { success: true, newSessionId: await forkAntigravitySession(sessionId) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }

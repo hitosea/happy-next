@@ -26,6 +26,7 @@ import {
     machineForkCodexSession,
     machineForkGeminiSession,
     machineForkQoderSession,
+    machineForkAntigravitySession,
     machineSpawnNewSession,
     sessionDelete,
 } from '@/sync/ops';
@@ -233,7 +234,7 @@ function useSessionQuickActions(session: Session) {
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
-        const antigravitySessionId = session.active ? undefined : session.metadata?.antigravitySessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
         if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId)) return;
@@ -255,11 +256,7 @@ function useSessionQuickActions(session: Session) {
             let resumeSessionId: string | undefined;
             let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
 
-            if (flavor === 'antigravity' && antigravitySessionId) {
-                // No fork for agy yet: the stopped session's own agy session is loaded again
-                resumeSessionId = antigravitySessionId;
-                agent = 'antigravity';
-            } else if (flavor === 'gemini') {
+            if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
@@ -283,6 +280,14 @@ function useSessionQuickActions(session: Session) {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'qoder';
+            } else if (flavor === 'antigravity' && antigravitySessionId) {
+                const forkResult = await machineForkAntigravitySession(machineId, antigravitySessionId);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'antigravity';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {

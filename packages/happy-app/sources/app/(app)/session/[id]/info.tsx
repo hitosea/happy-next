@@ -16,7 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Modal } from '@/modal';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
-import { sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
+import { sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineForkAntigravitySession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
 import { leaveSharedSession } from '@/sync/apiSharing';
 import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { useDismissToHome } from '@/hooks/useDismissToHome';
@@ -168,6 +168,17 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         }
     }, [session.metadata?.qoderSessionId]);
 
+    const handleCopyAntigravitySessionId = useCallback(async () => {
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
+        if (!antigravitySessionId) return;
+        try {
+            await Clipboard.setStringAsync(antigravitySessionId);
+            hapticsLight(); showCopiedToast();
+        } catch (error) {
+            Modal.alert(t('common.error'), t('sessionInfo.failedToCopyAntigravitySessionId'));
+        }
+    }, [session.metadata?.antigravitySessionId]);
+
     // Worktree state: unified multi-repo + legacy single-repo support
     const workspaceRepos = getWorkspaceRepos(session.metadata);
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
@@ -255,10 +266,11 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
-        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || qoderSessionId;
+        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || qoderSessionId || antigravitySessionId;
         if (!hasForkableId || !directory || !machineId) return;
 
         const isOnline = session.active;
@@ -280,7 +292,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -306,6 +318,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'qoder';
+            } else if (flavor === 'antigravity' && antigravitySessionId) {
+                const forkResult = await machineForkAntigravitySession(machineId, antigravitySessionId);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'antigravity';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {
@@ -554,7 +574,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const [reviewMenuVisible, setReviewMenuVisible] = React.useState(false);
     const [requestingReview, setRequestingReview] = React.useState(false);
 
-    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder') => {
+    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity') => {
         if (!worktreeMachineId || !worktreeBranch || !worktreePath) return;
         const prUrl = selectedRepo?.prUrl;
         if (!prUrl) return;
@@ -627,6 +647,10 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             {
                 label: 'Qoder',
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('qoder'); },
+            },
+            {
+                label: 'Antigravity',
+                onPress: () => { setReviewMenuVisible(false); doRequestReview('antigravity'); },
             },
     ], [doRequestReview]);
 
@@ -752,6 +776,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                             onPress={handleCopyQoderSessionId}
                         />
                     )}
+                    {session.metadata?.antigravitySessionId && (
+                        <Item
+                            title={t('sessionInfo.antigravitySessionId')}
+                            subtitle={`${session.metadata.antigravitySessionId.substring(0, 8)}...${session.metadata.antigravitySessionId.substring(session.metadata.antigravitySessionId.length - 8)}`}
+                            icon={<Ionicons name="code-outline" size={29} color="#9C27B0" />}
+                            onPress={handleCopyAntigravitySessionId}
+                        />
+                    )}
                     <Item
                         title={t('sessionInfo.connectionStatus')}
                         detail={sessionStatus.isConnected ? t('status.online') : t('status.offline')}
@@ -842,7 +874,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                                 onPress={() => router.push(`/machine/${session.metadata?.machineId}`)}
                             />
                         )}
-                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId) && session.metadata?.machineId && session.metadata?.path && (
+                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId) && session.metadata?.machineId && session.metadata?.path && (
                             <Item
                                 title={session.active ? t('sessionInfo.copySession') : t('sessionInfo.resumeSession')}
                                 subtitle={session.active ? t('sessionInfo.copySessionSubtitle') : t('sessionInfo.resumeSessionSubtitle')}

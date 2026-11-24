@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Modal } from '@/modal';
 import type { Session } from '@/sync/storageTypes';
-import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineSpawnNewSession } from '@/sync/ops';
+import { machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineForkAntigravitySession, machineSpawnNewSession } from '@/sync/ops';
 import { sync } from '@/sync/sync';
 import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { t } from '@/text';
@@ -27,11 +27,12 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
     const claudeSessionId = session.metadata?.claudeSessionId;
     const codexSessionId = session.metadata?.codexSessionId;
     const qoderSessionId = session.metadata?.qoderSessionId;
+    const antigravitySessionId = session.metadata?.antigravitySessionId;
     const machineId = session.metadata?.machineId;
     const directory = session.metadata?.path;
 
     // Guard: must have a forkable session identifier
-    if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId) return;
+    if (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId) return;
     if (!directory) {
         Modal.alert(t('common.error'), t('claudeHistory.pathUnavailable'));
         return;
@@ -60,7 +61,7 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
         }
 
         let resumeSessionId: string | undefined;
-        let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
+        let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
 
         if (flavor === 'gemini') {
             const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -86,6 +87,14 @@ const forkSession = React.useCallback(async (session: Session, mode: SessionFork
             }
             resumeSessionId = forkResult.newSessionId;
             agent = 'qoder';
+        } else if (flavor === 'antigravity' && antigravitySessionId) {
+            const forkResult = await machineForkAntigravitySession(machineId, antigravitySessionId);
+            if (!forkResult.success || !forkResult.newSessionId) {
+                Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                return;
+            }
+            resumeSessionId = forkResult.newSessionId;
+            agent = 'antigravity';
         } else if (claudeSessionId) {
             const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
             if (!forkResult.success || !forkResult.newSessionId) {

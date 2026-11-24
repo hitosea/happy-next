@@ -34,7 +34,7 @@ export const SessionHistoryCard = React.memo(({ session, isFirst, isLast, isSing
     const sessionName = getSessionName(session);
     const sessionSubtitle = useSessionProjectLabel(session);
     const avatarId = getSessionAvatarId(session);
-    const canFork = Boolean(session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId);
+    const canFork = Boolean(session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId);
     const isOnline = session.active;
 
     return (

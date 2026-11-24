@@ -1596,6 +1596,40 @@ export async function machineForkQoderSession(
 }
 
 /**
+ * Copy an Antigravity conversation into a new agy session on the machine. agy has no fork of its
+ * own, so the CLI copies the conversation on disk; the stopped and running cases are the same.
+ */
+export async function machineForkAntigravitySession(
+    machineId: string,
+    sessionId: string
+): Promise<{ success: boolean; newSessionId?: string; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, { sessionId: string }>(
+            machineId,
+            'antigravity-fork-session',
+            { sessionId },
+            60000
+        );
+        if (!result) {
+            return { success: false, errorMessage: 'RPC returned empty response' };
+        }
+        if (result.error) {
+            return { success: false, errorMessage: result.error };
+        }
+        return {
+            success: result.success ?? false,
+            newSessionId: result.newSessionId,
+            errorMessage: result.errorMessage
+        };
+    } catch (error) {
+        return {
+            success: false,
+            errorMessage: error instanceof Error ? error.message : 'Unknown RPC error'
+        };
+    }
+}
+
+/**
  * Duplicate a Qoder conversation up to, not including, the user message `truncateBeforeUuid`
  */
 export async function machineDuplicateQoderSession(

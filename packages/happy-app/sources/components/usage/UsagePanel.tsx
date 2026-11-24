@@ -14,7 +14,7 @@ import { t } from '@/text';
 
 type TimePeriod = 'today' | '7days' | '30days';
 
-type Provider = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder';
+type Provider = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
 
 const PROVIDER_KEYS: Record<Provider, string[] | undefined> = {
     all: undefined,
@@ -22,10 +22,11 @@ const PROVIDER_KEYS: Record<Provider, string[] | undefined> = {
     codex: ['codex-session'],
     gemini: ['gemini-session'],
     qoder: ['qoder-session'],
+    antigravity: ['antigravity-session'],
 };
 
-// Gemini and Qoder sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
-const PROVIDERS_WITHOUT_USAGE: Provider[] = ['gemini', 'qoder'];
+// Gemini, Qoder and Antigravity sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
+const PROVIDERS_WITHOUT_USAGE: Provider[] = ['gemini', 'qoder', 'antigravity'];
 
 const styles = StyleSheet.create((theme) => ({
     container: {
@@ -226,7 +227,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
 
             {/* Provider Selector */}
             <View style={styles.providerSelector}>
-                {(['all', 'claude', 'codex', 'gemini', 'qoder'] as Provider[]).map((p) => (
+                {(['all', 'claude', 'codex', 'gemini', 'qoder', 'antigravity'] as Provider[]).map((p) => (
                     <Pressable
                         key={p}
                         style={[styles.providerButton, provider === p && styles.providerButtonActive]}

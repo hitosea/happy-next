@@ -57,8 +57,7 @@ export function getSessionQuickActionKinds({
         && session.metadata?.path
         && (
             session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId
-            // Antigravity cannot fork yet: a stopped session resumes its own agy session, a running one has no copy
-            || (session.metadata?.antigravitySessionId && !session.active)
+            || session.metadata?.antigravitySessionId
         )
     );
 

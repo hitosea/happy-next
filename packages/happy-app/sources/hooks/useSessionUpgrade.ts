@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { useRouter } from 'expo-router';
 import { Modal } from '@/modal';
-import { machineForkClaudeSession, machineForkCodexSession, machineForkGeminiSession, machineForkQoderSession, machineSpawnNewSession, sessionKill } from '@/sync/ops';
+import { machineForkClaudeSession, machineForkCodexSession, machineForkGeminiSession, machineForkQoderSession, machineForkAntigravitySession, machineSpawnNewSession, sessionKill } from '@/sync/ops';
 import { storage } from '@/sync/storage';
 import type { Session } from '@/sync/storageTypes';
 import { t } from '@/text';
@@ -52,7 +52,7 @@ export function useSessionUpgrade(session: Session | null | undefined) {
             // Fork and resume — mirrors the "resume session" flow exactly
             const flavor = session.metadata?.flavor;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -78,6 +78,14 @@ export function useSessionUpgrade(session: Session | null | undefined) {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'qoder';
+            } else if (flavor === 'antigravity' && session.metadata?.antigravitySessionId) {
+                const forkResult = await machineForkAntigravitySession(machineId, session.metadata.antigravitySessionId);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'antigravity';
             } else if (session.metadata?.claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, session.metadata.claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {
