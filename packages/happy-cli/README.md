@@ -47,6 +47,16 @@ Start a Qoder CLI session with remote control capabilities.
 
 **First time setup:** install [Qoder CLI](https://qoder.com) and sign in once with `qodercli login` (or `qoderclicn login` for the China build). Qoder uses your Qoder account, so there is no `happy connect qoder` step.
 
+### Antigravity
+
+```bash
+happy antigravity
+```
+
+Start an Antigravity CLI (`agy`) session with remote control capabilities.
+
+**First time setup:** install the Antigravity CLI and sign in once by running `agy`. Antigravity uses your Google account, so there is no `happy connect antigravity` step. Copying, forking and upgrading a session needs Node.js 22.5 or newer.
+
 ## Commands
 
 ### Main Commands
@@ -57,6 +67,7 @@ Start a Qoder CLI session with remote control capabilities.
 - `happy gemini` – Start Gemini CLI session
 - `happy codex` – Start Codex mode
 - `happy qoder` – Start Qoder CLI session
+- `happy antigravity` – Start Antigravity CLI session
 
 ### Utility Commands
 

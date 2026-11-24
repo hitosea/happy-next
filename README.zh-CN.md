@@ -162,6 +162,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Codex 的“帮我批准”模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
 - Codex 会在账号配额用完前预警，并不再丢弃生成图片、完成的 plan、hook 运行和审批决定；Codex 自己的标题、`/model` 切换、警告、`/review` 标记和 sleep 也会显示在会话里
 - Qoder 的 plan 显示为 TodoWrite 步骤
+- Antigravity CLI（`happy antigravity`）通过 ACP 成为第五个 Agent，支持账号模型与思考强度、权限模式与 plan 模式、恢复、复制、分叉和升级，以及编排任务（`antigravity`）
 
 ### 语音助手（Happy Voice）
 - 语音网关认证改用短效 token，安全性提升

@@ -160,6 +160,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Codex's "Approve for Me" mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
 - Codex warns before an account's quota runs out, and no longer drops a generated image, a finished plan, hook runs or review decisions; its own title, `/model` switches, warnings, `/review` markers and sleeps reach the session
 - Qoder's plan appears as TodoWrite steps
+- Antigravity CLI (`happy antigravity`) is a fifth agent over ACP, with the account's models and thinking levels, permission modes and plan mode, resume, copy, fork and upgrade, and orchestrator tasks (`antigravity`)
 
 ### Voice Assistant (Happy Voice)
 - Voice gateway auth now uses short-lived tokens for improved security
