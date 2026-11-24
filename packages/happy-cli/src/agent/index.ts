@@ -44,5 +44,7 @@ export function initializeAgents(): void {
   registerCodexAgent();
   const { registerQoderAgent } = require('./factories/qoder');
   registerQoderAgent();
+  const { registerAntigravityAgent } = require('./factories/antigravity');
+  registerAntigravityAgent();
 }
 

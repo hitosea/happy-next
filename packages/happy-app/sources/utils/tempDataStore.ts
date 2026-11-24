@@ -19,7 +19,7 @@ export interface NewSessionData {
     prompt?: string;
     machineId?: string;
     path?: string;
-    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
     sessionType?: 'simple' | 'worktree';
     /** @deprecated Use externalContext instead */
     taskId?: string;

@@ -1275,11 +1275,13 @@ export const zhHant: TranslationStructure = {
             gemini: 'Gemini',
             qoder: 'Qoder',
             qodercn: 'Qoder CN',
+            antigravity: 'Antigravity',
             claudeDescription: 'Anthropic 出品，擅長複雜程式設計',
             codexDescription: 'OpenAI 出品，GPT 模型驅動',
             geminiDescription: 'Google 出品，超長上下文',
             qoderDescription: '阿里出品，可選多家模型',
             qodercnDescription: '阿里出品，中國區版本，帳號獨立',
+            antigravityDescription: 'Google 出品，一個 Agent 裡可選 Gemini 等多家模型',
             opencode: 'OpenCode',
         },
         model: {

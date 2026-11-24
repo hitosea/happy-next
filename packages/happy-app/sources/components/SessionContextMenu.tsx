@@ -233,9 +233,10 @@ function useSessionQuickActions(session: Session) {
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.active ? undefined : session.metadata?.antigravitySessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
-        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId)) return;
+        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId)) return;
 
         const provider = agentDisplayName(flavor, session.metadata?.qoderBuild);
         const confirmed = await Modal.confirm(
@@ -252,9 +253,13 @@ function useSessionQuickActions(session: Session) {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
 
-            if (flavor === 'gemini') {
+            if (flavor === 'antigravity' && antigravitySessionId) {
+                // No fork for agy yet: the stopped session's own agy session is loaded again
+                resumeSessionId = antigravitySessionId;
+                agent = 'antigravity';
+            } else if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
                 if (!forkResult.success || !forkResult.newSessionId) {
                     Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));

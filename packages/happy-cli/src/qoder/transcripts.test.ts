@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listClaudeSessionsFromIndex } from '@/claude/utils/claudeSessionIndex';
-import { buildQoderFirstTurnPrompt } from './prompt';
+import { buildAcpFirstTurnPrompt } from '@/agent/acp/sessionInstructions';
 import { qoderTranscriptStore, readAllQoderSessionUserMessages } from './transcripts';
 
 describe('Qoder transcripts', () => {
@@ -17,7 +17,7 @@ describe('Qoder transcripts', () => {
 
         const projectDir = join(tempRoot, 'qoder', 'projects', '-repo-work');
         mkdirSync(projectDir, { recursive: true });
-        const firstPrompt = buildQoderFirstTurnPrompt({ userMessage: 'Fix the login bug', appendSystemPrompt: 'Happy guidance' });
+        const firstPrompt = buildAcpFirstTurnPrompt({ userMessage: 'Fix the login bug', appendSystemPrompt: 'Happy guidance' });
         const lines = [
             { type: 'user', uuid: 'u1', parentUuid: null, cwd: '/repo/work', timestamp: '2026-10-10T10:00:00.000Z', message: { role: 'user', content: [{ type: 'text', text: firstPrompt }] } },
             { type: 'assistant', uuid: 'a1', parentUuid: 'u1', timestamp: '2026-10-10T10:01:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'Done' }] } },

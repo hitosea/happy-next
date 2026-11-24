@@ -186,7 +186,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini' | 'qoder';
+    agent?: 'codex' | 'claude' | 'gemini' | 'qoder' | 'antigravity';
     // Qoder (`intl`) or Qoder CN (`cn`) for a Qoder session; without it the daemon starts the build it finds first
     qoderBuild?: QoderBuild;
     resumeSessionId?: string;
@@ -264,7 +264,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 /** Unified session entry type for multi-agent history browser */
 export interface AgentSessionIndexEntry {
     sessionId: string;
-    agent: 'claude' | 'gemini' | 'codex' | 'qoder';
+    agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity';
     qoderBuild?: QoderBuild; // Qoder only: which build's directory the conversation is saved in
     originalPath: string | null;
     title?: string | null;
@@ -312,7 +312,7 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
  */
 export async function machineDiscoverCapabilities(
     machineId: string,
-    agent: 'claude' | 'codex' | 'gemini' | 'qoder',
+    agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity',
     directory: string,
     qoderBuild?: QoderBuild
 ): Promise<SessionCapabilities> {
@@ -1698,6 +1698,18 @@ export type QoderModelDescriptions = { version: string; en: Record<string, strin
 export async function machineListQoderModels(machineId: string, build: QoderBuild, directory: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
     try {
         const result = await apiSocket.machineRPC<any, { build: QoderBuild; directory: string }>(machineId, 'qoder-list-models', { build, directory }, 60000);
+        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
+        if (result.error) return { success: false, errorMessage: result.error };
+        return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
+    } catch (error) {
+        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
+    }
+}
+
+/** Lists the models the machine's signed-in Antigravity account offers, with their thinking levels. */
+export async function machineListAntigravityModels(machineId: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, {}>(machineId, 'antigravity-list-models', {}, 60000);
         if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
         if (result.error) return { success: false, errorMessage: result.error };
         return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };

@@ -29,6 +29,17 @@ export const QODER_PERMISSION_MODES = [
   'yolo',
 ] as const;
 
+/**
+ * Antigravity (`agy acp`) offers default, accept-edits and plan as ACP modes; `yolo` runs in
+ * its default mode with Happy approving every request it asks about.
+ */
+export const ANTIGRAVITY_PERMISSION_MODES = [
+  'default',
+  'acceptEdits',
+  'plan',
+  'yolo',
+] as const;
+
 export const ALL_PERMISSION_MODES = [
   'default',
   'acceptEdits',
@@ -47,6 +58,7 @@ export const PERMISSION_MODES_BY_AGENT = {
   codex: CODEX_PERMISSION_MODES,
   gemini: GEMINI_PERMISSION_MODES,
   qoder: QODER_PERMISSION_MODES,
+  antigravity: ANTIGRAVITY_PERMISSION_MODES,
 } as const;
 
 export const PermissionModeSchema = z.enum(ALL_PERMISSION_MODES);
@@ -55,6 +67,7 @@ export type ClaudePermissionMode = typeof CLAUDE_PERMISSION_MODES[number];
 export type CodexPermissionMode = typeof CODEX_PERMISSION_MODES[number];
 export type GeminiPermissionMode = typeof GEMINI_PERMISSION_MODES[number];
 export type QoderPermissionMode = typeof QODER_PERMISSION_MODES[number];
+export type AntigravityPermissionMode = typeof ANTIGRAVITY_PERMISSION_MODES[number];
 export type PermissionMode = typeof ALL_PERMISSION_MODES[number];
 export type PermissionModeAgent = keyof typeof PERMISSION_MODES_BY_AGENT;
 

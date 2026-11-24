@@ -120,7 +120,7 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
     // New sessions only: the build a Qoder agentType runs on, which the picker shows as Qoder or Qoder CN.
     qoderBuild?: QoderBuild;
     // Models offered by the agent itself (Qoder lists them per account over ACP), as the machine reports
@@ -177,6 +177,7 @@ const agentFlavorIcons = {
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
+    antigravity: require('@/assets/images/icon-antigravity.png'),
 };
 
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
@@ -192,6 +193,7 @@ const agentMarkArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     codex: 10,
     gemini: 12,
     qoder: 11,
+    antigravity: 12,
 };
 
 // Vendor marks at full size, as on the agent button in the input and the agent picker rows. Same
@@ -203,6 +205,7 @@ const agentIconArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     codex: 15,
     gemini: 18,
     qoder: 16,
+    antigravity: 18,
 };
 
 // The settings overlay grows out of the input below it and sinks back into it when closed. These are
@@ -833,9 +836,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isCodex = props.metadata?.flavor === 'codex' || props.agentType === 'codex';
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
     const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
-    const isClaude = !isCodex && !isGemini && !isQoder;
+    const isAntigravity = props.metadata?.flavor === 'antigravity' || props.agentType === 'antigravity';
+    // Qoder and Antigravity list their models per account: the picker shows the machine's list as `model:effort`
+    const usesAccountModels = isQoder || isAntigravity;
+    const isClaude = !isCodex && !isGemini && !usesAccountModels;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
-    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : 'claude';
+    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : 'claude';
 
     const permissionModeOptions: PermissionMode[] = isCodex
         ? ['default', 'read-only', 'on-failure', 'full-auto']
@@ -843,7 +849,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             ? ['default', 'auto_edit', 'plan', 'yolo']
             : isQoder
                 ? ['default', 'acceptEdits', 'auto', 'yolo']
-                : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
+                : isAntigravity
+                    ? ['default', 'acceptEdits', 'plan', 'yolo']
+                    : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
 
     const getPermissionModeLabel = React.useCallback((mode: PermissionMode | undefined, badge = false): string => {
         if (!mode) return '';
@@ -861,7 +869,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             if (mode === 'yolo') return badge ? t('agentInput.geminiPermissionMode.badgeYolo') : t('agentInput.geminiPermissionMode.yolo');
             return '';
         }
-        if (isQoder) {
+        if (isQoder || isAntigravity) {
             if (mode === 'default') return t('agentInput.qoderPermissionMode.default');
             if (mode === 'acceptEdits') return badge ? t('agentInput.qoderPermissionMode.badgeAcceptEdits') : t('agentInput.qoderPermissionMode.acceptEdits');
             if (mode === 'auto') return badge ? t('agentInput.qoderPermissionMode.badgeAuto') : t('agentInput.qoderPermissionMode.auto');
@@ -875,12 +883,17 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         if (mode === 'bypassPermissions') return badge ? t('agentInput.permissionMode.badgeBypassAllPermissions') : t('agentInput.permissionMode.bypassPermissions');
         if (mode === 'plan') return badge ? t('agentInput.permissionMode.badgePlanMode') : t('agentInput.permissionMode.plan');
         return '';
-    }, [isCodex, isGemini, isQoder]);
+    }, [isCodex, isGemini, isQoder, isAntigravity]);
 
     const permissionModeDescriptions: Partial<Record<PermissionMode, string>> = isQoder ? {
         default: t('agentInput.qoderPermissionMode.defaultDescription'),
         acceptEdits: t('agentInput.qoderPermissionMode.acceptEditsDescription'),
         auto: t('agentInput.qoderPermissionMode.autoDescription'),
+        yolo: t('agentInput.qoderPermissionMode.yoloDescription'),
+    } : isAntigravity ? {
+        default: t('agentInput.qoderPermissionMode.defaultDescription'),
+        acceptEdits: t('agentInput.qoderPermissionMode.acceptEditsDescription'),
+        plan: t('agentInput.geminiPermissionMode.planDescription'),
         yolo: t('agentInput.qoderPermissionMode.yoloDescription'),
     } : isCodex ? {
         default: t('agentInput.codexPermissionMode.defaultDescription'),
@@ -909,7 +922,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         const machineModels = new Map((props.agentModels ?? []).map((model) => [model.code, model]));
         return (props.metadata?.models ?? props.agentModels ?? []).map((model) => ({ ...machineModels.get(model.code), ...model }));
     }, [props.metadata?.models, props.agentModels]);
-    const selectedModelMode: ModelMode = isQoder && (props.modelMode || 'default') === MODEL_MODE_DEFAULT
+    const selectedModelMode: ModelMode = usesAccountModels && (props.modelMode || 'default') === MODEL_MODE_DEFAULT
         ? (props.metadata?.currentModelCode
             ? buildQoderModelMode(props.metadata.currentModelCode, props.metadata.currentThoughtLevelCode)
             : qoderModels[0]?.code ?? MODEL_MODE_DEFAULT)
@@ -1066,7 +1079,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
         if (isGemini) return localizeModelOptions(getModelFamilyOptions('gemini'));
         const cliDefault = { value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') };
-        if (isQoder) {
+        if (usesAccountModels) {
             // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
             // Qoder's own sentence replaces the tags when the machine could read it.
             return qoderModels.map((model) => {
@@ -1081,7 +1094,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             });
         }
         return [cliDefault];
-    }, [isGemini, isQoder, qoderModels, modelCatalog]);
+    }, [isGemini, usesAccountModels, qoderModels, modelCatalog]);
 
     const currentModelLabel = React.useMemo(() => {
         if (isCodex) {
@@ -1092,13 +1105,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             const effortLabel = claudeReasoningOptions.find(o => o.value === claudeSelection.effort)?.label;
             return base + (effortLabel ? ` (${effortLabel})` : '');
         }
-        if (isQoder) {
+        if (usesAccountModels) {
             const effortLabel = qoderEffortOptions.find(o => o.value === qoderEffort)?.label;
             // A saved model the stand-in list lacks shows by its code until the machine's own list arrives.
             return (modelOptions.find(o => o.value === qoderSelection.model)?.shortLabel ?? qoderSelection.model) + (effortLabel ? ` (${effortLabel})` : '');
         }
         return modelOptions.find(o => o.value === selectedModelMode)?.shortLabel ?? '';
-    }, [isCodex, isClaude, isQoder, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode, qoderSelection.model, qoderEffort, qoderEffortOptions]);
+    }, [isCodex, isClaude, usesAccountModels, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode, qoderSelection.model, qoderEffort, qoderEffortOptions]);
 
     // Calculate context warning
     // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window,
@@ -2348,7 +2361,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                 };
                                                 return { full: <ContextWindowEditor {...editorProps} />, inline: <ContextWindowEditor {...editorProps} inline /> };
                                             })() : null,
-                                        ) : isQoder ? renderModelSettings(
+                                        ) : usesAccountModels ? renderModelSettings(
                                             { options: modelOptions, selected: qoderSelection.model, onChange: handleQoderModelChange },
                                             qoderEffortOptions.length > 0
                                                 ? { options: qoderEffortOptions, selected: qoderEffort, onChange: handleQoderEffortChange }

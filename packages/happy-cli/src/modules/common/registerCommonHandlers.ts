@@ -132,7 +132,7 @@ export interface SpawnSessionOptions {
     forkedFrom?: { sessionId?: string; title?: string; contextWindowSize?: number };
     skipForkSession?: boolean;
     approvedNewDirectoryCreation?: boolean;
-    agent?: 'claude' | 'codex' | 'gemini' | 'qoder';
+    agent?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
     // Qoder (`intl`) or Qoder CN (`cn`) for a Qoder session; absent, the build found first
     qoderBuild?: QoderBuild;
     token?: string;

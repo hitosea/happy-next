@@ -1042,6 +1042,10 @@ export class AcpBackend implements AgentBackend {
   }
 
   private emitInitialSessionMetadata(sessionResponse: NewSessionResponse): void {
+    // The legacy `modes` / `models` stand in for config options of those categories; an agent
+    // sending both (agy lists each model once per thinking level there) would otherwise have
+    // its config options overwritten by the stand-ins, which arrive as separate events.
+    const configCategories = new Set((sessionResponse.configOptions ?? []).map((option) => option.category));
     if (Array.isArray(sessionResponse.configOptions)) {
       this.emit({
         type: 'event',
@@ -1050,7 +1054,7 @@ export class AcpBackend implements AgentBackend {
       });
     }
 
-    if (sessionResponse.modes) {
+    if (sessionResponse.modes && !configCategories.has('mode')) {
       this.emit({
         type: 'event',
         name: 'modes_update',
@@ -1063,7 +1067,7 @@ export class AcpBackend implements AgentBackend {
       });
     }
 
-    if (sessionResponse.models) {
+    if (sessionResponse.models && !configCategories.has('model')) {
       this.emit({
         type: 'event',
         name: 'models_update',
@@ -1160,6 +1164,15 @@ export class AcpBackend implements AgentBackend {
       return;
     }
 
+    // How full the context window is (Antigravity sends one after each model request)
+    if (updateType === 'usage_update') {
+      const { used, size } = update as { used?: unknown; size?: unknown };
+      if (typeof used === 'number' && typeof size === 'number' && size > 0) {
+        this.emit({ type: 'event', name: 'usage_update', payload: { used, size } });
+      }
+      return;
+    }
+
     // Handle legacy and auxiliary update types
     handleLegacyMessageChunk(update as SessionUpdate, ctx);
     handlePlanUpdate(update as SessionUpdate, ctx);
@@ -1176,6 +1189,7 @@ export class AcpBackend implements AgentBackend {
       'config_option_update',
       'config_options_update',
       'current_mode_update',
+      'usage_update',
     ];
     if (updateType &&
         !handledTypes.includes(updateType) &&

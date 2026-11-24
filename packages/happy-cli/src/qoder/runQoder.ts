@@ -48,8 +48,8 @@ import { formatMessageForGemini } from '@/utils/formatImageMessage';
 import { getFirstTurnInstruction } from '@/orchestrator/firstTurnInstruction';
 import { parseOptionsFromText } from '@/gemini/utils/optionsParser';
 import { HAPPY_TOOLS_APPROVED_WITHOUT_ASKING, QoderPermissionHandler } from '@/qoder/utils/permissionHandler';
-import { buildQoderBackfillMessages } from '@/qoder/utils/backfill';
-import { buildQoderFirstTurnPrompt } from '@/qoder/prompt';
+import { buildAcpBackfillMessages } from '@/agent/acp/backfill';
+import { buildAcpFirstTurnPrompt } from '@/agent/acp/sessionInstructions';
 import { qoderTranscriptStore } from '@/qoder/transcripts';
 import { QoderSteering } from '@/qoder/steering';
 import { readQoderContextUsage } from '@/qoder/contextUsage';
@@ -181,7 +181,7 @@ export async function runQoder(opts: {
     const images = message.content.type === 'mixed' && 'images' in message.content ? message.content.images : [];
     const userMessage = expandBuiltinSlashCommand(originalUserMessage)?.prompt ?? originalUserMessage;
     const prompt = isFirstMessage
-      ? buildQoderFirstTurnPrompt({ appendSystemPrompt: message.meta?.appendSystemPrompt, firstTurnInstruction, userMessage })
+      ? buildAcpFirstTurnPrompt({ appendSystemPrompt: message.meta?.appendSystemPrompt, firstTurnInstruction, userMessage })
       : userMessage;
     isFirstMessage = false;
 
@@ -618,7 +618,7 @@ export async function runQoder(opts: {
       for (let i = 0; i < 150 && !session.isConnected(); i++) {
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
-      await session.sendBackfillBatch(buildQoderBackfillMessages(replayed, resumeSessionId), 'replace');
+      await session.sendBackfillBatch(buildAcpBackfillMessages(replayed, resumeSessionId, 'qoder'), 'replace');
       await sendContextUsage();
       messageBuffer.addMessage('Resumed previous Qoder conversation', 'status');
     } else if (resumeSessionId) {

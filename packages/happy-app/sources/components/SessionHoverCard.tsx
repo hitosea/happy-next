@@ -98,6 +98,7 @@ const providerIcons = {
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
+    antigravity: require('@/assets/images/icon-antigravity.png'),
 };
 type ProviderIcon = keyof typeof providerIcons;
 
@@ -105,6 +106,7 @@ function resolveProviderIcon(flavor: string | null | undefined): ProviderIcon {
     if (flavor === 'codex' || flavor === 'gpt' || flavor === 'openai') return 'codex';
     if (flavor === 'gemini') return 'gemini';
     if (flavor === 'qoder') return 'qoder';
+    if (flavor === 'antigravity') return 'antigravity';
     return 'claude';
 }
 
@@ -116,6 +118,7 @@ const watermarkArtworkSize: Record<ProviderIcon, number> = {
     codex: 74,
     gemini: 88,
     qoder: 78,
+    antigravity: 88,
 };
 
 /**

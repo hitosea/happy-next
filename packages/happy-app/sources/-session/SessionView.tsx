@@ -38,6 +38,7 @@ import { agentChoiceOf, type AgentType } from '@/utils/agentChoice';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useQoderModels } from '@/hooks/useQoderModels';
+import { useAntigravityModels } from '@/hooks/useAntigravityModels';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
@@ -391,6 +392,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
     const machineId = session.metadata?.machineId;
     const { models: qoderModels } = useQoderModels(machineId, session.metadata?.qoderBuild ?? 'intl', session.metadata?.path ?? '', session.metadata?.flavor === 'qoder');
+    const { models: antigravityModels } = useAntigravityModels(machineId, session.metadata?.flavor === 'antigravity');
     // Get permission mode from session object, default to 'default'
     const permissionMode = session.permissionMode || 'default';
     // Get model mode from session object. "default" means use CLI/profile configured model.
@@ -646,7 +648,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     // Check if the current session flavor supports images
     const supportsImages = React.useMemo(() => {
         const flavor = session?.metadata?.flavor;
-        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex' || flavor === 'qoder';
+        return flavor === 'claude' || flavor === 'gemini' || flavor === 'codex' || flavor === 'qoder' || flavor === 'antigravity';
     }, [session?.metadata?.flavor]);
 
     // Function to update permission mode
@@ -1569,7 +1571,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
-            agentModels={qoderModels}
+            agentModels={session.metadata?.flavor === 'antigravity' ? antigravityModels : qoderModels}
             connectionStatus={inputConnectionStatus}
             onSend={handleSend}
             isSending={isSending}

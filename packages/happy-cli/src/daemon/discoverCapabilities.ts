@@ -14,9 +14,10 @@ import { addBuiltinSlashCommands } from '@/commands/builtinCommands';
 import { addOrchestratorSlashCommands } from '@/orchestrator/slashCommands';
 import type { QoderBuild } from '@/qoder/constants';
 import { listQoderCommands } from '@/qoder/sessions';
+import { listAntigravityCommands } from '@/antigravity/models';
 import { logger } from '@/ui/logger';
 
-export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder';
+export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
 
 export async function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,
@@ -26,7 +27,7 @@ export async function discoverCapabilities(
 ): Promise<SessionCapabilities> {
     // Claude picks up the built-in and orchestrator commands from ~/.claude/commands, which the
     // disk scan already covers; Codex, Gemini and Qoder get them registered by their runners instead.
-    // Qoder's own commands and skills are only reported over ACP, so qodercli is asked for them.
+    // Qoder's and Antigravity's own commands are only reported over ACP, so the CLI is asked for them.
     const discoverers: Record<DiscoverCapabilitiesAgent, () => SessionCapabilities | Promise<SessionCapabilities>> = {
         claude: () => ({ slashCommandMetadata: discoverClaudeSlashCommandMetadata(directory, homeDir) }),
         codex: () => addBuiltinSlashCommands(addOrchestratorSlashCommands({
@@ -36,6 +37,15 @@ export async function discoverCapabilities(
         qoder: async () => {
             const commands = await listQoderCommands(directory, qoderBuild).catch((error) => {
                 logger.debug('[Qoder] Could not list commands', error);
+                return [];
+            });
+            return addBuiltinSlashCommands({
+                slashCommandMetadata: commands.map(({ name, description }) => ({ name, description, kind: 'command' as const })),
+            });
+        },
+        antigravity: async () => {
+            const commands = await listAntigravityCommands(directory).catch((error) => {
+                logger.debug('[Antigravity] Could not list commands', error);
                 return [];
             });
             return addBuiltinSlashCommands({

@@ -30,6 +30,13 @@ export {
   type QoderBackendOptions,
 } from './qoder';
 
+// Antigravity factory
+export {
+  createAntigravityBackend,
+  registerAntigravityAgent,
+  type AntigravityBackendOptions,
+} from './antigravity';
+
 // Future factories:
 // export { createClaudeBackend, registerClaudeAgent, type ClaudeBackendOptions } from './claude';
 // export { createOpenCodeBackend, registerOpenCodeAgent, type OpenCodeBackendOptions } from './opencode';

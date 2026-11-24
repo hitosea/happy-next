@@ -1,5 +1,6 @@
 import { ORCHESTRATOR_ENV_KEYS } from '@/orchestrator/common';
 import { QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
+import { ANTIGRAVITY_RESUME_SESSION_ID_ENV } from '@/antigravity/constants';
 
 // Variables that belong to one session: the daemon sets them for the session it spawns, and the
 // agent running in it (Claude Code) adds its own. A daemon started from inside a session — `happy
@@ -13,6 +14,7 @@ const sessionEnvKeys = [
   'HAPPY_GEMINI_RESUME_SESSION_ID',
   'HAPPY_GEMINI_BACKFILL',
   QODER_RESUME_SESSION_ID_ENV,
+  ANTIGRAVITY_RESUME_SESSION_ID_ENV,
   'HAPPY_CODEX_RESUME_FILE',
   'HAPPY_CODEX_BACKFILL',
   'HAPPY_SESSION_TITLE',

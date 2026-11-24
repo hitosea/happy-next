@@ -31,6 +31,7 @@ import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
 import { useQoderModels } from '@/hooks/useQoderModels';
+import { useAntigravityModels } from '@/hooks/useAntigravityModels';
 import { useNewSessionAutocomplete } from '@/hooks/useNewSessionAutocomplete';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
@@ -51,7 +52,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleFilePasteEvent } from '@/utils/filePaste';
 import { splitComposerFiles } from '@/utils/fileDrop';
 import { getDooTaskProjectId, getRecentDooTaskProjectConfig } from '@/utils/dootaskSessionDefaults';
-import { AGENT_CHOICES, isAgentChoice, resolveAgentChoice, type AgentChoice } from '@/utils/agentChoice';
+import { AGENT_CHOICES, isAgentChoice, resolveAgentChoice, type AgentChoice, type AgentType } from '@/utils/agentChoice';
 
 // Simple temporary state for passing selections back from picker screens
 let onMachineSelected: (machineId: string) => void = () => { };
@@ -182,7 +183,8 @@ function NewSessionWizard() {
         const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
         const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : validClaudeModes;
+        const validAntigravityModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : validClaudeModes;
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -393,7 +395,7 @@ function NewSessionWizard() {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [imagePickerSheetVisible, setImagePickerSheetVisible] = React.useState(false);
 
-    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder';
+    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder' || agentType === 'antigravity';
     const isFocused = useIsFocused();
 
     // What another app shared, when the share-target page sent it to a new session
@@ -555,17 +557,20 @@ function NewSessionWizard() {
     const { models: qoderModels, pending: qoderModelsPending } = useQoderModels(selectedMachineId, qoderBuild ?? 'intl', selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
     // Qoder models are per account and not in the catalog: a saved one is kept while the account still offers it.
     // Until the machine lists them, the stand-ins can't tell, so the saved one is kept rather than flashing Auto.
-    const isModelModeAvailable = (agent: 'claude' | 'codex' | 'gemini' | 'qoder', mode: string) => {
-        if (agent !== 'qoder') return isModelModeForAgent(agent, mode);
-        if (qoderModelsPending) return true;
+    // Antigravity's are per account too, and kept the same way.
+    const { models: antigravityModels, pending: antigravityModelsPending } = useAntigravityModels(selectedMachineId, agentType === 'antigravity');
+    const accountModels = agentType === 'qoder' ? qoderModels : agentType === 'antigravity' ? antigravityModels : undefined;
+    const isModelModeAvailable = (agent: AgentType, mode: string) => {
+        if (agent !== 'qoder' && agent !== 'antigravity') return isModelModeForAgent(agent, mode);
+        if (agent === 'qoder' ? qoderModelsPending : antigravityModelsPending) return true;
         const { model, effort, contextWindow } = parseQoderModelMode(mode);
-        const listed = qoderModels?.find((candidate) => candidate.code === model);
+        const listed = (agent === 'qoder' ? qoderModels : antigravityModels)?.find((candidate) => candidate.code === model);
         return !!listed
             && (!effort || !!listed.efforts?.some((level) => level.code === effort))
             && (!contextWindow || !!listed.contextWindows?.includes(contextWindow));
     };
-    // Qoder offers no "CLI default" entry, so it starts on the first model the account lists (Qoder's Auto).
-    const fallbackModelMode = (agentType === 'qoder' ? qoderModels?.[0]?.code : undefined) ?? MODEL_MODE_DEFAULT;
+    // Qoder and Antigravity offer no "CLI default" entry, so they start on the first model the account lists.
+    const fallbackModelMode = accountModels?.[0]?.code ?? MODEL_MODE_DEFAULT;
 
     /** Save defaultTargetBranch on a registered repo (fire-and-forget). */
     const persistDefaultBranch = React.useCallback((mId: string, repoId: string, branch: string) => {
@@ -691,7 +696,8 @@ function NewSessionWizard() {
         const validCodexModes: PermissionMode[] = ['default', 'read-only', 'on-failure', 'full-auto'];
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
         const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : validClaudeModes;
+        const validAntigravityModes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : validClaudeModes;
         const manualMode = manualPermissionModeByAgentRef.current[agentChoice];
 
         if (manualMode && validModes.includes(manualMode)) {
@@ -721,7 +727,7 @@ function NewSessionWizard() {
         } else {
             setModelMode((prev) => (prev === fallbackModelMode ? prev : fallbackModelMode));
         }
-    }, [agentType, agentChoice, lastUsedSessionMode?.modelMode, qoderModels, qoderModelsPending]);
+    }, [agentType, agentChoice, lastUsedSessionMode?.modelMode, qoderModels, qoderModelsPending, antigravityModels, antigravityModelsPending]);
 
     // Restore saved fast mode when agent type changes
     React.useEffect(() => {
@@ -1121,7 +1127,7 @@ function NewSessionWizard() {
                         autocompleteSuggestions={autocomplete.suggestions}
                         agentType={agentType}
                         qoderBuild={qoderBuild}
-                        agentModels={agentType === 'qoder' ? qoderModels : undefined}
+                        agentModels={accountModels}
                         availableAgents={availableAgents}
                         onAgentChange={setAgentChoice}
                         permissionMode={permissionMode}

@@ -7,11 +7,13 @@ const authVariables = {
   gemini: [],
   // Qoder CLI only uses its own `qodercli login`.
   qoder: [],
+  // Antigravity CLI only uses its own Google sign-in (`agy`).
+  antigravity: [],
 } as const;
 
 export function getUnexpandedSessionAuthVariables(
   environment: Record<string, string>,
-  agent: 'claude' | 'codex' | 'gemini' | 'qoder' = 'claude',
+  agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' = 'claude',
 ): string[] {
   return authVariables[agent].filter(name => environment[name]?.includes('${'));
 }

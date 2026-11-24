@@ -1,5 +1,5 @@
 /**
- * Qoder first-turn prompt
+ * ACP first-turn prompt (Qoder, Antigravity)
  *
  * ACP takes one prompt string, so Happy's session guidance rides along with the
  * first user message. It goes after the message: qodercli treats a prompt that
@@ -11,7 +11,7 @@
 const INSTRUCTIONS_TAG = 'happy-session-instructions';
 const INSTRUCTIONS_BLOCK = new RegExp(`\\s*<${INSTRUCTIONS_TAG}>[\\s\\S]*?</${INSTRUCTIONS_TAG}>\\s*$`);
 
-export function buildQoderFirstTurnPrompt(opts: {
+export function buildAcpFirstTurnPrompt(opts: {
   userMessage: string;
   appendSystemPrompt?: string | null;
   firstTurnInstruction?: string | null;
@@ -22,6 +22,6 @@ export function buildQoderFirstTurnPrompt(opts: {
   return guidance ? `${opts.userMessage}\n\n<${INSTRUCTIONS_TAG}>\n${guidance}\n</${INSTRUCTIONS_TAG}>` : opts.userMessage;
 }
 
-export function stripQoderSessionInstructions(text: string): string {
+export function stripAcpSessionInstructions(text: string): string {
   return text.replace(INSTRUCTIONS_BLOCK, '');
 }

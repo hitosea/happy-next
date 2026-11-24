@@ -202,6 +202,13 @@ describe('modelCatalog', () => {
         expect(getMaxContextSize('default', 'qoder')).toBe(200_000);
     });
 
+    it('passes antigravity account models through as model:effort modes', () => {
+        expect(getValidModelModesForAgent('antigravity')).toEqual([MODEL_MODE_DEFAULT]);
+        expect(resolveModelSelectionForFlavor('antigravity', 'gemini-4-neon:xhigh')).toEqual({ model: 'gemini-4-neon', reasoningEffort: 'xhigh', contextWindow: null });
+        expect(resolveModelSelectionForFlavor('antigravity', 'gpt-oss-120b-medium')).toEqual({ model: 'gpt-oss-120b-medium', reasoningEffort: null, contextWindow: null });
+        expect(getMaxContextSize('default', 'antigravity')).toBe(1_048_576);
+    });
+
     it('carries a picked qoder context window in the mode', () => {
         expect(buildQoderModelMode('performance', 'high', 1_000_000)).toBe('performance:high@1000000');
         expect(buildQoderModelMode('auto', null, 400_000)).toBe('auto@400000');

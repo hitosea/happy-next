@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { findClaudeProjectId, readAllClaudeSessionUserMessages, type ClaudeUserMessageWithUuid, type TranscriptStore } from '@/claude/utils/claudeSessionIndex';
 import { truncateSessionFile } from '@/claude/utils/claudeSessionFork';
 import { forkQoderSession } from '@/qoder/sessions';
-import { stripQoderSessionInstructions } from '@/qoder/prompt';
+import { stripAcpSessionInstructions } from '@/agent/acp/sessionInstructions';
 import { QODER_SLUGS, qoderBuildOf, qoderConfigDir, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 
 /** Qoder CN (`qoderclicn`) keeps its own directory, `~/.qoder-cn`. Without a build, the one Happy would start. */
@@ -18,7 +18,7 @@ export function qoderTranscriptStore(build: QoderBuild = qoderBuildOf(resolveQod
   return {
     configDir: qoderConfigDir(build),
     cacheFileName: `${QODER_SLUGS[build]}-session-metadata-cache.json`,
-    cleanUserText: stripQoderSessionInstructions,
+    cleanUserText: stripAcpSessionInstructions,
   };
 }
 

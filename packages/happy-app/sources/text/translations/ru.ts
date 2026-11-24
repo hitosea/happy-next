@@ -1284,11 +1284,13 @@ export const ru: TranslationStructure = {
             gemini: 'Gemini',
             qoder: 'Qoder',
             qodercn: 'Qoder CN',
+            antigravity: 'Antigravity',
             claudeDescription: 'By Anthropic, strong at complex coding',
             codexDescription: 'By OpenAI, powered by GPT',
             geminiDescription: 'By Google, long context',
             qoderDescription: 'By Alibaba, choose from many models',
             qodercnDescription: 'Qoder для региона Китая, с отдельным аккаунтом',
+            antigravityDescription: 'От Google: Gemini и другие модели в одном агенте',
             opencode: 'OpenCode',
         },
         model: {

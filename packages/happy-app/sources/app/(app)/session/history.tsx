@@ -59,6 +59,7 @@ const agentIcons: Record<AgentType, any> = {
     gemini: require('@/assets/images/icon-gemini.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
+    antigravity: require('@/assets/images/icon-antigravity.png'),
 };
 
 const rightIconStyle = {

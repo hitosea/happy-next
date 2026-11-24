@@ -113,6 +113,8 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         gemini: [MODEL_MODE_DEFAULT, ...activeModels('gemini').map((model) => model.id)],
         // Qoder models are per-account and come from the ACP session at runtime, not the catalog.
         qoder: [MODEL_MODE_DEFAULT, ...activeModels('qoder').map((model) => model.id)],
+        // Antigravity models, like Qoder's, are listed by `agy acp` at runtime.
+        antigravity: [MODEL_MODE_DEFAULT, ...activeModels('antigravity').map((model) => model.id)],
     };
 
     const familyOptions: Record<AgentFlavor, readonly ModelOption[]> = {
@@ -120,6 +122,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
         codex: [DEFAULT_MODEL_OPTION, ...activeModels('codex').map(toModelOption)],
         gemini: [DEFAULT_MODEL_OPTION, ...activeModels('gemini').map(toModelOption)],
         qoder: [DEFAULT_MODEL_OPTION, ...activeModels('qoder').map(toModelOption)],
+        antigravity: [DEFAULT_MODEL_OPTION, ...activeModels('antigravity').map(toModelOption)],
     };
 
     const contextWindows = new Map<string, number>(catalog.models.map((model) => [model.id, model.contextWindow]));
@@ -138,6 +141,7 @@ function buildCatalogIndex(catalog: ModelCatalog) {
             codex: new Set(modesByAgent.codex),
             gemini: new Set(modesByAgent.gemini),
             qoder: new Set(modesByAgent.qoder),
+            antigravity: new Set(modesByAgent.antigravity),
         } satisfies Record<AgentFlavor, Set<ModelMode>>,
         familyOptions,
         contextWindows,
@@ -287,7 +291,7 @@ export function buildCodexModelMode(
 }
 
 /**
- * Qoder modes are a model code the account lists, optionally with `:effort` and then
+ * Qoder and Antigravity modes are a model code the account lists, optionally with `:effort` and then
  * `@contextWindow` in tokens (`performance:high@1000000`, `auto@400000`). Without a
  * context window qodercli picks it: the model's default, or the one a resumed session had.
  */
@@ -317,7 +321,7 @@ export type ModelSelection = {
 
 export function resolveModelSelectionForFlavor(flavor: string | null | undefined, modelMode: string): ModelSelection {
     if (modelMode === MODEL_MODE_DEFAULT) return { model: null, reasoningEffort: null };
-    if (flavor === 'qoder') {
+    if (flavor === 'qoder' || flavor === 'antigravity') {
         const { model, effort, contextWindow } = parseQoderModelMode(modelMode);
         return { model, reasoningEffort: effort, contextWindow };
     }
@@ -409,6 +413,7 @@ const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     codex: 272_000,
     gemini: 1_000_000,
     qoder: 200_000,
+    antigravity: 1_048_576,
 };
 
 /**

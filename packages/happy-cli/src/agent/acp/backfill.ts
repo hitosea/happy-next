@@ -1,5 +1,5 @@
 /**
- * Qoder Session Backfill
+ * ACP Session Backfill (Qoder, Antigravity)
  *
  * ACP `session/load` replays the restored conversation as session updates. The
  * runner collects them while loading and this turns the user prompts and the text
@@ -8,13 +8,13 @@
  */
 
 import type { SessionNotification } from '@agentclientprotocol/sdk';
-import { stripQoderSessionInstructions } from '@/qoder/prompt';
+import { stripAcpSessionInstructions } from '@/agent/acp/sessionInstructions';
 import { userPromptText } from 'happy-wire';
 import { selectBackfillTurns, withForkedHistoryNotices } from '@/modules/common/backfillTurns';
 
 type BackfillMessage = { content: unknown; localId: string };
 
-export function buildQoderBackfillMessages(updates: SessionNotification['update'][], sessionId: string, maxTurns = 20): BackfillMessage[] {
+export function buildAcpBackfillMessages(updates: SessionNotification['update'][], sessionId: string, provider: 'qoder' | 'antigravity', maxTurns = 20): BackfillMessage[] {
   // Chunks of one role run together into a message; a tool call ends the agent's, so the text after
   // the turn's last tool call is a message of its own — the reply the turn ended on.
   const entries: { role: 'user' | 'agent'; text: string; index: number }[] = [];
@@ -38,15 +38,15 @@ export function buildQoderBackfillMessages(updates: SessionNotification['update'
 
   // A prompt the user never sent is left out, so the reply after it still ends the turn before
   const texts = entries.flatMap((entry) => {
-    const text = entry.role === 'user' ? userPromptText(stripQoderSessionInstructions(entry.text)) : entry.text;
+    const text = entry.role === 'user' ? userPromptText(stripAcpSessionInstructions(entry.text)) : entry.text;
     return text?.trim() ? [{ ...entry, text }] : [];
   });
   const { selected, omittedTurns } = selectBackfillTurns(texts, (entry) => entry.role === 'agent' ? 'reply' : 'prompt', maxTurns);
-  const localIdPrefix = `qoder-log:${sessionId}:`;
+  const localIdPrefix = `${provider}-log:${sessionId}:`;
   return withForkedHistoryNotices(localIdPrefix, omittedTurns, selected.map((entry) => ({
     localId: `${localIdPrefix}${entry.index}`,
     content: entry.role === 'user'
       ? { role: 'user', content: { type: 'text', text: entry.text }, meta: { sentFrom: 'cli' } }
-      : { role: 'agent', content: { type: 'acp', provider: 'qoder', data: { type: 'message', message: entry.text } }, meta: { sentFrom: 'cli' } },
+      : { role: 'agent', content: { type: 'acp', provider, data: { type: 'message', message: entry.text } }, meta: { sentFrom: 'cli' } },
   })));
 }

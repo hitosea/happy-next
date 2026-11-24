@@ -1274,11 +1274,13 @@ export const es: TranslationStructure = {
             gemini: 'Gemini',
             qoder: 'Qoder',
             qodercn: 'Qoder CN',
+            antigravity: 'Antigravity',
             claudeDescription: 'By Anthropic, strong at complex coding',
             codexDescription: 'By OpenAI, powered by GPT',
             geminiDescription: 'By Google, long context',
             qoderDescription: 'By Alibaba, choose from many models',
             qodercnDescription: 'Qoder para la región de China, con su propia cuenta',
+            antigravityDescription: 'De Google: Gemini y otros modelos en un solo agente',
             opencode: 'OpenCode',
         },
         model: {

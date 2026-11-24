@@ -55,7 +55,11 @@ export function getSessionQuickActionKinds({
     const isForkable = !!(
         session.metadata?.machineId
         && session.metadata?.path
-        && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId)
+        && (
+            session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId
+            // Antigravity cannot fork yet: a stopped session resumes its own agy session, a running one has no copy
+            || (session.metadata?.antigravitySessionId && !session.active)
+        )
     );
 
     const actions: SessionQuickActionKind[] = ['details'];

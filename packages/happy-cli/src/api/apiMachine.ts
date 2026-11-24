@@ -20,6 +20,7 @@ import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/
 import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { forkQoderSession } from '@/qoder/sessions';
 import { listQoderModels } from '@/qoder/models';
+import { listAntigravityModels } from '@/antigravity/models';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
 import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
@@ -51,6 +52,8 @@ const PROVIDER_DETECTION_COMMAND =
     // Qoder (qodercli) and Qoder CN (qoderclicn) are separate providers; their installers use ~/.local/bin
     '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true"); ' +
     '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
+    // Antigravity's installer puts agy in ~/.local/bin too
+    '((command -v agy || test -x ~/.local/bin/agy) >/dev/null 2>&1 && echo "antigravity:true"); ' +
     'true';
 
 function createSessionCacheStatsReporter(
@@ -637,7 +640,7 @@ export class ApiMachineClient {
             if (!directory || typeof directory !== 'string') {
                 throw new Error('directory is required');
             }
-            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder') {
+            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder' && agent !== 'antigravity') {
                 throw new Error(`Unsupported agent: ${agent}`);
             }
             return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory, undefined, parseQoderBuild(params?.qoderBuild));
@@ -909,6 +912,15 @@ export class ApiMachineClient {
         this.rpcHandlerManager.registerHandler('qoder-list-models', async (params: any) => {
             try {
                 return { success: true, models: await listQoderModels(requestedQoderBuild(params)) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Models the signed-in Antigravity account offers, with their thinking levels, for the app's model picker.
+        this.rpcHandlerManager.registerHandler('antigravity-list-models', async () => {
+            try {
+                return { success: true, models: await listAntigravityModels() };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }

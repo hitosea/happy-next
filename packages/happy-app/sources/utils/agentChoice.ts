@@ -9,11 +9,11 @@
 
 import { t } from '@/text';
 
-export type AgentType = 'claude' | 'codex' | 'gemini' | 'qoder';
+export type AgentType = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
 export type QoderBuild = 'intl' | 'cn';
 export type AgentChoice = AgentType | 'qodercn';
 
-export const AGENT_CHOICES: readonly AgentChoice[] = ['claude', 'codex', 'gemini', 'qoder', 'qodercn'];
+export const AGENT_CHOICES: readonly AgentChoice[] = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity'];
 
 export function isAgentChoice(value: unknown): value is AgentChoice {
     return AGENT_CHOICES.includes(value as AgentChoice);
@@ -37,6 +37,7 @@ const FLAVOR_AGENTS: Record<string, AgentType> = {
     gpt: 'codex',
     gemini: 'gemini',
     qoder: 'qoder',
+    antigravity: 'antigravity',
 };
 
 /** A session's agent name as the new-session picker shows it (Qoder CN for a Qoder session on the China build). */

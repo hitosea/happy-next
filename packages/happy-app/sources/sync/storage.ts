@@ -118,7 +118,7 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
 
 function resolveSessionModeAgentType(metadata: Metadata | null | undefined): SessionModeAgentType {
     const flavor = metadata?.flavor;
-    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity') {
         return agentChoiceOf(flavor, metadata?.qoderBuild);
     }
     return 'claude';
@@ -1644,7 +1644,7 @@ export const storage = create<StorageState>()((set, get) => {
             if (!session) return;
             const flavor = session.metadata?.flavor;
             const agentType = resolveSessionModeAgentType(session.metadata);
-            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder') {
+            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity') {
                 const previousMode = session.permissionMode || 'default';
                 void sync.changePermissionMode(sessionId, mode).then((result) => {
                     // The CLI refused a mode it cannot run: go back to the one it keeps running,
@@ -2553,6 +2553,17 @@ export function useLatestQoderModels(build: QoderBuild): Metadata['models'] {
         for (const session of Object.values(state.sessions)) {
             if (session.metadata?.flavor !== 'qoder' || !session.metadata.models?.length) continue;
             if ((session.metadata.qoderBuild ?? 'intl') !== build) continue;
+            if (!latest || session.updatedAt > latest.updatedAt) latest = session;
+        }
+        return latest?.metadata?.models;
+    });
+}
+
+export function useLatestAntigravityModels(): Metadata['models'] {
+    return storage((state) => {
+        let latest: Session | null = null;
+        for (const session of Object.values(state.sessions)) {
+            if (session.metadata?.flavor !== 'antigravity' || !session.metadata.models?.length) continue;
             if (!latest || session.updatedAt > latest.updatedAt) latest = session;
         }
         return latest?.metadata?.models;

@@ -167,7 +167,7 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
             { label: t('claude.permissions.onlyThisCommand'), onPress: () => handleApproveForSession([`Bash(${shellCommand})`]) },
         ] : []);
     const ruleScope = isCodex ? t('codex.permissions.prefixScope')
-        : metadata?.flavor === 'gemini' ? t('claude.permissions.rulesUntilRestart')
+        : metadata?.flavor === 'gemini' || metadata?.flavor === 'antigravity' ? t('claude.permissions.rulesUntilRestart')
         : t('claude.permissions.rulesSavedTo', { file: metadata?.flavor === 'qoder' ? '.qoder/settings.local.json' : '.claude/settings.local.json' });
     const handlePressForSession = () => ruleMenuItems.length > 1
         ? setRuleMenuVisible(true)

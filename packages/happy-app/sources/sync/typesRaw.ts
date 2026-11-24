@@ -358,7 +358,7 @@ const rawAgentRecordSchema = z.discriminatedUnion('type', [z.object({
 }), z.object({
     // ACP (Agent Communication Protocol) - unified format for all agent providers
     type: z.literal('acp'),
-    provider: z.enum(['gemini', 'codex', 'claude', 'qoder', 'opencode']),
+    provider: z.enum(['gemini', 'codex', 'claude', 'qoder', 'antigravity', 'opencode']),
     data: z.discriminatedUnion('type', [
         // Core message types
         z.object({ type: z.literal('reasoning'), message: z.string() }),

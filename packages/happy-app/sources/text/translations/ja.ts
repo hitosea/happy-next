@@ -1276,11 +1276,13 @@ export const ja: TranslationStructure = {
             gemini: 'Gemini',
             qoder: 'Qoder',
             qodercn: 'Qoder CN',
+            antigravity: 'Antigravity',
             claudeDescription: 'By Anthropic, strong at complex coding',
             codexDescription: 'By OpenAI, powered by GPT',
             geminiDescription: 'By Google, long context',
             qoderDescription: 'By Alibaba, choose from many models',
             qodercnDescription: '中国リージョン版の Qoder（アカウントは別）',
+            antigravityDescription: 'Google 製。Gemini などのモデルを 1 つのエージェントで',
             opencode: 'OpenCode',
         },
         model: {

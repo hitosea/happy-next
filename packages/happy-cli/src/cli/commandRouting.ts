@@ -1,4 +1,5 @@
 export const PUBLIC_HAPPY_COMMANDS = [
+  'antigravity',
   'auth',
   'claude',
   'codex',
