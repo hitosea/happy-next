@@ -51,6 +51,8 @@ const ORCHESTRATOR_WATCHDOG_GRACE_MS = 5_000;
 const ORCHESTRATOR_OUTPUT_CAPTURE_LIMIT = 64_000;
 const ORCHESTRATOR_SHUTDOWN_WAIT_MS = 8_000;
 const ORCHESTRATOR_RECONCILE_DEADLINE_MS = 5 * 60_000;
+// Providers run in a JSON output mode: the answer is its `response` and it reports its own session id
+const JSON_OUTPUT_PROVIDERS: ReadonlySet<string> = new Set(['gemini', 'antigravity']);
 
 // Prepare initial metadata
 export const initialMachineMetadata: MachineMetadata = {
@@ -248,7 +250,7 @@ export async function startDaemon(): Promise<void> {
         return;
       }
       execution.finishReportPromise = (async () => {
-        const normalizedStdout = execution.payload.provider === 'gemini'
+        const normalizedStdout = JSON_OUTPUT_PROVIDERS.has(execution.payload.provider)
           ? normalizeGeminiOutputText(execution.stdout)
           : execution.stdout.trim();
         const outputText = buildExecutionOutputText({ status: opts.status, stdout: normalizedStdout, stderr: execution.stderr });
@@ -283,7 +285,7 @@ export async function startDaemon(): Promise<void> {
         return;
       }
 
-      if (!execution.detectedChildSessionId && execution.payload.provider === 'gemini' && execution.payload.executionType === 'initial') {
+      if (!execution.detectedChildSessionId && JSON_OUTPUT_PROVIDERS.has(execution.payload.provider) && execution.payload.executionType === 'initial') {
         const parsed = extractGeminiSessionId(execution.stdout);
         if (parsed) {
           execution.detectedChildSessionId = parsed;
@@ -396,7 +398,7 @@ export async function startDaemon(): Promise<void> {
               recordDetectedChildSessionId(execution, parsed);
             }
             execution.stdoutLineBuffer = probe.slice(-256);
-          } else if (payload.provider === 'gemini' && payload.executionType === 'initial') {
+          } else if (JSON_OUTPUT_PROVIDERS.has(payload.provider) && payload.executionType === 'initial') {
             execution.stdoutLineBuffer += text;
             const lines = execution.stdoutLineBuffer.split(/\r?\n/);
             execution.stdoutLineBuffer = lines.pop() ?? '';

@@ -12,6 +12,7 @@ const GEMINI_TEXT_KEYS = new Set([
 const GEMINI_META_KEYS = new Set([
   'session_id',
   'sessionId',
+  'conversation_id',
   'id',
   'usage',
   'metadata',
@@ -48,12 +49,9 @@ export function extractGeminiSessionId(stdout: string): string | null {
 
   // Try full JSON parse first (pretty-printed output)
   try {
-    const parsed = JSON.parse(trimmed) as { session_id?: unknown };
-    if (typeof parsed.session_id === 'string') {
-      const sessionId = parsed.session_id.trim();
-      if (sessionId.length > 0) {
-        return sessionId;
-      }
+    const sessionId = readJsonSessionId(JSON.parse(trimmed));
+    if (sessionId) {
+      return sessionId;
     }
   } catch (_error) {
     // not a single JSON document, try line-based
@@ -76,15 +74,17 @@ export function extractGeminiSessionIdFromJsonLine(line: string): string | null 
     return null;
   }
   try {
-    const parsed = JSON.parse(trimmed) as { session_id?: unknown };
-    if (typeof parsed.session_id === 'string') {
-      const sessionId = parsed.session_id.trim();
-      return sessionId.length > 0 ? sessionId : null;
-    }
+    return readJsonSessionId(JSON.parse(trimmed));
   } catch (_error) {
     return null;
   }
-  return null;
+}
+
+/** Gemini names its session `session_id`; Antigravity's print mode calls it `conversation_id`. */
+function readJsonSessionId(parsed: unknown): string | null {
+  const { session_id, conversation_id } = (parsed ?? {}) as { session_id?: unknown; conversation_id?: unknown };
+  const sessionId = [session_id, conversation_id].find((value): value is string => typeof value === 'string')?.trim();
+  return sessionId || null;
 }
 
 function collectGeminiTextCandidates(value: unknown, out: string[]): void {

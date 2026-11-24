@@ -54,6 +54,7 @@ const flavorIconSources: Record<string, any> = {
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
+    antigravity: require('@/assets/images/icon-antigravity.png'),
 };
 
 /** Build a map of taskId → unique flavor strings from all sessions linked to dootask tasks. */

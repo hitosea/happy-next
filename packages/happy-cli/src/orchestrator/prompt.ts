@@ -10,7 +10,7 @@ export const CHAT_TITLE_INSTRUCTION = trimIdent(`
 export const ORCHESTRATOR_TOOLS_INSTRUCTION = trimIdent(`
   # Orchestrator
 
-  Use orchestrator_* tools to delegate work to other AI agents (claude/codex/gemini/qoder/qodercn) on this or other machines, orchestrator_exec to run shell commands on them directly, and orchestrator_transfer to copy files between them.
+  Use orchestrator_* tools to delegate work to other AI agents (claude/codex/gemini/qoder/qodercn/antigravity) on this or other machines, orchestrator_exec to run shell commands on them directly, and orchestrator_transfer to copy files between them.
 
   Workflow:
   1. Call orchestrator_get_context first to discover available providers, models, and machines.

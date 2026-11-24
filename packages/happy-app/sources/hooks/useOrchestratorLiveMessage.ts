@@ -23,6 +23,10 @@ async function fetchPreviewMessages(machineId: string, provider: Provider, child
         case 'qoder':
         case 'qodercn':
             return (await machineGetQoderSessionPreview(machineId, childSessionId, provider === 'qodercn' ? 'cn' : 'intl', options)).messages;
+        case 'antigravity':
+            // agy keeps the conversation in SQLite and the machine has no preview of it yet, so
+            // a running task shows no live message; its output still arrives when it finishes
+            return [];
     }
 }
 

@@ -57,6 +57,12 @@ describe('extractGeminiSessionIdFromJsonLine', () => {
 });
 
 describe('extractGeminiSessionId', () => {
+  it('extracts conversation_id from Antigravity print-mode JSON', () => {
+    const stdout = JSON.stringify({ conversation_id: 'd0268b9f-972d-447f-bf01-96a44a40e632', status: 'SUCCESS', response: '1\n' });
+    expect(extractGeminiSessionId(stdout)).toBe('d0268b9f-972d-447f-bf01-96a44a40e632');
+    expect(normalizeGeminiOutputText(stdout)).toBe('1');
+  });
+
   it('extracts session_id from pretty-printed JSON output', () => {
     const stdout = JSON.stringify({
       session_id: '11111111-2222-4333-8444-555555555555',

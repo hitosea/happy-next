@@ -8,6 +8,7 @@ import {
   ORCHESTRATOR_COMMAND_GEMINI,
   ORCHESTRATOR_COMMAND_QODER,
   ORCHESTRATOR_COMMAND_QODERCN,
+  ORCHESTRATOR_COMMAND_ANTIGRAVITY,
   ORCHESTRATOR_SKILL_MD,
   buildOrchestratorCommandPrompt,
 } from './skillAssets';
@@ -74,6 +75,7 @@ describe('syncOrchestratorAssets', () => {
     expect(readFileSync(claudeCmd('gemini'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_GEMINI);
     expect(readFileSync(claudeCmd('qoder'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODER);
     expect(readFileSync(claudeCmd('qodercn'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODERCN);
+    expect(readFileSync(claudeCmd('antigravity'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_ANTIGRAVITY);
     expect(existsSync(join(home, '.codex'))).toBe(false);
   });
 
@@ -101,6 +103,7 @@ describe('syncOrchestratorAssets', () => {
     expect(readFileSync(qoderCmd('gemini'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_GEMINI);
     expect(readFileSync(qoderCmd('qoder'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODER);
     expect(readFileSync(qoderCmd('qodercn'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_QODERCN);
+    expect(readFileSync(qoderCmd('antigravity'), 'utf8')).toBe(ORCHESTRATOR_COMMAND_ANTIGRAVITY);
     expect(existsSync(join(home, '.qoder-cn'))).toBe(false);
 
     mkdirSync(join(home, '.qoder-cn'), { recursive: true });
@@ -159,7 +162,7 @@ describe('orchestrator skill frontmatter', () => {
   it('keeps the public skill name and inline description stable', () => {
     expect(frontmatter).toContain('name: orchestrator');
     expect(descriptionLine).toBe(
-      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder/qodercn) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder|qodercn.",
+      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder/qodercn/antigravity) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder|qodercn|antigravity.",
     );
     expect(descriptionLine).not.toMatch(/^description:\s*[>|]/);
   });

@@ -22,6 +22,7 @@ describe('orchestrator slash commands', () => {
       'orchestrator:gemini',
       'orchestrator:qoder',
       'orchestrator:qodercn',
+      'orchestrator:antigravity',
     ]);
   });
 

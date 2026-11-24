@@ -221,6 +221,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         gemini: getValidModelModesForAgent('gemini'),
                         qoder: getValidModelModesForAgent('qoder'),
                         qodercn: getValidModelModesForAgent('qoder'),
+                        antigravity: getValidModelModesForAgent('antigravity'),
                     },
                     machines: [],
                 };

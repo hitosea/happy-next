@@ -38,19 +38,28 @@ export function qoderModelModesFromListing(response: unknown): string[] | null {
     return modes;
 }
 
-async function loadQoderModelModes(machineId: string, provider: QoderProvider, call: MachineRpcCall): Promise<string[] | null> {
+// The RPC each provider whose models are per account lists them with; both answer
+// `{ success, models: [{ code, efforts: [{ code }] }] }`.
+const MODEL_LISTING_RPCS: Record<QoderProvider | 'antigravity', { method: string; params: Record<string, unknown> }> = {
+    qoder: { method: 'qoder-list-models', params: { build: QODER_PROVIDER_BUILDS.qoder } },
+    qodercn: { method: 'qoder-list-models', params: { build: QODER_PROVIDER_BUILDS.qodercn } },
+    antigravity: { method: 'antigravity-list-models', params: {} },
+};
+
+async function loadQoderModelModes(machineId: string, provider: keyof typeof MODEL_LISTING_RPCS, call: MachineRpcCall): Promise<string[] | null> {
+    const { method, params } = MODEL_LISTING_RPCS[provider];
     try {
-        return qoderModelModesFromListing(await call(`${machineId}:qoder-list-models`, { build: QODER_PROVIDER_BUILDS[provider] }, QODER_MODELS_TIMEOUT_MS));
+        return qoderModelModesFromListing(await call(`${machineId}:${method}`, params, QODER_MODELS_TIMEOUT_MS));
     } catch {
         return null;
     }
 }
 
 /**
- * Qoder models are per account, so the server, which takes them from the model
- * catalog, only knows `default`. Ask each online machine with Qoder or Qoder CN for
- * the models that build's account offers and put them in its `modelModes.qoder` /
- * `modelModes.qodercn`; a machine whose daemon does not answer keeps what the server sent.
+ * Qoder and Antigravity models are per account, so the server, which takes them from the
+ * model catalog, only knows `default`. Ask each online machine with Qoder, Qoder CN or
+ * Antigravity for the models that account offers and put them in its `modelModes.<provider>`;
+ * a machine whose daemon does not answer keeps what the server sent.
  */
 export async function fillQoderModelModes<T extends ContextMachine>(machines: T[], call: MachineRpcCall): Promise<T[]> {
     return Promise.all(machines.map(async (machine) => {
@@ -58,8 +67,8 @@ export async function fillQoderModelModes<T extends ContextMachine>(machines: T[
         if (typeof machineId !== 'string' || machine.online !== true || !Array.isArray(providers)) {
             return machine;
         }
-        const qoderProviders = (Object.keys(QODER_PROVIDER_BUILDS) as QoderProvider[]).filter((provider) => providers.includes(provider));
-        const listed = await Promise.all(qoderProviders.map(async (provider) => [provider, await loadQoderModelModes(machineId, provider, call)] as const));
+        const listedProviders = (Object.keys(MODEL_LISTING_RPCS) as (keyof typeof MODEL_LISTING_RPCS)[]).filter((provider) => providers.includes(provider));
+        const listed = await Promise.all(listedProviders.map(async (provider) => [provider, await loadQoderModelModes(machineId, provider, call)] as const));
         const filled = Object.fromEntries(listed.filter(([, modes]) => modes));
         return Object.keys(filled).length ? { ...machine, modelModes: { ...machine.modelModes, ...filled } } : machine;
     }));

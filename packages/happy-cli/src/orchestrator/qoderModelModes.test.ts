@@ -49,6 +49,16 @@ describe('fillQoderModelModes', () => {
         expect(filled.modelModes.qodercn).toEqual(['default', 'auto', 'performance', 'performance:low', 'performance:high']);
     });
 
+    it('asks Antigravity through its own listing', async () => {
+        const call = vi.fn().mockResolvedValue(listing);
+        const machine = { machineId: 'a', online: true, providers: ['antigravity'], modelModes: { antigravity: ['default'] } };
+
+        const [filled] = await fillQoderModelModes([machine], call);
+
+        expect(call).toHaveBeenCalledWith('a:antigravity-list-models', {}, expect.any(Number));
+        expect(filled.modelModes.antigravity).toEqual(['default', 'auto', 'performance', 'performance:low', 'performance:high']);
+    });
+
     it('keeps what the server sent when the daemon does not answer', async () => {
         const call = vi.fn().mockRejectedValue(new Error('RPC method not available'));
         const machine = { machineId: 'a', online: true, providers: ['qoder'], modelModes: { qoder: ['default'] } };

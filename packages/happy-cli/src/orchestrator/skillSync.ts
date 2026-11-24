@@ -12,6 +12,7 @@ import {
   ORCHESTRATOR_COMMAND_GEMINI,
   ORCHESTRATOR_COMMAND_QODER,
   ORCHESTRATOR_COMMAND_QODERCN,
+  ORCHESTRATOR_COMMAND_ANTIGRAVITY,
 } from './skillAssets';
 
 let didSync = false;
@@ -29,7 +30,7 @@ function writeIfChanged(filePath: string, content: string): void {
 
 /**
  * Sync the bundled orchestrator skill + commands into the Claude, Codex and Qoder config dirs so the
- * controller session can use /orchestrator:claude|codex|gemini|qoder|qodercn and the orchestrator skill out of
+ * controller session can use /orchestrator:claude|codex|gemini|qoder|qodercn|antigravity and the orchestrator skill out of
  * the box.
  *
  * - Idempotent: each file is written only when its content differs (no churn).
@@ -58,6 +59,7 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
+    writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'antigravity.md'), ORCHESTRATOR_COMMAND_ANTIGRAVITY);
   }
 
   // Codex — $CODEX_HOME/skills, defaulting to ~/.codex/skills.
@@ -78,5 +80,6 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'gemini.md'), ORCHESTRATOR_COMMAND_GEMINI);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
+    writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'antigravity.md'), ORCHESTRATOR_COMMAND_ANTIGRAVITY);
   }
 }

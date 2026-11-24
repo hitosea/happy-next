@@ -5,7 +5,8 @@ import { codexPackage } from '@/codex/package';
 import { codexFastModeArgs, resolveCodexRuntime } from '@/codex/codexRuntime';
 import { logger } from '@/ui/logger';
 import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseClaudeModelMode, resolveModelSelectionForFlavor, splitFastModeSuffix } from 'happy-wire';
+import { resolveAntigravityCommand } from '@/antigravity/constants';
+import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseClaudeModelMode, parseQoderModelMode, resolveModelSelectionForFlavor, splitFastModeSuffix } from 'happy-wire';
 import {
   ORCHESTRATOR_ENV_KEYS,
   QODER_PROVIDER_BUILDS,
@@ -178,6 +179,20 @@ export function buildSpawnPlan(
         args: qoderArgs,
         cwd: workingDirectory,
         env: { ...process.env, ...QODER_SDK_ISOLATION_ENV },
+      };
+    }
+    case 'antigravity': {
+      // Like Gemini: JSON output carries the answer and the conversation id agy picked. A model
+      // mode is `model[:effort]`, the account's ACP model ids, which print mode also takes.
+      const { model, effort } = parseQoderModelMode(normalizedModelMode ?? MODEL_MODE_DEFAULT);
+      const antigravityArgs = ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions'];
+      if (executionType === 'resume') antigravityArgs.push('--conversation', childSessionId!);
+      if (normalizedModelMode) antigravityArgs.push('--model', model, ...(effort ? ['--effort', effort] : []));
+      return {
+        command: resolveAntigravityCommand(),
+        args: antigravityArgs,
+        cwd: workingDirectory,
+        env: { ...process.env },
       };
     }
     default:
