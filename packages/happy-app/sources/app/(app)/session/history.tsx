@@ -220,7 +220,7 @@ const HistorySessionList = React.memo(function HistorySessionList({ groups, home
                                         source={agentIcons[entry.agent]}
                                         style={[
                                             { width: 48, height: 48 },
-                                            entry.agent === 'codex' && { transform: [{ scale: 0.92 }] }
+                                            (entry.agent === 'codex' || entry.agent === 'antigravity') && { transform: [{ scale: 0.92 }] }
                                         ]}
                                         contentFit="contain"
                                         tintColor={entry.agent === 'codex' || entry.agent === 'qoder' ? theme.colors.text : undefined}

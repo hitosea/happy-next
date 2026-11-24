@@ -110,7 +110,7 @@ function resolveProviderIcon(flavor: string | null | undefined): ProviderIcon {
     return 'claude';
 }
 
-// A faint vendor mark stamped on the card's top-right corner. Codex and Qoder fill their frames,
+// A faint vendor mark stamped on the card's top-right corner. Codex, Qoder and Antigravity fill their frames,
 // while Claude's starburst and Gemini's spark carry padding of their own, so their artwork is drawn
 // smaller to give every vendor the same ink.
 const watermarkArtworkSize: Record<ProviderIcon, number> = {
@@ -118,7 +118,7 @@ const watermarkArtworkSize: Record<ProviderIcon, number> = {
     codex: 74,
     gemini: 88,
     qoder: 78,
-    antigravity: 88,
+    antigravity: 74,
 };
 
 /**

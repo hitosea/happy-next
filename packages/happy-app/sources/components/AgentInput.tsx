@@ -183,7 +183,7 @@ const agentFlavorIcons = {
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
 // inside it is scaled. Codex's knot fills its frame while Claude's starburst carries ~18%
 // padding of its own, so identical frames would still read as different sizes - measured ink
-// in a 12px frame: Codex 12px, Claude 9.8px.
+// in a 12px frame: Codex 12px, Claude 9.8px. Antigravity's A spans its full width like Codex's knot.
 const AGENT_MARK_SLOT = 12;
 // Every text in the status row (connection, context, model, permission mode) sits on this fixed line:
 // Latin and CJK glyphs measure differently, so an auto-sized line made the row jump as the labels changed language.
@@ -193,19 +193,19 @@ const agentMarkArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     codex: 10,
     gemini: 12,
     qoder: 11,
-    antigravity: 12,
+    antigravity: 10,
 };
 
 // Vendor marks at full size, as on the agent button in the input and the agent picker rows. Same
 // correction as above at a larger scale: Codex and Qoder fill their frames, so they are drawn
-// smaller than Claude and Gemini to read as the same size.
+// smaller than Claude and Gemini to read as the same size. Antigravity's A is edge to edge too.
 const AGENT_ICON_SLOT = 18;
 const agentIconArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     claude: 18,
     codex: 15,
     gemini: 18,
     qoder: 16,
-    antigravity: 18,
+    antigravity: 15,
 };
 
 // The settings overlay grows out of the input below it and sinks back into it when closed. These are

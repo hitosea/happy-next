@@ -82,9 +82,9 @@ export const Avatar = React.memo((props: AvatarProps) => {
     const effectiveFlavor = flavor || 'claude';
     const flavorIcon = flavorIcons[effectiveFlavor as keyof typeof flavorIcons] || flavorIcons.claude;
     // Make icons smaller while keeping same circle size
-    // Claude slightly bigger than codex
+    // Claude slightly bigger than codex; Antigravity's A fills its frame like Codex's knot
     const circleSize = Math.round(size * 0.35);
-    const iconSize = effectiveFlavor === 'codex'
+    const iconSize = effectiveFlavor === 'codex' || effectiveFlavor === 'antigravity'
         ? Math.round(size * 0.25)
         : effectiveFlavor === 'claude'
             ? Math.round(size * 0.28)

@@ -90,8 +90,8 @@ const FlavorBadges = React.memo(({ flavors }: { flavors: string[] }) => {
     return (
         <View style={{ width: totalWidth, height: outerSize }}>
             {flavors.map((flavor, i) => {
-                // codex slightly smaller than others (matching Avatar.tsx convention)
-                const iconSize = flavor === 'codex' ? 10 : (flavor === 'qoder' ? 11 : 12);
+                // Codex and Antigravity fill their frames, so they are drawn smaller (matching Avatar.tsx)
+                const iconSize = flavor === 'codex' || flavor === 'antigravity' ? 10 : (flavor === 'qoder' ? 11 : 12);
                 return (
                     <View
                         key={flavor}
