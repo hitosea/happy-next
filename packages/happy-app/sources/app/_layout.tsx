@@ -23,7 +23,6 @@ import { tracking } from '@/track/tracking';
 import { sync, syncRestore } from '@/sync/sync';
 import { resetBadgeCount } from '@/sync/apiPush';
 import { resolveServerConfig } from '@/sync/serverConfig';
-import { startCliModelSync } from '@/sync/cliModelSync';
 import { startUpdateChecks } from '@/hooks/useUpdates';
 import { useTrackScreens } from '@/track/useTrackScreens';
 import { RealtimeProvider } from '@/realtime/RealtimeProvider';
@@ -295,7 +294,6 @@ export default function RootLayout() {
                 await loadFonts();
                 await sodium.ready;
                 await resolveServerConfig();
-                startCliModelSync();
                 const credentials = await TokenStorage.getCredentials();
                 console.log('credentials', credentials);
                 if (credentials) {

@@ -30,9 +30,7 @@ import { randomUUID } from 'expo-crypto';
 import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
-import { useQoderModels } from '@/hooks/useQoderModels';
-import { useCliModelIds } from '@/hooks/useCliModels';
-import { useAntigravityModels } from '@/hooks/useAntigravityModels';
+import { useAgentModels } from '@/hooks/useAgentModels';
 import { useNewSessionAutocomplete } from '@/hooks/useNewSessionAutocomplete';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
 import { isMachineOnline } from '@/utils/machineUtils';
@@ -47,7 +45,7 @@ import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useWebFileDrop } from '@/hooks/useWebFileDrop';
 import { ActionMenuModal } from '@/components/ActionMenuModal';
 import type { ActionMenuItem } from '@/components/ActionMenu';
-import { MODEL_MODE_DEFAULT, isModelModeForAgent, parseQoderModelMode, type MessageAttachment } from 'happy-wire';
+import { MODEL_MODE_DEFAULT, findAgentModel, isModelModeFormat, isModelModeOffered, parseModelMode, type MessageAttachment } from 'happy-wire';
 import { FolderPickerSheet } from '@/components/FolderPickerSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { handleFilePasteEvent } from '@/utils/filePaste';
@@ -199,8 +197,8 @@ function NewSessionWizard() {
 
     const [modelMode, setModelMode] = React.useState<ModelMode>(() => {
         const mode = lastUsedSessionMode?.modelMode;
-        // A saved Qoder model is restored by the effect below once the account's models are known
-        if (mode && isModelModeForAgent(agentType, mode)) {
+        // Whether the machine still offers it is checked by the effect below once its models are known
+        if (mode && isModelModeFormat(mode)) {
             return mode as ModelMode;
         }
         return MODEL_MODE_DEFAULT;
@@ -555,24 +553,20 @@ function NewSessionWizard() {
         return machines.find(m => m.id === selectedMachineId);
     }, [selectedMachineId, machines]);
 
-    const { models: qoderModels, pending: qoderModelsPending } = useQoderModels(selectedMachineId, qoderBuild ?? 'intl', selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
-    const cliModelIds = useCliModelIds(selectedMachineId, agentType);
-    // Qoder models are per account and not in the catalog: a saved one is kept while the account still offers it.
-    // Until the machine lists them, the stand-ins can't tell, so the saved one is kept rather than flashing Auto.
-    // Antigravity's are per account too, and kept the same way.
-    const { models: antigravityModels, pending: antigravityModelsPending } = useAntigravityModels(selectedMachineId, agentType === 'antigravity');
-    const accountModels = agentType === 'qoder' ? qoderModels : agentType === 'antigravity' ? antigravityModels : undefined;
-    const isModelModeAvailable = (agent: AgentType, mode: string) => {
-        if (agent !== 'qoder' && agent !== 'antigravity') return isModelModeForAgent(agent, mode);
-        if (agent === 'qoder' ? qoderModelsPending : antigravityModelsPending) return true;
-        const { model, effort, contextWindow } = parseQoderModelMode(mode);
-        const listed = (agent === 'qoder' ? qoderModels : antigravityModels)?.find((candidate) => candidate.code === model);
-        return !!listed
-            && (!effort || !!listed.efforts?.some((level) => level.code === effort))
-            && (!contextWindow || !!listed.contextWindows?.includes(contextWindow));
+    // A saved model is kept while the machine still offers it, with its effort and context window. Until the
+    // machine has listed its models this launch, the saved or stand-in list can't tell, so the saved one is kept
+    // rather than flashing another.
+    const { models: agentModels, complete: agentModelsComplete } = useAgentModels(selectedMachineId, agentChoice);
+    const isModelModeAvailable = (mode: string) => {
+        if (!agentModelsComplete || !agentModels) return true;
+        const { model, contextWindow } = parseModelMode(mode, agentType);
+        const listed = findAgentModel(agentModels, model);
+        return isModelModeOffered(mode, agentModels, agentType)
+            && (!contextWindow || !!listed?.contextWindows?.includes(contextWindow)
+                || (!!listed?.contextWindowRange && contextWindow >= listed.contextWindowRange.min && contextWindow <= listed.contextWindowRange.max));
     };
     // Qoder and Antigravity offer no "CLI default" entry, so they start on the first model the account lists.
-    const fallbackModelMode = accountModels?.[0]?.code ?? MODEL_MODE_DEFAULT;
+    const fallbackModelMode = agentType === 'qoder' || agentType === 'antigravity' ? agentModels?.[0]?.code ?? MODEL_MODE_DEFAULT : MODEL_MODE_DEFAULT;
 
     /** Save defaultTargetBranch on a registered repo (fire-and-forget). */
     const persistDefaultBranch = React.useCallback((mId: string, repoId: string, branch: string) => {
@@ -718,18 +712,18 @@ function NewSessionWizard() {
     // Restore saved model mode when agent type changes
     React.useEffect(() => {
         const manualMode = manualModelModeByAgentRef.current[agentChoice];
-        if (manualMode && isModelModeAvailable(agentType, manualMode)) {
+        if (manualMode && isModelModeAvailable(manualMode)) {
             setModelMode((prev) => (prev === manualMode ? prev : manualMode));
             return;
         }
 
         const savedMode = lastUsedSessionMode?.modelMode;
-        if (savedMode && isModelModeAvailable(agentType, savedMode)) {
+        if (savedMode && isModelModeAvailable(savedMode)) {
             setModelMode((prev) => (prev === savedMode ? prev : (savedMode as ModelMode)));
         } else {
             setModelMode((prev) => (prev === fallbackModelMode ? prev : fallbackModelMode));
         }
-    }, [agentType, agentChoice, lastUsedSessionMode?.modelMode, qoderModels, qoderModelsPending, antigravityModels, antigravityModelsPending]);
+    }, [agentType, agentChoice, lastUsedSessionMode?.modelMode, agentModels, agentModelsComplete]);
 
     // Restore saved fast mode when agent type changes
     React.useEffect(() => {
@@ -1129,8 +1123,7 @@ function NewSessionWizard() {
                         autocompleteSuggestions={autocomplete.suggestions}
                         agentType={agentType}
                         qoderBuild={qoderBuild}
-                        agentModels={accountModels}
-                        cliModelIds={cliModelIds}
+                        agentModels={agentModels}
                         availableAgents={availableAgents}
                         onAgentChange={setAgentChoice}
                         permissionMode={permissionMode}

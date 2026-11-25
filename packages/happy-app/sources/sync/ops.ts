@@ -10,7 +10,7 @@ import { SessionCapabilitiesSchema, type MachineMetadata, type Metadata, type Se
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
 import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
-import { CliModelSchema, type CliListedAgent, type CliModel } from 'happy-wire';
+import { AgentModelListSchema, type AgentModel, type ModelListingAgent } from 'happy-wire';
 import type { QoderBuild } from '@/utils/agentChoice';
 
 export async function sessionOpenFileDownload(sessionId: string, request: OpenFileDownloadRequest) {
@@ -1776,53 +1776,19 @@ export async function machineGetQoderSessionPreview(
     return { messages: Array.isArray(result.messages) ? result.messages : [] };
 }
 
-/**
- * Lists the models the machine's signed-in Qoder account offers
- */
-/** A model the machine's Qoder account offers, with the reasoning efforts and context windows it takes. */
-export type QoderModel = NonNullable<Metadata['models']>[number] & {
-    efforts?: NonNullable<Metadata['thoughtLevels']>;
-    defaultEffort?: string;
-    /** Context windows in tokens the model can run with, smallest first. */
-    contextWindows?: number[];
-    defaultContextWindow?: number;
-};
-
 /** Model code → description from Qoder's text bundle, per language it carries. */
 export type QoderModelDescriptions = { version: string; en: Record<string, string>; zh: Record<string, string> };
 
-export async function machineListQoderModels(machineId: string, build: QoderBuild, directory: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
+/** Lists the models `agent` offers on the machine, as its CLI lists them (the same for every agent). */
+export async function machineListAgentModels(machineId: string, agent: ModelListingAgent): Promise<{ success: boolean; models?: AgentModel[]; errorMessage?: string }> {
     try {
-        const result = await apiSocket.machineRPC<any, { build: QoderBuild; directory: string }>(machineId, 'qoder-list-models', { build, directory }, 60000);
+        // A cached list answers at once; a new one can take a while (Codex may first come through npx)
+        const result = await apiSocket.machineRPC<any, { agent: ModelListingAgent }>(machineId, 'agent-list-models', { agent }, 200000);
         if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
         if (result.error) return { success: false, errorMessage: result.error };
-        return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
-    } catch (error) {
-        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
-    }
-}
-
-/** Lists the models the machine's Claude, Codex or Gemini CLI offers. `refresh` asks the CLI even when the machine has a fresh list. */
-export async function machineListAgentModels(machineId: string, agent: CliListedAgent, refresh = false): Promise<{ success: boolean; version?: string | null; models?: CliModel[]; errorMessage?: string }> {
-    try {
-        const result = await apiSocket.machineRPC<any, { agent: CliListedAgent; refresh: boolean }>(machineId, 'agent-list-models', { agent, refresh }, 200000);
-        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
-        if (result.error) return { success: false, errorMessage: result.error };
-        const models = CliModelSchema.array().safeParse(result.models);
+        const models = AgentModelListSchema.safeParse(result.models);
         if (!result.success || !models.success) return { success: false, errorMessage: result.errorMessage ?? 'Invalid model list' };
-        return { success: true, version: result.version ?? null, models: models.data };
-    } catch (error) {
-        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
-    }
-}
-
-/** Lists the models the machine's signed-in Antigravity account offers, with their thinking levels. */
-export async function machineListAntigravityModels(machineId: string): Promise<{ success: boolean; models?: QoderModel[]; errorMessage?: string }> {
-    try {
-        const result = await apiSocket.machineRPC<any, {}>(machineId, 'antigravity-list-models', {}, 60000);
-        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
-        if (result.error) return { success: false, errorMessage: result.error };
-        return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
+        return { success: true, models: models.data };
     } catch (error) {
         return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
     }

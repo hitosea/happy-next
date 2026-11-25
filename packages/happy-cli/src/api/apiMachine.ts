@@ -11,7 +11,7 @@ import { MachineMetadata, DaemonState, Machine, Update, UpdateMachineBody } from
 import { registerCommonHandlers, SpawnSessionOptions, SpawnSessionResult } from '../modules/common/registerCommonHandlers';
 import { registerTerminalHandlers } from '../modules/terminal/registerTerminalHandlers';
 import type { TerminalManager } from '../modules/terminal/terminalManager';
-import { isCliListedAgent, searchMessagesRequestSchema, userPromptText, type TerminalFrame } from 'happy-wire';
+import { isModelListingAgent, type ModelListingAgent, searchMessagesRequestSchema, userPromptText, type TerminalFrame } from 'happy-wire';
 import { searchMessageArchive } from '../modules/common/messageArchive';
 import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProjectId, readAllClaudeSessionUserMessages, saveClaudeSessionCacheStats } from '@/claude/utils/claudeSessionIndex';
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
@@ -19,9 +19,7 @@ import { readGeminiSessionLog, listGeminiSessions, getGeminiSessionPreview, save
 import { forkGeminiSession, forkAndTruncateGeminiSession } from '@/gemini/utils/sessionFork';
 import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { forkQoderSession } from '@/qoder/sessions';
-import { listQoderModels } from '@/qoder/models';
-import { listAntigravityModels } from '@/antigravity/models';
-import { listCliModels } from '@/agentModels/cliModels';
+import { listAgentModels } from '@/agentModels/listAgentModels';
 import { forkAntigravitySession, readAntigravitySessionUserMessages } from '@/antigravity/sessions';
 import { antigravityPreviewMessages, readAntigravityTranscript } from '@/antigravity/transcript';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
@@ -965,36 +963,20 @@ export class ApiMachineClient {
             return { message: messages.find((message) => message.uuid === uuid) ?? null };
         });
 
-        // Models the signed-in Qoder account offers, with their efforts, for the app's model picker and
-        // orchestrator_get_context. They are per account (Qoder and Qoder CN have their own), so the
-        // `directory` older apps send is not needed.
-        this.rpcHandlerManager.registerHandler('qoder-list-models', async (params: any) => {
+        // The models an agent offers on this machine, as its CLI lists them, for the app's model pickers and
+        // orchestrator_get_context. Every agent answers the same way (see agentModels/listAgentModels).
+        const listModels = async (agent: unknown) => {
             try {
-                return { success: true, models: await listQoderModels(requestedQoderBuild(params)) };
+                if (!isModelListingAgent(agent as string)) throw new Error(`Unknown agent: ${agent}`);
+                return { success: true, models: await listAgentModels(agent as ModelListingAgent) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }
-        });
-
-        // Claude, Codex and Gemini models as this machine's CLIs list them, for the app's model pickers and
-        // orchestrator_get_context. Answers from the cache while the CLI version is unchanged; `refresh` asks again.
-        this.rpcHandlerManager.registerHandler('agent-list-models', async (params: any) => {
-            try {
-                if (!isCliListedAgent(params?.agent)) throw new Error(`Unknown agent: ${params?.agent}`);
-                return { success: true, ...(await listCliModels(params.agent, { refresh: params.refresh === true })) };
-            } catch (error) {
-                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
-            }
-        });
-
-        // Models the signed-in Antigravity account offers, with their thinking levels, for the app's model picker.
-        this.rpcHandlerManager.registerHandler('antigravity-list-models', async () => {
-            try {
-                return { success: true, models: await listAntigravityModels() };
-            } catch (error) {
-                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
-            }
-        });
+        };
+        this.rpcHandlerManager.registerHandler('agent-list-models', (params: any) => listModels(params?.agent));
+        // What older apps ask for Qoder's and Antigravity's models.
+        this.rpcHandlerManager.registerHandler('qoder-list-models', (params: any) => listModels(requestedQoderBuild(params) === 'cn' ? 'qodercn' : 'qoder'));
+        this.rpcHandlerManager.registerHandler('antigravity-list-models', () => listModels('antigravity'));
 
         // Qoder's descriptions for its models: `cache` answers at once from what qodercli
         // last downloaded, `latest` downloads the current text bundle.

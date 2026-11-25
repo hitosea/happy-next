@@ -26,7 +26,7 @@ import { KeyboardEvents, useKeyboardState } from 'react-native-keyboard-controll
 import { ComposerKeyboardOffsetContext } from './composerKeyboardOffset';
 import { useSetting } from '@/sync/storage';
 import { Theme } from '@/theme';
-import { getCurrentLanguage, t } from '@/text';
+import { t } from '@/text';
 import { Metadata } from '@/sync/storageTypes';
 import { log } from '@/log';
 import { ImagePreview, LocalImage } from '@/components/ImagePreview';
@@ -36,7 +36,6 @@ import type { ComposerFile } from '@/hooks/useFileAttachments';
 import { Switch } from '@/components/Switch';
 import { Modal } from '@/modal';
 import { useWebFileDrop } from '@/hooks/useWebFileDrop';
-import { useModelCatalog } from '@/hooks/useModelCatalog';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { isRunningOnMac } from '@/utils/platform';
 import { NativeMenu } from './NativeMenu';
@@ -46,27 +45,17 @@ import { ContextWindowEditor } from './ContextWindowEditor';
 import { ScrollToSelectedList, type ItemLayoutHandler } from './ScrollToSelectedList';
 import type { ActionMenuItem } from './ActionMenu';
 import {
-    buildClaudeModelMode,
-    buildCodexModelMode,
-    ClaudeModelFamily,
-    ClaudeReasoningEffort,
-    CodexModelFamily,
-    CodexReasoningEffort,
+    buildModelMode,
+    findAgentModel,
     formatReasoningEffortLabel,
     FAST_MODE_ICON_COLOR,
-    getClaudeContextWindowOptions,
-    getClaudeReasoningOptions,
-    getCodexReasoningOptions,
     getMaxContextSize,
-    getModelFamilyOptions,
-    type ModelOption,
     MODEL_MODE_DEFAULT,
-    parseClaudeModelMode,
-    parseCodexModelMode,
-    buildQoderModelMode,
-    parseQoderModelMode,
+    parseModelMode,
+    sortEffortsStrongestFirst,
+    type AgentModel,
 } from 'happy-wire';
-import type { QoderPickerModel } from '@/hooks/useQoderModels';
+import type { PickerModel } from '@/hooks/useAgentModels';
 import { agentChoiceOf, resolveAgentChoice, type AgentChoice, type QoderBuild } from '@/utils/agentChoice';
 
 // Room the text keeps clear on its right for the expand button over the field's corner.
@@ -123,12 +112,9 @@ interface AgentInputProps {
     agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
     // New sessions only: the build a Qoder agentType runs on, which the picker shows as Qoder or Qoder CN.
     qoderBuild?: QoderBuild;
-    // Models offered by the agent itself (Qoder lists them per account over ACP), as the machine reports
-    // them: with each model's efforts and Qoder's own description. A session's list still comes from metadata.models.
-    agentModels?: QoderPickerModel[];
-    // Ids of the Claude, Codex or Gemini models the machine's CLI offers (useCliModelIds); the pickers show only
-    // these, and the whole catalog while the machine hasn't said.
-    cliModelIds?: ReadonlySet<string>;
+    // The models the agent offers on the machine (useAgentModels), with their efforts, context windows and
+    // Qoder's own description. Qoder's and Antigravity's sessions also report theirs in metadata.models.
+    agentModels?: PickerModel[];
     // New sessions only: the agents to choose from, offered as the first tab of the settings overlay.
     availableAgents?: readonly AgentChoice[];
     onAgentChange?: (agent: AgentChoice) => void;
@@ -743,7 +729,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Height of the rows under the model lists (effort dropdown, Fast mode).
     const modelFooterRowHeight = isWideModelLayout ? 44 : 40;
     /**
-     * The model tab of an agent whose models may come with an effort and a context window (Claude, Qoder).
+     * The model tab, the same for every agent: the models, and the effort and context window the picked one offers.
      * Wide screens: the context window's radios follow the effort's in one list in the column beside the
      * models, each under its own title that stays on top while its radios scroll. Narrow screens: effort and
      * context window are rows of their own under the models; up to three sizes are picked in place, more
@@ -756,11 +742,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         // Where a custom size is typed: `full` replaces the lists on narrow screens (short enough to stay clear of
         // the keyboard it raises); `inline` takes the place of the segments in the context window row on wide ones.
         editor: { full: React.ReactNode; inline: React.ReactNode } | null = null,
+        // A row of its own under everything else (Codex's Fast mode).
+        footer: React.ReactNode = null,
     ) => {
         if (editor && !isWideModelLayout) return editor.full;
         const contextWindowTitle = t('agentInput.model.contextWindow');
         const contextWindowRadios = contextWindow?.options ?? [];
-        const pickContextWindow = (value: string) => contextWindow?.onChange(value);
+        const pickContextWindowValue = (value: string) => contextWindow?.onChange(value);
         const selectedContextWindow = contextWindow?.selected ?? null;
         if (isWideModelLayout) {
             const settingsColumn = [
@@ -787,30 +775,34 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             // The model list keeps its place in the tree whether or not the settings column exists, so it is
             // not rebuilt (and its scroll position lost) when the picked model changes between having one and not.
             return (
-                <View style={styles.modelColumns}>
-                    <View style={styles.modelColumn}>
-                        {renderScrollableList(models.options, models.selected, models.onChange)}
-                    </View>
-                    {(settingsColumn.length > 0 || contextWindowRow) && <View style={styles.overlayColumnDivider} />}
-                    {(settingsColumn.length > 0 || contextWindowRow) && (
-                        <View style={[styles.modelColumn, styles.settingsColumnBox]}>
-                            <ScrollToSelectedList
-                                style={styles.modelListScroll}
-                                contentContainerStyle={styles.settingsListContent}
-                                selectedValue={effort ? effort.selected : null}
-                                stickyHeaderIndices={settingsColumnHeaders}
-                                renderItems={(onItemLayout) => settingsColumn.flatMap((section, index) => [
-                                    <Text key={`title-${section.title}`} style={[styles.overlaySectionTitle, styles.settingsColumnTitle]}>
-                                        {section.title}
-                                    </Text>,
-                                    ...section.render(onItemLayout),
-                                    ...(index < settingsColumn.length - 1 ? [<View key={`gap-${section.title}`} style={styles.settingsColumnGap} />] : []),
-                                ])}
-                            />
-                            {contextWindowRow}
+                <>
+                    <View style={styles.modelColumns}>
+                        <View style={styles.modelColumn}>
+                            {renderScrollableList(models.options, models.selected, models.onChange)}
                         </View>
-                    )}
-                </View>
+                        {(settingsColumn.length > 0 || contextWindowRow) && <View style={styles.overlayColumnDivider} />}
+                        {(settingsColumn.length > 0 || contextWindowRow) && (
+                            <View style={[styles.modelColumn, styles.settingsColumnBox]}>
+                                <ScrollToSelectedList
+                                    style={styles.modelListScroll}
+                                    contentContainerStyle={styles.settingsListContent}
+                                    selectedValue={effort ? effort.selected : null}
+                                    stickyHeaderIndices={settingsColumnHeaders}
+                                    renderItems={(onItemLayout) => settingsColumn.flatMap((section, index) => [
+                                        <Text key={`title-${section.title}`} style={[styles.overlaySectionTitle, styles.settingsColumnTitle]}>
+                                            {section.title}
+                                        </Text>,
+                                        ...section.render(onItemLayout),
+                                        ...(index < settingsColumn.length - 1 ? [<View key={`gap-${section.title}`} style={styles.settingsColumnGap} />] : []),
+                                    ])}
+                                />
+                                {contextWindowRow}
+                            </View>
+                        )}
+                    </View>
+                    {footer && <View style={styles.overlayDivider} />}
+                    {footer}
+                </>
             );
         }
         return (
@@ -829,7 +821,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             accessibilityLabel={contextWindowTitle}
                         />
                     </View>
-                ) : renderEffortDropdown(contextWindowRadios, selectedContextWindow, pickContextWindow, contextWindowTitle))}
+                ) : renderEffortDropdown(contextWindowRadios, selectedContextWindow, pickContextWindowValue, contextWindowTitle))}
+                {footer && <View style={styles.overlayDivider} />}
+                {footer}
             </>
         );
     };
@@ -842,7 +836,6 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isAntigravity = props.metadata?.flavor === 'antigravity' || props.agentType === 'antigravity';
     // Qoder and Antigravity list their models per account: the picker shows the machine's list as `model:effort`
     const usesAccountModels = isQoder || isAntigravity;
-    const isClaude = !isCodex && !isGemini && !usesAccountModels;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
     const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : 'claude';
 
@@ -920,204 +913,125 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isQoderPlanning = isQoder && !!props.metadata?.inPlanMode;
     const shownPermissionMode = isQoderPlanning ? 'plan' : props.permissionMode;
 
-    // Qoder has no "CLI default" entry (its own Auto plays that part), so a session still on `default` shows the model Qoder reports.
-    const qoderModels = React.useMemo<QoderPickerModel[]>(() => {
+    // Every agent's models come the same way, from its CLI on the machine (useAgentModels). Qoder's and
+    // Antigravity's sessions also report the models they offer; that list comes first, with what the machine
+    // knows of each (efforts, context windows, Qoder's description) merged in. Neither has a "CLI configured"
+    // entry (their own Auto plays that part), so a session of theirs still on `default` shows the model it reports.
+    const pickerModels = React.useMemo<PickerModel[]>(() => {
         const machineModels = new Map((props.agentModels ?? []).map((model) => [model.code, model]));
         return (props.metadata?.models ?? props.agentModels ?? []).map((model) => ({ ...machineModels.get(model.code), ...model }));
     }, [props.metadata?.models, props.agentModels]);
-    const selectedModelMode: ModelMode = usesAccountModels && (props.modelMode || 'default') === MODEL_MODE_DEFAULT
+    const selectedModelMode: ModelMode = usesAccountModels && (props.modelMode || MODEL_MODE_DEFAULT) === MODEL_MODE_DEFAULT
         ? (props.metadata?.currentModelCode
-            ? buildQoderModelMode(props.metadata.currentModelCode, props.metadata.currentThoughtLevelCode)
-            : qoderModels[0]?.code ?? MODEL_MODE_DEFAULT)
-        : props.modelMode || 'default';
-    const qoderSelection = parseQoderModelMode(selectedModelMode);
-    const qoderSelectedModel = qoderModels.find((model) => model.code === qoderSelection.model);
-    // The machine lists every model's efforts; without it, the session knows those of the model it runs.
-    const qoderEffortLevels = qoderSelectedModel?.efforts
-        ?? (qoderSelection.model === props.metadata?.currentModelCode ? props.metadata?.thoughtLevels : undefined)
-        ?? [];
-    const qoderEffort = qoderSelection.effort
-        ?? qoderSelectedModel?.defaultEffort
-        ?? (qoderSelection.model === props.metadata?.currentModelCode ? props.metadata?.currentThoughtLevelCode : undefined)
+            ? buildModelMode(props.metadata.currentModelCode, props.metadata.currentThoughtLevelCode)
+            : pickerModels[0]?.code ?? MODEL_MODE_DEFAULT)
+        : props.modelMode || MODEL_MODE_DEFAULT;
+    const selection = parseModelMode(selectedModelMode, agentFlavorKey);
+    const selectedModel = findAgentModel(pickerModels, selection.model);
+    // The list entry the mode names (dated or not); a model the list lacks shows by its id.
+    const selectedModelValue = selectedModel?.code ?? selection.model ?? MODEL_MODE_DEFAULT;
+    const runsReportedModel = !!selection.model && selection.model === props.metadata?.currentModelCode;
+    // The machine lists every model's efforts; without it, a session knows those of the model it runs.
+    const effortLevels = selectedModel?.efforts ?? (runsReportedModel ? props.metadata?.thoughtLevels : undefined) ?? [];
+    const effortOptions = sortEffortsStrongestFirst(effortLevels)
+        .map((level) => ({ value: level.code, label: formatReasoningEffortLabel(level.code) ?? level.code }));
+    const selectedEffort = selection.reasoningEffort
+        ?? selectedModel?.defaultEffort
+        ?? (runsReportedModel ? props.metadata?.currentThoughtLevelCode : undefined)
         ?? null;
-    // qodercli lists efforts in no particular order; like the other agents they read strongest first.
-    const qoderEffortRank = (code: string) => (['max', 'xhigh', 'high', 'medium', 'low', 'none'].indexOf(code) + 7) % 7;
-    const qoderEffortOptions = [...qoderEffortLevels]
-        .sort((a, b) => qoderEffortRank(a.code) - qoderEffortRank(b.code))
-        .map((level) => ({ value: level.code, label: formatReasoningEffortLabel(level.code) ?? level.value }));
-    // Context windows the model can run with (from the machine's list); offered only when there is a choice.
-    // Unpicked, it shows the one the session reports running with, else the model's default.
-    const qoderContextWindows = qoderSelectedModel?.contextWindows ?? [];
-    const qoderContextWindow = qoderSelection.contextWindow
-        ?? qoderContextWindows.find((tokens) => tokens === props.usageData?.contextWindowSize)
-        ?? qoderSelectedModel?.defaultContextWindow
+    // Context windows the model runs with: sizes picked with one tap and, when the model has a range (Claude
+    // Code's auto-compact window), any other size typed in. Offered only when there is a choice. Unpicked, it
+    // shows the one the session reports running with, else the model's default; a tap on it still picks it.
+    const contextWindows = selectedModel?.contextWindows ?? [];
+    const contextWindowRange = selectedModel?.contextWindowRange ?? null;
+    const takesContextWindow = (model: AgentModel | undefined, tokens: number) => !!model?.contextWindows?.includes(tokens)
+        || (!!model?.contextWindowRange && tokens >= model.contextWindowRange.min && tokens <= model.contextWindowRange.max);
+    const reportedContextWindow = props.usageData?.contextWindowSize;
+    const contextWindow = selection.contextWindow
+        ?? (reportedContextWindow && takesContextWindow(selectedModel, reportedContextWindow) ? reportedContextWindow : null)
+        ?? selectedModel?.defaultContextWindow
         ?? null;
-    const qoderContextWindowOptions = qoderContextWindows.length > 1
-        ? qoderContextWindows.map((tokens) => ({ value: String(tokens), label: formatContextWindowLabel(tokens) }))
-        : [];
-    // Like qodercli's own /model, a newly picked model starts on its own default effort; a picked
-    // context window is kept while the new model takes it.
-    const handleQoderModelChange = React.useCallback((code: string) => {
-        const model = qoderModels.find((candidate) => candidate.code === code);
-        const contextWindow = model?.contextWindows?.find((tokens) => tokens === qoderSelection.contextWindow);
-        props.onModelModeChange?.(buildQoderModelMode(code, model?.defaultEffort, contextWindow));
-    }, [qoderModels, qoderSelection.contextWindow, props.onModelModeChange]);
-    const handleQoderEffortChange = React.useCallback((effort: string) => {
-        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, effort, qoderSelection.contextWindow));
-    }, [qoderSelection.model, qoderSelection.contextWindow, props.onModelModeChange]);
-    const handleQoderContextWindowChange = React.useCallback((contextWindow: number) => {
-        props.onModelModeChange?.(buildQoderModelMode(qoderSelection.model, qoderSelection.effort, contextWindow));
-    }, [qoderSelection.model, qoderSelection.effort, props.onModelModeChange]);
-    const modelCatalog = useModelCatalog();
-    const codexSelection = React.useMemo<{ family: CodexModelFamily; effort: CodexReasoningEffort }>(() => {
-        return parseCodexModelMode(selectedModelMode);
-    }, [selectedModelMode, modelCatalog]);
-    // The catalog's "use the CLI's model" entry is English-only; every agent shows the translated one.
-    // Catalog descriptions are English, with translations for some languages.
-    // Models the machine's CLI doesn't offer are left out; `default` and the model in use always stay.
-    const localizeModelOptions = (options: readonly ModelOption[], selected: string): ModelOption[] => options
-        .filter((option) => option.value === MODEL_MODE_DEFAULT || option.value === selected || !props.cliModelIds || props.cliModelIds.has(option.value))
-        .map((option) => option.value === MODEL_MODE_DEFAULT
-            ? { ...option, label: t('agentInput.model.useCliConfigured'), description: t('agentInput.model.useCliDefaults') }
-            : { ...option, description: option.descriptionTranslations?.[getCurrentLanguage()] ?? option.description });
-    const codexFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('codex'), codexSelection.family), [modelCatalog, props.cliModelIds, codexSelection.family]);
-    const codexReasoningOptions = React.useMemo<Array<{ value: CodexReasoningEffort; label: string }>>(() => {
-        const options = getCodexReasoningOptions(codexSelection.family);
-        return options.map((value) => ({
-            value,
-            label: formatReasoningEffortLabel(value) ?? value,
-        }));
-    }, [codexSelection.family, modelCatalog]);
-    const handleCodexFamilyChange = React.useCallback((family: CodexModelFamily) => {
-        if (!props.onModelModeChange) return;
-        if (family === MODEL_MODE_DEFAULT) {
-            props.onModelModeChange(MODEL_MODE_DEFAULT);
-            return;
-        }
-        // Clamp the carried-over effort to what the new family supports (e.g. switching
-        // from a Sol `ultra` selection to a family that only goes up to `xhigh`).
-        const validOptions = getCodexReasoningOptions(family);
-        const effort = codexSelection.effort && validOptions.includes(codexSelection.effort) ? codexSelection.effort : validOptions[0];
-        props.onModelModeChange(buildCodexModelMode(family, effort));
-    }, [codexSelection.effort, props.onModelModeChange]);
-    const handleCodexReasoningChange = React.useCallback((effort: CodexReasoningEffort) => {
-        if (!props.onModelModeChange || codexSelection.family === MODEL_MODE_DEFAULT) return;
-        props.onModelModeChange(buildCodexModelMode(codexSelection.family, effort));
-    }, [codexSelection.family, props.onModelModeChange]);
-    const claudeSelection = React.useMemo<{ family: ClaudeModelFamily; effort: ClaudeReasoningEffort | null; contextWindow: number | null }>(() => {
-        return parseClaudeModelMode(selectedModelMode);
-    }, [selectedModelMode, modelCatalog]);
-    // Claude Code's auto-compact window, offered when the model runs with more than 200K: 200K and 1M with
-    // one tap, any other size typed in. Unpicked, it shows the one the session reports running with (Claude
-    // Code's own setting), before any report Claude Code's default, 200K; a tap on it still picks it.
-    const claudeContextWindowRange = React.useMemo(() => getClaudeContextWindowOptions(claudeSelection.family), [claudeSelection.family, modelCatalog]);
-    const claudeContextWindow = claudeSelection.contextWindow
-        ?? props.usageData?.contextWindowSize
-        ?? claudeContextWindowRange?.presets[0]
-        ?? null;
-    const claudeCustomContextWindow = claudeContextWindow !== null && !claudeContextWindowRange?.presets.includes(claudeContextWindow)
-        ? claudeContextWindow
-        : null;
-    const claudeContextWindowOptions = claudeContextWindowRange ? [
-        ...claudeContextWindowRange.presets.map((tokens) => ({ value: String(tokens), label: formatContextWindowLabel(tokens) })),
-        {
+    const customContextWindow = contextWindowRange && contextWindow !== null && !contextWindows.includes(contextWindow) ? contextWindow : null;
+    const contextWindowOptions = contextWindows.length + (contextWindowRange ? 1 : 0) > 1 ? [
+        ...contextWindows.map((tokens) => ({ value: String(tokens), label: formatContextWindowLabel(tokens) })),
+        ...(contextWindowRange ? [{
             value: CUSTOM_CONTEXT_WINDOW,
             label: t('agentInput.model.customContextWindow'),
             // Once there is a custom size, the segment shows it with the edit icon instead of the word.
-            segmentLabel: claudeCustomContextWindow ? formatContextWindowLabel(claudeCustomContextWindow) : undefined,
-            edited: !!claudeCustomContextWindow,
-            trailing: claudeCustomContextWindow ? formatContextWindowLabel(claudeCustomContextWindow) : undefined,
+            segmentLabel: customContextWindow ? formatContextWindowLabel(customContextWindow) : undefined,
+            edited: !!customContextWindow,
+            trailing: customContextWindow ? formatContextWindowLabel(customContextWindow) : undefined,
             opensEditor: true,
-        },
+        }] : []),
     ] : [];
-    const claudeFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('claude'), claudeSelection.family), [modelCatalog, props.cliModelIds, claudeSelection.family]);
-    const claudeReasoningOptions = React.useMemo<Array<{ value: ClaudeReasoningEffort; label: string }>>(() => {
-        const options = getClaudeReasoningOptions(claudeSelection.family);
-        return options.map((value) => ({
-            value,
-            label: formatReasoningEffortLabel(value) ?? value,
-        }));
-    }, [claudeSelection.family, modelCatalog]);
-    const handleClaudeFamilyChange = React.useCallback((family: ClaudeModelFamily) => {
-        if (!props.onModelModeChange) return;
-        if (family === MODEL_MODE_DEFAULT) {
-            props.onModelModeChange(MODEL_MODE_DEFAULT);
+    // A newly picked model keeps the effort and context window picked before when it takes them, else starts
+    // on its own default effort. Coming from `default` (the CLI's own choice, which carries neither), the ones
+    // picked before it come back; the window only until the session has reported the one it runs with, which
+    // is then left unpicked (it is already what the CLI runs with, so nothing restarts).
+    const handleModelChange = React.useCallback((code: string) => {
+        if (code === MODEL_MODE_DEFAULT) {
+            props.onModelModeChange?.(MODEL_MODE_DEFAULT);
             return;
         }
-        const validOptions = getClaudeReasoningOptions(family);
-        // Coming from `default` (the CLI's own choice, which carries neither), the effort picked before it
-        // comes back. The window does not: the one the session reports running with wins, and is left unpicked
-        // (it is already what Claude Code runs with, so nothing restarts); the remembered one only stands in
-        // until the session has reported.
-        const fromDefault = claudeSelection.family === MODEL_MODE_DEFAULT;
-        const remembered = fromDefault && props.rememberedModelMode ? parseClaudeModelMode(props.rememberedModelMode) : null;
+        const model = findAgentModel(pickerModels, code);
+        const efforts = model?.efforts?.map((effort) => effort.code) ?? [];
+        const remembered = !selection.model && props.rememberedModelMode ? parseModelMode(props.rememberedModelMode, agentFlavorKey) : null;
         const previous = remembered
-            ? { ...remembered, contextWindow: props.usageData?.contextWindowSize ? null : remembered.contextWindow }
-            : claudeSelection;
-        // Default to Medium (not the list's top-of-order Max) when nothing compatible carries over.
-        const fallbackEffort = validOptions.includes('medium') ? 'medium' : validOptions[0];
-        const effort = previous.effort && validOptions.includes(previous.effort) ? previous.effort : fallbackEffort;
-        props.onModelModeChange(buildClaudeModelMode(family, effort, previous.contextWindow));
-    }, [claudeSelection, props.rememberedModelMode, props.usageData?.contextWindowSize, props.onModelModeChange]);
-    const handleClaudeReasoningChange = React.useCallback((effort: ClaudeReasoningEffort) => {
-        if (!props.onModelModeChange || claudeSelection.family === MODEL_MODE_DEFAULT) return;
-        props.onModelModeChange(buildClaudeModelMode(claudeSelection.family, effort, claudeSelection.contextWindow));
-    }, [claudeSelection.family, claudeSelection.contextWindow, props.onModelModeChange]);
+            ? { ...remembered, contextWindow: reportedContextWindow ? null : remembered.contextWindow }
+            : selection;
+        const effort = previous.reasoningEffort && efforts.includes(previous.reasoningEffort)
+            ? previous.reasoningEffort
+            : model?.defaultEffort ?? (efforts.includes('medium') ? 'medium' : efforts[0]);
+        const window = previous.contextWindow && takesContextWindow(model, previous.contextWindow) ? previous.contextWindow : null;
+        props.onModelModeChange?.(buildModelMode(code, effort, window));
+    }, [pickerModels, selectedModelMode, agentFlavorKey, props.rememberedModelMode, reportedContextWindow, props.onModelModeChange]);
+    const handleEffortChange = (effort: string) => {
+        if (selection.model) props.onModelModeChange?.(buildModelMode(selection.model, effort, selection.contextWindow));
+    };
     // The custom size is typed in place of the settings lists; null while none is being typed.
     const [customContextWindowDraft, setCustomContextWindowDraft] = React.useState<string | null>(null);
-    const buildClaudeContextWindowMode = (tokens: number) =>
-        // A model without effort control ignores the effort it is built with.
-        buildClaudeModelMode(claudeSelection.family, claudeSelection.effort ?? 'medium', tokens);
-    const handleClaudeContextWindowChange = (value: string) => {
+    const pickContextWindow = (tokens: number) => {
+        if (selection.model) props.onModelModeChange?.(buildModelMode(selection.model, selectedEffort, tokens));
+    };
+    const handleContextWindowChange = (value: string) => {
         if (value === CUSTOM_CONTEXT_WINDOW) {
-            setCustomContextWindowDraft(claudeCustomContextWindow ? String(Math.round(claudeCustomContextWindow / 1000)) : '');
+            setCustomContextWindowDraft(customContextWindow ? String(Math.round(customContextWindow / 1000)) : '');
             return;
         }
-        props.onModelModeChange?.(buildClaudeContextWindowMode(Number(value)));
+        pickContextWindow(Number(value));
     };
     const submitCustomContextWindow = (thousands: number) => {
         const tokens = thousands * 1000;
-        if (!claudeContextWindowRange || tokens < claudeContextWindowRange.min || tokens > claudeContextWindowRange.max) return false;
-        props.onModelModeChange?.(buildClaudeContextWindowMode(tokens));
+        if (!contextWindowRange || tokens < contextWindowRange.min || tokens > contextWindowRange.max) return false;
+        pickContextWindow(tokens);
         setCustomContextWindowDraft(null);
         return true;
     };
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
-        if (isGemini) return localizeModelOptions(getModelFamilyOptions('gemini'), selectedModelMode);
-        const cliDefault = { value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') };
-        if (usesAccountModels) {
-            // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
-            // Qoder's own sentence replaces the tags when the machine could read it.
-            return qoderModels.map((model) => {
-                const credit = model.description?.match(/^(.*?)(?:\s*·\s*)?\b(\d+(?:\.\d+)?)x Credit\s*$/);
-                return {
-                    value: model.code,
-                    label: model.value,
-                    shortLabel: model.value,
-                    description: model.detail ?? (credit ? credit[1] : model.description ?? ''),
-                    trailing: credit ? `${Number(credit[2])}x` : undefined,
-                };
-            });
-        }
-        return [cliDefault];
-    }, [isGemini, usesAccountModels, qoderModels, modelCatalog, props.cliModelIds, selectedModelMode]);
+        const cliDefault = usesAccountModels ? [] : [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') }];
+        // A saved model the list lacks (it may be a stand-in until the machine answers) still shows, by its id.
+        const unlisted = selection.model && !findAgentModel(pickerModels, selection.model)
+            ? [{ value: selection.model, label: selection.model, shortLabel: selection.model, description: '' }]
+            : [];
+        // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
+        // Qoder's own sentence replaces the tags when the machine could read it.
+        const listed = pickerModels.map((model) => {
+            const credit = model.description?.match(/^(.*?)(?:\s*·\s*)?\b(\d+(?:\.\d+)?)x Credit\s*$/);
+            return {
+                value: model.code,
+                label: model.value,
+                shortLabel: model.value,
+                description: model.detail ?? (credit ? credit[1] : model.description ?? ''),
+                trailing: credit ? `${Number(credit[2])}x` : undefined,
+            };
+        });
+        return [...cliDefault, ...unlisted, ...listed];
+    }, [usesAccountModels, pickerModels, selection.model]);
 
     const currentModelLabel = React.useMemo(() => {
-        if (isCodex) {
-            return (codexFamilyOptions.find(o => o.value === codexSelection.family)?.shortLabel ?? '') + (codexSelection.family !== 'default' ? ` (${codexReasoningOptions.find(o => o.value === codexSelection.effort)?.label ?? codexSelection.effort})` : '');
-        }
-        if (isClaude && claudeSelection.family !== 'default') {
-            const base = claudeFamilyOptions.find(o => o.value === claudeSelection.family)?.shortLabel ?? '';
-            const effortLabel = claudeReasoningOptions.find(o => o.value === claudeSelection.effort)?.label;
-            return base + (effortLabel ? ` (${effortLabel})` : '');
-        }
-        if (usesAccountModels) {
-            const effortLabel = qoderEffortOptions.find(o => o.value === qoderEffort)?.label;
-            // A saved model the stand-in list lacks shows by its code until the machine's own list arrives.
-            return (modelOptions.find(o => o.value === qoderSelection.model)?.shortLabel ?? qoderSelection.model) + (effortLabel ? ` (${effortLabel})` : '');
-        }
-        return modelOptions.find(o => o.value === selectedModelMode)?.shortLabel ?? '';
-    }, [isCodex, isClaude, usesAccountModels, codexFamilyOptions, codexSelection, codexReasoningOptions, claudeFamilyOptions, claudeSelection, claudeReasoningOptions, modelOptions, selectedModelMode, qoderSelection.model, qoderEffort, qoderEffortOptions]);
+        const effortLabel = selection.model ? effortOptions.find((option) => option.value === selectedEffort)?.label : undefined;
+        return (modelOptions.find((option) => option.value === selectedModelValue)?.shortLabel ?? selectedModelValue) + (effortLabel ? ` (${effortLabel})` : '');
+    }, [modelOptions, selectedModelValue, selection.model, effortOptions, selectedEffort]);
 
     // Calculate context warning
     // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window,
@@ -1125,7 +1039,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // by model/agent flavor
     const agentFlavor = props.metadata?.flavor || props.agentType || null;
     const agentChoice = props.agentType ? agentChoiceOf(props.agentType, props.qoderBuild) : null;
-    const maxContextSize = props.usageData?.contextWindowSize || getMaxContextSize(props.modelMode, agentFlavor, props.metadata?.model, props.usageData?.contextSize);
+    const maxContextSize = props.usageData?.contextWindowSize || getMaxContextSize(props.modelMode, agentFlavor, props.usageData?.contextSize);
     const contextWarning = props.usageData?.contextSize
         ? getContextWarning(props.usageData.contextSize, maxContextSize, props.alwaysShowContextSize ?? false, theme)
         : null;
@@ -2293,17 +2207,25 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     {/* Model Section: wide screens scroll the model and effort columns on their own;
                                         narrow ones scroll only the model list, with the effort as a dropdown row below it. */}
                                     {shownSettingsTab === 'model' && <View style={styles.modelSection}>
-                                        {isCodex ? (() => {
-                                            const hasEffort = codexSelection.family !== 'default';
-                                            const reasoningColumn = (
-                                                <>
-                                                    <Text style={[styles.overlaySectionTitle, styles.modelColumnTitle]}>
-                                                        {t('agentInput.model.reasoningEffort')}
-                                                    </Text>
-                                                    {renderScrollableList(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange)}
-                                                </>
-                                            );
-                                            const fastModeRow = (
+                                        {renderModelSettings(
+                                            { options: modelOptions, selected: selectedModelValue, onChange: handleModelChange },
+                                            selection.model && effortOptions.length > 0
+                                                ? { options: effortOptions, selected: selectedEffort, onChange: handleEffortChange }
+                                                : null,
+                                            selection.model && contextWindowOptions.length > 0
+                                                ? { options: contextWindowOptions, selected: customContextWindow ? CUSTOM_CONTEXT_WINDOW : String(contextWindow ?? ''), onChange: handleContextWindowChange }
+                                                : null,
+                                            customContextWindowDraft !== null && contextWindowRange ? (() => {
+                                                const editorProps = {
+                                                    initialValue: customContextWindowDraft,
+                                                    range: { min: contextWindowRange.min / 1000, max: contextWindowRange.max / 1000 },
+                                                    onSubmit: submitCustomContextWindow,
+                                                    onCancel: () => setCustomContextWindowDraft(null),
+                                                };
+                                                return { full: <ContextWindowEditor {...editorProps} />, inline: <ContextWindowEditor {...editorProps} inline /> };
+                                            })() : null,
+                                            // Codex's Fast mode applies to a picked model.
+                                            isCodex && selection.model ? (
                                                 <View style={[styles.fastModeRow, { height: modelFooterRowHeight }]}>
                                                     <Text style={styles.fastModeLabel}>
                                                         {t('agentInput.model.fastMode')}
@@ -2318,65 +2240,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                         />
                                                     </View>
                                                 </View>
-                                            );
-                                            // Wide screens: effort sits beside the model list. The list keeps its place in the tree
-                                            // whether or not the effort column exists, so it is not rebuilt (and its scroll position
-                                            // lost) when the picked model changes between having effort and not.
-                                            if (isWideModelLayout) {
-                                                return (
-                                                    <>
-                                                        <View style={styles.modelColumns}>
-                                                            <View style={styles.modelColumn}>
-                                                                {renderScrollableList(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
-                                                            </View>
-                                                            {hasEffort && <View style={styles.overlayColumnDivider} />}
-                                                            {hasEffort && <View style={styles.modelColumn}>{reasoningColumn}</View>}
-                                                        </View>
-                                                        {hasEffort && <View style={styles.overlayDivider} />}
-                                                        {hasEffort && fastModeRow}
-                                                    </>
-                                                );
-                                            }
-                                            return (
-                                                <>
-                                                    {renderScrollableList(codexFamilyOptions, codexSelection.family, handleCodexFamilyChange)}
-                                                    {hasEffort && (
-                                                        <>
-                                                            <View style={styles.overlayDivider} />
-                                                            {renderEffortDropdown(codexReasoningOptions, codexSelection.effort, handleCodexReasoningChange)}
-                                                            <View style={styles.overlayDivider} />
-                                                            {fastModeRow}
-                                                        </>
-                                                    )}
-                                                </>
-                                            );
-                                        })() : isClaude ? renderModelSettings(
-                                            { options: claudeFamilyOptions, selected: claudeSelection.family, onChange: handleClaudeFamilyChange },
-                                            claudeSelection.family !== MODEL_MODE_DEFAULT && claudeReasoningOptions.length > 0
-                                                ? { options: claudeReasoningOptions, selected: claudeSelection.effort, onChange: handleClaudeReasoningChange }
-                                                : null,
-                                            claudeContextWindowOptions.length > 0
-                                                ? { options: claudeContextWindowOptions, selected: claudeCustomContextWindow ? CUSTOM_CONTEXT_WINDOW : String(claudeContextWindow ?? ''), onChange: handleClaudeContextWindowChange }
-                                                : null,
-                                            customContextWindowDraft !== null && claudeContextWindowRange ? (() => {
-                                                const editorProps = {
-                                                    initialValue: customContextWindowDraft,
-                                                    range: { min: claudeContextWindowRange.min / 1000, max: claudeContextWindowRange.max / 1000 },
-                                                    onSubmit: submitCustomContextWindow,
-                                                    onCancel: () => setCustomContextWindowDraft(null),
-                                                };
-                                                return { full: <ContextWindowEditor {...editorProps} />, inline: <ContextWindowEditor {...editorProps} inline /> };
-                                            })() : null,
-                                        ) : usesAccountModels ? renderModelSettings(
-                                            { options: modelOptions, selected: qoderSelection.model, onChange: handleQoderModelChange },
-                                            qoderEffortOptions.length > 0
-                                                ? { options: qoderEffortOptions, selected: qoderEffort, onChange: handleQoderEffortChange }
-                                                : null,
-                                            qoderContextWindowOptions.length > 0 && qoderContextWindow !== null
-                                                ? { options: qoderContextWindowOptions, selected: String(qoderContextWindow), onChange: (value: string) => handleQoderContextWindowChange(Number(value)) }
-                                                : null,
-                                        ) : (
-                                            renderScrollableList(modelOptions, selectedModelMode, (v) => props.onModelModeChange?.(v))
+                                            ) : null,
                                         )}
                                     </View>}
 

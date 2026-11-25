@@ -8,7 +8,7 @@ import { parseAskUserQuestionDrafts, pruneAskUserQuestionDrafts, type AskUserQue
 import { DooTaskProfile, DooTaskProfileSchema } from './dootask/types';
 import type { DooTaskUser } from './dootask/types';
 import type { PersistedCacheStorage } from '@/utils/persistedLruCache';
-import type { QoderModel } from './ops';
+import { AgentModelListSchema, type AgentModel } from 'happy-wire';
 
 const mmkv = new MMKV();
 const NEW_SESSION_DRAFT_KEY = 'new-session-draft-v1';
@@ -334,25 +334,26 @@ export function saveSessionLastViewedAt(map: Map<string, number>) {
     mmkv.set(SESSION_LAST_VIEWED_KEY, JSON.stringify(Object.fromEntries(map)));
 }
 
-const QODER_MODELS_KEY = 'qoder-models-by-machine';
+const AGENT_MODELS_KEY = 'agent-models-by-machine';
 
-/** Each machine's last Qoder model list (keyed `machineId`, or `machineId:cn` for Qoder CN), so the picker has the real models and efforts right after a reload. */
-export function loadQoderModelsByMachine(): Record<string, QoderModel[]> {
-    const raw = mmkv.getString(QODER_MODELS_KEY);
+/** Each machine's last model list per agent (keyed `machineId:agent`), so pickers have the real models right after a reload. */
+export function loadAgentModelsByMachine(): Record<string, AgentModel[]> {
+    const raw = mmkv.getString(AGENT_MODELS_KEY);
     if (!raw) return {};
     try {
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object') return {};
-        return parsed as Record<string, QoderModel[]>;
+        return Object.fromEntries(Object.entries(parsed).flatMap(([key, models]) => {
+            const valid = AgentModelListSchema.safeParse(models);
+            return valid.success ? [[key, valid.data]] : [];
+        }));
     } catch {
         return {};
     }
 }
 
-export function saveQoderModels(machineId: string, models: QoderModel[]): void {
-    const map = loadQoderModelsByMachine();
-    map[machineId] = models;
-    mmkv.set(QODER_MODELS_KEY, JSON.stringify(map));
+export function saveAgentModels(key: string, models: AgentModel[]): void {
+    mmkv.set(AGENT_MODELS_KEY, JSON.stringify({ ...loadAgentModelsByMachine(), [key]: models }));
 }
 
 export function loadBrowserLastPaths(): Record<string, string> {

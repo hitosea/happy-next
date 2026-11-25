@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type Fastify } from '@/app/api/types';
-import { getValidModelModesForAgent } from 'happy-wire';
 
 // What a client sends for a sealed value: the server only checks its form
 const sealed = (text: string) => `e2e1:${Buffer.from(text).toString('base64')}`;
@@ -1335,7 +1334,7 @@ describe('orchestrator integration paths', () => {
         await app.close();
     });
 
-    it('rejects submit when task model does not match provider', async () => {
+    it('rejects submit when a task model is not a model mode', async () => {
         const app = await createApp();
         const submit = await app.inject({
             method: 'POST',
@@ -1346,7 +1345,7 @@ describe('orchestrator integration paths', () => {
                 tasks: [
                     {
                         provider: 'claude',
-                        model: 'gpt-5.5-high',
+                        model: 'claude opus',
                         prompt: sealed('work'),
                     },
                 ],
@@ -1358,7 +1357,7 @@ describe('orchestrator integration paths', () => {
         await app.close();
     });
 
-    it('rejects a codex task whose -fast model mode belongs to another provider', async () => {
+    it('rejects a codex task whose -fast model mode is malformed', async () => {
         const app = await createApp();
         const submit = await app.inject({
             method: 'POST',
@@ -1369,7 +1368,7 @@ describe('orchestrator integration paths', () => {
                 tasks: [
                     {
                         provider: 'codex',
-                        model: 'claude-opus-5-max-fast',
+                        model: 'gpt-6-sol:high:low-fast',
                         prompt: sealed('work'),
                     },
                 ],
@@ -1884,12 +1883,12 @@ describe('orchestrator integration paths', () => {
         expect(response.statusCode).toBe(200);
         const body = response.json();
         expect(body.data.modelModes).toEqual({
-            claude: getValidModelModesForAgent('claude'),
-            codex: getValidModelModesForAgent('codex'),
-            gemini: getValidModelModesForAgent('gemini'),
-            qoder: getValidModelModesForAgent('qoder'),
-            qodercn: getValidModelModesForAgent('qoder'),
-            antigravity: getValidModelModesForAgent('antigravity'),
+            claude: ['default'],
+            codex: ['default'],
+            gemini: ['default'],
+            qoder: ['default'],
+            qodercn: ['default'],
+            antigravity: ['default'],
         });
         expect(body.data.defaults).toEqual(expect.objectContaining({
             retryMaxAttempts: 1,
@@ -1903,9 +1902,9 @@ describe('orchestrator integration paths', () => {
                 shellReady: true,
                 providers: ['claude', 'codex', 'gemini'],
                 modelModes: {
-                    claude: getValidModelModesForAgent('claude'),
-                    codex: getValidModelModesForAgent('codex'),
-                    gemini: getValidModelModesForAgent('gemini'),
+                    claude: ['default'],
+                    codex: ['default'],
+                    gemini: ['default'],
                 },
             }),
             expect.objectContaining({
@@ -1954,14 +1953,14 @@ describe('orchestrator integration paths', () => {
 
         expect(m1.providers).toEqual(['claude', 'codex', 'gemini']);
         expect(m1.modelModes).toEqual({
-            claude: getValidModelModesForAgent('claude'),
-            codex: getValidModelModesForAgent('codex'),
-            gemini: getValidModelModesForAgent('gemini'),
+            claude: ['default'],
+            codex: ['default'],
+            gemini: ['default'],
         });
 
         expect(m2.providers).toEqual(['claude']);
         expect(m2.modelModes).toEqual({
-            claude: getValidModelModesForAgent('claude'),
+            claude: ['default'],
         });
         await app.close();
     });

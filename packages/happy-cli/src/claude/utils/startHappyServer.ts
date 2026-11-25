@@ -27,7 +27,7 @@ import {
     ORCHESTRATOR_SEND_MESSAGE_TOOL_SCHEMA,
     ORCHESTRATOR_SUBMIT_TOOL_SCHEMA,
 } from '@/orchestrator/mcpToolSchemas';
-import { getValidModelModesForAgent } from 'happy-wire';
+import { MODEL_MODE_DEFAULT } from 'happy-wire';
 import { fillMachineModelModes } from '@/orchestrator/machineModelModes';
 import { readPreviewHtmlFile } from '@/utils/previewHtmlFile';
 
@@ -215,14 +215,8 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                         retryBackoffMs: 0,
                     },
                     providers: ORCHESTRATOR_PROVIDERS,
-                    modelModes: {
-                        claude: getValidModelModesForAgent('claude'),
-                        codex: getValidModelModesForAgent('codex'),
-                        gemini: getValidModelModesForAgent('gemini'),
-                        qoder: getValidModelModesForAgent('qoder'),
-                        qodercn: getValidModelModesForAgent('qoder'),
-                        antigravity: getValidModelModesForAgent('antigravity'),
-                    },
+                    // What each provider offers comes from the machines' CLIs (fillMachineModelModes)
+                    modelModes: Object.fromEntries(ORCHESTRATOR_PROVIDERS.map((provider) => [provider, [MODEL_MODE_DEFAULT]])),
                     machines: [],
                 };
                 try {

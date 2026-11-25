@@ -21,7 +21,6 @@ import type {
 } from '../TransportHandler';
 import type { AgentMessage } from '../../core';
 import { logger } from '@/ui/logger';
-import { getValidModelModesForAgent } from 'happy-wire';
 
 /**
  * Gemini-specific timeout values (in milliseconds)
@@ -204,12 +203,12 @@ export class GeminiTransport implements TransportHandler {
       };
     }
 
-    // Model not found (404) - show error with available models
+    // Model not found (404): the account can't use the picked model
     if (trimmed.includes('status 404') || trimmed.includes('code":404')) {
       const errorMessage: AgentMessage = {
         type: 'status',
         status: 'error',
-        detail: `Model not found. Available models: ${getValidModelModesForAgent('gemini').join(', ')}`,
+        detail: 'Model not found. Pick another model, or use the one Gemini CLI is configured with.',
       };
       return { message: errorMessage };
     }

@@ -46,7 +46,7 @@ import {
 } from "./pendingQueue";
 import { compareSessionsByLastMessage, sessionLastMessageAt, updateSessionDisplayOrder } from '@/utils/sessionLastMessageAt';
 import { isSessionDisconnected } from '@/utils/sessionLifecycle';
-import { agentChoiceOf, type QoderBuild } from '@/utils/agentChoice';
+import { agentChoiceOf, type AgentChoice } from '@/utils/agentChoice';
 
 // Debounce timer for realtimeMode changes
 let realtimeModeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2544,26 +2544,15 @@ export function useSessionModeLastUsed(agentType: SessionModeAgentType) {
 }
 
 /**
- * Qoder lists its models per account over ACP, so a new Qoder session offers the
- * models the most recently updated Qoder session of the same build reported.
+ * The models the most recently updated session of `agent` reported (Qoder's and Antigravity's
+ * sessions report the account's), the stand-ins until a machine has listed its own.
  */
-export function useLatestQoderModels(build: QoderBuild): Metadata['models'] {
+export function useLatestSessionModels(agent: AgentChoice | null): Metadata['models'] {
     return storage((state) => {
         let latest: Session | null = null;
         for (const session of Object.values(state.sessions)) {
-            if (session.metadata?.flavor !== 'qoder' || !session.metadata.models?.length) continue;
-            if ((session.metadata.qoderBuild ?? 'intl') !== build) continue;
-            if (!latest || session.updatedAt > latest.updatedAt) latest = session;
-        }
-        return latest?.metadata?.models;
-    });
-}
-
-export function useLatestAntigravityModels(): Metadata['models'] {
-    return storage((state) => {
-        let latest: Session | null = null;
-        for (const session of Object.values(state.sessions)) {
-            if (session.metadata?.flavor !== 'antigravity' || !session.metadata.models?.length) continue;
+            const metadata = session.metadata;
+            if (!agent || !metadata?.models?.length || resolveSessionModeAgentType(metadata) !== agent) continue;
             if (!latest || session.updatedAt > latest.updatedAt) latest = session;
         }
         return latest?.metadata?.models;

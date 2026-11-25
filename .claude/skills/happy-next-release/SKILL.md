@@ -93,7 +93,7 @@ git log "${BASE_DOCKER}..HEAD" --oneline --no-merges -- \
 | `happy-cli` 有实际改动 | CLI |
 | `happy-app` 有用户可感知改动 | Release + iOS + Docker（`happy-app` 镜像是 App 的 Web 版） |
 | 只有 `happy-server` / `happy-voice` / `happy-docs` / `happy-web` / `Dockerfile*` / `docker-compose.yml` / `entrypoint.sh` | 仅 Docker |
-| `happy-wire` 实际改动（含 `modelCatalog.json`） | 按使用方：CLI 用到则含 CLI，server/app 用到则含 Docker/Release；`modelCatalog.json` 两边都用 |
+| `happy-wire` 实际改动 | 按使用方：CLI 用到则含 CLI，server/app 用到则含 Docker/Release |
 | `happy-app` 有用户可感知改动，且当前 runtime 等于最近一次 Release 包的 fingerprint | 另加 OTA（见下文「OTA 的判断」） |
 | 都没有 | 建议不发布，**停止** |
 
@@ -104,20 +104,7 @@ git log "${BASE_DOCKER}..HEAD" --oneline --no-merges -- \
 - 对得上的平台推荐 OTA：用户不用等新包，几分钟内就能收到。同时发 Release 也不冲突，新包本身就带着这些 JS。
 - 对不上（原生部分变了），或者 Release 包里没有嵌入 fingerprint（打在自建 OTA 之前）：不推荐 OTA，在计划里写明原因。
 
-## 3. 模型目录
-
-`packages/happy-wire/src/modelCatalog.json` 随 App 和 CLI 发布，不再远程下发。Claude、Codex、Gemini 可选的模型以各设备上 CLI 实际返回的为准，目录只提供：设备还没上报时的兜底列表，以及 CLI 不给的中文描述和上下文窗口。Codex 不再固定版本，用设备上安装的 `codex`。
-
-1. 从各厂商官方渠道获取最新模型信息，与目录对比，例如：
-   - Anthropic：Claude 模型概览页、发布公告
-   - OpenAI：模型文档页；Codex 可用模型以 Codex CLI 发布说明为准
-   - Google：Gemini API 模型页、Gemini CLI 发布说明
-2. 按目录现有字段补齐新模型（标签、描述及翻译、effort、上下文窗口），并按目录惯例调整被取代的旧模型。
-3. 每项新增、修改、下线都附官方来源链接；来源不明确或互相冲突的不改，在计划里列为"待定"。
-
-此阶段只出改动草稿，不改文件。
-
-## 4. Secrets
+## 3. Secrets
 
 只检查名称，不读取值：
 
@@ -134,7 +121,7 @@ gh secret list --app actions | cut -f1
 
 缺任何一个都**停止**。不得让用户在聊天中粘贴私钥、证书或密码。
 
-## 5. 版本号
+## 4. 版本号
 
 **CLI**（含 CLI 时）：
 
@@ -161,7 +148,7 @@ gh release view "{tag}" 2>/dev/null || true
 
 只发 iOS 时不新建 tag，目标 tag 必须已有 Release 且含 IPA。
 
-## 6. changelog 和产品文档草稿（含 Release 时）
+## 5. changelog 和产品文档草稿（含 Release 时）
 
 涉及文件：
 
@@ -192,7 +179,6 @@ gh release view "{tag}" 2>/dev/null || true
 - OTA（含 OTA 时）：平台、runtime、能收到的包、更新说明 `--message`
 - 推送本地未推送的提交（如有）
 - 合并哪些 PR
-- 模型目录改动（新增 / 修改 / 下线，附来源）和"待定"项
 - CLI 版本、tag
 - 日志版本，changelog 和总览文档草稿
 - Docker `publish_latest`：目标是最高正式版本时 `true`，重建旧版本或补历史镜像时 `false`
@@ -214,18 +200,7 @@ gh pr merge {PR} --squash       # 计划内的 PR
 git pull --ff-only origin main
 ```
 
-## 2. 模型目录（有改动时）
-
-按计划修改 `modelCatalog.json`，然后：
-
-```bash
-cd packages/happy-wire && yarn build && yarn test
-cd ../happy-cli && yarn typecheck
-```
-
-通过后只提交该文件并推送（如 `chore(models): …`）。失败则**停止**。
-
-## 3. changelog 和文档（含 Release 时）
+## 2. changelog 和文档（含 Release 时）
 
 按计划写入文件，然后：
 
@@ -249,7 +224,7 @@ git commit -m "docs: changelog for {tag}"
 git push origin main
 ```
 
-## 4. CLI（含 CLI 时）
+## 3. CLI（含 CLI 时）
 
 ```bash
 gh workflow run cli-publish.yml -f version={CLI版本} -f dry-run=false
@@ -264,7 +239,7 @@ node -p "require('./packages/happy-cli/package.json').version"
 
 CLI 在创建 tag 之前完成，使 tag 包含 CLI 版本提交。
 
-## 5. 创建 tag（含 Release / Docker 时）
+## 4. 创建 tag（含 Release / Docker 时）
 
 ```bash
 git tag {tag}
@@ -273,7 +248,7 @@ git push origin {tag}
 
 tag 指向已推送的最新 `main` commit。
 
-## 6. 触发 Release 和 Docker（并行）
+## 5. 触发 Release 和 Docker（并行）
 
 ```bash
 gh workflow run release.yml \
@@ -288,7 +263,7 @@ gh workflow run docker-publish.yml \
 
 后台监听每个 run。结束后用 `gh run view {id} --json conclusion,jobs` 核对结论和每个任务，以此判断成败。
 
-## 7. 验证 Docker
+## 6. 验证 Docker
 
 ```bash
 for img in happy-server happy-app happy-voice happy-docs happy-web; do
@@ -300,7 +275,7 @@ done
 - `publish_latest=true` 时 `latest` 与版本标签 digest 相同；
 - 架构为 `amd64` 和 `arm64`。
 
-## 8. 验证 Release
+## 7. 验证 Release
 
 ```bash
 gh release view {tag} --json tagName,assets,url
@@ -337,7 +312,7 @@ latest.json
 - 每个 URL 返回 HTTP 200；
 - 签名非空。
 
-## 9. iOS 提审（含 iOS 时）
+## 8. iOS 提审（含 iOS 时）
 
 Release 验证通过且含 `happy-next-{tag}-ios.ipa` 后触发：
 
@@ -349,11 +324,11 @@ gh workflow run ios-submit.yml \
 
 workflow 下载 Release 中的 IPA，用 App Store Connect API Key 通过 `xcrun altool` 上传。成功只代表上传完成；构建处理、送审和审核状态在 App Store Connect 中另行处理。
 
-## 10. OTA（含 OTA 时）
+## 9. OTA（含 OTA 时）
 
-代码同步完成后（第 1–3 步，main 已推送、工作区干净），按 happy-ota 技能的「三、发布」执行：取凭证、`yarn ota publish`、核对服务器、清理凭证。发布计划已经确认过，这里不再单独确认。输出的 runtime 必须等于计划里的值，不一致就**停止**。OTA 不依赖 Release，可以和第 4–9 步并行，但必须在第 3 步之后，保证 changelog 提交也包含在更新里。
+代码同步完成后（第 1–2 步，main 已推送、工作区干净），按 happy-ota 技能的「三、发布」执行：取凭证、`yarn ota publish`、核对服务器、清理凭证。发布计划已经确认过，这里不再单独确认。输出的 runtime 必须等于计划里的值，不一致就**停止**。OTA 不依赖 Release，可以和第 3–8 步并行，但必须在第 2 步之后，保证 changelog 提交也包含在更新里。
 
-## 11. 汇总报告
+## 10. 汇总报告
 
 逐条列出 npm、GitHub Release、Docker Hub、App Store Connect、OTA（更新 id 和能收到的包）的结果和链接，以及重试情况。没有真机测试的平台标记 **未验证**。
 

@@ -26,6 +26,20 @@ describe('runOneShot spawn plan', () => {
     expect(plan.args).toContain('--dangerously-skip-permissions');
   });
 
+  it('passes the effort and context window of a claude model:effort@window mode, and of the old model-effort form', () => {
+    const plan = buildSpawnPlan('claude', 'hello', '/tmp/workdir', 'claude-opus-5-5:high@400000', 'initial');
+    expect(plan.args.join(' ')).toContain('--model claude-opus-5-5 --effort high --autocompact 400000');
+    const legacy = buildSpawnPlan('claude', 'hello', '/tmp/workdir', 'claude-opus-5-5-max', 'initial');
+    expect(legacy.args.join(' ')).toContain('--model claude-opus-5-5 --effort max');
+  });
+
+  it('decomposes a codex model:effort-fast mode', () => {
+    const args = buildSpawnPlan('codex', 'hello', '/tmp/workdir', 'gpt-6-sol:xhigh-fast', 'initial').args.join(' ');
+    expect(args).toContain('--model gpt-6-sol');
+    expect(args).toContain('-c model_reasoning_effort=xhigh');
+    expect(args).toContain('service_tier="fast"');
+  });
+
   it('uses claude resume command for resume execution', () => {
     const plan = buildSpawnPlan('claude', 'continue', '/tmp/workdir', undefined, 'resume', 'session-uuid');
     expect(plan.command).toBe(process.execPath);

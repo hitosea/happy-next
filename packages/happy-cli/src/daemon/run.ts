@@ -3,7 +3,6 @@ import os from 'os';
 import * as tmp from 'tmp';
 
 import { ApiClient } from '@/api/api';
-import { refreshInstalledCliModels } from '@/agentModels/cliModels';
 import { TrackedSession } from './types';
 import { getUnexpandedSessionAuthVariables } from './sessionAuth';
 import { QODER_BUILD_ENV, QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
@@ -1177,9 +1176,6 @@ export async function startDaemon(): Promise<void> {
       handleRequest: (method, params) => apiMachine.handleLocalRequest(method, params),
       onFrame: (listener) => apiMachine.onTerminalFrame(listener),
     });
-
-    // Ask the installed agent CLIs for their models, for the pickers and for the sessions this daemon spawns
-    void refreshInstalledCliModels();
 
     // Update machine metadata on server (ensures version is current after daemon restart)
     // Merge with current metadata to preserve fields set by the app (e.g. displayName)

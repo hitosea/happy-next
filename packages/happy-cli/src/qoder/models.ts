@@ -3,14 +3,7 @@
  *
  * Models are per account and only qodercli knows them, so asking means starting
  * qodercli (about 2s, plus a run log under ~/.qoder*). The daemon keeps one list
- * per machine and build, on disk too, and starts qodercli only when that list is old:
- *
- *   under 5 min   served as is
- *   5 min to 1 h  served, and refreshed in the background for the next ask
- *   over 1 h      refreshed first; served if that fails or times out
- *
- * After a failed refresh qodercli is not started again for 5 min while a list is
- * on hand, or for 1 min with none (asks then fail at once).
+ * per build, as for every agent (see agentModels/listAgentModels).
  *
  * qodercli is asked over its `--sdk` server with the `daemon.get_models` request the
  * Qoder Agent SDK uses, which answers every model with its efforts and context windows
@@ -24,9 +17,8 @@ import { join } from 'node:path';
 import { configuration } from '@/configuration';
 import { logger } from '@/ui/logger';
 import type { AcpModel } from '@/agent/acp/listAcpModels';
-import { QODER_SDK_ISOLATION_ENV, QODER_SLUGS, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
+import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand, type QoderBuild } from '@/qoder/constants';
 import { listQoderModelsOverAcp } from '@/qoder/sessions';
-import { createRefreshingCache } from '@/utils/refreshingCache';
 import { withShortLivedProcess } from '@/utils/shortLivedProcess';
 
 export type QoderModel = AcpModel & {
@@ -37,7 +29,6 @@ export type QoderModel = AcpModel & {
 };
 
 const QODER_MODELS_BUDGET_MS = 15_000;
-const MINUTE_MS = 60_000;
 
 /** Labels qodercli gives efforts over ACP; others are capitalized. */
 const EFFORT_LABELS: Record<string, string> = { xhigh: 'Extra High' };
@@ -136,7 +127,8 @@ export async function listQoderModelsOverSdk(cwd: string, build: QoderBuild, tim
   });
 }
 
-async function fetchQoderModels(build: QoderBuild): Promise<QoderModel[]> {
+/** Asks qodercli for the account's models; agentModels/listAgentModels keeps the list. */
+export async function fetchQoderModels(build: QoderBuild): Promise<QoderModel[]> {
   // One fixed directory, so what qodercli keeps per directory stays in one place
   const cwd = join(configuration.happyHomeDir, 'qoder');
   await mkdir(cwd, { recursive: true });
@@ -147,21 +139,4 @@ async function fetchQoderModels(build: QoderBuild): Promise<QoderModel[]> {
     logger.debug('[Qoder] daemon.get_models failed, listing models over ACP', error);
   }
   return listQoderModelsOverAcp(cwd, build, Math.max(deadline - Date.now(), 0));
-}
-
-// Qoder and Qoder CN sign in to different accounts, so each build keeps its own list.
-function createQoderModelsCache(build: QoderBuild) {
-  return createRefreshingCache({
-    file: join(configuration.happyHomeDir, `${QODER_SLUGS[build]}-models.json`),
-    fetch: () => fetchQoderModels(build),
-    freshMs: 5 * MINUTE_MS,
-    maxAgeMs: 60 * MINUTE_MS,
-    failureCooldownMs: 5 * MINUTE_MS,
-    emptyFailureCooldownMs: MINUTE_MS,
-  });
-}
-const qoderModels = { intl: createQoderModelsCache('intl'), cn: createQoderModelsCache('cn') };
-
-export function listQoderModels(build: QoderBuild): Promise<QoderModel[]> {
-  return qoderModels[build].get();
 }

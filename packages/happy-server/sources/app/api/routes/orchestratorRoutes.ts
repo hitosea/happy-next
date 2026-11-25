@@ -9,9 +9,7 @@ import { listConnectedUserRpcMethods, invokeUserRpc, hasUserRpcMethod } from "@/
 import { randomUUID } from "node:crypto";
 import {
     MODEL_MODE_DEFAULT,
-    getValidModelModesForAgent,
-    isModelMode,
-    isModelModeForAgent,
+    isModelModeFormat,
     splitFastModeSuffix,
 } from "happy-wire";
 import {
@@ -38,8 +36,6 @@ import { orchestratorMachineReconcile } from "@/app/orchestrator/reconcile";
 import { orchestratorCallbacksAck, orchestratorCallbacksPull, orchestratorRunCallbacksRecordTx } from "@/app/orchestrator/callbacks";
 
 const PROVIDERS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity'] as const;
-// Qoder CN (qoderclicn) is its own provider, as in the app's new-session picker, but runs the Qoder flavor's models
-const PROVIDER_FLAVORS = { claude: 'claude', codex: 'codex', gemini: 'gemini', qoder: 'qoder', qodercn: 'qoder', antigravity: 'antigravity' } as const;
 const RUN_STATUSES = ['queued', 'running', 'canceling', 'completed', 'failed', 'cancelled'] as const;
 const EXECUTION_FINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timeout'] as const;
 const LIST_RUN_STATUS_FILTERS = ['active', 'terminal', ...RUN_STATUSES] as const;
@@ -1070,10 +1066,8 @@ export function orchestratorRoutes(app: Fastify) {
             const dispatchReady = dispatchReadyMachineIds.has(machine.id);
             const detection = detectedProviders.get(machine.id);
             const providers = detection?.providers ?? [];
-            const modelModes: Record<string, readonly string[]> = {};
-            for (const provider of providers) {
-                modelModes[provider] = getValidModelModesForAgent(PROVIDER_FLAVORS[provider]);
-            }
+            // The server knows no models; the controller's CLI asks each machine what its CLIs offer.
+            const modelModes: Record<string, readonly string[]> = Object.fromEntries(providers.map((provider) => [provider, [MODEL_MODE_DEFAULT]]));
             const identity = identities.get(machine.id);
             const name = identity?.name ?? detection?.hostname;
             return {
@@ -1103,7 +1097,7 @@ export function orchestratorRoutes(app: Fastify) {
             ok: true,
             data: {
                 providers: PROVIDERS,
-                modelModes: Object.fromEntries(PROVIDERS.map((provider) => [provider, getValidModelModesForAgent(PROVIDER_FLAVORS[provider])])),
+                modelModes: Object.fromEntries(PROVIDERS.map((provider) => [provider, [MODEL_MODE_DEFAULT]])),
                 defaults: {
                     mode: 'async',
                     maxConcurrency: DEFAULT_CONTEXT_MAX_CONCURRENCY,
@@ -1142,9 +1136,10 @@ export function orchestratorRoutes(app: Fastify) {
                 normalizedTaskModels.push(undefined);
                 continue;
             }
-            // Codex tasks may carry a `-fast` marker on top of any valid mode; validate the mode itself.
+            // Only the form is checked: the target machine's CLI judges whether it offers the model.
+            // Codex tasks may carry a `-fast` marker on top of any mode.
             const baseMode = task.provider === 'codex' ? splitFastModeSuffix(model).mode : model;
-            if (isModelMode(baseMode) && !isModelModeForAgent(PROVIDER_FLAVORS[task.provider], baseMode)) {
+            if (!isModelModeFormat(baseMode)) {
                 return sendError(reply, 400, 'INVALID_ARGUMENT', `Task seq ${index + 1} has invalid model "${model}" for provider "${task.provider}"`);
             }
             normalizedTaskModels.push(model);

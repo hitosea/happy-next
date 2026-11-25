@@ -37,9 +37,7 @@ import { useMachine, useRememberedModelMode, useSession } from '@/sync/storage';
 import { agentChoiceOf, type AgentType } from '@/utils/agentChoice';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { rememberSentSuggestions } from '@/sync/recentSuggestions';
-import { useQoderModels } from '@/hooks/useQoderModels';
-import { useCliModelIds } from '@/hooks/useCliModels';
-import { useAntigravityModels } from '@/hooks/useAntigravityModels';
+import { useAgentModels } from '@/hooks/useAgentModels';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
 import { t } from '@/text';
@@ -68,7 +66,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as React from 'react';
 import { useMemo } from 'react';
 import { ActivityIndicator, Platform, Pressable, Text, useWindowDimensions, View, type GestureResponderEvent } from 'react-native';
-import { buildClaudeModelMode, parseClaudeModelMode, type ModelMode } from 'happy-wire';
+import { buildModelMode, parseModelMode, type ModelMode } from 'happy-wire';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -392,9 +390,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const canSteer = useSessionCanSteer(sessionId);
 
     const machineId = session.metadata?.machineId;
-    const { models: qoderModels } = useQoderModels(machineId, session.metadata?.qoderBuild ?? 'intl', session.metadata?.path ?? '', session.metadata?.flavor === 'qoder');
-    const { models: antigravityModels } = useAntigravityModels(machineId, session.metadata?.flavor === 'antigravity');
-    const cliModelIds = useCliModelIds(machineId, session.metadata?.flavor ?? 'claude');
+    const sessionAgentChoice = agentChoiceOf((session.metadata?.flavor ?? 'claude') as AgentType, session.metadata?.qoderBuild);
+    const { models: agentModels } = useAgentModels(machineId, sessionAgentChoice);
     // Get permission mode from session object, default to 'default'
     const permissionMode = session.permissionMode || 'default';
     // Get model mode from session object. "default" means use CLI/profile configured model.
@@ -679,9 +676,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const previous = previousReportRef.current;
         previousReportRef.current = reportedContextWindow;
         if (previous === undefined || previous === reportedContextWindow) return;
-        const { family, effort, contextWindow } = parseClaudeModelMode(modelModeRef.current as ModelMode);
-        if (contextWindow && contextWindow !== reportedContextWindow) {
-            updateModelMode(buildClaudeModelMode(family, effort ?? 'medium'));
+        const { model, reasoningEffort, contextWindow } = parseModelMode(modelModeRef.current as ModelMode, 'claude');
+        if (model && contextWindow && contextWindow !== reportedContextWindow) {
+            updateModelMode(buildModelMode(model, reasoningEffort));
         }
     }, [reportedContextWindow, isClaudeSession, updateModelMode]);
 
@@ -1577,7 +1574,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         });
     }, [images, removeImage]);
 
-    const rememberedModelMode = useRememberedModelMode(sessionId, agentChoiceOf((session.metadata?.flavor ?? 'claude') as AgentType, session.metadata?.qoderBuild));
+    const rememberedModelMode = useRememberedModelMode(sessionId, sessionAgentChoice);
     const input = canEdit ? (
         <AgentInput
             ref={inputRef}
@@ -1596,8 +1593,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             fastMode={fastMode}
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
-            agentModels={session.metadata?.flavor === 'antigravity' ? antigravityModels : qoderModels}
-            cliModelIds={cliModelIds}
+            agentModels={agentModels}
             connectionStatus={inputConnectionStatus}
             onSend={handleSend}
             isSending={isSending}
