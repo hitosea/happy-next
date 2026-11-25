@@ -217,47 +217,24 @@
             "pricing": { "input": 1, "output": 5, "cacheWrite": 1.25, "cacheRead": 0.1 }
         },
         {
-            "id": "gpt-6.2-astra",
-            "agent": "codex",
-            "status": "active",
-            "label": "GPT-6.2-Astra",
-            "shortLabel": "6.2-Astra",
-            "displayName": "GPT-6.2-Astra",
-            "description": "Our most capable model for your hardest projects, from start to finish.",
-            "descriptionTranslations": {
-                "zh-Hans": "最强能力模型，从头到尾应对最艰巨的项目",
-                "zh-Hant": "最強能力模型，從頭到尾應對最艱鉅的專案"
-            },
-            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
-            "contextWindow": 1050000
-        },
-        {
             "id": "gpt-6.2-sol",
             "agent": "codex",
             "status": "active",
             "label": "GPT-6.2-Sol",
             "shortLabel": "6.2-Sol",
             "displayName": "GPT-6.2-Sol",
-            "description": "Our go-to model for everyday work, from coding to powering agents at scale.",
-            "descriptionTranslations": {
-                "zh-Hans": "日常主力模型，从编程到大规模运行智能体",
-                "zh-Hant": "日常主力模型，從程式設計到大規模執行智慧體"
-            },
+            "description": "Fast, go-to model for coding and everyday work.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1050000
         },
         {
-            "id": "gpt-6.1-sol",
+            "id": "gpt-6.2-astra",
             "agent": "codex",
             "status": "active",
-            "label": "GPT-6.1-Sol",
-            "shortLabel": "6.1-Sol",
-            "displayName": "GPT-6.1-Sol",
-            "description": "Latest workhorse model for coding and everyday work.",
-            "descriptionTranslations": {
-                "zh-Hans": "最新主力模型，适合编程和日常工作",
-                "zh-Hant": "最新主力模型，適合程式設計和日常工作"
-            },
+            "label": "GPT-6.2-Astra",
+            "shortLabel": "6.2-Astra",
+            "displayName": "GPT-6.2-Astra",
+            "description": "Our most capable model for complex coding and professional work.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1050000
         },
@@ -268,12 +245,19 @@
             "label": "GPT-6.1 Terra",
             "shortLabel": "6.1 Terra",
             "displayName": "GPT-6.1 Terra",
-            "description": "Fast, efficient model for clear writing, visual understanding and computer use.",
-            "descriptionTranslations": {
-                "zh-Hans": "快速高效，适合清晰写作、视觉理解和计算机操作",
-                "zh-Hant": "快速高效，適合清晰寫作、視覺理解和電腦操作"
-            },
-            "efforts": ["max", "xhigh", "high", "medium", "low"],
+            "description": "Efficient model that excels at visual understanding and computer use.",
+            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
+            "contextWindow": 1050000
+        },
+        {
+            "id": "gpt-6.1-sol",
+            "agent": "codex",
+            "status": "active",
+            "label": "GPT-6.1-Sol",
+            "shortLabel": "6.1-Sol",
+            "displayName": "GPT-6.1-Sol",
+            "description": "Previous generation model for coding and everyday work.",
+            "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1050000
         },
         {
@@ -283,11 +267,7 @@
             "label": "GPT-6-Astra",
             "shortLabel": "6-Astra",
             "displayName": "GPT-6-Astra",
-            "description": "Frontier intelligence for the most demanding work.",
-            "descriptionTranslations": {
-                "zh-Hans": "前沿智能，应对最艰巨的工作",
-                "zh-Hant": "前沿智慧，應對最艱鉅的工作"
-            },
+            "description": "Previous generation model for complex coding and professional work.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1050000
         },
@@ -298,11 +278,7 @@
             "label": "GPT-6-Sol",
             "shortLabel": "6-Sol",
             "displayName": "GPT-6-Sol",
-            "description": "Previous generation workhorse model.",
-            "descriptionTranslations": {
-                "zh-Hans": "上一代主力模型",
-                "zh-Hant": "上一代主力模型"
-            },
+            "description": "Legacy model for coding and everyday work.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 1050000
         },
@@ -328,11 +304,7 @@
             "label": "GPT-5.6-Sol",
             "shortLabel": "5.6-Sol",
             "displayName": "GPT-5.6-Sol",
-            "description": "Older generation workhorse model.",
-            "descriptionTranslations": {
-                "zh-Hans": "更早一代的主力模型",
-                "zh-Hant": "更早一代的主力模型"
-            },
+            "description": "Legacy model for coding and everyday work.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 272000
         },
@@ -343,11 +315,7 @@
             "label": "GPT-5.6-Terra",
             "shortLabel": "5.6-Terra",
             "displayName": "GPT-5.6-Terra",
-            "description": "Older balanced model for straightforward work.",
-            "descriptionTranslations": {
-                "zh-Hans": "较早的均衡模型，适合简单直接的工作",
-                "zh-Hant": "較早的均衡模型，適合簡單直接的工作"
-            },
+            "description": "Legacy balanced model for agentic coding.",
             "efforts": ["ultra", "max", "xhigh", "high", "medium", "low"],
             "contextWindow": 272000
         },
@@ -358,18 +326,14 @@
             "label": "GPT-5.6-Luna",
             "shortLabel": "5.6-Luna",
             "displayName": "GPT-5.6-Luna",
-            "description": "Older fast and efficient model.",
-            "descriptionTranslations": {
-                "zh-Hans": "较早的快速高效模型",
-                "zh-Hant": "較早的快速高效模型"
-            },
+            "description": "Legacy fast model for simpler tasks.",
             "efforts": ["max", "xhigh", "high", "medium", "low"],
             "contextWindow": 272000
         },
         {
             "id": "gpt-5.5",
             "agent": "codex",
-            "status": "retired",
+            "status": "active",
             "label": "GPT-5.5",
             "shortLabel": "5.5",
             "displayName": "GPT-5.5",
