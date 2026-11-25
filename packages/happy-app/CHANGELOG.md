@@ -1,5 +1,18 @@
 # Changelog
 
+## Version 42 - 2026-11-25
+
+Happy Next v2.29.0 adds Antigravity as a fifth agent, lists every agent's models straight from its CLI on the machine, and updates Claude Code, Codex, Gemini, Qoder and Antigravity from the app alongside Happy CLI.
+
+- Antigravity: the Antigravity CLI (`happy antigravity`) is a fifth agent over ACP — the account's models and thinking levels, permission modes and plan mode, resume, copy, fork (also from a message) and upgrade, with its usage in the usage panel
+- Orchestrator: a task can run on Antigravity (`antigravity`), with a live preview while it runs
+- Models: every agent's models come from its own CLI on the machine, so a new model shows up as soon as the CLI offers it; the list is kept per machine, shows "Loading models…" while the machine is first asked, and is asked again until it answers
+- Models: agent and model rows show the name alone, with the description as a tip beside it; Claude, Codex and Gemini take a typed model ID, and a session on the CLI's own model shows the model it actually runs
+- CLI versions: the machine page's CLI Versions group lists Happy CLI and each installed agent CLI with its version, updates one or all of them, and gives the command to run where the daemon cannot; the "+", machine switcher and settings mark a new version
+- Codex: sessions run the machine's own Codex CLI (the latest from npm when none is installed) instead of a pinned version
+- Qoder: turns a background task starts reach the app, with a notification when they end
+- CLI: Happy CLI v0.22.0
+
 ## Version 41 - 2026-11-23
 
 Happy Next v2.28.0 lets you pick Qoder or Qoder CN as separate agents, lets the orchestrator delegate to Qoder CN, makes switching a Claude session to bypass permissions take effect, and unifies editing and rescheduling scheduled messages.

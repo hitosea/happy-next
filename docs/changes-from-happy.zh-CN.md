@@ -116,23 +116,18 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **可靠的 Codex 分叉**：改善会话复制和分叉，并明确提示活动会话冲突
 - **`/duplicate` 斜杠命令**：打开消息选择器，从对话中任意位置分叉会话（包括直接从 AI 回复分叉），创建一个包含截至选定消息历史的新会话，并可靠解析对应的用户消息目标
 - **按 Agent 模型选择**，独立缓存，显示上下文窗口
-- **模型目录新增 Claude Opus 4.8**
-- **模型目录新增 Claude Fable 5.1 和 Fable 5**，提供 1M 上下文及 low / medium / high / xhigh / max 五档推理强度
-- **模型目录新增 Claude Opus 5 和 Claude Sonnet 5**，支持 1M 上下文、当前推理强度预设、快速模式能力识别和更新后的费用追踪
-- **刷新 Gemini 模型目录**，新增 Gemini 4 Neon 和 Hydrogen，与 Gemini 4 Argon、Carbon 并列
-- **远程模型目录**：模型由服务端下发，新模型无需更新 App 即可出现——现已加入 Claude Opus 5.5、Claude Sonnet 5.5、GPT-6.2-Sol、GPT-6.2-Astra、GPT-6.1-Sol、GPT-6-Sol、Gemini 4 Neon 和 Gemini 4 Hydrogen
+- **模型来自各自的 CLI**：每个 Agent 的模型都来自它在机器上的 CLI，CLI 一提供新模型就会出现；列表按机器保存，机器没有响应时会自动重试，Claude、Codex 和 Gemini 还可以手动输入模型 ID
 - **设置附带说明**：设置弹层为每种权限模式和 AI 厂商附上说明，模型描述跟随 App 语言，包括简体中文和繁体中文
 - **Codex“帮我批准”**：Codex 的审批模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
 - **精简模型选择器**：每个 Claude 模型只有一项并使用完整上下文窗口；宽屏下推理强度并排显示，Claude 默认 High 强度
-- **上下文窗口选择**：创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的窗口——200K、1M 或自定义大小；模型列表新增 Claude Fable 5.2
+- **上下文窗口选择**：创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的窗口——200K、1M 或自定义大小
 - **Claude 上下文窗口**：上下文条按 Claude Code 实际使用的窗口计算，Qoder 和 Gemini 会话显示上下文用量
 - **通过 ACP 接入 Qoder**：账号模型与推理强度、Qoder 的权限模式，以及与之分开显示的 plan 模式
 - **Qoder 与 Qoder CN 两个 Agent**：机器同时装有两个版本时，新建会话可任选其一，各自使用自己的模型；会话在复制、恢复、升级、分叉或复制为新会话时保留原来的版本，历史记录、最近会话和会话名称可区分两者
 - **Claude bypass 权限**：Claude 会话切换到 bypass 权限会真正生效——Claude 启动时带上该能力，模型或权限模式切换被 Claude 拒绝或 3 秒内无响应时以新模式重启，每条消息都会重申权限模式；在非沙箱环境下以 root 运行时 Claude 保持 default，切换会被拒绝并回退
 - **Shell 命令规则**：对 shell 命令选择“不再询问”时可选择覆盖哪些程序或子命令，四个 Agent 均支持
-- **GPT-6.2 Astra 与 Sol 模型目录支持**：当前模型家族包含对应的推理强度和上下文配置
-- **Codex v0.171.0**：内置 Codex CLI 升级，加入 GPT-6.2 Sol 和 Astra，并支持当前 App-Server 交互
-- **费用追踪**，Claude 模型的精确 token 用量（缓存 token、推理 token）
+- **使用机器上的 Codex**：会话运行机器上安装的 Codex CLI（没有安装时使用 npm 上的最新版），不再固定版本
+- **Token 用量**：Claude 模型的精确 token 用量（缓存 token、推理 token）
 - **Codex 推理强度**配置（low / medium / high / xhigh）
 - **ACP（Agent Client Protocol）后端**：JSON-RPC Agent 协议（最初为 Codex 引入以替代 MCP 客户端方案，现用于 Gemini）
 - **Codex App-Server 后端**：Codex 的主要后端,使用 `codex app-server` JSON-RPC 协议,通过 stdin/stdout 通信,改进会话管理和可靠性
@@ -465,13 +460,12 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **载荷优化**：精简冗余字段，按需延迟加载 diff
 - **MCP 配置集中化**，按 Agent 适配器模式（Claude HTTP、Codex stdio、Gemini HTTP）
 - **工作树检测**，使用原生 git 而非硬编码路径匹配
-- **精确费用计算**：支持 Claude 模型，并修正 Opus 4.5-4.8 和 Haiku 模型 ID 的费率匹配
-- **Fast mode 费用**：fast mode 在完整上下文窗口内按 $10/$50 每百万 token 计费，`-fast` 模型串不再落到标准 Opus 费率而少算一半；Opus 4.7 和 4.6 仍按标准费率
 - **Shell 命令注入修复**，统一转义
 - **设置持久化**："不再询问" 工具审批保存到 `settings.local.json`
 - **会话标题管理**：`change_title` 工具，支持锁定
 - **CI**：冒烟测试，happy-wire 构建依赖
 - **`happy update`** 自更新命令
+- **Agent CLI 更新**：Claude Code、Codex、Gemini、Qoder、Qoder CN 和 Antigravity 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
 - **`happy --version`** 显示 Claude、Codex 和 Gemini CLI 版本
 - **工作树子目录检测**，工作区根目录中
 - **最新 CLI 版本**，从 npm 获取而非硬编码最低版本
@@ -526,6 +520,7 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **Happy CLI v0.20.0**：在打开该轮的设备隐藏思考时，不再把该轮思考上传到服务器，并给记录标记地标（提问、问题、回答、预览），让缩略图能到达设备从未分页加载的消息
 - **Happy CLI v0.20.1**：让 Claude Code 把 Task 改名为 Agent 后的子代理卡继续工作，子代理的提示词与后续消息仍归在这张卡下
 - **Happy CLI v0.21.0**：把 Qoder 和 Qoder CN 拆成两个 Agent，编排任务可运行在 Qoder CN 上，Claude 会话切换到 bypass 权限会真正生效；新 Codex 会话使用 Codex v0.171.0
+- **Happy CLI v0.22.0**：新增 Antigravity 作为第五个 Agent，所有 Agent 的模型从各自的 CLI 获取，agent CLI 随它一起更新，并使用机器上的 Codex 而不是固定版本；Qoder 后台任务发起的回合会送达 App
 
 ## 服务端
 
