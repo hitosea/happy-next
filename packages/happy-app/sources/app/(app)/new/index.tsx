@@ -557,7 +557,7 @@ function NewSessionWizard() {
     // Qoder and Antigravity take only what the account lists: a saved model is kept while the machine still
     // offers it, with its effort and context window. Until the machine has listed its models this launch, the
     // saved or stand-in list can't tell, so the saved one is kept rather than flashing another.
-    const { models: agentModels, complete: agentModelsComplete } = useAgentModels(selectedMachineId, agentChoice);
+    const { models: agentModels, complete: agentModelsComplete, loading: agentModelsLoading } = useAgentModels(selectedMachineId, agentChoice);
     const isModelModeAvailable = (mode: string) => {
         if (agentType !== 'qoder' && agentType !== 'antigravity') return isModelModeFormat(mode);
         if (!agentModelsComplete || !agentModels) return true;
@@ -1126,6 +1126,7 @@ function NewSessionWizard() {
                         agentType={agentType}
                         qoderBuild={qoderBuild}
                         agentModels={agentModels}
+                        agentModelsLoading={agentModelsLoading}
                         availableAgents={availableAgents}
                         onAgentChange={setAgentChoice}
                         permissionMode={permissionMode}

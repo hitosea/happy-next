@@ -118,6 +118,8 @@ interface AgentInputProps {
     // The models the agent offers on the machine (useAgentModels), with their efforts, context windows and
     // Qoder's own description. Qoder's and Antigravity's sessions also report theirs in metadata.models.
     agentModels?: PickerModel[];
+    // There is no model list yet and the machine is being asked for one: the picker says so.
+    agentModelsLoading?: boolean;
     // New sessions only: the agents to choose from, offered as the first tab of the settings overlay.
     availableAgents?: readonly AgentChoice[];
     onAgentChange?: (agent: AgentChoice) => void;
@@ -458,6 +460,11 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
         justifyContent: 'center',
         marginRight: 12,
     },
+    loadingIndicator: {
+        width: 16,
+        height: 16,
+        marginRight: 12,
+    },
     radioButtonActive: {
         borderColor: theme.colors.radio.active,
     },
@@ -601,6 +608,8 @@ const formatContextWindowLabel = (tokens: number) => tokens >= 1_000_000 && toke
 const CUSTOM_CONTEXT_WINDOW = 'custom';
 // The model list's last row, which opens the model id editor; a space keeps it from being a model id.
 const TYPE_MODEL_ID = 'type model id';
+// The row that stands for the model list while the machine is asked for it.
+const LOADING_MODELS = 'loading models';
 
 const formatCompactTokenCount = (value: number) => {
     if (value >= 1000) {
@@ -649,14 +658,23 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const styles = stylesheet;
     const { theme } = useUnistyles();
     // A row's `tip` (a model's description) is not shown in the row; it shows on hover, or on a long press.
+    // A `loading` row is a spinner beside its label, and cannot be picked.
     const renderRadioOptions = <T extends string>(
-        options: readonly { value: T; label: string; tip?: string; trailing?: string }[],
+        options: readonly { value: T; label: string; tip?: string; trailing?: string; loading?: boolean }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
         onItemLayout?: ItemLayoutHandler,
     ) => options.map(option => {
         const isSelected = selectedValue === option.value;
         const onLayout = onItemLayout ? (e: LayoutChangeEvent) => onItemLayout(option.value, e.nativeEvent.layout.y, e.nativeEvent.layout.height) : undefined;
+        if (option.loading) {
+            return (
+                <View key={option.value} onLayout={onLayout} style={styles.selectionItem}>
+                    <ActivityIndicator size="small" color={theme.colors.textSecondary} style={styles.loadingIndicator} />
+                    <Text style={[styles.selectionLabel, styles.selectionLabelInactive]}>{option.label}</Text>
+                </View>
+            );
+        }
         const row = (trigger?: TooltipTrigger, anchorRef?: React.RefObject<any>) => (
             <Pressable key={option.value}
                 {...trigger}
@@ -681,7 +699,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     });
     // The model tab's only scrolling part: the tab bar above and the rows below it stay put.
     const renderScrollableList = <T extends string>(
-        options: readonly { value: T; label: string; tip?: string; trailing?: string }[],
+        options: readonly { value: T; label: string; tip?: string; trailing?: string; loading?: boolean }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
     ) => (
@@ -735,7 +753,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
      * open a dropdown. `effort` and `contextWindow` are null when the picked model offers no choice.
      */
     const renderModelSettings = <T extends string, E extends string>(
-        models: { options: readonly { value: T; label: string; tip?: string; trailing?: string }[]; selected: T | null; onChange: (value: T) => void },
+        models: { options: readonly { value: T; label: string; tip?: string; trailing?: string; loading?: boolean }[]; selected: T | null; onChange: (value: T) => void },
         effort: { options: readonly { value: E; label: string }[]; selected: E | null; onChange: (value: E) => void } | null,
         contextWindow: { options: readonly (ContextWindowSegment & { trailing?: string; segmentLabel?: string })[]; selected: string; onChange: (value: string) => void } | null,
         // Where a custom size is typed: `full` replaces the lists on narrow screens (short enough to stay clear of
@@ -1019,7 +1037,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         setCustomContextWindowDraft(null);
         return true;
     };
-    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; tip?: string; trailing?: string }>>(() => {
+    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; tip?: string; trailing?: string; loading?: boolean }>>(() => {
         const cliDefault = isQoder ? [] : [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', tip: t('agentInput.model.useCliDefaults') }];
         // A saved model the list lacks (it may be a stand-in until the machine answers) still shows, by its id.
         const unlisted = selection.model && !findAgentModel(pickerModels, selection.model)
@@ -1037,9 +1055,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 trailing: credit ? `${Number(credit[2])}x` : undefined,
             };
         });
+        const loading = !listed.length && props.agentModelsLoading
+            ? [{ value: LOADING_MODELS, label: t('agentInput.model.loadingModels'), shortLabel: '', loading: true }]
+            : [];
         const typeModelId = usesAccountModels ? [] : [{ value: TYPE_MODEL_ID, label: t('agentInput.model.customModel'), shortLabel: '' }];
-        return [...cliDefault, ...unlisted, ...listed, ...typeModelId];
-    }, [isQoder, usesAccountModels, pickerModels, selection.model]);
+        return [...cliDefault, ...unlisted, ...listed, ...loading, ...typeModelId];
+    }, [isQoder, usesAccountModels, pickerModels, selection.model, props.agentModelsLoading]);
 
     // On the CLI's own choice, a session shows the model it reports running with: Claude Code and Codex
     // once they have answered (metadata.model), Gemini and Antigravity from the start (currentModelCode).

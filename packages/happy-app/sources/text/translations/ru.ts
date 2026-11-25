@@ -1315,6 +1315,7 @@ export const ru: TranslationStructure = {
             customContextWindowMessage: ({ min, max }: { min: string; max: string }) => `Введите размер в K от ${min} до ${max}, например 350`,
             customContextWindowInvalid: ({ min, max }: { min: string; max: string }) => `Введите размер в K от ${min} до ${max}`,
             customModel: 'Ввести ID модели',
+            loadingModels: 'Загрузка моделей…',
             customModelMessage: 'Передаётся в CLI агента как есть — для модели, которой нет в списке.',
             customModelInvalid: 'ID модели не может содержать пробелы, : или @.',
             fastMode: 'Fast Mode',

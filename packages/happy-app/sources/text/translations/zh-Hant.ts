@@ -1306,6 +1306,7 @@ export const zhHant: TranslationStructure = {
             customContextWindowMessage: ({ min, max }: { min: string; max: string }) => `輸入 ${min} 到 ${max} 之間的大小（單位 K），例如 350`,
             customContextWindowInvalid: ({ min, max }: { min: string; max: string }) => `請輸入 ${min} 到 ${max} 之間的大小（單位 K）`,
             customModel: '手動輸入模型 ID',
+            loadingModels: '正在取得模型…',
             customModelMessage: '原樣傳給 Agent 的 CLI，用於清單裡沒有的模型。',
             customModelInvalid: '模型 ID 不能包含空格、: 或 @。',
             fastMode: '快速模式',

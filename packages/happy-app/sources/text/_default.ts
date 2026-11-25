@@ -1319,6 +1319,7 @@ export const en = {
             customContextWindowMessage: ({ min, max }: { min: string; max: string }) => `Enter a size in K from ${min} to ${max}, e.g. 350`,
             customContextWindowInvalid: ({ min, max }: { min: string; max: string }) => `Enter a size in K from ${min} to ${max}`,
             customModel: 'Enter model ID',
+            loadingModels: 'Loading models…',
             customModelMessage: 'Passed to the agent\'s CLI as is, for a model its list doesn\'t show.',
             customModelInvalid: 'A model ID has no spaces, : or @.',
             fastMode: 'Fast Mode',

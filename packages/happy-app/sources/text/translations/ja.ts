@@ -1307,6 +1307,7 @@ export const ja: TranslationStructure = {
             customContextWindowMessage: ({ min, max }: { min: string; max: string }) => `${min}〜${max} のサイズを K 単位で入力（例: 350）`,
             customContextWindowInvalid: ({ min, max }: { min: string; max: string }) => `${min}〜${max} のサイズを K 単位で入力してください`,
             customModel: 'モデル ID を入力',
+            loadingModels: 'モデルを取得中…',
             customModelMessage: '一覧にないモデル用に、エージェントの CLI へそのまま渡します。',
             customModelInvalid: 'モデル ID にスペース、: や @ は使えません。',
             fastMode: 'Fast Mode',

@@ -11,15 +11,19 @@ export type PickerModel = AgentModel & { detail?: string };
 
 /**
  * The models to show, and whether they are the machine's own list as its CLI gave it this launch
- * (`complete`): only then may a saved choice the list lacks be judged gone.
+ * (`complete`): only then may a saved choice the list lacks be judged gone. `loading`: there is no
+ * list to show yet and the machine is being asked for one.
  */
-export type AgentModelsState = { models: PickerModel[] | undefined; complete: boolean };
+export type AgentModelsState = { models: PickerModel[] | undefined; complete: boolean; loading: boolean };
 
 // Models belong to an agent's CLI and account on a machine (Qoder and Qoder CN have their own), so one
 // lookup per machine and agent serves every screen. Each list is also saved, so after a reload the last
 // one shows while the machine is asked again.
 let savedModels: Map<string, AgentModel[]> | null = null;
 const answered = new Set<string>();
+// A failed lookup (the machine offline, its daemon restarting) is tried again while a screen shows the
+// list: after 5 s, 10 s and 30 s, then once a minute.
+const RETRY_DELAYS_MS = [5_000, 10_000, 30_000, 60_000];
 const asking = new Set<string>();
 function knownModels(key: string): AgentModel[] | undefined {
     savedModels ??= new Map(Object.entries(loadAgentModelsByMachine()));
@@ -32,7 +36,7 @@ const descriptionsAsked = new Set<string>();
 /**
  * Models `agent` offers on `machineId`, with their efforts and context windows, the same way for
  * every agent: the machine's daemon keeps the list its CLI gave and refreshes it, and is asked once
- * per launch when the agent is picked (again on the next pick if that failed). Until it answers, the
+ * per launch when the agent is picked, and asked again after a failure while the list is shown. Until it answers, the
  * list it gave last time is used; failing that, the models the most recently updated session of the
  * agent reported (only Qoder's and Antigravity's sessions report them).
  *
@@ -50,21 +54,36 @@ export function useAgentModels(machineId: string | null | undefined, agent: Agen
     useEffect(() => {
         setMachineModels(key ? knownModels(key) : undefined);
         setComplete(!!key && answered.has(key));
-        if (!machineId || !agent || !key || answered.has(key) || asking.has(key)) return;
-        asking.add(key);
+        if (!machineId || !agent || !key) return;
         let cancelled = false;
-        machineListAgentModels(machineId, agent).then((result) => {
-            asking.delete(key);
-            if (!result.success || !result.models?.length) return;
-            answered.add(key);
-            savedModels?.set(key, result.models);
-            saveAgentModels(key, result.models);
-            if (cancelled) return;
-            setMachineModels(result.models);
-            setComplete(true);
-        });
+        let retry: ReturnType<typeof setTimeout> | undefined;
+        const later = (attempt: number) => {
+            if (!cancelled) retry = setTimeout(() => ask(attempt + 1), RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)]);
+        };
+        const ask = (attempt: number) => {
+            if (answered.has(key)) {
+                setMachineModels(knownModels(key));
+                setComplete(true);
+                return;
+            }
+            // Another screen is asking already; look again once it may have its answer.
+            if (asking.has(key)) return later(attempt);
+            asking.add(key);
+            machineListAgentModels(machineId, agent).then((result) => {
+                asking.delete(key);
+                if (!result.success || !result.models?.length) return later(attempt);
+                answered.add(key);
+                savedModels?.set(key, result.models);
+                saveAgentModels(key, result.models);
+                if (cancelled) return;
+                setMachineModels(result.models);
+                setComplete(true);
+            });
+        };
+        if (!answered.has(key)) ask(0);
         return () => {
             cancelled = true;
+            clearTimeout(retry);
         };
     }, [machineId, agent, key]);
 
@@ -100,5 +119,5 @@ export function useAgentModels(machineId: string | null | undefined, agent: Agen
         const texts = getCurrentLanguage().startsWith('zh') ? descriptions.zh : descriptions.en;
         return models?.map((model) => ({ ...model, detail: texts[model.code] ?? descriptions.en[model.code] }));
     }, [models, descriptions]);
-    return { models: described, complete };
+    return { models: described, complete, loading: !!key && !complete && !described?.length };
 }

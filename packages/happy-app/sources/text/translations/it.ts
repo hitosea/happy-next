@@ -1304,6 +1304,7 @@ export const it: TranslationStructure = {
             customContextWindowMessage: ({ min, max }: { min: string; max: string }) => `Inserisci una dimensione in K da ${min} a ${max}, ad es. 350`,
             customContextWindowInvalid: ({ min, max }: { min: string; max: string }) => `Inserisci una dimensione in K da ${min} a ${max}`,
             customModel: 'Inserisci ID modello',
+            loadingModels: 'Caricamento modelli…',
             customModelMessage: 'Passato così com\'è alla CLI dell\'agente, per un modello che l\'elenco non mostra.',
             customModelInvalid: 'Un ID modello non contiene spazi, : o @.',
             fastMode: 'Fast Mode',

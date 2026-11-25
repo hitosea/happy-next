@@ -391,7 +391,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
     const machineId = session.metadata?.machineId;
     const sessionAgentChoice = agentChoiceOf((session.metadata?.flavor ?? 'claude') as AgentType, session.metadata?.qoderBuild);
-    const { models: agentModels } = useAgentModels(machineId, sessionAgentChoice);
+    const { models: agentModels, loading: agentModelsLoading } = useAgentModels(machineId, sessionAgentChoice);
     // Get permission mode from session object, default to 'default'
     const permissionMode = session.permissionMode || 'default';
     // Get model mode from session object. "default" means use CLI/profile configured model.
@@ -1594,6 +1594,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
             agentModels={agentModels}
+            agentModelsLoading={agentModelsLoading}
             connectionStatus={inputConnectionStatus}
             onSend={handleSend}
             isSending={isSending}
