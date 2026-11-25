@@ -25,8 +25,8 @@ const PROVIDER_KEYS: Record<Provider, string[] | undefined> = {
     antigravity: ['antigravity-session'],
 };
 
-// Gemini, Qoder and Antigravity sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
-const PROVIDERS_WITHOUT_USAGE: Provider[] = ['gemini', 'qoder', 'antigravity'];
+// Gemini and Qoder sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
+const PROVIDERS_WITHOUT_USAGE: Provider[] = ['gemini', 'qoder'];
 
 const styles = StyleSheet.create((theme) => ({
     container: {
