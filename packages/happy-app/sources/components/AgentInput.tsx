@@ -1,6 +1,6 @@
 import { Ionicons, Octicons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
 import * as React from 'react';
-import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard, Modal as RNModal, ScrollView } from 'react-native';
+import { View, Platform, useWindowDimensions, ViewStyle, Text, ActivityIndicator, TouchableWithoutFeedback, Image as RNImage, Pressable, Keyboard, Modal as RNModal, ScrollView, type LayoutChangeEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { layout } from './layout';
 import { MultiTextInput, KeyPressEvent } from './MultiTextInput';
@@ -42,11 +42,14 @@ import { NativeMenu } from './NativeMenu';
 import { DropdownMenu } from './DropdownMenu';
 import { ContextWindowSegments, type ContextWindowSegment } from './ContextWindowSegments';
 import { ContextWindowEditor } from './ContextWindowEditor';
+import { ModelIdEditor } from './ModelIdEditor';
+import { Tooltip, type TooltipTrigger } from './Tooltip';
 import { ScrollToSelectedList, type ItemLayoutHandler } from './ScrollToSelectedList';
 import type { ActionMenuItem } from './ActionMenu';
 import {
     buildModelMode,
     findAgentModel,
+    formatModelNameLabel,
     formatReasoningEffortLabel,
     FAST_MODE_ICON_COLOR,
     getMaxContextSize,
@@ -469,6 +472,9 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
     selectionLabel: {
         fontSize: 14,
+        // A set line height keeps the row 34 tall on every platform: even, like a one-line tooltip, so the
+        // tooltip centred on it sits a whole number of points from its edges.
+        lineHeight: 18,
         ...Typography.default(),
     },
     selectionLabelActive: {
@@ -477,13 +483,11 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     selectionLabelInactive: {
         color: theme.colors.text,
     },
-    selectionDescription: {
-        fontSize: 11,
-        color: theme.colors.textSecondary,
-        ...Typography.default(),
-    },
     selectionContent: {
         flex: 1,
+    },
+    selectionLabelFit: {
+        alignSelf: 'flex-start',
     },
     selectionTrailing: {
         marginLeft: 12,
@@ -595,6 +599,8 @@ const formatContextWindowLabel = (tokens: number) => tokens >= 1_000_000 && toke
 
 // The context window option that asks for a size instead of being one.
 const CUSTOM_CONTEXT_WINDOW = 'custom';
+// The model list's last row, which opens the model id editor; a space keeps it from being a model id.
+const TYPE_MODEL_ID = 'type model id';
 
 const formatCompactTokenCount = (value: number) => {
     if (value >= 1000) {
@@ -642,47 +648,40 @@ const getContextWarning = (contextSize: number, maxContextSize: number, alwaysSh
 export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, AgentInputProps>((props, ref) => {
     const styles = stylesheet;
     const { theme } = useUnistyles();
+    // A row's `tip` (a model's description) is not shown in the row; it shows on hover, or on a long press.
     const renderRadioOptions = <T extends string>(
-        options: readonly { value: T; label: string; description?: string; trailing?: string }[],
+        options: readonly { value: T; label: string; tip?: string; trailing?: string }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
         onItemLayout?: ItemLayoutHandler,
     ) => options.map(option => {
         const isSelected = selectedValue === option.value;
-        return (
+        const onLayout = onItemLayout ? (e: LayoutChangeEvent) => onItemLayout(option.value, e.nativeEvent.layout.y, e.nativeEvent.layout.height) : undefined;
+        const row = (trigger?: TooltipTrigger, anchorRef?: React.RefObject<any>) => (
             <Pressable key={option.value}
-                onLayout={onItemLayout ? (e) => onItemLayout(option.value, e.nativeEvent.layout.y, e.nativeEvent.layout.height) : undefined}
+                {...trigger}
+                onLayout={trigger ? undefined : onLayout}
                 onPress={() => { hapticsLight(); onSelect(option.value); }}
                 style={({ pressed, hovered }: any) => [styles.selectionItem, (pressed || hovered) && styles.selectionItemPressed]}>
                 <View style={[styles.radioButton, isSelected ? styles.radioButtonActive : styles.radioButtonInactive]}>
                     {isSelected && <View style={styles.radioButtonDot} />}
                 </View>
-                {option.description ? (
-                    <View style={styles.selectionContent}>
-                        <Text style={[styles.selectionLabel, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
-                            {option.label}
-                        </Text>
-                        <Text
-                            style={styles.selectionDescription}
-                            numberOfLines={1}
-                            // react-native-web drops `title`, so the full text goes on the DOM node for the hover tooltip.
-                            ref={Platform.OS === 'web' ? (node: any) => node?.setAttribute?.('title', option.description) : undefined}
-                        >
-                            {option.description}
-                        </Text>
-                    </View>
-                ) : (
-                    <Text style={[styles.selectionLabel, styles.selectionContent, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
+                {/* The label only as wide as its text, so the tip sits right beside it. */}
+                <View style={styles.selectionContent}>
+                    <Text ref={anchorRef} style={[styles.selectionLabel, styles.selectionLabelFit, isSelected ? styles.selectionLabelActive : styles.selectionLabelInactive]}>
                         {option.label}
                     </Text>
-                )}
+                </View>
                 {option.trailing && <Text style={styles.selectionTrailing}>{option.trailing}</Text>}
             </Pressable>
         );
+        return option.tip
+            ? <Tooltip key={option.value} label={option.tip} placement="side" onLayout={onLayout}>{row}</Tooltip>
+            : row();
     });
     // The model tab's only scrolling part: the tab bar above and the rows below it stay put.
     const renderScrollableList = <T extends string>(
-        options: readonly { value: T; label: string; description?: string; trailing?: string }[],
+        options: readonly { value: T; label: string; tip?: string; trailing?: string }[],
         selectedValue: T | null,
         onSelect: (value: T) => void,
     ) => (
@@ -736,7 +735,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
      * open a dropdown. `effort` and `contextWindow` are null when the picked model offers no choice.
      */
     const renderModelSettings = <T extends string, E extends string>(
-        models: { options: readonly { value: T; label: string; description?: string; trailing?: string }[]; selected: T | null; onChange: (value: T) => void },
+        models: { options: readonly { value: T; label: string; tip?: string; trailing?: string }[]; selected: T | null; onChange: (value: T) => void },
         effort: { options: readonly { value: E; label: string }[]; selected: E | null; onChange: (value: E) => void } | null,
         contextWindow: { options: readonly (ContextWindowSegment & { trailing?: string; segmentLabel?: string })[]; selected: string; onChange: (value: string) => void } | null,
         // Where a custom size is typed: `full` replaces the lists on narrow screens (short enough to stay clear of
@@ -834,7 +833,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
     const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
     const isAntigravity = props.metadata?.flavor === 'antigravity' || props.agentType === 'antigravity';
-    // Qoder and Antigravity list their models per account: the picker shows the machine's list as `model:effort`
+    // Qoder and Antigravity take only the models their account lists; Claude Code, Codex and Gemini CLI take
+    // any model id, so their picker also lets one be typed in.
     const usesAccountModels = isQoder || isAntigravity;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
     const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : 'claude';
@@ -915,13 +915,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
 
     // Every agent's models come the same way, from its CLI on the machine (useAgentModels). Qoder's and
     // Antigravity's sessions also report the models they offer; that list comes first, with what the machine
-    // knows of each (efforts, context windows, Qoder's description) merged in. Neither has a "CLI configured"
-    // entry (their own Auto plays that part), so a session of theirs still on `default` shows the model it reports.
+    // knows of each (efforts, context windows, Qoder's description) merged in. Every agent but Qoder has a "CLI
+    // configured" entry; Qoder's own Auto plays that part, so a Qoder session still on `default` shows the model it reports.
     const pickerModels = React.useMemo<PickerModel[]>(() => {
         const machineModels = new Map((props.agentModels ?? []).map((model) => [model.code, model]));
         return (props.metadata?.models ?? props.agentModels ?? []).map((model) => ({ ...machineModels.get(model.code), ...model }));
     }, [props.metadata?.models, props.agentModels]);
-    const selectedModelMode: ModelMode = usesAccountModels && (props.modelMode || MODEL_MODE_DEFAULT) === MODEL_MODE_DEFAULT
+    const selectedModelMode: ModelMode = isQoder && (props.modelMode || MODEL_MODE_DEFAULT) === MODEL_MODE_DEFAULT
         ? (props.metadata?.currentModelCode
             ? buildModelMode(props.metadata.currentModelCode, props.metadata.currentThoughtLevelCode)
             : pickerModels[0]?.code ?? MODEL_MODE_DEFAULT)
@@ -968,7 +968,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // on its own default effort. Coming from `default` (the CLI's own choice, which carries neither), the ones
     // picked before it come back; the window only until the session has reported the one it runs with, which
     // is then left unpicked (it is already what the CLI runs with, so nothing restarts).
+    // The model id being typed in place of the model lists; null while none is.
+    const [modelIdDraft, setModelIdDraft] = React.useState<string | null>(null);
     const handleModelChange = React.useCallback((code: string) => {
+        if (code === TYPE_MODEL_ID) {
+            setModelIdDraft(selection.model && !findAgentModel(pickerModels, selection.model) ? selection.model : '');
+            return;
+        }
         if (code === MODEL_MODE_DEFAULT) {
             props.onModelModeChange?.(MODEL_MODE_DEFAULT);
             return;
@@ -985,6 +991,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         const window = previous.contextWindow && takesContextWindow(model, previous.contextWindow) ? previous.contextWindow : null;
         props.onModelModeChange?.(buildModelMode(code, effort, window));
     }, [pickerModels, selectedModelMode, agentFlavorKey, props.rememberedModelMode, reportedContextWindow, props.onModelModeChange]);
+    const submitModelId = (id: string) => {
+        if (!/^[^\s:@]+$/.test(id) || id === MODEL_MODE_DEFAULT) return false;
+        handleModelChange(id);
+        setModelIdDraft(null);
+        return true;
+    };
     const handleEffortChange = (effort: string) => {
         if (selection.model) props.onModelModeChange?.(buildModelMode(selection.model, effort, selection.contextWindow));
     };
@@ -1007,11 +1019,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         setCustomContextWindowDraft(null);
         return true;
     };
-    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
-        const cliDefault = usesAccountModels ? [] : [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') }];
+    const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; tip?: string; trailing?: string }>>(() => {
+        const cliDefault = isQoder ? [] : [{ value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', tip: t('agentInput.model.useCliDefaults') }];
         // A saved model the list lacks (it may be a stand-in until the machine answers) still shows, by its id.
         const unlisted = selection.model && !findAgentModel(pickerModels, selection.model)
-            ? [{ value: selection.model, label: selection.model, shortLabel: selection.model, description: '' }]
+            ? [{ value: selection.model, label: selection.model, shortLabel: selection.model }]
             : [];
         // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
         // Qoder's own sentence replaces the tags when the machine could read it.
@@ -1021,17 +1033,27 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 value: model.code,
                 label: model.value,
                 shortLabel: model.value,
-                description: model.detail ?? (credit ? credit[1] : model.description ?? ''),
+                tip: model.detail || (credit ? credit[1] : model.description) || undefined,
                 trailing: credit ? `${Number(credit[2])}x` : undefined,
             };
         });
-        return [...cliDefault, ...unlisted, ...listed];
-    }, [usesAccountModels, pickerModels, selection.model]);
+        const typeModelId = usesAccountModels ? [] : [{ value: TYPE_MODEL_ID, label: t('agentInput.model.customModel'), shortLabel: '' }];
+        return [...cliDefault, ...unlisted, ...listed, ...typeModelId];
+    }, [isQoder, usesAccountModels, pickerModels, selection.model]);
 
+    // On the CLI's own choice, a session shows the model it reports running with: Claude Code and Codex
+    // once they have answered (metadata.model), Gemini and Antigravity from the start (currentModelCode).
+    const reportedModel = props.metadata?.currentModelCode ?? props.metadata?.model;
+    const reportedEffort = props.metadata?.currentThoughtLevelCode ?? props.metadata?.reasoningEffort;
     const currentModelLabel = React.useMemo(() => {
-        const effortLabel = selection.model ? effortOptions.find((option) => option.value === selectedEffort)?.label : undefined;
+        if (!selection.model) {
+            const name = formatModelNameLabel(reportedModel, pickerModels);
+            const effort = formatReasoningEffortLabel(reportedEffort);
+            return name ? `CLI (${name}${effort ? ` · ${effort}` : ''})` : 'CLI';
+        }
+        const effortLabel = effortOptions.find((option) => option.value === selectedEffort)?.label;
         return (modelOptions.find((option) => option.value === selectedModelValue)?.shortLabel ?? selectedModelValue) + (effortLabel ? ` (${effortLabel})` : '');
-    }, [modelOptions, selectedModelValue, selection.model, effortOptions, selectedEffort]);
+    }, [modelOptions, selectedModelValue, selection.model, effortOptions, selectedEffort, reportedModel, reportedEffort, pickerModels]);
 
     // Calculate context warning
     // Prefer dynamic contextWindowSize from CLI (e.g. Codex reports model_context_window,
@@ -1324,7 +1346,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             Keyboard.dismiss();
         }
         // A size being typed does not outlive the overlay or its model tab.
-        if (showSettings !== 'model') setCustomContextWindowDraft(null);
+        if (showSettings !== 'model') {
+            setCustomContextWindowDraft(null);
+            setModelIdDraft(null);
+        }
     }, [showSettings]);
 
     // The overlay stays mounted while it animates out, still showing the tab it was closed on.
@@ -2051,8 +2076,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                             const isSelected = agentChoice === agent;
                                             const flavor = resolveAgentChoice(agent).agent;
                                             return (
+                                                <Tooltip key={agent} label={t(`agentInput.agent.${agent}Description`)} placement="side">
+                                                {(tooltip, anchorRef) => (
                                                 <Pressable
-                                                    key={agent}
+                                                    {...tooltip}
                                                     onPress={() => {
                                                         if (isSelected) return;
                                                         hapticsLight();
@@ -2093,24 +2120,19 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                             tintColor={flavor === 'codex' || flavor === 'qoder' ? theme.colors.text : undefined}
                                                         />
                                                     </View>
-                                                    <View style={{ flexShrink: 1 }}>
-                                                        <Text style={{
-                                                            fontSize: 14,
-                                                            color: isSelected ? theme.colors.radio.active : theme.colors.text,
-                                                            ...Typography.default()
-                                                        }}>
-                                                            {t(`agentInput.agent.${agent}`)}
-                                                        </Text>
-                                                        <Text style={{
-                                                            fontSize: 11,
-                                                            color: theme.colors.textSecondary,
-                                                            marginTop: 2,
-                                                            ...Typography.default()
-                                                        }}>
-                                                            {t(`agentInput.agent.${agent}Description`)}
-                                                        </Text>
-                                                    </View>
+                                                    <Text ref={anchorRef} style={{
+                                                        flexShrink: 1,
+                                                        fontSize: 14,
+                                                        // The icon's height, so the row is 38 tall everywhere (see selectionLabel).
+                                                        lineHeight: AGENT_ICON_SLOT,
+                                                        color: isSelected ? theme.colors.radio.active : theme.colors.text,
+                                                        ...Typography.default()
+                                                    }}>
+                                                        {t(`agentInput.agent.${agent}`)}
+                                                    </Text>
                                                 </Pressable>
+                                                )}
+                                                </Tooltip>
                                             );
                                         })}
                                     </ScrollView>}
@@ -2207,7 +2229,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                     {/* Model Section: wide screens scroll the model and effort columns on their own;
                                         narrow ones scroll only the model list, with the effort as a dropdown row below it. */}
                                     {shownSettingsTab === 'model' && <View style={styles.modelSection}>
-                                        {renderModelSettings(
+                                        {modelIdDraft !== null ? (
+                                            <ModelIdEditor initialValue={modelIdDraft} onSubmit={submitModelId} onCancel={() => setModelIdDraft(null)} />
+                                        ) : renderModelSettings(
                                             { options: modelOptions, selected: selectedModelValue, onChange: handleModelChange },
                                             selection.model && effortOptions.length > 0
                                                 ? { options: effortOptions, selected: selectedEffort, onChange: handleEffortChange }

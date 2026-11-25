@@ -12,6 +12,10 @@
  *
  * After a failed refresh the CLI is not started again for 5 min while a list is on hand, or for
  * 1 min with none (asks then fail at once). Nothing is asked before the first ask.
+ *
+ * Claude Code answers with one of two lists, its choice from one launch to the next: the full one
+ * (every model the account may pick, older generations too) or a short one of its aliases alone
+ * (Opus, Sonnet, Fable, Haiku). A short list does not replace a full one; see mergeClaudeListing.
  */
 
 import { homedir } from 'node:os';
@@ -52,7 +56,7 @@ function onJsonLines(child: ShortLivedProcess, onMessage: (message: any) => void
   });
 }
 
-type ClaudeModelInfo = {
+export type ClaudeModelInfo = {
   value?: string;
   resolvedModel?: string;
   displayName?: string;
@@ -64,6 +68,9 @@ type ClaudeModelInfo = {
  * Claude Code's models from its `initialize` answer; `default` is Happy's own "CLI configured" option.
  * Claude Code does not say which context windows a model takes; its auto-compact window is offered by
  * Happy's own rule. A picked model starts on Medium, Claude Code's own default effort.
+ *
+ * Some lists name models by family alone ("Opus") and put the version first in the description
+ * ("Opus 5.5 · For complex work"); the versioned name is then the model's name.
  */
 export function parseClaudeModels(models: ClaudeModelInfo[]): AgentModel[] {
   const result: AgentModel[] = [];
@@ -72,10 +79,12 @@ export function parseClaudeModels(models: ClaudeModelInfo[]): AgentModel[] {
     if (!code || model.value === 'default' || !model.displayName || result.some((listed) => listed.code === code)) continue;
     const efforts = model.supportedEffortLevels ?? [];
     const contextWindows = getClaudeContextWindowOptions(code);
+    const versioned = model.description?.match(/^(.+?)\s+·\s+(.*)$/);
+    const named = versioned?.[1].startsWith(`${model.displayName} `) ? { value: versioned[1], description: versioned[2] } : { value: model.displayName, description: model.description };
     result.push({
       code,
-      value: model.displayName,
-      ...(model.description ? { description: model.description } : {}),
+      value: named.value,
+      ...(named.description ? { description: named.description } : {}),
       ...(efforts.length ? { efforts: efforts.map((effort) => ({ code: effort })), defaultEffort: efforts.includes('medium') ? 'medium' : efforts[0] } : {}),
       ...(contextWindows ? {
         contextWindows: contextWindows.presets,
@@ -87,11 +96,35 @@ export function parseClaudeModels(models: ClaudeModelInfo[]): AgentModel[] {
   return result;
 }
 
-function listClaudeModels(): Promise<AgentModel[]> {
+/** Claude's kept list, and when Claude Code last gave its full list (null: not within the limit). */
+export type ClaudeListing = { models: AgentModel[]; fullListAt: number | null };
+
+/** How long the last full list stands while Claude Code gives only short ones. */
+const CLAUDE_FULL_LIST_KEEP_MS = 30 * 24 * 60 * MINUTE_MS;
+
+/**
+ * The list to keep after Claude Code answered with `models`. A short list is one whose every model is
+ * named by an alias (its `value` is not the id it resolves to); a full one names the older models by
+ * id. A full list replaces what was kept. A short one only refreshes the models it has and adds those
+ * the kept list lacks (a new release), as long as a full list came within 30 days; past that, Claude
+ * Code is taken to list the short one alone, and it replaces what was kept.
+ */
+export function mergeClaudeListing(models: ClaudeModelInfo[], previous: ClaudeListing | undefined, now: number): ClaudeListing {
+  const parsed = parseClaudeModels(models);
+  const short = models.every((model) => model.value === 'default' || (model.resolvedModel !== undefined && model.value !== model.resolvedModel));
+  if (!short) return { models: parsed, fullListAt: now };
+  const fullListAt = previous?.fullListAt ?? null;
+  if (!previous || fullListAt === null || now - fullListAt > CLAUDE_FULL_LIST_KEEP_MS) return { models: parsed, fullListAt: null };
+  const fresh = new Map(parsed.map((model) => [model.code, model]));
+  const added = parsed.filter((model) => !previous.models.some((kept) => kept.code === model.code));
+  return { models: [...added, ...previous.models.map((kept) => fresh.get(kept.code) ?? kept)], fullListAt };
+}
+
+function listClaudeModels(previous: ClaudeListing | undefined): Promise<ClaudeListing> {
   // The launcher picks the same Claude Code the sessions use (global install, else the bundled one).
   const args = [resolve(projectPath(), 'scripts', 'claude_remote_launcher.cjs'), '-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'];
   return withShortLivedProcess(process.execPath, args, { cwd: homedir(), env: process.env, timeoutMs: CLAUDE_LIST_TIMEOUT_MS }, (child) =>
-    new Promise<AgentModel[]>((resolveModels, reject) => {
+    new Promise<ClaudeListing>((resolveModels, reject) => {
       onJsonLines(child, (message) => {
         if (message.type !== 'control_response' || message.response?.request_id !== 'happy-list-models') return;
         if (message.response.subtype !== 'success') {
@@ -100,7 +133,7 @@ function listClaudeModels(): Promise<AgentModel[]> {
         }
         const models = message.response.response?.models;
         if (!Array.isArray(models)) reject(new Error('This Claude Code does not list its models'));
-        else resolveModels(parseClaudeModels(models));
+        else resolveModels(mergeClaudeListing(models, previous, Date.now()));
       });
       child.stdin.write(`${JSON.stringify({ type: 'control_request', request_id: 'happy-list-models', request: { subtype: 'initialize' } })}\n`);
     }));
@@ -188,8 +221,7 @@ function listGeminiModels(): Promise<AgentModel[]> {
   });
 }
 
-const FETCHERS: Record<ModelListingAgent, () => Promise<AgentModel[]>> = {
-  claude: listClaudeModels,
+const FETCHERS: Record<Exclude<ModelListingAgent, 'claude'>, () => Promise<AgentModel[]>> = {
   codex: listCodexModels,
   gemini: listGeminiModels,
   qoder: () => fetchQoderModels('intl'),
@@ -197,20 +229,30 @@ const FETCHERS: Record<ModelListingAgent, () => Promise<AgentModel[]>> = {
   antigravity: fetchAntigravityModels,
 };
 
-const caches = Object.fromEntries(Object.entries(FETCHERS).map(([agent, fetch]) => [agent, createRefreshingCache({
-  file: join(configuration.happyHomeDir, 'models', `${agent}.json`),
-  fetch: async () => {
-    const models = await fetch();
-    if (!models.length) throw new Error(`${agent} listed no models`);
-    return models;
-  },
-  freshMs: 5 * MINUTE_MS,
-  maxAgeMs: 60 * MINUTE_MS,
-  failureCooldownMs: 5 * MINUTE_MS,
-  emptyFailureCooldownMs: MINUTE_MS,
-})])) as Record<ModelListingAgent, { get(): Promise<AgentModel[]> }>;
+function cacheFor<T>(agent: ModelListingAgent, fetch: (previous: T | undefined) => Promise<T>, models: (value: T) => AgentModel[]) {
+  return createRefreshingCache<T>({
+    file: join(configuration.happyHomeDir, 'models', `${agent}.json`),
+    fetch: async (previous) => {
+      const value = await fetch(previous);
+      if (!models(value).length) throw new Error(`${agent} listed no models`);
+      return value;
+    },
+    freshMs: 5 * MINUTE_MS,
+    maxAgeMs: 60 * MINUTE_MS,
+    failureCooldownMs: 5 * MINUTE_MS,
+    emptyFailureCooldownMs: MINUTE_MS,
+  });
+}
+
+// Claude keeps its list with when the full one came (see mergeClaudeListing); every other agent keeps the
+// list its CLI gave last.
+const claudeCache = cacheFor<ClaudeListing>('claude', listClaudeModels, (listing) => listing.models);
+const caches = Object.fromEntries(Object.entries(FETCHERS).map(([agent, fetch]) => [
+  agent,
+  cacheFor<AgentModel[]>(agent as ModelListingAgent, fetch, (models) => models),
+])) as Record<Exclude<ModelListingAgent, 'claude'>, { get(): Promise<AgentModel[]> }>;
 
 /** The models `agent` offers on this machine (see above for when its CLI is asked). */
-export function listAgentModels(agent: ModelListingAgent): Promise<AgentModel[]> {
-  return caches[agent].get();
+export async function listAgentModels(agent: ModelListingAgent): Promise<AgentModel[]> {
+  return agent === 'claude' ? (await claudeCache.get()).models : caches[agent].get();
 }

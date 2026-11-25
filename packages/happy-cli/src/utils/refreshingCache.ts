@@ -6,7 +6,8 @@ import { logger } from '@/ui/logger';
 export type RefreshingCacheOptions<T> = {
   /** Where the last value fetched is kept, so a restart starts from it. */
   file: string;
-  fetch: () => Promise<T>;
+  /** Given the value on hand, if any, which a fetch may build on. */
+  fetch: (previous: T | undefined) => Promise<T>;
   /** A value younger than this is served as is. */
   freshMs: number;
   /**
@@ -44,7 +45,7 @@ export function createRefreshingCache<T>(options: RefreshingCacheOptions<T>): { 
   };
 
   const refresh = () => {
-    inflight ??= options.fetch()
+    inflight ??= options.fetch(entry?.value)
       .then(async (value) => {
         entry = { value, fetchedAt: Date.now() };
         failure = null;

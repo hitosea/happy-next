@@ -553,11 +553,13 @@ function NewSessionWizard() {
         return machines.find(m => m.id === selectedMachineId);
     }, [selectedMachineId, machines]);
 
-    // A saved model is kept while the machine still offers it, with its effort and context window. Until the
-    // machine has listed its models this launch, the saved or stand-in list can't tell, so the saved one is kept
-    // rather than flashing another.
+    // Claude Code, Codex and Gemini CLI take any model id (one may be typed in), so a saved one is kept as is.
+    // Qoder and Antigravity take only what the account lists: a saved model is kept while the machine still
+    // offers it, with its effort and context window. Until the machine has listed its models this launch, the
+    // saved or stand-in list can't tell, so the saved one is kept rather than flashing another.
     const { models: agentModels, complete: agentModelsComplete } = useAgentModels(selectedMachineId, agentChoice);
     const isModelModeAvailable = (mode: string) => {
+        if (agentType !== 'qoder' && agentType !== 'antigravity') return isModelModeFormat(mode);
         if (!agentModelsComplete || !agentModels) return true;
         const { model, contextWindow } = parseModelMode(mode, agentType);
         const listed = findAgentModel(agentModels, model);
@@ -565,8 +567,8 @@ function NewSessionWizard() {
             && (!contextWindow || !!listed?.contextWindows?.includes(contextWindow)
                 || (!!listed?.contextWindowRange && contextWindow >= listed.contextWindowRange.min && contextWindow <= listed.contextWindowRange.max));
     };
-    // Qoder and Antigravity offer no "CLI default" entry, so they start on the first model the account lists.
-    const fallbackModelMode = agentType === 'qoder' || agentType === 'antigravity' ? agentModels?.[0]?.code ?? MODEL_MODE_DEFAULT : MODEL_MODE_DEFAULT;
+    // Qoder offers no "CLI configured" entry, so it starts on the first model the account lists.
+    const fallbackModelMode = agentType === 'qoder' ? agentModels?.[0]?.code ?? MODEL_MODE_DEFAULT : MODEL_MODE_DEFAULT;
 
     /** Save defaultTargetBranch on a registered repo (fire-and-forget). */
     const persistDefaultBranch = React.useCallback((mId: string, repoId: string, branch: string) => {
