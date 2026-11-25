@@ -11,7 +11,7 @@ import { MachineMetadata, DaemonState, Machine, Update, UpdateMachineBody } from
 import { registerCommonHandlers, SpawnSessionOptions, SpawnSessionResult } from '../modules/common/registerCommonHandlers';
 import { registerTerminalHandlers } from '../modules/terminal/registerTerminalHandlers';
 import type { TerminalManager } from '../modules/terminal/terminalManager';
-import { searchMessagesRequestSchema, userPromptText, type TerminalFrame } from 'happy-wire';
+import { isCliListedAgent, searchMessagesRequestSchema, userPromptText, type TerminalFrame } from 'happy-wire';
 import { searchMessageArchive } from '../modules/common/messageArchive';
 import { listClaudeSessionsFromIndex, getClaudeSessionPreview, findClaudeProjectId, readAllClaudeSessionUserMessages, saveClaudeSessionCacheStats } from '@/claude/utils/claudeSessionIndex';
 import { forkAndTruncateSession, forkSession } from '@/claude/utils/claudeSessionFork';
@@ -21,6 +21,7 @@ import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type Q
 import { forkQoderSession } from '@/qoder/sessions';
 import { listQoderModels } from '@/qoder/models';
 import { listAntigravityModels } from '@/antigravity/models';
+import { listCliModels } from '@/agentModels/cliModels';
 import { forkAntigravitySession, readAntigravitySessionUserMessages } from '@/antigravity/sessions';
 import { antigravityPreviewMessages, readAntigravityTranscript } from '@/antigravity/transcript';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
@@ -970,6 +971,17 @@ export class ApiMachineClient {
         this.rpcHandlerManager.registerHandler('qoder-list-models', async (params: any) => {
             try {
                 return { success: true, models: await listQoderModels(requestedQoderBuild(params)) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Claude, Codex and Gemini models as this machine's CLIs list them, for the app's model pickers and
+        // orchestrator_get_context. Answers from the cache while the CLI version is unchanged; `refresh` asks again.
+        this.rpcHandlerManager.registerHandler('agent-list-models', async (params: any) => {
+            try {
+                if (!isCliListedAgent(params?.agent)) throw new Error(`Unknown agent: ${params?.agent}`);
+                return { success: true, ...(await listCliModels(params.agent, { refresh: params.refresh === true })) };
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }

@@ -27,6 +27,7 @@ const PLAINTEXT_METHODS = new Set([
     'detect-providers',
     'qoder-list-models',
     'antigravity-list-models',
+    'agent-list-models',
 ]);
 
 export class RpcHandlerManager {

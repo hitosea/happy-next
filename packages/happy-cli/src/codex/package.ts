@@ -1,12 +1,10 @@
-import { getModelCatalog } from 'happy-wire';
+/** Package that provides Codex, run through npx when no local `codex` is installed. */
+export const CODEX_PACKAGE = '@openai/codex';
 
 /**
- * Codex package spec to run, e.g. `@openai/codex@x.y.z`. HAPPY_CODEX_PACKAGE
- * overrides it; otherwise it comes from the active model catalog (`codexCli`),
- * which the server can update without a CLI release. Read it when spawning so
- * a freshly fetched catalog applies to the next Codex process.
+ * Codex package spec to run. Happy runs the local `codex` (or the latest release through npx,
+ * see codexRuntime); HAPPY_CODEX_PACKAGE can pin an exact version, e.g. `@openai/codex@0.170.0`.
  */
 export function codexPackage(): string {
-    const { package: name, version } = getModelCatalog().codexCli;
-    return process.env.HAPPY_CODEX_PACKAGE ?? `${name}@${version}`;
+    return process.env.HAPPY_CODEX_PACKAGE ?? CODEX_PACKAGE;
 }

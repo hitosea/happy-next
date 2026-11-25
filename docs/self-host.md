@@ -79,19 +79,6 @@ Notes:
 - `APP_URL` is the public web app URL, used by some redirect/connect flows.
 - `S3_PUBLIC_URL` must be reachable by browsers/mobile clients.
 
-## Model catalog
-
-The app and CLI get their model list, pricing and Codex version from `/v1/model-catalog`, so new models appear without upgrading them. The server refreshes that catalog every 10 minutes from:
-
-```env
-MODEL_CATALOG_URL=
-```
-
-- Blank uses `modelCatalog.json` on the happy-next `main` branch (GitHub raw).
-- If the server cannot reach GitHub, point it at a mirror of that file.
-- `off` keeps the catalog bundled with the server version.
-- A failed or invalid fetch keeps the last good catalog.
-
 ## Remote/public deployment
 
 Do not use `localhost` when accessing from another machine. Use public domains:

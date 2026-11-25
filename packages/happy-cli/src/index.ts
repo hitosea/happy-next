@@ -22,7 +22,7 @@ import { killRunawayHappyProcesses } from './daemon/doctor'
 import { install } from './daemon/install'
 import { uninstall } from './daemon/uninstall'
 import { ApiClient } from './api/api'
-import { loadCachedModelCatalog } from './api/modelCatalog'
+import { loadCachedCliModels } from './agentModels/cliModels'
 import { runDoctorCommand } from './ui/doctor'
 import { listDaemonSessions, stopDaemonSession } from './daemon/controlClient'
 import { handleAuthCommand } from './commands/auth'
@@ -48,8 +48,8 @@ import { resolveAntigravityCommand } from './antigravity/constants'
 process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
 
 (async () => {
-  // Models, pricing and the Codex version as last fetched from the server by the daemon
-  loadCachedModelCatalog()
+  // Claude, Codex and Gemini models as the installed CLIs last listed them
+  loadCachedCliModels()
 
   const rawArgs = process.argv.slice(2)
   const invocation = resolveCliInvocation(rawArgs)

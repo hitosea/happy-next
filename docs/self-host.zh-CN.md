@@ -79,19 +79,6 @@ PUBLIC_VOICE_BASE_URL=http://localhost:3040
 - `APP_URL` 是 Web 应用地址，用于部分回跳/连接流程。
 - `S3_PUBLIC_URL` 必须是浏览器/移动端能访问的资源地址。
 
-## 模型目录
-
-App 和 CLI 通过 `/v1/model-catalog` 获取模型列表、定价和 Codex 版本，新增模型无需升级客户端。服务端每 10 分钟从以下地址刷新该目录：
-
-```env
-MODEL_CATALOG_URL=
-```
-
-- 留空时使用 happy-next `main` 分支上的 `modelCatalog.json`（GitHub raw）。
-- 服务器无法访问 GitHub 时，可指向该文件的镜像地址。
-- 设为 `off` 则使用服务端版本自带的目录。
-- 拉取失败或内容校验不通过时，继续使用上一份有效目录。
-
 ## 远程/公网部署
 
 如果不是本机访问，不要使用 `localhost`。需要改成你的公网域名：

@@ -408,7 +408,7 @@ export function formatModelDisplay(model: string | null | undefined, reasoningEf
 // ─── Context Window Sizes ──────────────────────────────────────
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
-const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
+export const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     claude: 200_000,
     codex: 272_000,
     gemini: 1_000_000,

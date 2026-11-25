@@ -3,6 +3,7 @@ export * from './legacyProtocol';
 export * from './sessionProtocol';
 export * from './modelCatalog';
 export * from './modelCatalogSchema';
+export * from './cliModels';
 export * from './permissionModes';
 export * from './filePreview';
 export * from './fileDownload';

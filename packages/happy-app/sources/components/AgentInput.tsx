@@ -126,6 +126,9 @@ interface AgentInputProps {
     // Models offered by the agent itself (Qoder lists them per account over ACP), as the machine reports
     // them: with each model's efforts and Qoder's own description. A session's list still comes from metadata.models.
     agentModels?: QoderPickerModel[];
+    // Ids of the Claude, Codex or Gemini models the machine's CLI offers (useCliModelIds); the pickers show only
+    // these, and the whole catalog while the machine hasn't said.
+    cliModelIds?: ReadonlySet<string>;
     // New sessions only: the agents to choose from, offered as the first tab of the settings overlay.
     availableAgents?: readonly AgentChoice[];
     onAgentChange?: (agent: AgentChoice) => void;
@@ -971,10 +974,13 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     }, [selectedModelMode, modelCatalog]);
     // The catalog's "use the CLI's model" entry is English-only; every agent shows the translated one.
     // Catalog descriptions are English, with translations for some languages.
-    const localizeModelOptions = (options: readonly ModelOption[]): ModelOption[] => options.map((option) => option.value === MODEL_MODE_DEFAULT
-        ? { ...option, label: t('agentInput.model.useCliConfigured'), description: t('agentInput.model.useCliDefaults') }
-        : { ...option, description: option.descriptionTranslations?.[getCurrentLanguage()] ?? option.description });
-    const codexFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('codex')), [modelCatalog]);
+    // Models the machine's CLI doesn't offer are left out; `default` and the model in use always stay.
+    const localizeModelOptions = (options: readonly ModelOption[], selected: string): ModelOption[] => options
+        .filter((option) => option.value === MODEL_MODE_DEFAULT || option.value === selected || !props.cliModelIds || props.cliModelIds.has(option.value))
+        .map((option) => option.value === MODEL_MODE_DEFAULT
+            ? { ...option, label: t('agentInput.model.useCliConfigured'), description: t('agentInput.model.useCliDefaults') }
+            : { ...option, description: option.descriptionTranslations?.[getCurrentLanguage()] ?? option.description });
+    const codexFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('codex'), codexSelection.family), [modelCatalog, props.cliModelIds, codexSelection.family]);
     const codexReasoningOptions = React.useMemo<Array<{ value: CodexReasoningEffort; label: string }>>(() => {
         const options = getCodexReasoningOptions(codexSelection.family);
         return options.map((value) => ({
@@ -1024,7 +1030,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             opensEditor: true,
         },
     ] : [];
-    const claudeFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('claude')), [modelCatalog]);
+    const claudeFamilyOptions = React.useMemo(() => localizeModelOptions(getModelFamilyOptions('claude'), claudeSelection.family), [modelCatalog, props.cliModelIds, claudeSelection.family]);
     const claudeReasoningOptions = React.useMemo<Array<{ value: ClaudeReasoningEffort; label: string }>>(() => {
         const options = getClaudeReasoningOptions(claudeSelection.family);
         return options.map((value) => ({
@@ -1077,7 +1083,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         return true;
     };
     const modelOptions = React.useMemo<Array<{ value: ModelMode; label: string; shortLabel: string; description: string; trailing?: string }>>(() => {
-        if (isGemini) return localizeModelOptions(getModelFamilyOptions('gemini'));
+        if (isGemini) return localizeModelOptions(getModelFamilyOptions('gemini'), selectedModelMode);
         const cliDefault = { value: MODEL_MODE_DEFAULT, label: t('agentInput.model.useCliConfigured'), shortLabel: 'CLI', description: t('agentInput.model.useCliDefaults') };
         if (usesAccountModels) {
             // Qoder ends each tag list with the credit multiplier ("Vision · 0.50x Credit"); it is shown on the right as "0.5x".
@@ -1094,7 +1100,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             });
         }
         return [cliDefault];
-    }, [isGemini, usesAccountModels, qoderModels, modelCatalog]);
+    }, [isGemini, usesAccountModels, qoderModels, modelCatalog, props.cliModelIds, selectedModelMode]);
 
     const currentModelLabel = React.useMemo(() => {
         if (isCodex) {

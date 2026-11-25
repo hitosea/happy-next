@@ -31,6 +31,7 @@ import { Image } from 'expo-image';
 import { resolveSessionIcon } from '@/components/Avatar';
 import { useCLIDetection } from '@/hooks/useCLIDetection';
 import { useQoderModels } from '@/hooks/useQoderModels';
+import { useCliModelIds } from '@/hooks/useCliModels';
 import { useAntigravityModels } from '@/hooks/useAntigravityModels';
 import { useNewSessionAutocomplete } from '@/hooks/useNewSessionAutocomplete';
 import { formatPathRelativeToHome } from '@/utils/sessionUtils';
@@ -555,6 +556,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, machines]);
 
     const { models: qoderModels, pending: qoderModelsPending } = useQoderModels(selectedMachineId, qoderBuild ?? 'intl', selectedPath || selectedMachine?.metadata?.homeDir || '', agentType === 'qoder');
+    const cliModelIds = useCliModelIds(selectedMachineId, agentType);
     // Qoder models are per account and not in the catalog: a saved one is kept while the account still offers it.
     // Until the machine lists them, the stand-ins can't tell, so the saved one is kept rather than flashing Auto.
     // Antigravity's are per account too, and kept the same way.
@@ -1128,6 +1130,7 @@ function NewSessionWizard() {
                         agentType={agentType}
                         qoderBuild={qoderBuild}
                         agentModels={accountModels}
+                        cliModelIds={cliModelIds}
                         availableAgents={availableAgents}
                         onAgentChange={setAgentChoice}
                         permissionMode={permissionMode}

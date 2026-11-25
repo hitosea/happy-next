@@ -38,6 +38,7 @@ import { agentChoiceOf, type AgentType } from '@/utils/agentChoice';
 import { useInputHistory } from '@/hooks/useInputHistory';
 import { rememberSentSuggestions } from '@/sync/recentSuggestions';
 import { useQoderModels } from '@/hooks/useQoderModels';
+import { useCliModelIds } from '@/hooks/useCliModels';
 import { useAntigravityModels } from '@/hooks/useAntigravityModels';
 import { Session } from '@/sync/storageTypes';
 import { sync } from '@/sync/sync';
@@ -393,6 +394,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
     const machineId = session.metadata?.machineId;
     const { models: qoderModels } = useQoderModels(machineId, session.metadata?.qoderBuild ?? 'intl', session.metadata?.path ?? '', session.metadata?.flavor === 'qoder');
     const { models: antigravityModels } = useAntigravityModels(machineId, session.metadata?.flavor === 'antigravity');
+    const cliModelIds = useCliModelIds(machineId, session.metadata?.flavor ?? 'claude');
     // Get permission mode from session object, default to 'default'
     const permissionMode = session.permissionMode || 'default';
     // Get model mode from session object. "default" means use CLI/profile configured model.
@@ -1595,6 +1597,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             onFastModeChange={updateFastMode}
             metadata={session.metadata}
             agentModels={session.metadata?.flavor === 'antigravity' ? antigravityModels : qoderModels}
+            cliModelIds={cliModelIds}
             connectionStatus={inputConnectionStatus}
             onSend={handleSend}
             isSending={isSending}

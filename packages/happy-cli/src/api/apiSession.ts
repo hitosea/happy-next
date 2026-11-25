@@ -18,7 +18,6 @@ import { registerCommonHandlers } from '../modules/common/registerCommonHandlers
 import { appendAttachmentsToPrompt } from '../modules/common/fileUpload';
 import type { ClaudeBackfillItem } from '@/claude/utils/claudeBackfill';
 import { registerToolImageForCall } from '../modules/common/toolImageStore';
-import { calculateCost } from '@/utils/pricing';
 import { isDebug } from '@/utils/env';
 import { MessageArchiveWriter } from '../modules/common/messageArchive';
 import { extractSearchableMessage, isThinkingOnly, messageKind, messageLandmark, PENDING_STEER_HANDSHAKE_FLAG, PendingSteerRequestSchema, type MessageKind, type MessageLandmark, type MessageSearchRole, type PendingSteerAck } from 'happy-wire';
@@ -1497,8 +1496,6 @@ export class ApiSessionClient extends EventEmitter {
         this.updateModelMetadata(model);
 
         const totalTokens = usage.input_tokens + usage.output_tokens + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
-        const costs = calculateCost(usage, model);
-
         this.sendUsageReport({
             key: 'claude-session',
             tokens: {
@@ -1508,11 +1505,8 @@ export class ApiSessionClient extends EventEmitter {
                 cache_creation: usage.cache_creation_input_tokens || 0,
                 cache_read: usage.cache_read_input_tokens || 0
             },
-            cost: {
-                total: costs.total,
-                input: costs.input,
-                output: costs.output
-            }
+            // Not tracked; the server still requires a total.
+            cost: { total: 0 },
         });
     }
 

@@ -10,6 +10,7 @@ import { SessionCapabilitiesSchema, type MachineMetadata, type Metadata, type Se
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
 import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
+import { CliModelSchema, type CliListedAgent, type CliModel } from 'happy-wire';
 import type { QoderBuild } from '@/utils/agentChoice';
 
 export async function sessionOpenFileDownload(sessionId: string, request: OpenFileDownloadRequest) {
@@ -1796,6 +1797,20 @@ export async function machineListQoderModels(machineId: string, build: QoderBuil
         if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
         if (result.error) return { success: false, errorMessage: result.error };
         return { success: result.success ?? false, models: result.models, errorMessage: result.errorMessage };
+    } catch (error) {
+        return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
+    }
+}
+
+/** Lists the models the machine's Claude, Codex or Gemini CLI offers. `refresh` asks the CLI even when the machine has a fresh list. */
+export async function machineListAgentModels(machineId: string, agent: CliListedAgent, refresh = false): Promise<{ success: boolean; version?: string | null; models?: CliModel[]; errorMessage?: string }> {
+    try {
+        const result = await apiSocket.machineRPC<any, { agent: CliListedAgent; refresh: boolean }>(machineId, 'agent-list-models', { agent, refresh }, 200000);
+        if (!result) return { success: false, errorMessage: 'RPC returned empty response' };
+        if (result.error) return { success: false, errorMessage: result.error };
+        const models = CliModelSchema.array().safeParse(result.models);
+        if (!result.success || !models.success) return { success: false, errorMessage: result.errorMessage ?? 'Invalid model list' };
+        return { success: true, version: result.version ?? null, models: models.data };
     } catch (error) {
         return { success: false, errorMessage: error instanceof Error ? error.message : 'Unknown RPC error' };
     }

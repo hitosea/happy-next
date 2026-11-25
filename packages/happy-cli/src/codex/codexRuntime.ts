@@ -1,9 +1,9 @@
 /**
  * Codex runtime resolution
  *
- * Happy pins one Codex version, but the pinned version does not have to be fetched through
- * `npx` every time: a matching binary on PATH is the same runtime without the download, and
- * a cold `npx` install is what makes the first session after a version bump slow.
+ * Happy runs the `codex` installed on the machine, whatever its version. Without one it falls
+ * back to the latest Codex through `npx`. HAPPY_CODEX_PACKAGE can pin an exact version instead
+ * (`@openai/codex@x.y.z`): then a local binary is only used when it is that version.
  */
 
 import { execSync } from 'node:child_process';
@@ -21,7 +21,7 @@ const DEFAULT_INITIALIZE_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * The `initialize` handshake doubles as the cold-start budget: it is the first request a
- * freshly spawned Codex answers, and a cold `npx` fetch of the pinned version can take
+ * freshly spawned Codex answers, and a cold `npx` fetch of Codex can take
  * minutes on a slow machine.
  */
 const configuredInitializeTimeout = Number(process.env.HAPPY_CODEX_INIT_TIMEOUT_MS);
@@ -53,21 +53,27 @@ export function localCodexVersion(): string | null {
       });
       cachedLocalVersion = output.match(CODEX_VERSION_OUTPUT)?.[1] ?? null;
     } catch {
-      // No local Codex — the pinned package comes from npx instead.
+      // No local Codex — it comes from npx instead.
     }
   }
   return cachedLocalVersion;
 }
 
 /**
- * A local binary is only trusted when it is the exact pinned version; anything else may
- * speak an older app-server protocol, so the pin still wins.
+ * The local binary runs unless the spec pins an exact version it is not; without a local
+ * binary an unpinned spec runs the latest release through npx.
  */
 export function pickCodexRuntime(packageSpec: string, args: readonly string[], localVersion: string | null): CodexRuntime {
   const pinnedVersion = codexPackageVersion(packageSpec);
-  return pinnedVersion !== null && pinnedVersion === localVersion
-    ? { command: 'codex', args: [...args] }
-    : { command: 'npx', args: ['-y', packageSpec, ...args] };
+  if (localVersion !== null && (pinnedVersion === null || pinnedVersion === localVersion)) {
+    return { command: 'codex', args: [...args] };
+  }
+  return { command: 'npx', args: ['-y', pinnedVersion === null ? latestSpec(packageSpec) : packageSpec, ...args] };
+}
+
+/** `@openai/codex` → `@openai/codex@latest`; a spec that names a tag or range keeps it. */
+function latestSpec(packageSpec: string): string {
+  return /^@?[^@]+$/.test(packageSpec) ? `${packageSpec}@latest` : packageSpec;
 }
 
 export function resolveCodexRuntime(packageSpec: string, args: readonly string[]): CodexRuntime {
@@ -87,19 +93,21 @@ export function codexFastModeArgs(fast: boolean): string[] {
   return fast ? ['--enable', 'fast_mode'] : ['--disable', 'fast_mode'];
 }
 
-/** Whether the pinned version is already on this machine, so starting it needs no download. */
+/** Whether Codex can start without a download: a usable local binary, or a fitting npx cache entry. */
 export function isCodexRuntimeWarm(packageSpec: string): boolean {
-  const version = codexPackageVersion(packageSpec);
-  if (version === null) return false;
   if (pickCodexRuntime(packageSpec, [], localCodexVersion()).command === 'codex') return true;
-  return isVersionInNpxCache(version);
+  return isVersionInNpxCache(codexPackageVersion(packageSpec));
 }
 
-function isVersionInNpxCache(version: string): boolean {
+/** Whether the npx cache holds Codex `version`, or any Codex at all when `version` is null. */
+function isVersionInNpxCache(version: string | null): boolean {
   const cacheRoot = join(process.env.npm_config_cache ?? join(homedir(), '.npm'), '_npx');
   try {
-    return readdirSync(cacheRoot, { withFileTypes: true }).some((entry) =>
-      entry.isDirectory() && readCachedCodexVersion(join(cacheRoot, entry.name)) === version);
+    return readdirSync(cacheRoot, { withFileTypes: true }).some((entry) => {
+      if (!entry.isDirectory()) return false;
+      const cached = readCachedCodexVersion(join(cacheRoot, entry.name));
+      return cached !== null && (version === null || cached === version);
+    });
   } catch {
     return false; // No npx cache on this machine
   }

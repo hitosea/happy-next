@@ -27,21 +27,25 @@ describe('codexPackageVersion', () => {
 });
 
 describe('pickCodexRuntime', () => {
-  it('uses the local binary when it is the pinned version', () => {
-    expect(pickCodexRuntime('@openai/codex@0.155.1', ['app-server'], '0.155.1'))
+  it('uses the local binary whatever its version when nothing is pinned', () => {
+    expect(pickCodexRuntime('@openai/codex', ['app-server'], '0.153.4'))
       .toEqual({ command: 'codex', args: ['app-server'] });
   });
 
-  it('falls back to npx when the local binary is a different version', () => {
-    expect(pickCodexRuntime('@openai/codex@0.155.1', ['app-server'], '0.153.4'))
-      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@0.155.1', 'app-server'] });
+  it('runs the latest release through npx without a local binary', () => {
+    expect(pickCodexRuntime('@openai/codex', ['exec', 'hello'], null))
+      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@latest', 'exec', 'hello'] });
+    expect(pickCodexRuntime('@openai/codex@next', ['app-server'], null))
+      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@next', 'app-server'] });
   });
 
-  it('falls back to npx without a local binary and for unpinned specs', () => {
-    expect(pickCodexRuntime('@openai/codex@0.155.1', ['exec', 'hello'], null))
-      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@0.155.1', 'exec', 'hello'] });
-    expect(pickCodexRuntime('@openai/codex', ['app-server'], '0.155.1'))
-      .toEqual({ command: 'npx', args: ['-y', '@openai/codex', 'app-server'] });
+  it('honours an exact pin: the local binary only when it is that version', () => {
+    expect(pickCodexRuntime('@openai/codex@0.155.1', ['app-server'], '0.155.1'))
+      .toEqual({ command: 'codex', args: ['app-server'] });
+    expect(pickCodexRuntime('@openai/codex@0.155.1', ['app-server'], '0.153.4'))
+      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@0.155.1', 'app-server'] });
+    expect(pickCodexRuntime('@openai/codex@0.155.1', ['app-server'], null))
+      .toEqual({ command: 'npx', args: ['-y', '@openai/codex@0.155.1', 'app-server'] });
   });
 });
 
@@ -73,7 +77,6 @@ describe('isCodexRuntimeWarm', () => {
   it('is cold when the cache holds another version or no manifest at all', async () => {
     await npxCacheWith('0.153.4');
     expect(isCodexRuntimeWarm(UNMATCHABLE_SPEC)).toBe(false);
-    expect(isCodexRuntimeWarm('@openai/codex@latest')).toBe(false);
   });
 
   it('is cold when there is no npx cache', () => {

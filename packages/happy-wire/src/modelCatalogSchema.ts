@@ -6,15 +6,6 @@ export type AgentFlavor = z.infer<typeof AgentFlavorSchema>;
 export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
-/** Rates in USD per million tokens. */
-export const ModelPricingSchema = z.object({
-    input: z.number().nonnegative(),
-    output: z.number().nonnegative(),
-    cacheWrite: z.number().nonnegative(),
-    cacheRead: z.number().nonnegative(),
-});
-export type ModelPricing = z.infer<typeof ModelPricingSchema>;
-
 export const ModelCatalogEntrySchema = z.object({
     /** Model id as passed to the agent CLI, e.g. `claude-opus-5` or `gpt-5.5`. */
     id: z.string().min(1),
@@ -44,31 +35,11 @@ export const ModelCatalogEntrySchema = z.object({
     contextWindow: z.number().int().positive(),
     /** Claude fast mode (`-fast` model suffix). */
     fastMode: z.boolean().optional(),
-    pricing: ModelPricingSchema.optional(),
-    fastPricing: ModelPricingSchema.optional(),
 });
 export type ModelCatalogEntry = z.infer<typeof ModelCatalogEntrySchema>;
 
 export const ModelCatalogSchema = z.object({
     schemaVersion: z.literal(1),
-    /** Codex CLI pinned by happy-cli; run as `${package}@${version}` unless HAPPY_CODEX_PACKAGE overrides it. */
-    codexCli: z.object({
-        package: z.string().min(1),
-        /** Exact version, so a matching `codex` on PATH can be used instead of npx. */
-        version: z.string().regex(/^\d+\.\d+\.\d+(?:-[\w.]+)?$/, 'Expected an exact version like 0.155.1'),
-    }),
-    /**
-     * Unused. Clients from before it was dropped require it and reject a catalog
-     * without it, so it stays in the published file until they are gone.
-     */
-    effortDescriptions: z.object({
-        low: z.string(),
-        medium: z.string(),
-        high: z.string(),
-        xhigh: z.string(),
-        max: z.string(),
-        ultra: z.string(),
-    }).optional(),
     models: z.array(ModelCatalogEntrySchema),
 }).superRefine((catalog, ctx) => {
     const seen = new Set<string>();
@@ -81,7 +52,6 @@ export const ModelCatalogSchema = z.object({
         if (model.agent === 'claude' && model.efforts.includes('ultra')) issue(`Claude model "${model.id}" cannot use the ultra effort`);
         if (model.agent === 'gemini' && model.efforts.length > 0) issue(`Gemini model "${model.id}" has no effort control`);
         if (model.agent !== 'claude' && model.fastMode) issue(`Fast mode applies only to Claude models ("${model.id}")`);
-        if (model.fastPricing && !model.fastMode) issue(`fastPricing needs fastMode ("${model.id}")`);
     });
 });
 export type ModelCatalog = z.infer<typeof ModelCatalogSchema>;

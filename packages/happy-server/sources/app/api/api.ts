@@ -26,7 +26,6 @@ import { shareRoutes } from "./routes/shareRoutes";
 import { publicShareRoutes } from "./routes/publicShareRoutes";
 import { orchestratorRoutes } from "./routes/orchestratorRoutes";
 import { appConfigRoutes } from "./routes/appConfigRoutes";
-import { modelCatalogRoutes } from "./routes/modelCatalogRoutes";
 import { githubRoutes } from "./routes/githubRoutes";
 import { rpcRoutes } from "./routes/rpcRoutes";
 import { otaRoutes } from "./routes/otaRoutes";
@@ -67,7 +66,6 @@ export async function startApi() {
 
     // Routes
     appConfigRoutes(typed);
-    modelCatalogRoutes(typed);
     authRoutes(typed);
     pushRoutes(typed);
     sessionRoutes(typed);

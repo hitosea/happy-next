@@ -28,7 +28,7 @@ import {
     ORCHESTRATOR_SUBMIT_TOOL_SCHEMA,
 } from '@/orchestrator/mcpToolSchemas';
 import { getValidModelModesForAgent } from 'happy-wire';
-import { fillQoderModelModes } from '@/orchestrator/qoderModelModes';
+import { fillMachineModelModes } from '@/orchestrator/machineModelModes';
 import { readPreviewHtmlFile } from '@/utils/previewHtmlFile';
 
 function toToolSuccess(data: unknown) {
@@ -229,7 +229,7 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
                     const response = await client.orchestratorGetContext();
                     const data = response?.data ?? null;
                     if (data) {
-                        const machines = await fillQoderModelModes(
+                        const machines = await fillMachineModelModes(
                             data.machines ?? [],
                             (method, params, timeoutMs) => client.callMachineRpc(method, params, timeoutMs),
                         );

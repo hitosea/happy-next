@@ -30,8 +30,6 @@ services:
       # Public service discovery (/v1/app-config)
       - PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
       - PUBLIC_VOICE_BASE_URL=${PUBLIC_VOICE_BASE_URL}
-      # Model catalog source served at /v1/model-catalog (blank = GitHub main, `off` = bundled)
-      - MODEL_CATALOG_URL=${MODEL_CATALOG_URL}
       # Server-side DooPush notification relay.
       - DOOPUSH_APP_ID=${DOOPUSH_APP_ID}
       - DOOPUSH_APP_SECRET=${DOOPUSH_APP_SECRET}

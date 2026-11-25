@@ -93,9 +93,8 @@ git log "${BASE_DOCKER}..HEAD" --oneline --no-merges -- \
 | `happy-cli` 有实际改动 | CLI |
 | `happy-app` 有用户可感知改动 | Release + iOS + Docker（`happy-app` 镜像是 App 的 Web 版） |
 | 只有 `happy-server` / `happy-voice` / `happy-docs` / `happy-web` / `Dockerfile*` / `docker-compose.yml` / `entrypoint.sh` | 仅 Docker |
-| `happy-wire` 实际改动（不含 `modelCatalog.json`） | 按使用方：CLI 用到则含 CLI，server/app 用到则含 Docker/Release |
+| `happy-wire` 实际改动（含 `modelCatalog.json`） | 按使用方：CLI 用到则含 CLI，server/app 用到则含 Docker/Release；`modelCatalog.json` 两边都用 |
 | `happy-app` 有用户可感知改动，且当前 runtime 等于最近一次 Release 包的 fingerprint | 另加 OTA（见下文「OTA 的判断」） |
-| 只有 `modelCatalog.json` | 不发布（合并到 main 即远程生效） |
 | 都没有 | 建议不发布，**停止** |
 
 只改测试、注释、开发脚本、内部文档不算用户可感知改动。
@@ -105,36 +104,20 @@ git log "${BASE_DOCKER}..HEAD" --oneline --no-merges -- \
 - 对得上的平台推荐 OTA：用户不用等新包，几分钟内就能收到。同时发 Release 也不冲突，新包本身就带着这些 JS。
 - 对不上（原生部分变了），或者 Release 包里没有嵌入 fingerprint（打在自建 OTA 之前）：不推荐 OTA，在计划里写明原因。
 
-## 3. Codex CLI 版本
+## 3. 模型目录
 
-```bash
-npm view @openai/codex version
-node -p "require('./packages/happy-wire/src/modelCatalog.json').codexCli.version"
-```
+`packages/happy-wire/src/modelCatalog.json` 随 App 和 CLI 发布，不再远程下发。Claude、Codex、Gemini 可选的模型以各设备上 CLI 实际返回的为准，目录只提供：设备还没上报时的兜底列表，以及 CLI 不给的中文描述和上下文窗口。Codex 不再固定版本，用设备上安装的 `codex`。
 
-有新稳定版时写进计划，默认**升级**到该版本，并说明：合并后会远程下发给所有 CLI，新启动的 Codex 会话都使用新版本（已有会话按其记录的版本恢复）。查看该版本的发布说明，有已知破坏性变更或与现有集成不兼容时，改为不升级并写明原因；用户在调用时说明不升级的，按用户的意思。`codexCli` 在计划确认升级时修改。
-
-## 4. 模型目录
-
-模型和定价在 `packages/happy-wire/src/modelCatalog.json`，合并到 `main` 后由服务端远程下发给 App 和 CLI。
-
-1. 列出改动该文件的未合并 PR（含每日自动同步的 PR），读其说明，写进计划并建议是否合并：
-
-   ```bash
-   gh pr list --state open --json number,title,files \
-     --jq '.[] | select(any(.files[]; .path == "packages/happy-wire/src/modelCatalog.json")) | "#\(.number) \(.title)"'
-   ```
-
-2. 从各厂商官方渠道获取最新模型信息，与目录（含上述 PR 的改动）对比，例如：
-   - Anthropic：Claude 模型概览页和定价页、发布公告
-   - OpenAI：模型文档页和定价页；Codex 可用模型以 Codex CLI 发布说明为准
-   - Google：Gemini API 模型页和定价页、Gemini CLI 发布说明
-3. 按目录现有字段补齐新模型（标签、描述、价格、cache 读写价、fast 价格、effort、上下文窗口），并按目录惯例调整被取代的旧模型。
-4. 每项新增、修改、下线都附官方来源链接；来源不明确或互相冲突的不改，在计划里列为"待定"。
+1. 从各厂商官方渠道获取最新模型信息，与目录对比，例如：
+   - Anthropic：Claude 模型概览页、发布公告
+   - OpenAI：模型文档页；Codex 可用模型以 Codex CLI 发布说明为准
+   - Google：Gemini API 模型页、Gemini CLI 发布说明
+2. 按目录现有字段补齐新模型（标签、描述及翻译、effort、上下文窗口），并按目录惯例调整被取代的旧模型。
+3. 每项新增、修改、下线都附官方来源链接；来源不明确或互相冲突的不改，在计划里列为"待定"。
 
 此阶段只出改动草稿，不改文件。
 
-## 5. Secrets
+## 4. Secrets
 
 只检查名称，不读取值：
 
@@ -151,7 +134,7 @@ gh secret list --app actions | cut -f1
 
 缺任何一个都**停止**。不得让用户在聊天中粘贴私钥、证书或密码。
 
-## 6. 版本号
+## 5. 版本号
 
 **CLI**（含 CLI 时）：
 
@@ -178,7 +161,7 @@ gh release view "{tag}" 2>/dev/null || true
 
 只发 iOS 时不新建 tag，目标 tag 必须已有 Release 且含 IPA。
 
-## 7. changelog 和产品文档草稿（含 Release 时）
+## 6. changelog 和产品文档草稿（含 Release 时）
 
 涉及文件：
 
@@ -210,7 +193,6 @@ gh release view "{tag}" 2>/dev/null || true
 - 推送本地未推送的提交（如有）
 - 合并哪些 PR
 - 模型目录改动（新增 / 修改 / 下线，附来源）和"待定"项
-- Codex 是否升级（有新稳定版时默认是）
 - CLI 版本、tag
 - 日志版本，changelog 和总览文档草稿
 - Docker `publish_latest`：目标是最高正式版本时 `true`，重建旧版本或补历史镜像时 `false`
@@ -232,7 +214,7 @@ gh pr merge {PR} --squash       # 计划内的 PR
 git pull --ff-only origin main
 ```
 
-## 2. 模型目录和 Codex（有改动时）
+## 2. 模型目录（有改动时）
 
 按计划修改 `modelCatalog.json`，然后：
 

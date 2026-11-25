@@ -31,8 +31,7 @@
     "build": "shx rm -rf dist && npx tsc --noEmit && pkgroll",
     "test": "$npm_execpath run build && vitest run",
     "prepublishOnly": "$npm_execpath run build && $npm_execpath run test",
-    "release": "npx --no-install release-it",
-    "sync-models": "tsx src/catalogSync/run.ts"
+    "release": "npx --no-install release-it"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^2.2.2",
