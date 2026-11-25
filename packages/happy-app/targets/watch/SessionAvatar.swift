@@ -86,46 +86,16 @@ extension Color {
   }
 }
 
-/// Model names from happy-wire's catalog (bundled as `modelCatalog.json`), the way the app turns a
-/// model id into a label (`formatModelNameLabel`), shortened for the watch: the catalog's `label`
-/// ("Opus 5.5", "GPT-5.5"), which leaves the vendor to the agent's name beside it
+/// A session's model as its agent's CLI names it, with its reasoning effort
 enum ModelLabels {
-  private static let labels: [String: String] = {
-    guard let url = Bundle.main.url(forResource: "modelCatalog", withExtension: "json"),
-          let data = try? Data(contentsOf: url),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let models = json["models"] as? [[String: Any]] else { return [:] }
-    var labels: [String: String] = [:]
-    for model in models {
-      if let id = model["id"] as? String, let label = model["label"] as? String {
-        labels[id] = label
-      }
-    }
-    return labels
-  }()
-
   private static let efforts = [
     "low": "Low", "medium": "Medium", "high": "High", "max": "Max", "xhigh": "XHigh", "ultra": "Ultra", "none": "None",
   ]
 
-  /// "Opus 5.5 (High)": the model by its catalog label, else as given, with its reasoning effort
+  /// "claude-opus-5-5 (High)"
   static func label(model: String?, reasoningEffort: String?) -> String? {
     guard let model, !model.isEmpty else { return nil }
-    let name = catalogLabel(model) ?? model
-    guard let effort = reasoningEffort, !effort.isEmpty else { return name }
-    return "\(name) (\(efforts[effort] ?? effort))"
-  }
-
-  /// The id as given, then without the context and date suffixes (`normalizeModelId`), then
-  /// without a mode's effort suffix (`claude-opus-5-high`)
-  private static func catalogLabel(_ model: String) -> String? {
-    if let label = labels[model] { return label }
-    var id = model.replacingOccurrences(of: "[1m]", with: "")
-    for pattern in [#"-\d{8}$"#, #"-\d{4}-\d{2}-\d{2}$"#, #"-fast$"#] {
-      id = id.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
-    }
-    if let label = labels[id] { return label }
-    let family = id.replacingOccurrences(of: #"-(low|medium|high|xhigh|max|ultra|none)$"#, with: "", options: .regularExpression)
-    return labels[family]
+    guard let effort = reasoningEffort, !effort.isEmpty else { return model }
+    return "\(model) (\(efforts[effort] ?? effort))"
   }
 }

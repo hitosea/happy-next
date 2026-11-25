@@ -2,7 +2,7 @@
 
 ## Version 42 - 2026-11-25
 
-Happy Next v2.29.0 adds Antigravity as a fifth agent, lists every agent's models straight from its CLI on the machine, and updates Claude Code, Codex, Gemini, Qoder and Antigravity from the app alongside Happy CLI.
+Happy Next v2.29.1 adds Antigravity as a fifth agent, lists every agent's models straight from its CLI on the machine, and updates Claude Code, Codex, Gemini, Qoder and Antigravity from the app alongside Happy CLI.
 
 - Antigravity: the Antigravity CLI (`happy antigravity`) is a fifth agent over ACP — the account's models and thinking levels, permission modes and plan mode, resume, copy, fork (also from a message) and upgrade, with its usage in the usage panel
 - Orchestrator: a task can run on Antigravity (`antigravity`), with a live preview while it runs
