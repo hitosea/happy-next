@@ -31,7 +31,7 @@ import { useWebFileDrop } from '@/hooks/useWebFileDrop';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
 import { startRealtimeSession, stopRealtimeSession } from '@/realtime/RealtimeSession';
-import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineForkClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineForkGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, machineForkCodexSession, machineResolveClaudeForkTarget, machineResolveGeminiForkTarget, machineResolveCodexForkTarget, machineGetClaudeSessionUserMessage, machineGetGeminiSessionUserMessage, machineGetCodexSessionUserMessage, machineGetQoderSessionUserMessages, machineGetQoderSessionUserMessage, machineResolveQoderForkTarget, machineDuplicateQoderSession, machineForkQoderSession, type UserMessageWithUuid, type UserMessagePage, type ResolvedForkTarget } from '@/sync/ops';
+import { sessionAbort, machineGetClaudeSessionUserMessages, machineDuplicateClaudeSession, machineForkClaudeSession, machineSpawnNewSession, machineGetGeminiSessionUserMessages, machineDuplicateGeminiSession, machineForkGeminiSession, machineGetCodexSessionUserMessages, machineDuplicateCodexSession, machineForkCodexSession, machineResolveClaudeForkTarget, machineResolveGeminiForkTarget, machineResolveCodexForkTarget, machineGetClaudeSessionUserMessage, machineGetGeminiSessionUserMessage, machineGetCodexSessionUserMessage, machineGetQoderSessionUserMessages, machineGetQoderSessionUserMessage, machineResolveQoderForkTarget, machineDuplicateQoderSession, machineForkQoderSession, machineGetAntigravitySessionUserMessages, machineGetAntigravitySessionUserMessage, machineResolveAntigravityForkTarget, machineDuplicateAntigravitySession, machineForkAntigravitySession, type UserMessageWithUuid, type UserMessagePage, type ResolvedForkTarget } from '@/sync/ops';
 import { storage, useIsDataReady, useOrchestratorRunningTaskCount, useOrchestratorHasRuns, useRealtimeStatus, useSessionMessages, useSessionMessagesFetching, useSessionPendingMessages, useSessionCanSteer, useSessionUsage, useSetting } from '@/sync/storage';
 import { useMachine, useRememberedModelMode, useSession } from '@/sync/storage';
 import { agentChoiceOf, type AgentType } from '@/utils/agentChoice';
@@ -692,6 +692,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         if (!machineId) return { messages: [], hasMore: false, nextBeforeIndex: null };
 
         if (flavor === 'gemini') {
@@ -703,12 +704,15 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         if (flavor === 'qoder' && qoderSessionId) {
             return machineGetQoderSessionUserMessages(machineId, qoderSessionId, session.metadata?.qoderBuild, { beforeIndex });
         }
+        if (flavor === 'antigravity' && antigravitySessionId) {
+            return machineGetAntigravitySessionUserMessages(machineId, antigravitySessionId, { beforeIndex });
+        }
         if (claudeSessionId) {
             const result = await machineGetClaudeSessionUserMessages(machineId, claudeSessionId, { beforeIndex });
             return result;
         }
         return { messages: [], hasMore: false, nextBeforeIndex: null };
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild]);
 
     const applyDuplicatePage = React.useCallback((page: UserMessagePage, appendOlder: boolean) => {
         setDuplicateMessages((current) => {
@@ -726,7 +730,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId || session.metadata?.qoderSessionId);
+        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId);
         if (!machineId || !canDuplicate) {
             Modal.alert(t('common.error'), t('duplicate.notAvailable'));
             return;
@@ -750,7 +754,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         } finally {
             setDuplicateLoading(false);
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild, loadDuplicateMessagesPage, applyDuplicatePage]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild, loadDuplicateMessagesPage, applyDuplicatePage]);
 
     const handleLoadMoreDuplicateMessages = React.useCallback(async () => {
         if (duplicateLoadingMore || !duplicateHasMore || duplicateBeforeIndex == null) return;
@@ -784,6 +788,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         const sessionPath = session.metadata?.path;
         if (!machineId || !sessionPath) {
             // Reset so the fork loading overlay / sheet spinner can't get stuck.
@@ -796,7 +801,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
         try {
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
 
             if (flavor === 'gemini') {
                 const duplicateResult = uuid
@@ -832,6 +837,17 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 }
                 resumeSessionId = duplicateResult.newSessionId;
                 agent = 'qoder';
+            } else if (flavor === 'antigravity' && antigravitySessionId) {
+                const duplicateResult = uuid
+                    ? await machineDuplicateAntigravitySession(machineId, antigravitySessionId, uuid)
+                    : await machineForkAntigravitySession(machineId, antigravitySessionId);
+                if (!duplicateResult.success || !duplicateResult.newSessionId) {
+                    setDuplicateConfirming(false);
+                    Modal.alert(t('common.error'), duplicateResult.errorMessage || t('duplicate.failed'));
+                    return;
+                }
+                resumeSessionId = duplicateResult.newSessionId;
+                agent = 'antigravity';
             } else if (claudeSessionId) {
                 const duplicateResult = uuid
                     ? await machineDuplicateClaudeSession(machineId, claudeSessionId, uuid)
@@ -889,7 +905,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
             setDuplicateConfirming(false);
             Modal.alert(t('common.error'), t('duplicate.failed'));
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild, session.metadata?.path, router]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild, session.metadata?.path, router]);
 
     // Handle selecting a message in the duplicate sheet. Picker rows are previews,
     // so fetch the full prompt by UUID before creating the new-session draft.
@@ -899,6 +915,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         if (!machineId) return;
         setDuplicateConfirming(true);
         try {
@@ -909,6 +926,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 selected = await machineGetCodexSessionUserMessage(machineId, codexSessionId, uuid);
             } else if (flavor === 'qoder' && qoderSessionId) {
                 selected = await machineGetQoderSessionUserMessage(machineId, qoderSessionId, session.metadata?.qoderBuild, uuid);
+            } else if (flavor === 'antigravity' && antigravitySessionId) {
+                selected = await machineGetAntigravitySessionUserMessage(machineId, antigravitySessionId, uuid);
             } else if (claudeSessionId) {
                 selected = await machineGetClaudeSessionUserMessage(machineId, claudeSessionId, uuid);
             }
@@ -931,7 +950,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 Modal.alert(t('common.error'), t('duplicate.loadFailed'));
             }
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild, forkSessionFromUuid, duplicateMessages]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild, forkSessionFromUuid, duplicateMessages]);
 
     // Runs after the user confirms a per-message fork: ask the CLI to resolve
     // the tapped message against the complete local JSONL, then fork. The RPC is
@@ -949,6 +968,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
+        const antigravitySessionId = session.metadata?.antigravitySessionId;
         if (!machineId) return;
 
         // Turn the tapped message's fork icon into a spinner for the whole
@@ -971,6 +991,8 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                     resolved = await machineResolveCodexForkTarget(machineId, codexSessionId, target.text, target.createdAt);
                 } else if (flavor === 'qoder' && qoderSessionId) {
                     resolved = await machineResolveQoderForkTarget(machineId, qoderSessionId, session.metadata?.qoderBuild, target.text, target.createdAt);
+                } else if (flavor === 'antigravity' && antigravitySessionId) {
+                    resolved = await machineResolveAntigravityForkTarget(machineId, antigravitySessionId, target.text, target.createdAt);
                 } else if (claudeSessionId) {
                     resolved = await machineResolveClaudeForkTarget(machineId, claudeSessionId, target.text, target.createdAt);
                 }
@@ -994,7 +1016,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         } finally {
             setForkingMessageId(null);
         }
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild, forkSessionFromUuid, handleOpenDuplicateSheet]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild, forkSessionFromUuid, handleOpenDuplicateSheet]);
 
     // Handle the per-message fork icon: show the confirm dialog immediately,
     // then do the network work in performForkFromMessage once confirmed.
@@ -1003,7 +1025,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId || session.metadata?.qoderSessionId);
+        const canDuplicate = Boolean(claudeSessionId || flavor === 'gemini' || codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId);
         if (!machineId || !canDuplicate) {
             Modal.alert(t('common.error'), t('duplicate.notAvailable'));
             return;
@@ -1020,7 +1042,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                 { text: t('duplicate.confirm'), onPress: () => { performForkFromMessage(request); } },
             ]
         );
-    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.qoderBuild, performForkFromMessage]);
+    }, [machineId, session.id, session.metadata?.flavor, session.metadata?.claudeSessionId, session.metadata?.codexSessionId, session.metadata?.qoderSessionId, session.metadata?.antigravitySessionId, session.metadata?.qoderBuild, performForkFromMessage]);
 
     // Handle closing the duplicate sheet (prevent closing while confirming)
     const handleCloseDuplicateSheet = React.useCallback(() => {
@@ -1307,7 +1329,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
                     session={session}
                     onFillInput={handleFillInput}
                     // Forking from a message truncates the copy, which agy cannot do yet
-                    onForkMessage={canForkSession(session) && session.metadata?.flavor !== 'antigravity' ? handleForkFromMessage : undefined}
+                    onForkMessage={canForkSession(session) ? handleForkFromMessage : undefined}
                     forkingMessageId={forkingMessageId}
                     onLoadMore={handleLoadMore}
                     minimapCachedUserMessages={minimapCachedMessages}

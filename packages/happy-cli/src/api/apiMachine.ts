@@ -21,7 +21,8 @@ import { QODER_SLUGS, parseQoderBuild, qoderBuildOf, resolveQoderCommand, type Q
 import { forkQoderSession } from '@/qoder/sessions';
 import { listQoderModels } from '@/qoder/models';
 import { listAntigravityModels } from '@/antigravity/models';
-import { forkAntigravitySession } from '@/antigravity/sessions';
+import { forkAntigravitySession, readAntigravitySessionUserMessages } from '@/antigravity/sessions';
+import { antigravityPreviewMessages, readAntigravityTranscript } from '@/antigravity/transcript';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
 import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
@@ -851,6 +852,49 @@ export class ApiMachineClient {
             } catch (error) {
                 return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
             }
+        });
+
+        // Copy an Antigravity conversation up to a user message, for the duplicate and fork-from-message features.
+        // A name of its own, so an older CLI fails the call instead of copying the whole conversation.
+        this.rpcHandlerManager.registerHandler('antigravity-duplicate-session', async (params: any) => {
+            const { sessionId, truncateBeforeUuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (!truncateBeforeUuid || typeof truncateBeforeUuid !== 'string') throw new Error('truncateBeforeUuid is required');
+            try {
+                return { success: true, newSessionId: await forkAntigravitySession(sessionId, { truncateBeforeUuid }) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // The tail of an Antigravity conversation from agy's transcript, for the orchestrator's live preview
+        this.rpcHandlerManager.registerHandler('antigravity-session-preview', async (params: any) => {
+            const { sessionId, limit = 10 } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 50) : 10;
+            return { messages: antigravityPreviewMessages(await readAntigravityTranscript(sessionId), messageLimit) };
+        });
+
+        this.rpcHandlerManager.registerHandler('antigravity-session-user-messages', async (params: any) => {
+            const { sessionId, limit = 100, beforeIndex, preview } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 100) : 100;
+            return paginateSessionUserMessages(readAntigravitySessionUserMessages(sessionId), messageLimit, beforeIndex, preview === true);
+        });
+
+        this.rpcHandlerManager.registerHandler('antigravity-resolve-fork-target', async (params: any) => {
+            const { sessionId, text, createdAt } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (typeof text !== 'string') throw new Error('text is required');
+            const message = resolveSessionUserMessage(readAntigravitySessionUserMessages(sessionId), { text, createdAt });
+            return { message: message ? { uuid: message.uuid, timestamp: message.timestamp, index: message.index } : null };
+        });
+
+        this.rpcHandlerManager.registerHandler('antigravity-session-user-message', async (params: any) => {
+            const { sessionId, uuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (!uuid || typeof uuid !== 'string') throw new Error('uuid is required');
+            return { message: readAntigravitySessionUserMessages(sessionId).find((message) => message.uuid === uuid) ?? null };
         });
 
         // Copy a Qoder conversation up to a user message, for the duplicate feature

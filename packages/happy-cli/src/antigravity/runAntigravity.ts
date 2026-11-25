@@ -38,6 +38,7 @@ import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
 import { extractConfigOptionsFromPayload } from '@/agent/acp/sessionConfigMetadata';
 import { ANTIGRAVITY_ACP_MODES, createAntigravityBackend } from '@/agent/factories/antigravity';
+import { antigravityUsageAfter, readAntigravityTranscript } from '@/antigravity/transcript';
 import { GeminiDisplay } from '@/ui/ink/GeminiDisplay';
 import type { ImageContent, PermissionMode } from '@/api/types';
 import { formatMessageForGemini } from '@/utils/formatImageMessage';
@@ -231,6 +232,9 @@ export async function runAntigravity(opts: {
   let defaultModel: string | null = null;
   // How full the context window is, as agy last reported it; sent to the app after each turn.
   let contextUsage: { used: number; size: number } | null = null;
+  // The last step of agy's transcript whose tokens are in the usage report. A restored session
+  // starts from its last step, so the history it brings is not counted again.
+  let usageReportedThrough = -1;
 
   let accumulatedResponse = '';
   let accumulatedThinking = '';
@@ -262,6 +266,13 @@ export async function runAntigravity(opts: {
     // The app reads <options> from the message text itself.
     session.sendAgentMessage('antigravity', { type: 'message', message: options.length > 0 ? text + rawOptionsXml : text });
     accumulatedResponse = '';
+  };
+
+  /** Reports the tokens of the steps agy logged since the last report. */
+  const reportUsage = async (sessionId: string) => {
+    const { lastStep, tokens } = antigravityUsageAfter(await readAntigravityTranscript(sessionId), usageReportedThrough);
+    usageReportedThrough = lastStep;
+    if (tokens.total > 0) session.sendUsageReport({ key: 'antigravity-session', tokens, cost: { total: 0 } });
   };
 
   const sendContextUsage = () => {
@@ -398,6 +409,7 @@ export async function runAntigravity(opts: {
     defaultModel ??= appliedModel;
     const antigravitySessionId = backend.getSessionId() ?? undefined;
     session.updateMetadata((current) => ({ ...current, antigravitySessionId }));
+    usageReportedThrough = antigravityUsageAfter(antigravitySessionId ? await readAntigravityTranscript(antigravitySessionId) : [], -1).lastStep;
     logger.debug('[Antigravity] Session started', { antigravitySessionId, resumeSessionId, appliedMode, appliedModel });
     return replayed;
   };
@@ -573,6 +585,8 @@ export async function runAntigravity(opts: {
         flushResponse();
         permissionHandler.reset();
         sendContextUsage();
+        const usageSessionId = antigravityBackend?.getSessionId();
+        if (usageSessionId) reportUsage(usageSessionId).catch((error) => logger.debug('[Antigravity] Cannot report usage', error));
         if (abortRequested) {
           sendAbortFeedback();
         } else {
