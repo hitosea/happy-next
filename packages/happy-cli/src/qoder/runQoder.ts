@@ -76,6 +76,10 @@ type QoderMode = {
 };
 
 const INTERRUPTED_MESSAGE = '[Request interrupted by user]';
+/** How long qodercli stays idle before a turn it ran on its own counts as over. */
+const BACKGROUND_TURN_QUIET_MS = 5000;
+/** What qodercli sends while it works on a turn. */
+const BACKGROUND_TURN_ACTIVITY = new Set<AgentMessage['type']>(['model-output', 'tool-call', 'tool-result', 'permission-request']);
 /** Whether Qoder is in plan mode once each plan tool succeeds; a rejected ExitPlanMode keeps it planning. */
 const PLAN_MODE_AFTER_TOOL: Record<string, boolean> = { EnterPlanMode: true, ExitPlanMode: false };
 
@@ -291,6 +295,9 @@ export async function runQoder(opts: {
   let abortFeedbackSent = false;
   let taskStartedSent = false;
   let lastPlanSignature: string | null = null;
+  // A turn qodercli runs on its own, outside any prompt, to answer a background-task notification.
+  let backgroundTurn = false;
+  let backgroundTurnEndTimer: NodeJS.Timeout | undefined;
 
   const sendAbortFeedback = () => {
     if (abortFeedbackSent) return;
@@ -346,7 +353,34 @@ export async function runQoder(opts: {
     return error instanceof Error ? error.message : detail;
   };
 
+  /**
+   * qodercli marks no end to a turn of its own: it ends once it has stayed idle for
+   * BACKGROUND_TURN_QUIET_MS, as a pause between its text and its next tool call is shorter.
+   */
+  const trackBackgroundTurn = (msg: AgentMessage) => {
+    clearTimeout(backgroundTurnEndTimer);
+    if (isProcessingMessage) return;
+    const idle = msg.type === 'status' && msg.status === 'idle';
+    const active = BACKGROUND_TURN_ACTIVITY.has(msg.type) || (msg.type === 'event' && msg.name === 'thinking') || (msg.type === 'status' && msg.status === 'running');
+    if (active && !backgroundTurn) {
+      backgroundTurn = true;
+      setThinking(true);
+      session.sendAgentMessage('qoder', { type: 'task_started', id: randomUUID() });
+    }
+    if (!idle || !backgroundTurn) return;
+    backgroundTurnEndTimer = setTimeout(() => {
+      if (isProcessingMessage) return;
+      backgroundTurn = false;
+      void sendContextUsage().finally(() => {
+        session.sendAgentMessage('qoder', { type: 'task_complete', id: randomUUID() });
+        setThinking(false);
+        sendReady();
+      });
+    }, BACKGROUND_TURN_QUIET_MS);
+  };
+
   const handleBackendMessage = (msg: AgentMessage) => {
+    trackBackgroundTurn(msg);
     switch (msg.type) {
       case 'model-output':
         if (!msg.textDelta) break;
@@ -368,6 +402,10 @@ export async function runQoder(opts: {
           session.sendAgentMessage('qoder', { type: 'task_started', id: randomUUID() });
           messageBuffer.addMessage('Thinking...', 'system');
         }
+        // qodercli answers its background-task notifications in turns of its own, outside any
+        // prompt: nothing ends them but the idle after their last chunk, so their text goes then,
+        // before the next prompt clears it.
+        if (msg.status === 'idle' && !isProcessingMessage) flushResponse();
         break;
 
       case 'tool-call': {
@@ -664,6 +702,9 @@ export async function runQoder(opts: {
       abortRequested = false;
       abortFeedbackSent = false;
       taskStartedSent = false;
+      // A turn qodercli ran on its own ends where this prompt starts; the prompt reports its own end.
+      backgroundTurn = false;
+      clearTimeout(backgroundTurnEndTimer);
       accumulatedResponse = '';
       accumulatedThinking = '';
       setThinking(true);
@@ -730,6 +771,7 @@ export async function runQoder(opts: {
     }
   } finally {
     logger.debug('[Qoder] Final cleanup');
+    clearTimeout(backgroundTurnEndTimer);
     reconnectionHandle?.cancel();
     try {
       // The loop ended on its own (exit from the UI): the session ended, so the app must not list
