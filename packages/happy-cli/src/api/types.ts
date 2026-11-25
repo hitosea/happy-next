@@ -232,10 +232,29 @@ export const DaemonStateSchema = z.object({
     // The version being installed, or whose install failed
     targetVersion: z.string().optional(),
     error: z.string().optional(),
-  }).optional()
+  }).optional(),
+  // The agent CLIs installed on this machine, with their updates (daemon/agentCliUpdater.ts)
+  agentClis: z.array(z.object({
+    agent: z.string(),
+    version: z.string().optional(),
+    // Latest published version, when the CLI's can be looked up
+    latestVersion: z.string().optional(),
+    // Updates itself in the background (Claude Code, Antigravity)
+    // The daemon can run the update; `manualCommand`, when known, is what to run by hand otherwise or
+    // when the daemon's update fails
+    updatable: z.boolean().optional(),
+    manualCommand: z.string().optional(),
+    state: z.union([
+      z.enum(['idle', 'installing', 'failed']),
+      z.string() // Forward compatibility
+    ]),
+    error: z.string().optional(),
+  })).optional()
 })
 
 export type CliUpdateStatus = NonNullable<z.infer<typeof DaemonStateSchema>['cliUpdate']>
+
+export type AgentCliStatus = NonNullable<z.infer<typeof DaemonStateSchema>['agentClis']>[number]
 
 export type DaemonState = z.infer<typeof DaemonStateSchema>
 

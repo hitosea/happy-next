@@ -3,15 +3,16 @@ import type { Machine } from '@/sync/storageTypes';
 
 vi.mock('@/sync/storage', () => ({ storage: { getState: () => ({ machines: {} }), subscribe: () => () => {} } }));
 vi.mock('@/sync/ops', () => ({ machineCheckCliUpdate: vi.fn() }));
+vi.mock('@/text', () => ({ t: (key: string) => key }));
 
-import { getMachineCliUpdate, getSessionCliUpgrade } from './cliUpdate';
+import { getMachineCliUpdate, getMachineUpdates, getSessionCliUpgrade } from './cliUpdate';
 
-function machine(running: string, cliUpdate: Record<string, unknown> | undefined, active = true): Machine {
+function machine(running: string, cliUpdate: Record<string, unknown> | undefined, active = true, agentClis?: Record<string, unknown>[]): Machine {
     return {
         id: 'm1',
         active,
         metadata: { happyCliVersion: running },
-        daemonState: { status: 'running', cliUpdate },
+        daemonState: { status: 'running', cliUpdate, agentClis },
     } as unknown as Machine;
 }
 
@@ -48,5 +49,40 @@ describe('getSessionCliUpgrade', () => {
         expect(getSessionCliUpgrade('0.12.0', machine('0.13.0', undefined))).toBe('0.13.0');
         expect(getSessionCliUpgrade('0.13.0', machine('0.13.0', undefined))).toBeNull();
         expect(getSessionCliUpgrade(undefined, machine('0.13.0', undefined))).toBeNull();
+    });
+});
+
+describe('getMachineUpdates', () => {
+    const upToDate = { state: 'idle', latestVersion: '0.13.0' };
+
+    it('offers an agent CLI with a newer version that the daemon or a command can install', () => {
+        const updates = getMachineUpdates(machine('0.13.0', upToDate, true, [
+            { agent: 'codex', version: '0.167.1', latestVersion: '0.172.0', updatable: true, state: 'idle' },
+            { agent: 'gemini', version: '0.71.0', latestVersion: '0.71.1', updatable: false, manualCommand: 'sudo npm install -g @google/gemini-cli@latest', state: 'idle' },
+            { agent: 'qoder', version: '1.1.97', latestVersion: '1.1.97', updatable: true, state: 'idle' },
+            { agent: 'claude', version: '2.1.300', latestVersion: '2.1.332', updatable: false, state: 'idle' },
+        ]));
+        expect(updates.state).toBe('available');
+        expect(updates.agents).toEqual([
+            { agent: 'codex', state: 'available', version: '0.172.0' },
+            { agent: 'gemini', state: 'available', version: '0.71.1' },
+        ]);
+    });
+
+    it('shows the most pressing state of the CLI and the agent CLIs', () => {
+        const agents = [
+            { agent: 'codex', state: 'installing' },
+            { agent: 'qoder', state: 'failed', error: 'timeout' },
+        ];
+        expect(getMachineUpdates(machine('0.12.0', upToDate, true, agents)).state).toBe('failed');
+        expect(getMachineUpdates(machine('0.12.0', upToDate, true, agents.slice(0, 1))).state).toBe('installing');
+        expect(getMachineUpdates(machine('0.12.0', upToDate, true, [])).state).toBe('available');
+        expect(getMachineUpdates(machine('0.13.0', upToDate, true, [])).state).toBe('none');
+    });
+
+    it('ignores the agent CLIs of an offline machine and agents the app does not know', () => {
+        const agents = [{ agent: 'codex', state: 'failed', error: 'x' }, { agent: 'opencode', version: '1.0.0', latestVersion: '2.0.0', updatable: true, state: 'idle' }];
+        expect(getMachineUpdates(machine('0.13.0', upToDate, false, agents)).agents).toEqual([]);
+        expect(getMachineUpdates(machine('0.13.0', upToDate, true, agents.slice(1))).agents).toEqual([]);
     });
 });

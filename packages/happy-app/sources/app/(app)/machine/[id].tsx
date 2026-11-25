@@ -47,6 +47,7 @@ import { MachineIcon } from '@/components/MachineAvatar';
 import { MachineAvatarPicker } from '@/components/MachineAvatarPicker';
 import { useSessionFork } from '@/hooks/useSessionFork';
 import { useMachineCliUpdate } from '@/hooks/useMachineCliUpdate';
+import { MachineCliGroup } from '@/components/MachineCliGroup';
 import { requestCliUpdateCheck } from '@/utils/cliUpdate';
 import { SessionProjectLabelsContext, useSessionProjectLabels } from '@/hooks/useSessionProjectLabel';
 import { AGENT_CHOICES, resolveAgentChoice, type AgentChoice } from '@/utils/agentChoice';
@@ -169,13 +170,13 @@ export default function MachineDetailScreen() {
     const machine = useMachine(machineId!);
     const cliUpdate = useMachineCliUpdate(machine);
     const listRef = useRef<ScrollView>(null);
-    // Opened from the session list's CLI banner: scroll to the CLI item and highlight it while the page
-    // fills in. It sits near the top of the daemon group, the last one, so scrolling to the end shows
-    // it with the rest of the group below it.
+    // Opened from an update indicator: scroll to the CLI versions group and highlight the CLIs with
+    // an update, following the group while the page above it fills in.
     const focusCliUntil = useRef(focus === 'cli' ? Date.now() + 1500 : 0);
+    const cliGroupY = useRef<number | null>(null);
     const [highlightCli, setHighlightCli] = useState(focus === 'cli');
-    const handleListContentSizeChange = useCallback(() => {
-        if (Date.now() < focusCliUntil.current) listRef.current?.scrollToEnd({ animated: true });
+    const scrollToCliGroup = useCallback(() => {
+        if (Date.now() < focusCliUntil.current && cliGroupY.current !== null) listRef.current?.scrollTo({ y: cliGroupY.current, animated: true });
     }, []);
     useEffect(() => {
         if (!highlightCli) return;
@@ -796,7 +797,7 @@ export default function MachineDetailScreen() {
             />
             <ItemList
                 ref={listRef}
-                onContentSizeChange={handleListContentSizeChange}
+                onContentSizeChange={scrollToCliGroup}
                 automaticallyAdjustKeyboardInsets={useNativeSoftHeader}
                 refreshControl={
                     <RefreshControl
@@ -1035,24 +1036,17 @@ export default function MachineDetailScreen() {
                         />
                 </ItemGroup>
 
-                {/* Daemon */}
-                <ItemGroup title={t('machine.daemon')}>
-                        <Item
-                            title={t('machine.status')}
-                            detail={daemonStatus}
-                            detailStyle={{
-                                color: daemonStatus === 'likely alive' ? '#34C759' : '#FF9500'
-                            }}
-                            showChevron={false}
-                        />
+                {/* CLI versions: the happy CLI, then the agent CLIs */}
+                <View onLayout={(event) => { cliGroupY.current = event.nativeEvent.layout.y; scrollToCliGroup(); }}>
+                    <MachineCliGroup machine={machine} highlighted={highlightCli} onCheck={cliUpdate.checkNow} checking={cliUpdate.checking}>
                         {/* The daemon refreshes happyCliVersion in machine metadata on every start */}
-                        {machine.metadata?.happyCliVersion && (
+                        {machine.metadata?.happyCliVersion ? (
                             <Item
-                                title={t('machine.cliVersion')}
+                                title={t('cliUpdate.happyCli')}
                                 subtitle={machine.metadata.happyCliVersion}
                                 onPress={cliUpdate.update.state === 'none' ? undefined : cliUpdate.openDetails}
                                 showChevron={false}
-                                style={highlightCli ? styles.cliItemHighlight : undefined}
+                                style={highlightCli && cliUpdate.update.state !== 'none' ? styles.cliItemHighlight : undefined}
                                 rightElement={cliUpdate.update.state === 'installing' ? (
                                     <View style={styles.cliStatus}>
                                         <ActivityIndicator size={Platform.OS === 'ios' ? "small" : 16 as any} color={theme.colors.textSecondary} />
@@ -1077,7 +1071,20 @@ export default function MachineDetailScreen() {
                                     </Pressable>
                                 ) : undefined}
                             />
-                        )}
+                        ) : null}
+                    </MachineCliGroup>
+                </View>
+
+                {/* Daemon */}
+                <ItemGroup title={t('machine.daemon')}>
+                        <Item
+                            title={t('machine.status')}
+                            detail={daemonStatus}
+                            detailStyle={{
+                                color: daemonStatus === 'likely alive' ? '#34C759' : '#FF9500'
+                            }}
+                            showChevron={false}
+                        />
                         {machine.daemonState && (
                             <>
                                 {machine.daemonState.pid && (

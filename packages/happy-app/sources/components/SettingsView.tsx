@@ -33,7 +33,7 @@ import { t } from '@/text';
 import { useMainTabBottomPadding } from '@/hooks/useMainTabBottomPadding';
 import { openExternalUrl } from '@/utils/tauri';
 import { useOpenTerminal } from '@/hooks/useOpenTerminal';
-import { getMachineCliUpdate } from '@/utils/cliUpdate';
+import { getMachineUpdates } from '@/utils/cliUpdate';
 import { CliUpdateIcon } from '@/components/CliUpdateIndicator';
 
 const machineKey = (machine: Machine) => machine.id;
@@ -76,7 +76,7 @@ export const SettingsView = React.memo(function SettingsView() {
             subtitle = subtitle ? `${subtitle} • ${platform}` : platform;
         }
         subtitle = subtitle ? `${subtitle} • ${isOnline ? t('status.online') : t('status.offline')}` : (isOnline ? t('status.online') : t('status.offline'));
-        const cliUpdate = getMachineCliUpdate(machine);
+        const cliUpdate = getMachineUpdates(machine);
 
         return (
             <Item
@@ -101,7 +101,7 @@ export const SettingsView = React.memo(function SettingsView() {
                 showChevron={!reorderHandle}
                 // Reordering rows sit in a list of their own, outside ItemGroup's dividers.
                 showDivider={reorderHandle ? !isLast : undefined}
-                // A CLI update, as in the machine switcher, stands where the chevron would be; tapping
+                // A CLI or agent CLI update, as in the machine switcher, stands where the chevron would be; tapping
                 // it opens the machine scrolled to its CLI version, as the session list's banner does.
                 rightElement={reorderHandle ?? (cliUpdate.state !== 'none' ? (
                     <Pressable

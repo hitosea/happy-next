@@ -1,12 +1,14 @@
 /**
- * Shared CLI upgrade primitives, used by `happy update` and the daemon's CLI updater.
+ * Shared CLI upgrade primitives, used by `happy update`, the daemon's CLI updater and, for the agent
+ * CLIs installed with npm (Claude Code, Codex, Gemini CLI), the agent CLI updater. Each takes the
+ * package, happy-next-cli by default.
  */
 
 import { execFile } from 'node:child_process';
 import { constants, realpathSync } from 'node:fs';
 import { access, mkdir, open, readFile, rm, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import axios from 'axios';
 import { configuration } from '@/configuration';
 import { projectPath } from '@/projectPath';
@@ -33,7 +35,7 @@ function tail(output: string): string {
     return lineStart === -1 ? end : end.slice(lineStart + 1);
 }
 
-function run(command: string, args: string[], timeout: number): Promise<string> {
+export function run(command: string, args: string[], timeout: number): Promise<string> {
     return new Promise((resolve, reject) => {
         execFile(command, args, {
             // npm refuses some commands (e.g. `config get`) inside a workspace
@@ -73,14 +75,14 @@ export function detectPackageManager(installDir: string = installedPackageDir())
     return 'npm';
 }
 
-export function getUpgradeCommand(pm: PackageManager): string[] {
+export function getUpgradeCommand(pm: PackageManager, packageName: string = PACKAGE_NAME, tag = 'latest'): string[] {
     switch (pm) {
         case 'pnpm':
-            return ['pnpm', 'add', '-g', `${PACKAGE_NAME}@latest`];
+            return ['pnpm', 'add', '-g', `${packageName}@${tag}`];
         case 'yarn':
-            return ['yarn', 'global', 'add', `${PACKAGE_NAME}@latest`];
+            return ['yarn', 'global', 'add', `${packageName}@${tag}`];
         case 'npm':
-            return ['npm', 'install', '-g', `${PACKAGE_NAME}@latest`];
+            return ['npm', 'install', '-g', `${packageName}@${tag}`];
     }
 }
 
@@ -95,19 +97,19 @@ function getRegistryUrl(): Promise<string> {
 }
 
 /**
- * Latest published version, as seen through the user's registry. Asks the
- * registry for the `latest` manifest alone (a few KB, no subprocess); falls
+ * Latest published version (of the `tag` dist-tag), as seen through the user's registry. Asks the
+ * registry for that manifest alone (a few KB, no subprocess); falls
  * back to `npm view` for registries that need npm's auth or proxy settings.
  */
-export async function fetchLatestVersion(): Promise<string | null> {
+export async function fetchLatestVersion(packageName: string = PACKAGE_NAME, tag = 'latest'): Promise<string | null> {
     try {
-        const response = await axios.get(`${(await getRegistryUrl()).replace(/\/+$/, '')}/${PACKAGE_NAME}/latest`, { timeout: FETCH_TIMEOUT_MS });
+        const response = await axios.get(`${(await getRegistryUrl()).replace(/\/+$/, '')}/${packageName}/${tag}`, { timeout: FETCH_TIMEOUT_MS });
         if (isVersion(response.data?.version)) return response.data.version;
     } catch {
         // Fall through to npm itself
     }
     try {
-        const version = await run('npm', ['view', PACKAGE_NAME, 'version'], VIEW_TIMEOUT_MS);
+        const version = await run('npm', ['view', `${packageName}@${tag}`, 'version'], VIEW_TIMEOUT_MS);
         return isVersion(version) ? version : null;
     } catch {
         return null;
@@ -151,10 +153,10 @@ export type AutoUpdateSupport =
     | { supported: true; packageManager: PackageManager; sudo: boolean }
     | { supported: false; reason: 'not-global-install' | 'no-permission' };
 
-/** Whether the current user can write the global directory the CLI is installed in. */
-export async function canWriteInstallDir(): Promise<boolean> {
+/** Whether the current user can write the global directory a package (the CLI by default) is installed in. */
+export async function canWriteInstallDir(installDir: string = installedPackageDir()): Promise<boolean> {
     try {
-        await access(dirname(installedPackageDir()), constants.W_OK);
+        await access(dirname(installDir), constants.W_OK);
         return true;
     } catch {
         return false;
@@ -162,26 +164,30 @@ export async function canWriteInstallDir(): Promise<boolean> {
 }
 
 /**
- * Whether this installation can upgrade itself without a human: it must be a
- * global install (not a source checkout, `yarn link` or npx cache) whose
- * directory the current user can write to, or, for npm, reach through sudo
- * without a password (such a user can already do anything root can).
+ * Whether an installation (the CLI's by default) can be upgraded without a human: it must be a
+ * global install (not a source checkout, `yarn link` or npx cache) whose directory the current
+ * user can write to, or, for npm, reach through sudo without a password (such a user can already
+ * do anything root can).
  */
-export async function checkAutoUpdateSupport(options: { allowSudo: boolean }): Promise<AutoUpdateSupport> {
-    const installDir = installedPackageDir();
+export async function checkAutoUpdateSupport(options: {
+    allowSudo: boolean;
+    installDir?: string;
+    packageName?: string;
+}): Promise<AutoUpdateSupport> {
+    const { installDir = installedPackageDir(), packageName = PACKAGE_NAME } = options;
     const normalized = installDir.replace(/\\/g, '/');
-    if (basename(installDir) !== PACKAGE_NAME
-        || basename(dirname(installDir)) !== 'node_modules'
-        || normalized.includes('/_npx/')) {
+    if (!normalized.endsWith(`/node_modules/${packageName}`) || normalized.includes('/_npx/')) {
         return { supported: false, reason: 'not-global-install' };
     }
+    // node_modules itself: a scoped package sits one level deeper
+    const modulesDir = packageName.split('/').reduce((dir) => dirname(dir), installDir);
 
     const packageManager = detectPackageManager(installDir);
     if (packageManager === 'npm') {
         // Rule out a project-local install that happens to be on PATH
         try {
             const globalRoot = realpathSync(await run('npm', ['root', '-g'], VIEW_TIMEOUT_MS));
-            if (realpathSync(dirname(installDir)) !== globalRoot) {
+            if (realpathSync(modulesDir) !== globalRoot) {
                 return { supported: false, reason: 'not-global-install' };
             }
         } catch {
@@ -189,7 +195,7 @@ export async function checkAutoUpdateSupport(options: { allowSudo: boolean }): P
         }
     }
 
-    if (await canWriteInstallDir()) {
+    if (await canWriteInstallDir(installDir)) {
         return { supported: true, packageManager, sudo: false };
     }
     const sudo = options.allowSudo && packageManager === 'npm' && process.platform !== 'win32'
@@ -203,8 +209,8 @@ export async function checkAutoUpdateSupport(options: { allowSudo: boolean }): P
  * npm config, registry and global prefix, so it installs over the same copy.
  * `no-prompt` makes sudo fail instead of asking for a password.
  */
-export async function getInstallCommand(pm: PackageManager, sudo?: 'prompt' | 'no-prompt'): Promise<string[]> {
-    const command = getUpgradeCommand(pm);
+export async function getInstallCommand(pm: PackageManager, sudo?: 'prompt' | 'no-prompt', packageName: string = PACKAGE_NAME, tag = 'latest'): Promise<string[]> {
+    const command = getUpgradeCommand(pm, packageName, tag);
     if (!sudo || pm !== 'npm') return command;
     const [prefix, userconfig, registry] = await Promise.all([
         run('npm', ['config', 'get', 'prefix'], VIEW_TIMEOUT_MS),
@@ -218,8 +224,8 @@ export async function getInstallCommand(pm: PackageManager, sudo?: 'prompt' | 'n
 }
 
 /** Run the global upgrade unattended. Throws with the tail of the package manager's output on failure. */
-export async function installLatest(pm: PackageManager, sudo: boolean): Promise<void> {
-    const [command, ...args] = await getInstallCommand(pm, sudo ? 'no-prompt' : undefined);
+export async function installLatest(pm: PackageManager, sudo: boolean, packageName: string = PACKAGE_NAME, tag = 'latest'): Promise<void> {
+    const [command, ...args] = await getInstallCommand(pm, sudo ? 'no-prompt' : undefined, packageName, tag);
     await run(command, args, INSTALL_TIMEOUT_MS);
 }
 

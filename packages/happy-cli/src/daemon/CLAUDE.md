@@ -62,6 +62,14 @@ to the new version immediately instead of waiting for the heartbeat, and the new
 `autoUpdateNoSudo: true` in settings.json turns that off (the app then shows "no permission" and the manual
 `happy update` command).
 
+The installed agent CLIs (claude, codex, gemini, qodercli, qoderclicn, agy) are checked by `agentCliUpdater.ts`
+on the same schedule and with the same `check-cli-update` RPC, and reported in `daemonState.agentClis`
+(version, latest version (npm — Claude Code on its `autoUpdatesChannel` dist-tag —, `qodercli update --check`, or Antigravity's release list), whether the daemon can update it, a manual command,
+`idle` / `installing` / `failed`). The `agent-cli-update` RPC (`{ agent? }`; no agent = every one with a newer
+version) installs through npm for global npm installs (same sudo rules as above) and through the CLI's own
+`update` otherwise. It shares the update lock with the happy CLI and restarts nothing; a CLI whose version
+changes gets its cached model list refreshed.
+
 ### Stopping the Daemon
 
 Command: `happy daemon stop`

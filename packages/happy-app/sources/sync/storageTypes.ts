@@ -319,8 +319,24 @@ export const DaemonStateSchema = z.object({
         checkedAt: z.number().optional(),
         targetVersion: z.string().optional(),
         error: z.string().optional(),
-    }).optional()
+    }).optional(),
+    // The agent CLIs installed on the machine, with their updates (happy-cli/src/daemon/agentCliUpdater.ts).
+    // State is idle / installing / failed.
+    agentClis: z.array(z.object({
+        agent: z.string(),
+        version: z.string().optional(),
+        latestVersion: z.string().optional(),
+        // Updates itself in the background (Claude Code, Antigravity)
+        // The daemon can run the update; `manualCommand`, when known, is what to run by hand otherwise
+        // or when the daemon's update fails
+        updatable: z.boolean().optional(),
+        manualCommand: z.string().optional(),
+        state: z.string(),
+        error: z.string().optional(),
+    })).optional()
 });
+
+export type AgentCliStatus = NonNullable<z.infer<typeof DaemonStateSchema>['agentClis']>[number];
 
 export type CliUpdateStatus = NonNullable<z.infer<typeof DaemonStateSchema>['cliUpdate']>;
 

@@ -28,6 +28,8 @@ import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPrev
 import { forkCodexSession, forkAndTruncateCodexSession } from '@/codex/utils/codexSessionFork';
 import { executeSessionArchive } from '@/daemon/executeSessionArchive';
 import type { CheckResult, CliUpdatePreflight, UpdateNowResult } from '@/daemon/cliUpdater';
+import type { AgentCliUpdateResult } from '@/daemon/agentCliUpdater';
+import type { AgentCliStatus } from '@/api/types';
 import { discoverCapabilities, type DiscoverCapabilitiesAgent } from '@/daemon/discoverCapabilities';
 import { remoteShell } from '@/daemon/orchestratorShell';
 import { isOrchestratorProvider, type OrchestratorProvider, type OrchestratorShellDispatchPayload, type OrchestratorTransferDispatchPayload, type OrchestratorTransferSourceParams } from '@/orchestrator/common';
@@ -224,8 +226,10 @@ type MachineRpcHandlers = {
     orchestratorReconcile: () => Promise<void>;
     /** Install the latest CLI now (the daemon then restarts on it by itself) */
     updateCli: () => Promise<UpdateNowResult>;
-    /** Look up the latest CLI unless the last lookup is at most `maxAgeMs` old */
-    checkCliUpdate: (maxAgeMs: number) => Promise<CheckResult>;
+    /** Look up the latest CLI, and the installed agent CLIs, unless the last lookup is at most `maxAgeMs` old */
+    checkCliUpdate: (maxAgeMs: number) => Promise<CheckResult & { agentClis: AgentCliStatus[] }>;
+    /** Update one agent's CLI now, or with no agent every agent CLI with a newer version */
+    updateAgentCli: (agent?: string) => Promise<AgentCliUpdateResult>;
     /** What installing the latest CLI involves, shown before the app asks for it */
     cliUpdatePreflight: () => Promise<CliUpdatePreflight>;
 }
@@ -332,6 +336,7 @@ export class ApiMachineClient {
         updateCli,
         checkCliUpdate,
         cliUpdatePreflight,
+        updateAgentCli,
     }: MachineRpcHandlers) {
         this.orchestratorReconcile = orchestratorReconcile;
 
@@ -629,6 +634,9 @@ export class ApiMachineClient {
             return checkCliUpdate(Number.isFinite(maxAgeMs) && maxAgeMs >= 0 ? maxAgeMs : 0);
         });
         this.rpcHandlerManager.registerHandler('cli-update-preflight', () => cliUpdatePreflight());
+        this.rpcHandlerManager.registerHandler('agent-cli-update', (params: { agent?: unknown } | undefined) => {
+            return updateAgentCli(typeof params?.agent === 'string' ? params.agent : undefined);
+        });
 
         // Search the messages every session on this machine has archived, across agents
         this.rpcHandlerManager.registerHandler('search-messages', async (params: unknown) => {

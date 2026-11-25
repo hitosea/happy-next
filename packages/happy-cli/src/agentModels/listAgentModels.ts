@@ -250,9 +250,14 @@ const claudeCache = cacheFor<ClaudeListing>('claude', listClaudeModels, (listing
 const caches = Object.fromEntries(Object.entries(FETCHERS).map(([agent, fetch]) => [
   agent,
   cacheFor<AgentModel[]>(agent as ModelListingAgent, fetch, (models) => models),
-])) as Record<Exclude<ModelListingAgent, 'claude'>, { get(): Promise<AgentModel[]> }>;
+])) as Record<Exclude<ModelListingAgent, 'claude'>, { get(): Promise<AgentModel[]>; markStale(): void }>;
 
 /** The models `agent` offers on this machine (see above for when its CLI is asked). */
 export async function listAgentModels(agent: ModelListingAgent): Promise<AgentModel[]> {
   return agent === 'claude' ? (await claudeCache.get()).models : caches[agent].get();
+}
+
+/** `agent`'s CLI changed version: its list is asked again before it is next served. */
+export function markAgentModelsStale(agent: ModelListingAgent): void {
+  (agent === 'claude' ? claudeCache : caches[agent]).markStale();
 }

@@ -6,14 +6,15 @@ import { useHappyAction } from '@/hooks/useHappyAction';
 import { machineCheckCliUpdate } from '@/sync/ops';
 import { storage } from '@/sync/storage';
 import type { Machine } from '@/sync/storageTypes';
-import { getMachineCliUpdate } from '@/utils/cliUpdate';
+import { agentCliHasUpdate, getMachineCliUpdate } from '@/utils/cliUpdate';
 import { compareVersions } from '@/utils/versionUtils';
 import { t } from '@/text';
 
 /**
  * A machine's CLI update as the app shows it (see utils/cliUpdate.ts), with its actions: the
- * "check" button, which has the daemon look the latest version up right now (the answer lands
- * in the machine's daemon state, which then offers the update), and opening the update dialog.
+ * "check" button, which has the daemon look the latest version up right now, the agent CLIs' too
+ * (the answer lands in the machine's daemon state, which then offers the updates), and opening the
+ * update dialog. The check says all is up to date only when the agent CLIs are as well.
  */
 export function useMachineCliUpdate(machine: Machine | null | undefined) {
     const update = React.useMemo(() => getMachineCliUpdate(machine), [machine]);
@@ -38,7 +39,7 @@ export function useMachineCliUpdate(machine: Machine | null | undefined) {
             return;
         }
         const running = storage.getState().machines[machineId]?.metadata?.happyCliVersion;
-        if (running && compareVersions(result.latestVersion, running) <= 0) {
+        if (running && compareVersions(result.latestVersion, running) <= 0 && !result.agentClis?.some(agentCliHasUpdate)) {
             showToast(t('cliUpdate.upToDate'));
         }
     }, [machineId]));

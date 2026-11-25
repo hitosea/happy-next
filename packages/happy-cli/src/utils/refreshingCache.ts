@@ -27,8 +27,10 @@ type Entry<T> = { value: T; fetchedAt: number };
  * A value that is slow or costly to fetch. At most one fetch runs at a time, and
  * every ask made meanwhile waits on it; a failed fetch keeps the value on hand.
  */
-export function createRefreshingCache<T>(options: RefreshingCacheOptions<T>): { get(): Promise<T> } {
+export function createRefreshingCache<T>(options: RefreshingCacheOptions<T>): { get(): Promise<T>; markStale(): void } {
   let entry: Entry<T> | null = null;
+  // A value fetched before this is refreshed first, as if too old (kept if the refresh fails)
+  let staleBefore = 0;
   let failure: { at: number; error: unknown } | null = null;
   let inflight: Promise<T> | null = null;
   let loading: Promise<void> | null = null;
@@ -73,13 +75,16 @@ export function createRefreshingCache<T>(options: RefreshingCacheOptions<T>): { 
         return refresh();
       }
       const { value, fetchedAt } = entry;
-      const age = now - fetchedAt;
+      const age = fetchedAt < staleBefore ? Infinity : now - fetchedAt;
       if (age < options.freshMs || coolingFor(options.failureCooldownMs)) return value;
       if (age < options.maxAgeMs) {
         refresh().catch(() => {});
         return value;
       }
       return refresh().catch(() => value);
+    },
+    markStale() {
+      staleBefore = Date.now();
     },
   };
 }

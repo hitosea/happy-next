@@ -15,7 +15,7 @@ import { createInitialScrollHandlersHook } from '@/hooks/bottomSheetInitialScrol
 import { SessionScopeDot } from './SessionScopeDot';
 import { MACHINE_AVATAR_COLORS, MACHINE_AVATAR_ICONS, resolveMachineAvatar } from './MachineAvatar';
 import { useMachine, useSetting } from '@/sync/storage';
-import { getMachineCliUpdate } from '@/utils/cliUpdate';
+import { getMachineUpdates } from '@/utils/cliUpdate';
 import { CliUpdateIcon } from './CliUpdateIndicator';
 import { liquidGlassAvailable } from './GlassSurface';
 import { sheetFill, sheetSafeAreaBottom } from './glassSheet';
@@ -71,7 +71,7 @@ const SwitcherItem = React.memo(({ icon, tint, name, meta, selected, online, dot
 });
 
 const MachineCliUpdateIcon = React.memo(({ machineId }: { machineId: string }) => {
-    const update = getMachineCliUpdate(useMachine(machineId));
+    const update = getMachineUpdates(useMachine(machineId));
     return <CliUpdateIcon update={update} size={20} />;
 });
 

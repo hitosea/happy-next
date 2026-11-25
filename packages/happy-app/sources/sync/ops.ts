@@ -6,12 +6,12 @@
 import { apiSocket } from './apiSocket';
 import { sync } from './sync';
 import { storage } from './storage';
-import { SessionCapabilitiesSchema, type MachineMetadata, type Metadata, type SessionCapabilities } from './storageTypes';
+import { SessionCapabilitiesSchema, type AgentCliStatus, type MachineMetadata, type Metadata, type SessionCapabilities } from './storageTypes';
 import type { OpenFilePreviewRequest, OpenFilePreviewResponse, FilePreviewChunkResponse } from 'happy-wire';
 import type { OpenFileDownloadRequest, OpenFileDownloadResponse } from 'happy-wire';
 import type { OpenFileUploadRequest, OpenFileUploadResponse, FileUploadChunkResponse, CloseFileUploadResponse } from 'happy-wire';
 import { AgentModelListSchema, type AgentModel, type ModelListingAgent } from 'happy-wire';
-import type { QoderBuild } from '@/utils/agentChoice';
+import type { AgentChoice, QoderBuild } from '@/utils/agentChoice';
 
 export async function sessionOpenFileDownload(sessionId: string, request: OpenFileDownloadRequest) {
     return apiSocket.sessionRPC<OpenFileDownloadResponse, OpenFileDownloadRequest>(sessionId, 'openFileDownload', request, 65000);
@@ -349,6 +349,17 @@ export function isRpcMethodNotAvailable(message: string | undefined): boolean {
     return /RPC method not available/i.test(message ?? '');
 }
 
+export type AgentCliUpdateResult = { status: 'started' | 'up-to-date' | 'busy' | 'unsupported' | 'not-installed' };
+
+/**
+ * Update one agent's CLI on a machine, or with no agent every agent CLI with a newer version, one
+ * after another. Progress lands in `daemonState.agentClis`; nothing restarts.
+ */
+export async function machineUpdateAgentCli(machineId: string, agent?: AgentChoice): Promise<AgentCliUpdateResult> {
+    // The daemon may look the versions up again before answering
+    return await apiSocket.machineRPC<AgentCliUpdateResult, { agent?: AgentChoice }>(machineId, 'agent-cli-update', agent ? { agent } : {}, 60000);
+}
+
 /**
  * Install the latest CLI on a machine; its daemon restarts on it by itself
  */
@@ -357,13 +368,21 @@ export async function machineUpdateCli(machineId: string): Promise<MachineUpdate
     return await apiSocket.machineRPC<MachineUpdateCliResult, {}>(machineId, 'update-cli', {}, 60000);
 }
 
+export type CliUpdateCheck = {
+    latestVersion: string | null;
+    checkedAt?: number;
+    // The installed agent CLIs, looked up with it; absent on daemons that do not report them
+    agentClis?: AgentCliStatus[];
+};
+
 /**
- * Have a machine's daemon look up the latest CLI unless its last lookup is at most `maxAgeMs` old.
- * The result lands in `daemonState.cliUpdate`. Daemons before 0.13 check by themselves only.
+ * Have a machine's daemon look up the latest CLI, and the versions of its agent CLIs, unless its last
+ * lookup is at most `maxAgeMs` old. The result lands in `daemonState.cliUpdate` and
+ * `daemonState.agentClis`. Daemons before 0.13 check by themselves only.
  */
-export async function machineCheckCliUpdate(machineId: string, maxAgeMs: number): Promise<{ latestVersion: string | null; checkedAt?: number } | null> {
+export async function machineCheckCliUpdate(machineId: string, maxAgeMs: number): Promise<CliUpdateCheck | null> {
     try {
-        return await apiSocket.machineRPC<{ latestVersion: string | null; checkedAt?: number }, { maxAgeMs: number }>(machineId, 'check-cli-update', { maxAgeMs }, 60000);
+        return await apiSocket.machineRPC<CliUpdateCheck, { maxAgeMs: number }>(machineId, 'check-cli-update', { maxAgeMs }, 60000);
     } catch (error) {
         if (error instanceof Error && isRpcMethodNotAvailable(error.message)) return null;
         throw error;

@@ -43,7 +43,7 @@ import { useSelectedMachineCliUpdate } from '@/hooks/useSelectedMachineCliUpdate
 import { CliUpdateDot, CliUpdateIcon, cliUpdateLabel, useCliUpdateColor, webTitle } from './CliUpdateIndicator';
 import { NativeMenu } from './NativeMenu';
 import type { ActionMenuItem } from './ActionMenu';
-import type { MachineCliUpdate } from '@/utils/cliUpdate';
+import type { MachineUpdates } from '@/utils/cliUpdate';
 
 interface MainViewProps {
     variant: 'phone' | 'sidebar';
@@ -310,7 +310,7 @@ const HeaderRight = React.memo(({ activeTab, onDootaskCreate, onSessionsNewSessi
     onSessionsNewSession?: () => void;
     onSessionsCreate?: () => void;
     sessionsCreateItems?: ActionMenuItem[];
-    cliUpdate?: MachineCliUpdate;
+    cliUpdate?: MachineUpdates;
     onCliUpdatePress?: () => void;
     onScanPress: () => void;
     onManualEntryPress: () => void;

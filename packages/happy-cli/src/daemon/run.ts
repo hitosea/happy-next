@@ -17,6 +17,7 @@ import packageJson from '../../package.json';
 import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 import { startCliUpdater } from './cliUpdater';
+import { startAgentCliUpdater } from './agentCliUpdater';
 import { isDebug } from '@/utils/env';
 import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock, readSettings } from '@/persistence';
 
@@ -1143,6 +1144,15 @@ export async function startDaemon(): Promise<void> {
       onInstalled: () => void handOverToInstalledVersion(),
     });
 
+    // Check the installed agent CLIs for updates; these too install only when asked for from the app
+    const agentCliUpdater = startAgentCliUpdater({
+      reportStatus: (agentClis) => {
+        apiMachine.updateDaemonState((state) => ({ ...state, status: state?.status ?? 'offline', agentClis })).catch((error) => {
+          logger.debug('[DAEMON RUN] Failed to report agent CLI update status', error);
+        });
+      },
+    });
+
     // Set RPC handlers
     apiMachine.setRPCHandlers({
       spawnSession,
@@ -1162,8 +1172,12 @@ export async function startDaemon(): Promise<void> {
         daemonStartedAt,
       }), Date.now() + ORCHESTRATOR_RECONCILE_DEADLINE_MS),
       updateCli: cliUpdater.updateNow,
-      checkCliUpdate: cliUpdater.check,
+      checkCliUpdate: async (maxAgeMs) => {
+        const [result, agentClis] = await Promise.all([cliUpdater.check(maxAgeMs), agentCliUpdater.check(maxAgeMs)]);
+        return { ...result, agentClis };
+      },
       cliUpdatePreflight: cliUpdater.preflight,
+      updateAgentCli: agentCliUpdater.updateNow,
     });
 
     // Connect to server
@@ -1267,6 +1281,7 @@ export async function startDaemon(): Promise<void> {
       logger.debug(`[DAEMON RUN] Starting proper cleanup (source: ${source}, errorMessage: ${errorMessage})...`);
 
       cliUpdater.stop();
+      agentCliUpdater.stop();
 
       // Clear health check interval
       if (restartOnStaleVersionAndHeartbeat) {
