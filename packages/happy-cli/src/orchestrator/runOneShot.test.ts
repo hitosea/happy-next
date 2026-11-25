@@ -131,14 +131,14 @@ describe('runOneShot spawn plan', () => {
     expect(plan.args).toEqual(['--dangerously-skip-permissions', '--resume', 'session-uuid', '-p', 'continue']);
   });
 
-  it('runs antigravity in JSON print mode with the model and effort of the mode', () => {
+  it('runs antigravity in streamed JSON print mode with the model and effort of the mode', () => {
     const plan = buildSpawnPlan('antigravity', 'hello', '/tmp/workdir', 'gemini-4-neon:low', 'initial');
     expect(plan.command).toMatch(/agy$/);
-    expect(plan.args).toEqual(['-p', 'hello', '--output-format', 'json', '--dangerously-skip-permissions', '--model', 'gemini-4-neon', '--effort', 'low']);
+    expect(plan.args).toEqual(['-p', 'hello', '--output-format', 'stream-json', '--dangerously-skip-permissions', '--model', 'gemini-4-neon', '--effort', 'low']);
   });
 
   it('resumes antigravity by conversation id on the default model', () => {
     const plan = buildSpawnPlan('antigravity', 'continue', '/tmp/workdir', 'default', 'resume', 'session-uuid');
-    expect(plan.args).toEqual(['-p', 'continue', '--output-format', 'json', '--dangerously-skip-permissions', '--conversation', 'session-uuid']);
+    expect(plan.args).toEqual(['-p', 'continue', '--output-format', 'stream-json', '--dangerously-skip-permissions', '--conversation', 'session-uuid']);
   });
 });

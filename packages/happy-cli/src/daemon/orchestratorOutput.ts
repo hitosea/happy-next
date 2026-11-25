@@ -177,3 +177,25 @@ export function normalizeGeminiOutputText(stdout: string): string {
   const unique = [...new Set(candidates)];
   return unique.join('\n').trim();
 }
+
+/**
+ * Antigravity runs in stream-json print mode, whose first line already names the conversation so a
+ * running task can be followed. The answer is the closing `result` event's `response`; without it
+ * (a cut-off run) it is the reply text streamed so far, and a whole JSON document is read as Gemini's.
+ */
+export function normalizeAntigravityOutputText(stdout: string): string {
+  const events = stdout.split(/\r?\n/).flatMap((line): Record<string, any>[] => {
+    try {
+      const parsed = JSON.parse(line);
+      return parsed && typeof parsed.event === 'string' ? [parsed] : [];
+    } catch {
+      return [];
+    }
+  });
+  const response = events.find((event) => event.event === 'result' && typeof event.result?.response === 'string')?.result.response as string | undefined;
+  const streamed = events
+    .filter((event) => event.step_update?.step_type === 'agent_response' && typeof event.step_update.text_delta === 'string')
+    .map((event) => event.step_update.text_delta as string)
+    .join('');
+  return (response ?? streamed).trim() || (events.length === 0 ? normalizeGeminiOutputText(stdout) : '');
+}

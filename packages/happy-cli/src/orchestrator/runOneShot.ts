@@ -182,10 +182,11 @@ export function buildSpawnPlan(
       };
     }
     case 'antigravity': {
-      // Like Gemini: JSON output carries the answer and the conversation id agy picked. A model
-      // mode is `model[:effort]`, the account's ACP model ids, which print mode also takes.
+      // Like Gemini, JSON output carries the answer and the conversation id agy picked; streamed, the
+      // id comes first, so the app can follow the running task. A model mode is `model[:effort]`,
+      // the account's ACP model ids, which print mode also takes.
       const { model, effort } = parseQoderModelMode(normalizedModelMode ?? MODEL_MODE_DEFAULT);
-      const antigravityArgs = ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions'];
+      const antigravityArgs = ['-p', prompt, '--output-format', 'stream-json', '--dangerously-skip-permissions'];
       if (executionType === 'resume') antigravityArgs.push('--conversation', childSessionId!);
       if (normalizedModelMode) antigravityArgs.push('--model', model, ...(effort ? ['--effort', effort] : []));
       return {

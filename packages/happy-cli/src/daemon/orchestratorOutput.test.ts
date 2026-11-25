@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeGeminiOutputText } from './orchestratorOutput';
+import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
 
 describe('normalizeGeminiOutputText', () => {
   it('keeps plain text output unchanged when stdout is not JSON', () => {
@@ -88,5 +88,33 @@ describe('extractGeminiSessionId', () => {
     expect(extractGeminiSessionId('plain text output')).toBeNull();
     expect(extractGeminiSessionId(JSON.stringify({ response: 'hello' }))).toBeNull();
     expect(extractGeminiSessionId('')).toBeNull();
+  });
+});
+
+describe('normalizeAntigravityOutputText', () => {
+  const id = '394d3a42-6be8-48a3-afa4-57a85f609d1b';
+  const lines = [
+    { event: 'init', conversation_id: id, init: { cwd: '/tmp', tools: ['browser_click_element', 'run_command'] } },
+    { event: 'step_update', step_update: { conversation_id: id, step_index: 0, state: 'DONE', step_type: 'user_input' } },
+    { event: 'step_update', step_update: { conversation_id: id, step_index: 1, state: 'ACTIVE', step_type: 'agent_response', text_delta: 'Hel' } },
+    { event: 'step_update', step_update: { conversation_id: id, step_index: 1, state: 'DONE', step_type: 'agent_response', text_delta: 'lo\n' } },
+  ].map((line) => JSON.stringify(line));
+  const result = JSON.stringify({ event: 'result', result: { conversation_id: id, status: 'SUCCESS', response: 'Hello\n' } });
+
+  it('names the conversation from the first streamed line', () => {
+    expect(extractGeminiSessionIdFromJsonLine(lines[0])).toBe(id);
+    expect(extractGeminiSessionId([...lines, result].join('\n'))).toBe(id);
+  });
+
+  it('reads the answer from the result event, leaving out the tool list', () => {
+    expect(normalizeAntigravityOutputText([...lines, result].join('\n'))).toBe('Hello');
+  });
+
+  it('falls back to the reply streamed so far when the run ends without a result', () => {
+    expect(normalizeAntigravityOutputText(lines.join('\n'))).toBe('Hello');
+  });
+
+  it('still reads a single JSON document', () => {
+    expect(normalizeAntigravityOutputText(JSON.stringify({ conversation_id: id, status: 'SUCCESS', response: '1\n' }))).toBe('1');
   });
 });

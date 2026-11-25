@@ -42,7 +42,7 @@ import {
   type OrchestratorFinishStatus,
 } from '@/orchestrator/common';
 import { createOrchestratorEnvelopeOpener, type OrchestratorEnvelopeOpener } from '@/orchestrator/seal';
-import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeGeminiOutputText } from './orchestratorOutput';
+import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
 import { createOrchestratorShellExecutor, reportWithRetry } from './orchestratorShell';
 import { createOrchestratorTransferExecutor } from './orchestratorTransfer';
 import { dropSessionEnv } from './sessionEnv';
@@ -51,8 +51,12 @@ const ORCHESTRATOR_WATCHDOG_GRACE_MS = 5_000;
 const ORCHESTRATOR_OUTPUT_CAPTURE_LIMIT = 64_000;
 const ORCHESTRATOR_SHUTDOWN_WAIT_MS = 8_000;
 const ORCHESTRATOR_RECONCILE_DEADLINE_MS = 5 * 60_000;
-// Providers run in a JSON output mode: the answer is its `response` and it reports its own session id
-const JSON_OUTPUT_PROVIDERS: ReadonlySet<string> = new Set(['gemini', 'antigravity']);
+// Providers run in a JSON output mode: they report their own session id, and the answer is read out of the JSON
+const JSON_OUTPUT_NORMALIZERS: Readonly<Record<string, (stdout: string) => string>> = {
+  gemini: normalizeGeminiOutputText,
+  antigravity: normalizeAntigravityOutputText,
+};
+const JSON_OUTPUT_PROVIDERS: ReadonlySet<string> = new Set(Object.keys(JSON_OUTPUT_NORMALIZERS));
 
 // Prepare initial metadata
 export const initialMachineMetadata: MachineMetadata = {
@@ -250,9 +254,8 @@ export async function startDaemon(): Promise<void> {
         return;
       }
       execution.finishReportPromise = (async () => {
-        const normalizedStdout = JSON_OUTPUT_PROVIDERS.has(execution.payload.provider)
-          ? normalizeGeminiOutputText(execution.stdout)
-          : execution.stdout.trim();
+        const normalizeOutput = JSON_OUTPUT_NORMALIZERS[execution.payload.provider];
+        const normalizedStdout = normalizeOutput ? normalizeOutput(execution.stdout) : execution.stdout.trim();
         const outputText = buildExecutionOutputText({ status: opts.status, stdout: normalizedStdout, stderr: execution.stderr });
         const outputSummary = buildOutputSummary(normalizedStdout, execution.stderr);
         const normalizedChildSessionId = execution.detectedChildSessionId?.trim();
