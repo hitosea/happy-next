@@ -2061,6 +2061,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                                                         flex: 1,
                                                         alignItems: 'center',
                                                         paddingVertical: 6,
+                                                        // Keeps a long model name clear of the highlight's edges.
+                                                        paddingHorizontal: 12,
                                                         borderRadius: 8,
                                                     }}
                                                 >
