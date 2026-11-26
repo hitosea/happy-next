@@ -3,8 +3,8 @@
  * The agent runs in the worktree and has full filesystem + tool access.
  */
 
-export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek'): string {
-    const agentLabel = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', qoder: 'Qoder', antigravity: 'Antigravity', deepseek: 'DeepSeek' }[agent];
+export function buildReviewPrompt(prUrl: string, branchName: string, agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder'): string {
+    const agentLabel = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', antigravity: 'Antigravity', deepseek: 'DeepSeek', qoder: 'Qoder' }[agent];
     return `You are performing a code review on a pull request.
 
 PR URL: ${prUrl}

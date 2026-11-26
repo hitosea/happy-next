@@ -2,7 +2,7 @@
  * TransportHandler Interface
  *
  * Abstraction layer for agent-specific transport logic.
- * Allows different ACP agents (Gemini, Codex, Claude, etc.) to customize:
+ * Allows different ACP agents (Claude, Codex, Gemini, etc.) to customize:
  * - Initialization timeouts
  * - Stdout filtering (for debug output removal)
  * - Stderr handling (for error detection)

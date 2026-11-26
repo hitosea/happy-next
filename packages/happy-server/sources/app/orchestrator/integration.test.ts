@@ -1886,10 +1886,10 @@ describe('orchestrator integration paths', () => {
             claude: ['default'],
             codex: ['default'],
             gemini: ['default'],
-            qoder: ['default'],
-            qodercn: ['default'],
             antigravity: ['default'],
             deepseek: ['default'],
+            qoder: ['default'],
+            qodercn: ['default'],
         });
         expect(body.data.defaults).toEqual(expect.objectContaining({
             retryMaxAttempts: 1,

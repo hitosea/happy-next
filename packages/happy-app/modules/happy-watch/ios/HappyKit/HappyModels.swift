@@ -53,9 +53,9 @@ public struct HappySession: Identifiable, Hashable {
     case nil, "claude": return "Claude"
     case "codex", "gpt", "openai": return "Codex"
     case "gemini": return "Gemini"
-    case "qoder": return "Qoder"
     case "antigravity": return "Antigravity"
     case "deepseek": return "DeepSeek"
+    case "qoder": return "Qoder"
     case let other?: return other
     }
   }

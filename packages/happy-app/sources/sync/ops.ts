@@ -187,7 +187,7 @@ export interface SpawnSessionOptions {
     directory: string;
     approvedNewDirectoryCreation?: boolean;
     token?: string;
-    agent?: 'codex' | 'claude' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
+    agent?: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
     // Qoder (`intl`) or Qoder CN (`cn`) for a Qoder session; without it the daemon starts the build it finds first
     qoderBuild?: QoderBuild;
     resumeSessionId?: string;
@@ -265,7 +265,7 @@ export type ClaudeUserMessageWithUuid = UserMessageWithUuid;
 /** Unified session entry type for multi-agent history browser */
 export interface AgentSessionIndexEntry {
     sessionId: string;
-    agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek';
+    agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
     qoderBuild?: QoderBuild; // Qoder only: which build's directory the conversation is saved in
     originalPath: string | null;
     title?: string | null;
@@ -313,7 +313,7 @@ export async function machineSpawnNewSession(options: SpawnSessionOptions): Prom
  */
 export async function machineDiscoverCapabilities(
     machineId: string,
-    agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek',
+    agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder',
     directory: string,
     qoderBuild?: QoderBuild
 ): Promise<SessionCapabilities> {

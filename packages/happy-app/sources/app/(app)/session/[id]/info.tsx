@@ -276,9 +276,9 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
@@ -304,7 +304,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -594,7 +594,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const [reviewMenuVisible, setReviewMenuVisible] = React.useState(false);
     const [requestingReview, setRequestingReview] = React.useState(false);
 
-    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek') => {
+    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder') => {
         if (!worktreeMachineId || !worktreeBranch || !worktreePath) return;
         const prUrl = selectedRepo?.prUrl;
         if (!prUrl) return;
@@ -665,16 +665,16 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('gemini'); },
             },
             {
-                label: 'Qoder',
-                onPress: () => { setReviewMenuVisible(false); doRequestReview('qoder'); },
-            },
-            {
                 label: 'Antigravity',
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('antigravity'); },
             },
             {
                 label: 'DeepSeek',
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('deepseek'); },
+            },
+            {
+                label: 'Qoder',
+                onPress: () => { setReviewMenuVisible(false); doRequestReview('qoder'); },
             },
     ], [doRequestReview]);
 

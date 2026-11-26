@@ -10,7 +10,7 @@ const orchestratorTaskSchema = z.object({
   taskKey: z.string().min(1).max(128).optional(),
   title: z.string().min(1).max(256).optional(),
   provider: z.enum(ORCHESTRATOR_PROVIDERS)
-    .describe('AI agent provider to execute the task. "qoder" is Qoder (qodercli) and "qodercn" is Qoder CN (qoderclicn); they sign in to separate accounts. "antigravity" is the Antigravity CLI (agy). "deepseek" is DeepSeek Harness (dsh).'),
+    .describe('AI agent provider to execute the task. "antigravity" is the Antigravity CLI (agy). "deepseek" is DeepSeek Harness (dsh). "qoder" is Qoder (qodercli) and "qodercn" is Qoder CN (qoderclicn); they sign in to separate accounts.'),
   model: z.string().min(1).max(128).optional()
     .describe('Model mode for this provider; prefer orchestrator_get_context.data.modelModes[provider] (for another machine, its machines[].modelModes). Use "default" for CLI default. Codex only: append "-fast" (e.g. "gpt-5.5-high-fast") to run in fast mode, which uses more quota — off unless the user asks for it.'),
   prompt: z.string().min(1).max(65536),
@@ -39,7 +39,7 @@ export const ORCHESTRATOR_GET_CONTEXT_TOOL_SCHEMA = {
 } as const;
 
 export const ORCHESTRATOR_SUBMIT_TOOL_SCHEMA = {
-  description: 'Delegate one or more self-contained prompts to AI child tasks across claude/codex/gemini/qoder/qodercn/antigravity/deepseek, in parallel or with dependsOn. Returns immediately; wait for <orchestrator-callback> before calling orchestrator_pend.',
+  description: 'Delegate one or more self-contained prompts to AI child tasks across claude/codex/gemini/antigravity/deepseek/qoder/qodercn, in parallel or with dependsOn. Returns immediately; wait for <orchestrator-callback> before calling orchestrator_pend.',
   title: 'Orchestrator Submit',
   inputSchema: {
     title: z.string().min(1).max(256).describe('Run title'),

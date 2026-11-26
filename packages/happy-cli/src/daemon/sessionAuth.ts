@@ -15,7 +15,7 @@ const authVariables = {
 
 export function getUnexpandedSessionAuthVariables(
   environment: Record<string, string>,
-  agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek' = 'claude',
+  agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' = 'claude',
 ): string[] {
   return authVariables[agent].filter(name => environment[name]?.includes('${'));
 }

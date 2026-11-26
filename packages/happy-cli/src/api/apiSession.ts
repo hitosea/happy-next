@@ -82,7 +82,7 @@ export type ACPMessageData =
     // Usage/metrics
     | { type: 'token_count';[key: string]: unknown };
 
-export type ACPProvider = 'gemini' | 'codex' | 'claude' | 'opencode' | 'qoder' | 'antigravity' | 'deepseek';
+export type ACPProvider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'antigravity' | 'deepseek' | 'qoder';
 
 
 type OrchestratorSubmitTask = {
@@ -1310,9 +1310,9 @@ export class ApiSessionClient extends EventEmitter {
 
     /**
      * Send a generic agent message to the session using ACP (Agent Communication Protocol) format.
-     * Works for any agent type (Gemini, Codex, Claude, etc.) - CLI normalizes to unified ACP format.
+     * Works for any agent type (Claude, Codex, Gemini, etc.) - CLI normalizes to unified ACP format.
      * 
-     * @param provider - The agent provider sending the message (e.g., 'gemini', 'codex', 'claude')
+     * @param provider - The agent provider sending the message (e.g., 'claude', 'codex', 'gemini')
      * @param body - The message payload (type: 'message' | 'reasoning' | 'tool-call' | 'tool-result')
      */
     sendAgentMessage(provider: ACPProvider, body: ACPMessageData) {

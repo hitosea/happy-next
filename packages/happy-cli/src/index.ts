@@ -33,9 +33,9 @@ import { PUBLIC_DAEMON_SUBCOMMANDS, resolveCliInvocation, suggestClosestCommand 
 import { CODEX_CLI_HELP, CodexCliSelectionCancelledError, CodexCliUsageError, parseCodexCliInvocation, resolveCodexResumeFile } from './codex/cli'
 
 import { resolveCodexResumeDirectory } from './codex/resumeDirectory'
-import { resolveQoderCommand } from './qoder/constants'
 import { resolveAntigravityCommand } from './antigravity/constants'
 import { resolveDeepSeekCommand } from './deepseek/constants'
+import { resolveQoderCommand } from './qoder/constants'
 
 // Give the process a distinctive title so it does not show up as a generic
 // `node ... dist/index.mjs ...` in `ps`/`pkill`. Otherwise tooling and AI agents that
@@ -708,9 +708,9 @@ ${chalk.bold('Usage:')}
   happy codex             Start Codex mode
   happy codex resume      Select a Codex session to resume in this directory
   happy gemini            Start Gemini mode (ACP)
-  happy qoder             Start Qoder mode (ACP)
   happy antigravity       Start Antigravity mode (ACP)
   happy deepseek          Start DeepSeek Harness mode (ACP)
+  happy qoder             Start Qoder mode (ACP)
   happy connect           Connect AI vendor API keys
   happy notify            Send push notification
   happy daemon            Manage background service
@@ -761,9 +761,9 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
         { name: 'Claude', cmd: 'claude', args: ['--version'] },
         { name: 'Codex', cmd: 'codex', args: ['--version'] },
         { name: 'Gemini', cmd: 'gemini', args: ['--version'] },
-        { name: 'Qoder', cmd: resolveQoderCommand(), args: ['--version'] },
         { name: 'Antigravity', cmd: resolveAntigravityCommand(), args: ['--version'] },
         { name: 'DeepSeek', cmd: resolveDeepSeekCommand(), args: ['--version'] },
+        { name: 'Qoder', cmd: resolveQoderCommand(), args: ['--version'] },
       ]
       for (const { name, cmd, args: vArgs } of checks) {
         try {

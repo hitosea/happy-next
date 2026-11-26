@@ -27,9 +27,9 @@ import { configuration } from '@/configuration';
 import { projectPath } from '@/projectPath';
 import { codexPackage } from '@/codex/package';
 import { resolveCodexRuntime } from '@/codex/codexRuntime';
-import { fetchQoderModels } from '@/qoder/models';
 import { fetchAntigravityModels } from '@/antigravity/models';
 import { fetchDeepSeekModels } from '@/deepseek/models';
+import { fetchQoderModels } from '@/qoder/models';
 import { createRefreshingCache } from '@/utils/refreshingCache';
 import { withShortLivedProcess, type ShortLivedProcess } from '@/utils/shortLivedProcess';
 

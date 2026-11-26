@@ -37,16 +37,6 @@ Start a Gemini CLI session with remote control capabilities.
 happy connect gemini
 ```
 
-### Qoder
-
-```bash
-happy qoder
-```
-
-Start a Qoder CLI session with remote control capabilities.
-
-**First time setup:** install [Qoder CLI](https://qoder.com) and sign in once with `qodercli login` (or `qoderclicn login` for the China build). Qoder uses your Qoder account, so there is no `happy connect qoder` step.
-
 ### Antigravity
 
 ```bash
@@ -57,6 +47,26 @@ Start an Antigravity CLI (`agy`) session with remote control capabilities.
 
 **First time setup:** install the Antigravity CLI and sign in once by running `agy`. Antigravity uses your Google account, so there is no `happy connect antigravity` step. Copying, forking and upgrading a session needs Node.js 22.5 or newer.
 
+### DeepSeek
+
+```bash
+happy deepseek
+```
+
+Start a DeepSeek Harness (`dsh`) session with remote control capabilities.
+
+**First time setup:** install DeepSeek Harness (`npm install -g @deepseek-ai/dsh`) and give it an API key, either `DEEPSEEK_API_KEY` or `dsh web`. Copying, forking and upgrading a session needs Node.js 22.15 or newer.
+
+### Qoder
+
+```bash
+happy qoder
+```
+
+Start a Qoder CLI session with remote control capabilities.
+
+**First time setup:** install [Qoder CLI](https://qoder.com) and sign in once with `qodercli login` (or `qoderclicn login` for the China build). Qoder uses your Qoder account, so there is no `happy connect qoder` step.
+
 ## Commands
 
 ### Main Commands
@@ -64,10 +74,11 @@ Start an Antigravity CLI (`agy`) session with remote control capabilities.
 - `happy` – Start Claude Code session (default)
 - `happy claude [args]` – Start Claude with explicit positional arguments
 - `happy -- <args>` – Pass positional arguments directly to Claude
-- `happy gemini` – Start Gemini CLI session
 - `happy codex` – Start Codex mode
-- `happy qoder` – Start Qoder CLI session
+- `happy gemini` – Start Gemini CLI session
 - `happy antigravity` – Start Antigravity CLI session
+- `happy deepseek` – Start DeepSeek Harness session
+- `happy qoder` – Start Qoder CLI session
 
 ### Utility Commands
 

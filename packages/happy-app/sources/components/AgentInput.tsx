@@ -112,11 +112,11 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
     // New sessions only: the build a Qoder agentType runs on, which the picker shows as Qoder or Qoder CN.
     qoderBuild?: QoderBuild;
     // The models the agent offers on the machine (useAgentModels), with their efforts, context windows and
-    // Qoder's own description. Qoder's and Antigravity's sessions also report theirs in metadata.models.
+    // Qoder's own description. Antigravity's, DeepSeek's and Qoder's sessions also report theirs in metadata.models.
     agentModels?: PickerModel[];
     // There is no model list yet and the machine is being asked for one: the picker says so.
     agentModelsLoading?: boolean;
@@ -170,9 +170,9 @@ const agentFlavorIcons = {
     claude: require('@/assets/images/icon-claude.png'),
     codex: require('@/assets/images/icon-gpt.png'),
     gemini: require('@/assets/images/icon-gemini.png'),
-    qoder: require('@/assets/images/icon-qoder.png'),
     antigravity: require('@/assets/images/icon-antigravity.png'),
     deepseek: require('@/assets/images/icon-deepseek.png'),
+    qoder: require('@/assets/images/icon-qoder.png'),
 };
 
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
@@ -602,7 +602,7 @@ const stylesheet = StyleSheet.create((theme, runtime) => ({
     },
 }));
 
-// 200000 → 200K, 1000000 → 1M, as Qoder and Claude Code label context windows.
+// 200000 → 200K, 1000000 → 1M, as Claude Code and Qoder label context windows.
 const formatContextWindowLabel = (tokens: number) => tokens >= 1_000_000 && tokens % 1_000_000 === 0
     ? `${tokens / 1_000_000}M`
     : `${Math.round(tokens / 1000)}K`;
@@ -852,10 +852,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Use metadata.flavor for existing sessions, agentType prop for new sessions
     const isCodex = props.metadata?.flavor === 'codex' || props.agentType === 'codex';
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
-    const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
     const isAntigravity = props.metadata?.flavor === 'antigravity' || props.agentType === 'antigravity';
     const isDeepSeek = props.metadata?.flavor === 'deepseek' || props.agentType === 'deepseek';
-    // Qoder, Antigravity and DeepSeek take the models their CLI/account lists; Claude Code, Codex and Gemini CLI take
+    const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
+    // Antigravity, DeepSeek and Qoder take the models their CLI/account lists; Claude Code, Codex and Gemini CLI take
     // any model id, so their picker also lets one be typed in.
     const usesAccountModels = isQoder || isAntigravity || isDeepSeek;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.

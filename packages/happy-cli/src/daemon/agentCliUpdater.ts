@@ -33,9 +33,9 @@ import type { AgentCliStatus } from '@/api/types';
 import { readSettings } from '@/persistence';
 import { logger } from '@/ui/logger';
 import { markAgentModelsStale } from '@/agentModels/listAgentModels';
-import { resolveQoderCommand } from '@/qoder/constants';
 import { resolveAntigravityCommand } from '@/antigravity/constants';
 import { resolveDeepSeekCommand } from '@/deepseek/constants';
+import { resolveQoderCommand } from '@/qoder/constants';
 import {
     acquireUpdateLock,
     checkAutoUpdateSupport,
@@ -121,10 +121,10 @@ const SPECS: AgentCliSpec[] = [
     { agent: 'claude', locate: () => findExecutable('claude'), npmPackage: '@anthropic-ai/claude-code', npmTag: claudeChannel, updateArgs: ['update'], latestVersion: (_command, tag) => fetchLatestVersion('@anthropic-ai/claude-code', tag) },
     { agent: 'codex', locate: () => findExecutable('codex'), npmPackage: '@openai/codex', latestVersion: () => fetchLatestVersion('@openai/codex') },
     { agent: 'gemini', locate: () => findExecutable('gemini'), npmPackage: '@google/gemini-cli', latestVersion: () => fetchLatestVersion('@google/gemini-cli') },
-    { agent: 'qoder', locate: () => found(resolveQoderCommand(process.env, 'intl')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
-    { agent: 'qodercn', locate: () => found(resolveQoderCommand(process.env, 'cn')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
     { agent: 'antigravity', locate: () => found(resolveAntigravityCommand()), updateArgs: ['update'], latestVersion: antigravityLatestVersion },
     { agent: 'deepseek', locate: () => found(resolveDeepSeekCommand()), npmPackage: '@deepseek-ai/dsh', latestVersion: () => fetchLatestVersion('@deepseek-ai/dsh') },
+    { agent: 'qoder', locate: () => found(resolveQoderCommand(process.env, 'intl')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
+    { agent: 'qodercn', locate: () => found(resolveQoderCommand(process.env, 'cn')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
 ];
 
 /** How the daemon updates a CLI, and what to run by hand when that fails or it cannot (when known) */

@@ -5,7 +5,7 @@ import type { AgentChoice } from '@/utils/agentChoice';
 // keep their own, as their accounts offer different models.
 export type SessionModeAgentType = AgentChoice;
 // Listed here, not imported: this module stays free of the app's UI code, which agentChoice pulls in
-const SESSION_MODE_AGENTS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity', 'deepseek'] as const satisfies readonly AgentChoice[];
+const SESSION_MODE_AGENTS = ['claude', 'codex', 'gemini', 'antigravity', 'deepseek', 'qoder', 'qodercn'] as const satisfies readonly AgentChoice[];
 
 export const SESSION_MODE_CONFIG_KV_KEY = 'session-mode-config:v1';
 export const SESSION_MODE_CONFIG_SCHEMA_VERSION = 1 as const;

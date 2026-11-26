@@ -277,8 +277,8 @@ export function createMessageAdapter(
  * Pre-configured adapters for common agents
  */
 export const adapters = {
-  gemini: new MessageAdapter({ agentType: 'gemini' }),
-  codex: new MessageAdapter({ agentType: 'codex' }),
   claude: new MessageAdapter({ agentType: 'claude' }),
+  codex: new MessageAdapter({ agentType: 'codex' }),
+  gemini: new MessageAdapter({ agentType: 'gemini' }),
   opencode: new MessageAdapter({ agentType: 'opencode' }),
 } as const;

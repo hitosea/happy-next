@@ -20,7 +20,7 @@ export type OrchestratorRunSummary = {
 
 // `shell`: the task's prompt is a command the machine's daemon runs itself, with no AI session
 // `qodercn` is Qoder CN, the China build of Qoder
-export type OrchestratorProvider = 'claude' | 'codex' | 'gemini' | 'qoder' | 'qodercn' | 'antigravity' | 'deepseek' | 'shell' | 'transfer';
+export type OrchestratorProvider = 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' | 'qodercn' | 'shell' | 'transfer';
 
 export type OrchestratorExecutionRecord = {
     executionId: string;

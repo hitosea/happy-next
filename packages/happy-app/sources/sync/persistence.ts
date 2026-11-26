@@ -39,7 +39,7 @@ export function dootaskTasksCacheStorage(): PersistedCacheStorage {
     return mmkvCacheStorage('dootask-tasks-cache-v1');
 }
 
-export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
+export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
 export type NewSessionSessionType = 'simple' | 'worktree';
 
 export interface NewSessionDraft {

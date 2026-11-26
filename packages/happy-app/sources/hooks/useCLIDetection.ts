@@ -27,11 +27,11 @@ const CLI_DETECTION_COMMAND =
     '((command -v dsh || test -x ~/.local/bin/dsh) >/dev/null 2>&1 && echo "deepseek:true" || echo "deepseek:false")';
 
 /** Every CLI unknown: before detection, and when it fails. */
-const UNKNOWN_CLIS: CLIAvailability = { claude: null, codex: null, gemini: null, qoder: null, qodercn: null, antigravity: null, deepseek: null, isDetecting: false, timestamp: 0 };
+const UNKNOWN_CLIS: CLIAvailability = { claude: null, codex: null, gemini: null, antigravity: null, deepseek: null, qoder: null, qodercn: null, isDetecting: false, timestamp: 0 };
 
 function parseCLIOutput(stdout: string): CLIAvailability {
     const lines = stdout.trim().split('\n');
-    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; qoder?: boolean; qodercn?: boolean; antigravity?: boolean; deepseek?: boolean } = {};
+    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; antigravity?: boolean; deepseek?: boolean; qoder?: boolean; qodercn?: boolean } = {};
 
     lines.forEach(line => {
         const [cli, status] = line.split(':');
@@ -44,10 +44,10 @@ function parseCLIOutput(stdout: string): CLIAvailability {
         claude: cliStatus.claude ?? null,
         codex: cliStatus.codex ?? null,
         gemini: cliStatus.gemini ?? null,
-        qoder: cliStatus.qoder ?? null,
-        qodercn: cliStatus.qodercn ?? null,
         antigravity: cliStatus.antigravity ?? null,
         deepseek: cliStatus.deepseek ?? null,
+        qoder: cliStatus.qoder ?? null,
+        qodercn: cliStatus.qodercn ?? null,
         isDetecting: false,
         timestamp: Date.now(),
     };

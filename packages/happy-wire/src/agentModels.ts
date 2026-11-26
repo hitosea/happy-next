@@ -10,11 +10,11 @@ import * as z from 'zod';
  * against the list the machine gave, by the machine's CLI, or only for its format.
  */
 
-export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini', 'qoder', 'antigravity', 'deepseek']);
+export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini', 'antigravity', 'deepseek', 'qoder']);
 export type AgentFlavor = z.infer<typeof AgentFlavorSchema>;
 
 /** Agents whose models a machine lists; Qoder CN is Qoder signed in to its own account. */
-export const MODEL_LISTING_AGENTS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity', 'deepseek'] as const;
+export const MODEL_LISTING_AGENTS = ['claude', 'codex', 'gemini', 'antigravity', 'deepseek', 'qoder', 'qodercn'] as const;
 export type ModelListingAgent = typeof MODEL_LISTING_AGENTS[number];
 
 export function isModelListingAgent(agent: string | null | undefined): agent is ModelListingAgent {

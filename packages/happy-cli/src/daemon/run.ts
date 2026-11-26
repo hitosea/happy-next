@@ -759,7 +759,7 @@ export async function startDaemon(): Promise<void> {
 
           // Construct command for the CLI
           const cliPath = join(projectPath(), 'dist', 'index.mjs');
-          // Determine agent command - support claude, codex, gemini, qoder and antigravity
+          // Determine agent command - support claude, codex, gemini, antigravity and qoder
           const agent = options.agent ?? 'claude';
           const forkFlag = skipForkSession ? '' : ' --fork-session';
           const resumeArgs = resumeSessionId && isClaudeAgent ? ` --resume ${resumeSessionId}${forkFlag}` : '';

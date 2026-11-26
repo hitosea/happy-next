@@ -6,9 +6,9 @@
  * configuration (timeouts, filtering, etc.).
  *
  * For agent-specific backends, use the factories in src/agent/factories/:
- * - createGeminiBackend() - Gemini CLI with GeminiTransport
- * - createCodexBackend() - Codex CLI with CodexTransport
  * - createClaudeBackend() - Claude CLI with ClaudeTransport
+ * - createCodexBackend() - Codex CLI with CodexTransport
+ * - createGeminiBackend() - Gemini CLI with GeminiTransport
  *
  * @module createAcpBackend
  */

@@ -150,7 +150,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - 精简模型选择器：每个 Claude 模型只有一项并使用完整上下文窗口，宽屏下推理强度并排显示，Claude 默认 High 强度；上下文条按 Claude Code 实际使用的窗口计算
 - 创建会话或在模型设置中选择 Claude 或 Qoder 会话运行的上下文窗口——200K、1M 或自定义大小
 - Claude 会话切换到 bypass 权限现在会生效：Claude 启动时带上该能力，模型或权限模式切换被 Claude 拒绝或 3 秒内无响应时以新模式重启，每条消息都会重申会话的权限模式；在非沙箱环境下以 root 运行时 Claude 保持 default，切换会被拒绝并回退
-- 通过 ACP 接入 Qoder CLI，支持账号模型与推理强度、权限模式与 plan 模式，Qoder 和 Gemini 会话显示上下文用量
+- 通过 ACP 接入 Qoder CLI，支持账号模型与推理强度、权限模式与 plan 模式，Gemini 和 Qoder 会话显示上下文用量
 - Qoder 与 Qoder CN 是两个独立 Agent——机器同时装有两个版本时，新建会话可任选其一，各自使用自己的模型；会话在复制、恢复、升级、分叉或复制为新会话时保留原来的版本，历史记录、最近会话和会话名称可区分两者
 - 对 shell 命令选择“不再询问”时可选择覆盖哪些程序或子命令，四个 Agent 均支持
 - 每个 Agent 的模型都来自它在机器上的 CLI，CLI 一提供新模型就会出现；列表按机器保存，机器没有响应时会自动重试，Claude、Codex 和 Gemini 还可以手动输入模型 ID
@@ -373,7 +373,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ### CLI
 - `happy update` 自更新、`happy --version` 显示所有 Agent 版本
-- Agent CLI：Claude Code、Codex、Gemini、Qoder、Qoder CN 和 Antigravity 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
+- Agent CLI：Claude Code、Codex、Gemini、Antigravity、Qoder 和 Qoder CN 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
 - 守护进程开机自启动（`happy daemon enable/disable`）、重启命令
 - 统一 Codex 和 Gemini 系统提示注入
 - 消息接收追踪，兼容旧版本

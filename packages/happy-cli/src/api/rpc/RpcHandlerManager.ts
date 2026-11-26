@@ -25,8 +25,8 @@ const PLAINTEXT_METHODS = new Set([
     'orchestrator-cancel',
     'machine-identity',
     'detect-providers',
-    'qoder-list-models',
     'antigravity-list-models',
+    'qoder-list-models',
     'agent-list-models',
 ]);
 

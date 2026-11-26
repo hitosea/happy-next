@@ -17,7 +17,7 @@ import { listQoderCommands } from '@/qoder/sessions';
 import { listAntigravityCommands } from '@/antigravity/models';
 import { logger } from '@/ui/logger';
 
-export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
+export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
 
 export async function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,

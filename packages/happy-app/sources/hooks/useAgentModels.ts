@@ -38,7 +38,7 @@ const descriptionsAsked = new Set<string>();
  * every agent: the machine's daemon keeps the list its CLI gave and refreshes it, and is asked once
  * per launch when the agent is picked, and asked again after a failure while the list is shown. Until it answers, the
  * list it gave last time is used; failing that, the models the most recently updated session of the
- * agent reported (only Qoder's and Antigravity's sessions report them).
+ * agent reported (only Antigravity's, DeepSeek's and Qoder's sessions report them).
  *
  * Qoder describes models with tags only; its sentences come from its text bundle: the copy qodercli
  * cached shows first, then the current bundle replaces it once downloaded.

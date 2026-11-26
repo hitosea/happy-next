@@ -13,7 +13,7 @@ import { logger } from '@/ui/logger';
 
 export interface DiffRecord {
     callId: string;
-    agent: 'codex' | 'gemini' | 'claude';
+    agent: 'claude' | 'codex' | 'gemini';
     filePath: string;
     diff: string;
     additions: number;

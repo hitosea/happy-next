@@ -25,9 +25,9 @@ import {
     machineForkClaudeSession,
     machineForkCodexSession,
     machineForkGeminiSession,
-    machineForkQoderSession,
     machineForkAntigravitySession,
     machineForkDeepSeekSession,
+    machineForkQoderSession,
     machineSpawnNewSession,
     sessionDelete,
 } from '@/sync/ops';
@@ -234,9 +234,9 @@ function useSessionQuickActions(session: Session) {
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
         if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId && !deepseekSessionId)) return;
@@ -256,7 +256,7 @@ function useSessionQuickActions(session: Session) {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);

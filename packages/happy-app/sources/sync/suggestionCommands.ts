@@ -91,7 +91,7 @@ const CODEX_SUBCOMMANDS: Record<string, CommandItem[]> = {
     ],
 };
 
-// Commands available for sessions with forkable history (Claude, Gemini, Codex, Qoder)
+// Commands available for sessions with forkable history (Claude, Codex, Gemini, Qoder)
 const FORKABLE_COMMANDS: CommandItem[] = [
     { command: 'duplicate', description: 'Duplicate conversation from a specific point', scope: 'SYSTEM', kind: 'command' },
 ];
@@ -133,7 +133,7 @@ function getCommandsFromSession(sessionId: string): CommandItem[] {
         commands.push(...CODEX_COMMANDS);
     }
 
-    // Add forkable commands for sessions with session history (Claude, Gemini, Codex, Qoder)
+    // Add forkable commands for sessions with session history (Claude, Codex, Gemini, Qoder)
     if (session.metadata.claudeSessionId || session.metadata.flavor === 'gemini' || session.metadata.codexSessionId || session.metadata.qoderSessionId) {
         commands.push(...FORKABLE_COMMANDS);
     }

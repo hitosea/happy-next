@@ -1,5 +1,5 @@
 /**
- * ACP Session Backfill (Qoder, Antigravity)
+ * ACP Session Backfill (Antigravity, Qoder)
  *
  * ACP `session/load` replays the restored conversation as session updates. The
  * runner collects them while loading and this turns the user prompts and the text
@@ -14,7 +14,7 @@ import { selectBackfillTurns, withForkedHistoryNotices } from '@/modules/common/
 
 type BackfillMessage = { content: unknown; localId: string };
 
-export function buildAcpBackfillMessages(updates: SessionNotification['update'][], sessionId: string, provider: 'qoder' | 'antigravity' | 'deepseek', maxTurns = 20): BackfillMessage[] {
+export function buildAcpBackfillMessages(updates: SessionNotification['update'][], sessionId: string, provider: 'antigravity' | 'deepseek' | 'qoder', maxTurns = 20): BackfillMessage[] {
   // Chunks of one role run together into a message; a tool call ends the agent's, so the text after
   // the turn's last tool call is a message of its own — the reply the turn ended on.
   const entries: { role: 'user' | 'agent'; text: string; index: number }[] = [];

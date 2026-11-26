@@ -43,8 +43,8 @@ export const MetadataSchema = z.object({
     historyBackfill: z.enum(['pending', 'done']).optional(),
     claudeSessionId: z.string().optional(), // Claude Code session ID
     codexSessionId: z.string().optional(), // Codex CLI conversation ID
-    qoderSessionId: z.string().optional(), // Qoder CLI (ACP) session ID
     antigravitySessionId: z.string().optional(), // Antigravity CLI (ACP) session ID
+    qoderSessionId: z.string().optional(), // Qoder CLI (ACP) session ID
     deepseekSessionId: z.string().optional(), // DeepSeek Harness (ACP) session ID
     qoderBuild: z.enum(['intl', 'cn']).optional(), // Qoder or Qoder CN; absent on sessions from before both could be picked
     tools: z.array(z.string()).optional(),

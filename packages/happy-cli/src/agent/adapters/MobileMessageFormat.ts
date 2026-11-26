@@ -2,7 +2,7 @@
  * MobileMessageFormat - Types for messages sent to the mobile app
  *
  * This module defines the message format expected by the Happy mobile app.
- * Messages from any agent (Gemini, Codex, Claude, etc.) are transformed
+ * Messages from any agent (Claude, Codex, Gemini, etc.) are transformed
  * to this format before being sent through the Happy server.
  *
  * @module MobileMessageFormat
@@ -11,7 +11,7 @@
 /**
  * Supported agent types for the mobile app
  */
-export type MobileAgentType = 'gemini' | 'codex' | 'claude' | 'opencode';
+export type MobileAgentType = 'claude' | 'codex' | 'gemini' | 'opencode';
 
 /**
  * Message roles for the mobile app

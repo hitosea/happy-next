@@ -148,7 +148,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Streamlined model picker: one entry per Claude model at its full context window, reasoning-effort presets side by side on wide screens, and Claude defaults to High effort; the context bar follows the window Claude Code actually uses
 - Pick the context window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings
 - Switching a Claude session to bypass permissions takes effect: Claude launches with the capability, a model or permission-mode switch Claude refuses or does not answer restarts the session in the new mode, and every message re-asserts the permission mode; as root outside a sandbox Claude stays in default and the switch is refused and reverted
-- Qoder CLI over ACP, with the account's models and reasoning efforts, permission modes and plan mode, and context usage for Qoder and Gemini sessions
+- Qoder CLI over ACP, with the account's models and reasoning efforts, permission modes and plan mode, and context usage for Gemini and Qoder sessions
 - Qoder and Qoder CN are two separate agents — a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart
 - "Don't ask again" on a shell command picks which programs or subcommands it covers, for all four agents
 - Every agent's models come from its own CLI on the machine, so a new model shows up as soon as the CLI offers it; the list is kept per machine and asked again until the machine answers, and Claude, Codex and Gemini also take a typed model ID
@@ -371,7 +371,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
-- Agent CLIs: Claude Code, Codex, Gemini, Qoder, Qoder CN and Antigravity are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
+- Agent CLIs: Claude Code, Codex, Gemini, Antigravity, Qoder and Qoder CN are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
 - Daemon auto-start on boot (`happy daemon enable/disable`), restart command
 - Unified system prompt injection for Codex and Gemini
 - Message receipt tracking with legacy compatibility

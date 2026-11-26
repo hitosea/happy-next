@@ -14,16 +14,16 @@ import { t } from '@/text';
 
 type TimePeriod = 'today' | '7days' | '30days';
 
-type Provider = 'all' | 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
+type Provider = 'all' | 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder';
 
 const PROVIDER_KEYS: Record<Provider, string[] | undefined> = {
     all: undefined,
     claude: ['claude-session'],
     codex: ['codex-session'],
     gemini: ['gemini-session'],
-    qoder: ['qoder-session'],
     antigravity: ['antigravity-session'],
     deepseek: ['deepseek-session'],
+    qoder: ['qoder-session'],
 };
 
 // Gemini and Qoder sessions don't report usage yet (Qoder only exposes its own credits, not tokens)
@@ -228,7 +228,7 @@ export const UsagePanel: React.FC<{ sessionId?: string }> = ({ sessionId }) => {
 
             {/* Provider Selector */}
             <View style={styles.providerSelector}>
-                {(['all', 'claude', 'codex', 'gemini', 'qoder', 'antigravity', 'deepseek'] as Provider[]).map((p) => (
+                {(['all', 'claude', 'codex', 'gemini', 'antigravity', 'deepseek', 'qoder'] as Provider[]).map((p) => (
                     <Pressable
                         key={p}
                         style={[styles.providerButton, provider === p && styles.providerButtonActive]}

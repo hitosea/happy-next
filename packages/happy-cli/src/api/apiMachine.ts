@@ -54,13 +54,13 @@ const PROVIDER_DETECTION_COMMAND =
     '(command -v claude >/dev/null 2>&1 && echo "claude:true"); ' +
     '(command -v codex >/dev/null 2>&1 && echo "codex:true"); ' +
     '(command -v gemini >/dev/null 2>&1 && echo "gemini:true"); ' +
-    // Qoder (qodercli) and Qoder CN (qoderclicn) are separate providers; their installers use ~/.local/bin
-    '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true"); ' +
-    '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
     // Antigravity's installer puts agy in ~/.local/bin too
     '((command -v agy || test -x ~/.local/bin/agy) >/dev/null 2>&1 && echo "antigravity:true"); ' +
     // DeepSeek Harness (`dsh`) is often installed under ~/.local/bin without sudo
     '((command -v dsh || test -x ~/.local/bin/dsh) >/dev/null 2>&1 && echo "deepseek:true"); ' +
+    // Qoder (qodercli) and Qoder CN (qoderclicn) are separate providers; their installers use ~/.local/bin
+    '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true"); ' +
+    '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
     'true';
 
 function createSessionCacheStatsReporter(
@@ -358,8 +358,8 @@ export class ApiMachineClient {
             switch (result.type) {
                 case 'success':
                     this.claudeCache.invalidate();
-                    this.geminiCache.invalidate();
                     this.codexCache.invalidate();
+                    this.geminiCache.invalidate();
                     Object.values(this.qoderCaches).forEach((cache) => cache.invalidate());
                     logger.debug(`[API MACHINE] Spawned session ${result.sessionId}`);
                     return { type: 'success', sessionId: result.sessionId };
@@ -447,8 +447,8 @@ export class ApiMachineClient {
             }
 
             this.claudeCache.invalidate();
-            this.geminiCache.invalidate();
             this.codexCache.invalidate();
+            this.geminiCache.invalidate();
             Object.values(this.qoderCaches).forEach((cache) => cache.invalidate());
 
             logger.debug(`[API MACHINE] Stopped session ${sessionId}`);

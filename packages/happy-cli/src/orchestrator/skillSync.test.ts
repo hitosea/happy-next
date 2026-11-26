@@ -6,10 +6,10 @@ import {
   ORCHESTRATOR_COMMAND_CLAUDE,
   ORCHESTRATOR_COMMAND_CODEX,
   ORCHESTRATOR_COMMAND_GEMINI,
-  ORCHESTRATOR_COMMAND_QODER,
-  ORCHESTRATOR_COMMAND_QODERCN,
   ORCHESTRATOR_COMMAND_ANTIGRAVITY,
   ORCHESTRATOR_COMMAND_DEEPSEEK,
+  ORCHESTRATOR_COMMAND_QODER,
+  ORCHESTRATOR_COMMAND_QODERCN,
   ORCHESTRATOR_SKILL_MD,
   buildOrchestratorCommandPrompt,
 } from './skillAssets';
@@ -165,7 +165,7 @@ describe('orchestrator skill frontmatter', () => {
   it('keeps the public skill name and inline description stable', () => {
     expect(frontmatter).toContain('name: orchestrator');
     expect(descriptionLine).toBe(
-      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder/qodercn/antigravity/deepseek) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder|qodercn|antigravity|deepseek.",
+      "description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/antigravity/deepseek/qoder/qodercn) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|antigravity|deepseek|qoder|qodercn.",
     );
     expect(descriptionLine).not.toMatch(/^description:\s*[>|]/);
   });

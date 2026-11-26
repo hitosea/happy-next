@@ -690,9 +690,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         if (!machineId) return { messages: [], hasMore: false, nextBeforeIndex: null };
 
         if (flavor === 'gemini') {
@@ -790,9 +790,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         const sessionPath = session.metadata?.path;
         if (!machineId || !sessionPath) {
             // Reset so the fork loading overlay / sheet spinner can't get stuck.
@@ -805,7 +805,7 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
 
         try {
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek' = 'claude';
+            let agent: 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' = 'claude';
 
             if (flavor === 'gemini') {
                 const duplicateResult = uuid
@@ -927,9 +927,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         if (!machineId) return;
         setDuplicateConfirming(true);
         try {
@@ -983,9 +983,9 @@ function SessionViewLoaded({ sessionId, session, headerInset, listUnderHeader }:
         const flavor = session.metadata?.flavor;
         const claudeSessionId = session.metadata?.claudeSessionId;
         const codexSessionId = session.metadata?.codexSessionId;
-        const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
         const deepseekSessionId = session.metadata?.deepseekSessionId;
+        const qoderSessionId = session.metadata?.qoderSessionId;
         if (!machineId) return;
 
         // Turn the tapped message's fork icon into a spinner for the whole

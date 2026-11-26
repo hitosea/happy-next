@@ -3,7 +3,7 @@ import type { Session } from '@/sync/storageTypes';
 /**
  * Whether the session can be forked (or resumed) on its machine: it needs the agent's own session ID,
  * and a shared session points at the owner's machine, which the viewer cannot fork on. Archiving does
- * not matter — Claude, Gemini, Qoder, Antigravity and DeepSeek history stays in place, and the CLI unarchives native Codex
+ * not matter — Claude, Gemini, Antigravity, DeepSeek and Qoder history stays in place, and the CLI unarchives native Codex
  * history only for the fork (`borrowArchived`) and archives it again.
  */
 export function canForkSession(session: Session | undefined): boolean {

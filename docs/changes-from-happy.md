@@ -121,7 +121,7 @@ The original Happy only supported Claude Code. Happy Next treats Claude Code, Co
 - **Codex "Approve for Me"**: Codex's approval mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
 - **Streamlined model picker**: one entry per Claude model at its full context window; reasoning-effort presets show side by side on wide screens and Claude defaults to High effort
 - **Context window choice**: pick the window a Claude or Qoder session runs with — 200K, 1M or a custom size — when creating a session or in model settings
-- **Claude context window**: the context bar follows the window Claude Code actually uses, and Qoder and Gemini sessions show context usage
+- **Claude context window**: the context bar follows the window Claude Code actually uses, and Gemini and Qoder sessions show context usage
 - **Qoder over ACP**: the account's models and reasoning efforts, Qoder's permission modes, and its plan mode shown apart from them
 - **Qoder and Qoder CN as two agents**: a new session starts on either build when a machine has both, each with its own models; a session keeps its build when copied, resumed, upgraded, forked or duplicated, and history, recent sessions and session names tell them apart
 - **Claude bypass permissions**: switching a session to bypass permissions takes effect — Claude launches with the capability, a model or permission-mode switch Claude refuses or does not answer restarts the session in the new mode, and every message re-asserts the permission mode; as root outside a sandbox Claude stays in default and the switch is refused and reverted
@@ -465,7 +465,7 @@ The CLI (`happy-next-cli`) received substantial upgrades.
 - **Session title management**: `change_title` tool with lock support
 - **CI**: smoke tests, happy-wire build dependency
 - **`happy update`** self-upgrade command
-- **Agent CLI updates**: Claude Code, Codex, Gemini, Qoder, Qoder CN and Antigravity are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
+- **Agent CLI updates**: Claude Code, Codex, Gemini, Antigravity, Qoder and Qoder CN are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
 - **`happy --version`** displays Claude, Codex, and Gemini CLI versions
 - **Worktree subdirectory detection** in workspace root
 - **Latest CLI version** fetched from npm instead of hardcoded minimum

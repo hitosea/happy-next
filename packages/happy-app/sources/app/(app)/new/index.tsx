@@ -555,7 +555,7 @@ function NewSessionWizard() {
     }, [selectedMachineId, machines]);
 
     // Claude Code, Codex and Gemini CLI take any model id (one may be typed in), so a saved one is kept as is.
-    // Qoder and Antigravity take only what the account lists: a saved model is kept while the machine still
+    // Antigravity and Qoder take only what the account lists: a saved model is kept while the machine still
     // offers it, with its effort and context window. Until the machine has listed its models this launch, the
     // saved or stand-in list can't tell, so the saved one is kept rather than flashing another.
     const { models: agentModels, complete: agentModelsComplete, loading: agentModelsLoading } = useAgentModels(selectedMachineId, agentChoice);

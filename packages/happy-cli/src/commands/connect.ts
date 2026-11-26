@@ -4,8 +4,8 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { readCredentials } from '@/persistence';
 import { ApiClient } from '@/api/api';
-import { authenticateCodex } from './connect/authenticateCodex';
 import { authenticateClaude } from './connect/authenticateClaude';
+import { authenticateCodex } from './connect/authenticateCodex';
 import { authenticateGemini } from './connect/authenticateGemini';
 import { decodeJwtPayload } from './connect/utils';
 
@@ -63,8 +63,8 @@ ${chalk.bold('Description:')}
   without exposing your API keys locally.
 
 ${chalk.bold('Examples:')}
-  happy connect codex
   happy connect claude
+  happy connect codex
   happy connect gemini
   happy connect status
 
@@ -75,7 +75,7 @@ ${chalk.bold('Notes:')}
 `);
 }
 
-async function handleConnectVendor(vendor: 'codex' | 'claude' | 'gemini', displayName: string): Promise<void> {
+async function handleConnectVendor(vendor: 'claude' | 'codex' | 'gemini', displayName: string): Promise<void> {
     console.log(chalk.bold(`\n🔌 Connecting ${displayName} to Happy Next cloud\n`));
 
     // Check if authenticated

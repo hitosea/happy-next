@@ -77,7 +77,7 @@ export type McpServerConfig = McpServerStdioConfig | McpServerHttpConfig;
 export type AgentTransport = 'native-claude' | 'codex-appserver' | 'acp';
 
 /** Agent identifier */
-export type AgentId = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek' | 'opencode' | 'claude-acp' | 'codex-acp';
+export type AgentId = 'claude' | 'codex' | 'gemini' | 'antigravity' | 'deepseek' | 'qoder' | 'opencode' | 'claude-acp' | 'codex-acp';
 
 /**
  * Configuration for creating an agent backend
@@ -175,7 +175,7 @@ export interface AgentBackend {
    * Respond to a permission request.
    *
    * **Implementation Note for ACP backends:**
-   * For ACP-based agents (Gemini, Codex via ACP), permission handling is done
+   * For ACP-based agents (Codex, Gemini via ACP), permission handling is done
    * synchronously within the `requestPermission` RPC handler via `AcpPermissionHandler`.
    * This method only emits an internal `permission-response` event for UI/logging purposes.
    * The actual ACP response is already sent by the time this method is called.

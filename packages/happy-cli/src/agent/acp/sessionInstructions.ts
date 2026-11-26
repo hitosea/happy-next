@@ -1,5 +1,5 @@
 /**
- * ACP first-turn prompt (Qoder, Antigravity)
+ * ACP first-turn prompt (Antigravity, DeepSeek, Qoder)
  *
  * ACP takes one prompt string, so Happy's session guidance rides along with the
  * first user message. It goes after the message: qodercli treats a prompt that
