@@ -157,6 +157,20 @@ describe('ApiSessionClient v3 outbox', () => {
         client.close();
     });
 
+    it('trims an ACP agent\'s Edit and Write inputs as Claude\'s are', () => {
+        const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32));
+        vi.spyOn(toolImageStoreModule, 'registerToolImageForCall').mockImplementation(() => {});
+        const trim = vi.spyOn(trimToolUseResultModule, 'trimToolUseInput').mockImplementation((block) => ({ ...block, input: { file_path: block.input.file_path, _trimmed: true } }));
+        const enqueue = vi.spyOn(client as any, 'enqueueMessage').mockImplementation(() => {});
+        const input = { file_path: '/tmp/a.ts', old_string: 'a', new_string: 'b' };
+        client.sendAgentMessage('antigravity', { type: 'tool-call', callId: 'edit-1', name: 'Edit', input, id: 'message-1' });
+        expect(trim).toHaveBeenCalledWith({ type: 'tool_use', id: 'edit-1', name: 'Edit', input }, 'test-session-id');
+        expect((enqueue.mock.calls[0][0] as any).content.data.input).toEqual({ file_path: '/tmp/a.ts', _trimmed: true });
+        client.sendAgentMessage('antigravity', { type: 'tool-call', callId: 'read-1', name: 'Read', input: { file_path: '/tmp/a.ts' }, id: 'message-2' });
+        expect(trim).toHaveBeenCalledTimes(1);
+        client.close();
+    });
+
     it('registers every Claude tool call, including subagents', () => {
         const client = new ApiSessionClient('fake-token', mockSession, async () => new Uint8Array(32));
         const register = vi.spyOn(toolImageStoreModule, 'registerToolImageForCall').mockImplementation(() => {});

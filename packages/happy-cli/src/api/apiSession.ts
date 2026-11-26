@@ -1320,6 +1320,11 @@ export class ApiSessionClient extends EventEmitter {
             registerToolImageForCall(this.sessionId, this.metadata?.path, body.name, body.callId, body.input);
             // A minimap landmark is decided at send time, and its result names a callId, not a tool
             this.rememberToolName(body.callId, body.name);
+            // An ACP agent's edit shown as Claude's Edit/Write card goes out trimmed the same way: the
+            // chat shows the file and its line counts, the diff is fetched when the row is opened
+            if (INPUT_TRIMMABLE_TOOLS.has(body.name)) {
+                body = { ...body, input: trimToolUseInput({ type: 'tool_use', id: body.callId, name: body.name, input: body.input }, this.sessionId).input };
+            }
         }
         if (body.type === 'token_count' && typeof body.model === 'string') {
             this.updateModelMetadata(body.model);
