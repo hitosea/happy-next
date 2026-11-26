@@ -540,6 +540,20 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             }
         });
 
+        it('names an acp tool call by its input description, and a permission request does not rename it to the tool', () => {
+            const call = normalizeRawMessage('msg-agy-call', null, 1, {
+                role: 'agent',
+                content: { type: 'acp', provider: 'antigravity', data: { type: 'tool-call', name: 'Bash', callId: 'tc-1', id: 'u-1', input: { command: 'ls', description: 'List files' } } },
+            } as any);
+            const permission = normalizeRawMessage('msg-agy-perm', null, 2, {
+                role: 'agent',
+                content: { type: 'acp', provider: 'antigravity', data: { type: 'permission-request', permissionId: 'tc-1', toolName: 'Bash', description: 'Bash', options: {} } },
+            } as any);
+
+            expect(call?.role === 'agent' && call.content[0]).toMatchObject({ type: 'tool-call', description: 'List files' });
+            expect(permission?.role === 'agent' && permission.content[0]).toMatchObject({ type: 'tool-call', description: null });
+        });
+
         it('maps acp [Plan Update] message to TodoWrite tool call/result', () => {
             const planPayload = {
                 explanation: null,

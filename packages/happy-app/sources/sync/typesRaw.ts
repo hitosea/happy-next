@@ -1323,6 +1323,12 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                 } satisfies NormalizedMessage;
             }
             if (raw.content.data.type === 'tool-call') {
+                // The agent's own note on the call, as Claude's tool_use carries it (e.g. agy's
+                // toolSummary on a command): it is what the tool's row and a folded line name the step by.
+                const acpInput = raw.content.data.input;
+                const acpDescription = acpInput !== null && typeof acpInput === 'object' && typeof acpInput.description === 'string' && acpInput.description.trim()
+                    ? acpInput.description
+                    : null;
                 return {
                     id,
                     localId,
@@ -1334,7 +1340,7 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                         id: raw.content.data.callId,
                         name: raw.content.data.name || 'unknown',
                         input: raw.content.data.input,
-                        description: null,
+                        description: acpDescription,
                         uuid: raw.content.data.id,
                         parentUUID: null
                     }],
@@ -1445,6 +1451,11 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                 // Extract actual tool input from payload.input (not the full payload)
                 const permPayload = raw.content.data.options ?? {};
                 const toolInput = permPayload.input ?? permPayload;
+                // ACP agents fall back to the tool's own name ("Bash") for the description. That
+                // says nothing the name doesn't, and as the tool call's description it would replace
+                // the agent's own note on the call (the reducer merges by tool id).
+                const permDescription = raw.content.data.description;
+                const description = permDescription && permDescription !== raw.content.data.toolName ? permDescription : null;
                 return {
                     id,
                     localId,
@@ -1456,7 +1467,7 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
                         id: raw.content.data.permissionId,
                         name: raw.content.data.toolName,
                         input: toolInput,
-                        description: raw.content.data.description,
+                        description,
                         uuid: id,
                         parentUUID: null
                     }],
