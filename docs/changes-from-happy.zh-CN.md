@@ -73,7 +73,8 @@ Happy Next 现在提供原生体验的桌面客户端，不再要求用户一直
 - **MCP 工具集成**：编排器工具注册为 MCP 工具，自动填充工作目录
 - **工具描述重写**：编排器重写工具描述以提升 Agent 理解
 - **完整 i18n**：所有编排器 UI 完全国际化
-- **CLI 自动安装**：Happy CLI 启动时安装编排器 skill 和 `/orchestrator` 斜杠命令，可直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Qoder / Qoder CN agent
+- **CLI 自动安装**：Happy CLI 启动时安装编排器 skill 和 `/orchestrator` 斜杠命令，可直接在 CLI 里把任务并行或按依赖分发给 Claude / Codex / Gemini / Antigravity / DeepSeek / Qoder / Qoder CN agent
+- **Antigravity 与 DeepSeek 执行器**：任务可在 Antigravity（`antigravity`，带实时预览）与 DeepSeek（`deepseek`）上运行，与其他执行器并列
 - **Qoder CN 执行器**：任务可以在 Qoder 之外运行在 Qoder CN（`qodercn`）上——机器分别上报两个版本，`/orchestrator:qodercn` 与其他按 Agent 命令一致，上下文中列出各版本自己的账号模型，运行中任务的实时消息读取其对应版本的会话
 - **`/preview-html` 内置命令**：内置 CLI 斜杠命令,生成自包含 HTML 文档并直接在 app 内预览
 - **运行与任务耗时**：运行和任务显示耗时，运行中实时计时
@@ -146,7 +147,9 @@ CLI 繁忙时发送的消息现在会自动排队并投递。
 - **Codex 配额预警**：用量窗口超过 90% 时提醒一次，低于 80% 后重新待命；额度用尽、积分耗尽或控制额度用完时各提醒一次，并给出重置时间
 - **Codex 不再丢弃的输出**：生成图片变成可打开预览的步骤，完成的 plan 在回复没有重复它时作为本轮回答，hook 运行按其事件折叠为步骤，被拒绝或高风险的“帮我批准”决定会说明操作和原因
 - **Codex 会话元数据与提示**：Codex 自己的标题和 `/model` 切换会写入会话元数据（你固定的标题仍然优先），警告显示为通知，`/review` 带开始和结束标记，sleep 显示为计时步骤
-- **Antigravity Agent**：通过 ACP 接入 Antigravity CLI（`happy antigravity`），支持账号模型与思考强度、权限模式与 plan 模式、恢复、复制、分叉和升级（agy 本身没有分叉，所以在新 ID 下复制会话文件；从某条消息分叉时，再删掉这条消息及之后的轮次），读取 agy 的 transcript 提供用量统计和编排任务的实时预览，以及 `antigravity` 编排任务
+- **Antigravity Agent**：通过 ACP 接入 Antigravity CLI（`happy antigravity`），支持账号模型与思考强度、权限模式（在 CLI 提供终端沙箱时支持 Auto 模式，不可用时回退到 Default 并给出一次性提示，附带专属模式标签与说明）与 plan 模式、恢复、复制、分叉和升级（agy 本身没有分叉，所以在新 ID 下复制会话文件；从某条消息分叉时，再删掉这条消息及之后的轮次），读取 agy 的 transcript 提供用量统计和编排任务的实时预览，以及 `antigravity` 编排任务
+- **DeepSeek Agent**：通过 ACP 接入 DeepSeek Harness（`happy deepseek`、`dsh`）成为第六个 Agent，支持 `dsh` 列出的模型与思考强度、权限模式、图片附件、用量统计、review、恢复、复制、分叉（包括从某条消息分叉；因 `dsh` 不支持经 ACP 分叉，通过复制会话日志到新种子会话实现）、CLI 更新、手表名称显示，以及 `deepseek` 编排任务
+- **统一 Agent 排序**：所有多 Agent 选择器、历史标签页、用量视图、编排列表、手表名称与 CLI 输出统一按 Claude、Codex、Gemini、Antigravity、DeepSeek、Qoder、Qoder CN 排序
 - **Qoder plan 步骤**：Qoder 上报的 plan 显示为 TodoWrite 步骤，每次变化一条
 - **Claude 通知**：信息、重试、拒绝与模型回退、带原因的权限拒绝、过大的规则文件、被终止的 agent 都显示为单行通知，配额警告按窗口只提醒一次
 - **Claude Task 卡片与标题**：Task 卡片随进度刷新且不重置计时，任务结束时收起；Claude 自己的标题会写入会话元数据（你固定的标题仍然优先），历史列表使用 Claude 的标题，回合数用尽时以通知收尾
@@ -448,6 +451,7 @@ Happy Next 添加了一等自托管路径。
 - **折叠行中间截断**：折叠行里的路径、命令或搜索按中间截断，能区分步骤的文件名或参数得以保留
 - **厂商标记水印**：会话悬浮卡在标题旁淡淡盖上 agent 的标记，并被卡片圆角裁切
 - **提交详情直接铺在页面上**：提交详情页把提交信息、行数汇总和变更文件直接铺在页面上，文件按行排列，与提交列表一致
+- **ACP 编辑与未知工具折叠**：Antigravity、DeepSeek、Qoder 和 Gemini 的文件编辑折叠为与 Claude 一致的单行文件行（点开查看 diff），ACP 工具在折叠行保留步骤说明，未识别工具（含 Claude 的 NotebookEdit）在所有 Agent 下折叠为单行
 
 ## CLI 改进
 
@@ -465,7 +469,7 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **会话标题管理**：`change_title` 工具，支持锁定
 - **CI**：冒烟测试，happy-wire 构建依赖
 - **`happy update`** 自更新命令
-- **Agent CLI 更新**：Claude Code、Codex、Gemini、Antigravity、Qoder 和 Qoder CN 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
+- **Agent CLI 更新**：Claude Code、Codex、Gemini、Antigravity、DeepSeek、Qoder 和 Qoder CN 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
 - **`happy --version`** 显示 Claude、Codex 和 Gemini CLI 版本
 - **工作树子目录检测**，工作区根目录中
 - **最新 CLI 版本**，从 npm 获取而非硬编码最低版本
@@ -521,6 +525,7 @@ CLI（`happy-next-cli`）收到了大量升级。
 - **Happy CLI v0.20.1**：让 Claude Code 把 Task 改名为 Agent 后的子代理卡继续工作，子代理的提示词与后续消息仍归在这张卡下
 - **Happy CLI v0.21.0**：把 Qoder 和 Qoder CN 拆成两个 Agent，编排任务可运行在 Qoder CN 上，Claude 会话切换到 bypass 权限会真正生效；新 Codex 会话使用 Codex v0.171.0
 - **Happy CLI v0.22.0**：新增 Antigravity 作为第五个 Agent，所有 Agent 的模型从各自的 CLI 获取，agent CLI 随它一起更新，并使用机器上的 Codex 而不是固定版本；Qoder 后台任务发起的回合会送达 App
+- **Happy CLI v0.23.0**：通过 ACP 新增 DeepSeek Harness（`dsh`）作为第六个 Agent，新增 Antigravity 的 Auto 权限模式，统一所有 Agent 排序，并精简 ACP Agent 的 Edit/Write 输入以便点开查看 diff
 
 ## 服务端
 

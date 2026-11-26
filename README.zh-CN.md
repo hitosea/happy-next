@@ -113,7 +113,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 
 ### 编排器（Orchestrator）
 - 定义任务依赖图（DAG），支持按任务指定模型和工作目录
-- 跨 Claude、Codex、Gemini 和 Qoder 自动调度执行，Qoder 与 Qoder CN 两个版本可分别选用
+- 跨 Claude、Codex、Gemini、Antigravity、DeepSeek、Qoder 和 Qoder CN 自动调度执行
 - 实时状态徽章、活动计数（含排队任务，而不仅是运行中的任务）和状态颜色进度条
 - 清晰的任务执行历史、更顺畅的运行导航，以及从编排器消息直达对应运行的链接
 - 通过会话恢复跟进已完成任务
@@ -158,7 +158,9 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Codex 的“帮我批准”模式把审批交给 Codex 自己的审查代理；会执行操作的编排工具（运行命令、发送消息、传输文件、取消任务）在所有 Agent 下都会先请求权限
 - Codex 会在账号配额用完前预警，并不再丢弃生成图片、完成的 plan、hook 运行和审批决定；Codex 自己的标题、`/model` 切换、警告、`/review` 标记和 sleep 也会显示在会话里
 - Qoder 的 plan 显示为 TodoWrite 步骤
-- Antigravity CLI（`happy antigravity`）通过 ACP 成为第五个 Agent，支持账号模型与思考强度、权限模式与 plan 模式、恢复、复制、分叉（包括从某条消息分叉）和升级、用量统计，以及带实时预览的编排任务（`antigravity`）
+- Antigravity CLI（`happy antigravity`）通过 ACP 成为第五个 Agent，支持账号模型与思考强度、权限模式（在 CLI 提供终端沙箱时支持 Auto 模式）与 plan 模式、恢复、复制、分叉（包括从某条消息分叉）和升级、用量统计，以及带实时预览的编排任务（`antigravity`）
+- DeepSeek Harness（`happy deepseek`）通过 ACP 成为第六个 Agent，支持 `dsh` 列出的模型与思考强度、权限模式、图片附件、用量统计、review、恢复、复制、分叉（包括从某条消息分叉）、CLI 更新，以及编排任务（`deepseek`）
+- 所有多 Agent 选择器、历史标签页、用量视图、编排列表、手表名称与 CLI 输出统一按 Claude、Codex、Gemini、Antigravity、DeepSeek、Qoder、Qoder CN 排序
 
 ### 语音助手（Happy Voice）
 - 语音网关认证改用短效 token，安全性提升
@@ -370,10 +372,11 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Orchestrator 的运行、任务和尝试挂在一条连续的状态轴线上；折叠行按中间截断，保留能区分步骤的部分
 - 会话悬浮卡在标题旁淡淡盖上 agent 标记，提交详情、会话信息和设置页直接铺在页面上，不再套白卡片
 - 第五组头像配色改为石板底冰白，43 个细线图标在小尺寸下不再发虚
+- Antigravity、DeepSeek、Qoder 和 Gemini 的文件编辑折叠为与 Claude 一致的单行文件行（点开查看 diff），ACP 工具在折叠行保留步骤说明，未识别工具（含 Claude 的 NotebookEdit）在所有 Agent 下折叠为单行
 
 ### CLI
 - `happy update` 自更新、`happy --version` 显示所有 Agent 版本
-- Agent CLI：Claude Code、Codex、Gemini、Antigravity、Qoder 和 Qoder CN 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
+- Agent CLI：Claude Code、Codex、Gemini、Antigravity、DeepSeek、Qoder 和 Qoder CN 与 Happy CLI 一起检查新版本，可在设备页的「CLI 版本」或更新提示中更新
 - 守护进程开机自启动（`happy daemon enable/disable`）、重启命令
 - 统一 Codex 和 Gemini 系统提示注入
 - 消息接收追踪，兼容旧版本
@@ -418,6 +421,7 @@ Happy Next 是原版 Happy 的重大演进，以下是亮点：
 - Happy CLI v0.20.1 让 Claude Code 把 Task 改名为 Agent 后的子代理卡继续工作，子代理的提示词与后续消息仍归在这张卡下
 - Happy CLI v0.21.0 把 Qoder 和 Qoder CN 拆成两个 Agent，编排任务可运行在 Qoder CN 上，Claude 会话切换到 bypass 权限会真正生效；新 Codex 会话使用 Codex v0.171.0
 - Happy CLI v0.22.0 新增 Antigravity 作为第五个 Agent，所有 Agent 的模型从各自的 CLI 获取，agent CLI 随它一起更新，并使用机器上的 Codex 而不是固定版本；Qoder 后台任务发起的回合会送达 App
+- Happy CLI v0.23.0 通过 ACP 新增 DeepSeek Harness（`dsh`）作为第六个 Agent，新增 Antigravity 的 Auto 权限模式，统一所有 Agent 排序，并精简 ACP Agent 的 Edit/Write 输入以便点开查看 diff
 
 ### Bug 修复和稳定性
 - 255+ Bug 修复：消息发送可靠性、会话生命周期、Markdown 渲染、导航、语音、DooTask、共享

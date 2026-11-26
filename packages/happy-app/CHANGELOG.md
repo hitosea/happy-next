@@ -1,5 +1,16 @@
 # Changelog
 
+## Version 43 - 2026-11-26
+
+Happy Next v2.30.0 adds DeepSeek Harness (`dsh`) as a sixth agent, brings Antigravity's Auto permission mode, orders every multi-agent list consistently, and folds ACP edits and unknown tools cleanly into one line.
+
+- DeepSeek: DeepSeek Harness (`happy deepseek`) is a sixth agent over ACP — the models and thought levels `dsh` lists, its permission modes, image attachments, usage stats, review, resume, copy, duplicate, fork (also from a message), and CLI updates
+- Orchestrator: a task can run on DeepSeek (`deepseek`), alongside the other agents
+- Antigravity: adds `agy`'s Auto permission mode where the CLI's terminal sandbox is available, falling back to Default with a one-time notice when unavailable, with dedicated Antigravity mode labels and descriptions
+- Agents: every multi-agent picker, history tab, usage view, orchestrator list, watch name and CLI output now follows one consistent order — Claude, Codex, Gemini, Antigravity, DeepSeek, Qoder, Qoder CN
+- Chat: Antigravity, DeepSeek, Qoder and Gemini file edits fold into the same one-line file row as Claude's Edit/Write (tap to open the diff), ACP tool rows keep their step descriptions on folded lines, and unrecognized tools (plus Claude's NotebookEdit) fold cleanly to one line across every agent
+- CLI: Happy CLI v0.23.0
+
 ## Version 42 - 2026-11-25
 
 Happy Next v2.29.1 adds Antigravity as a fifth agent, lists every agent's models straight from its CLI on the machine, and updates Claude Code, Codex, Gemini, Qoder and Antigravity from the app alongside Happy CLI.

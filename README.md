@@ -111,7 +111,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 
 ### Orchestrator
 - Define task dependency graphs (DAGs) with per-task model and working directory
-- Auto-schedule execution across Claude, Codex, Gemini, and Qoder agents, with Qoder and Qoder CN available separately
+- Auto-schedule execution across Claude, Codex, Gemini, Antigravity, DeepSeek, Qoder, and Qoder CN agents
 - Real-time status badges, an activity count that includes queued (not just running) tasks, and status-colored progress bars
 - Clear task execution history, streamlined run navigation, and direct links from Orchestrator messages to their runs
 - Follow up on completed tasks via session resume
@@ -156,7 +156,9 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Codex's "Approve for Me" mode routes approvals to Codex's own reviewer, and orchestrator tools that act — running commands, sending messages, transferring files, cancelling tasks — ask for permission under every agent
 - Codex warns before an account's quota runs out, and no longer drops a generated image, a finished plan, hook runs or review decisions; its own title, `/model` switches, warnings, `/review` markers and sleeps reach the session
 - Qoder's plan appears as TodoWrite steps
-- Antigravity CLI (`happy antigravity`) is a fifth agent over ACP, with the account's models and thinking levels, permission modes and plan mode, resume, copy, fork (also from a message) and upgrade, usage stats, and orchestrator tasks (`antigravity`) with a live preview
+- Antigravity CLI (`happy antigravity`) is a fifth agent over ACP, with the account's models and thinking levels, permission modes (including Auto where the CLI's terminal sandbox is available) and plan mode, resume, copy, fork (also from a message) and upgrade, usage stats, and orchestrator tasks (`antigravity`) with a live preview
+- DeepSeek Harness (`happy deepseek`) is a sixth agent over ACP, with the models and thought levels `dsh` lists, its permission modes, image attachments, usage stats, review, resume, copy, duplicate, fork (also from a message), CLI updates, and orchestrator tasks (`deepseek`)
+- Every multi-agent picker, history tab, usage view, orchestrator list, watch name and CLI output follows one consistent order: Claude, Codex, Gemini, Antigravity, DeepSeek, Qoder, Qoder CN
 
 ### Voice Assistant (Happy Voice)
 - Voice gateway auth now uses short-lived tokens for improved security
@@ -368,10 +370,11 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Orchestrator runs, tasks and attempts hang off one continuous timeline with status dots; folded lines are cut in the middle so the part that tells two steps apart stays visible
 - The session hover card stamps the agent's mark faintly beside the title, and commit details, session info and Settings open directly on the page instead of white cards
 - The fifth avatar pair is ice-white on a slate disc, and 43 thin-line icons no longer fade at small sizes
+- Antigravity, DeepSeek, Qoder and Gemini file edits fold into one-line file rows (tap to open the diff), ACP tool rows keep their step descriptions on folded lines, and unrecognized tools (plus Claude's NotebookEdit) fold to one line across every agent
 
 ### CLI
 - `happy update` self-upgrade, `happy --version` with all agent versions
-- Agent CLIs: Claude Code, Codex, Gemini, Antigravity, Qoder and Qoder CN are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
+- Agent CLIs: Claude Code, Codex, Gemini, Antigravity, DeepSeek, Qoder and Qoder CN are checked for new versions with Happy CLI and updated from the machine page's CLI Versions group or the update marks
 - Daemon auto-start on boot (`happy daemon enable/disable`), restart command
 - Unified system prompt injection for Codex and Gemini
 - Message receipt tracking with legacy compatibility
@@ -416,6 +419,7 @@ Happy Next is a major evolution of the original Happy. Here are the highlights:
 - Happy CLI v0.20.1 keeps subagent cards working after Claude Code renamed Task to Agent, so a subagent's prompt and later messages stay under its card
 - Happy CLI v0.21.0 separates Qoder and Qoder CN into two agents, lets an orchestrator task run on Qoder CN, and makes a Claude session's switch to bypass permissions take effect; new Codex sessions start on Codex v0.171.0
 - Happy CLI v0.22.0 adds Antigravity as a fifth agent, lists every agent's models from its own CLI, updates agent CLIs alongside itself, and runs the machine's own Codex instead of a pinned version; turns a Qoder background task starts reach the app
+- Happy CLI v0.23.0 adds DeepSeek Harness (`dsh`) as a sixth agent over ACP, adds Antigravity's Auto permission mode, orders every agent list consistently, and trims ACP agents' Edit and Write inputs so diffs open on tap
 
 ### Bug Fixes & Stability
 - 255+ bug fixes: message sending reliability, session lifecycle, Markdown rendering, navigation, voice, DooTask, sharing
