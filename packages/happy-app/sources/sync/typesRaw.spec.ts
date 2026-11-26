@@ -554,6 +554,20 @@ describe('Zod Transform - WOLOG Content Normalization', () => {
             expect(permission?.role === 'agent' && permission.content[0]).toMatchObject({ type: 'tool-call', description: null });
         });
 
+        it('normalizes deepseek acp messages and tool calls', () => {
+            const msg = normalizeRawMessage('msg-ds-1', null, 1, {
+                role: 'agent',
+                content: { type: 'acp', provider: 'deepseek', data: { type: 'message', message: 'Hello from DeepSeek' } },
+            } as any);
+            const toolCall = normalizeRawMessage('msg-ds-2', null, 2, {
+                role: 'agent',
+                content: { type: 'acp', provider: 'deepseek', data: { type: 'tool-call', name: 'AskUserQuestion', callId: 'ask-1', id: 'u-2', input: { questions: [] } } },
+            } as any);
+
+            expect(msg?.role === 'agent' && msg.content[0]).toMatchObject({ type: 'text', text: 'Hello from DeepSeek' });
+            expect(toolCall?.role === 'agent' && toolCall.content[0]).toMatchObject({ type: 'tool-call', name: 'AskUserQuestion', id: 'ask-1' });
+        });
+
         it('maps acp [Plan Update] message to TodoWrite tool call/result', () => {
             const planPayload = {
                 explanation: null,

@@ -20,3 +20,13 @@ describe('antigravity permission modes', () => {
         expect(isPermissionModeForAgent('antigravity', 'bypassPermissions')).toBe(false);
     });
 });
+
+describe('deepseek permission modes', () => {
+    it('accepts the dsh modes Happy offers', () => {
+        for (const mode of ['default', 'read-only', 'plan', 'yolo']) {
+            expect(isPermissionModeForAgent('deepseek', mode)).toBe(true);
+        }
+        expect(isPermissionModeForAgent('deepseek', 'acceptEdits')).toBe(false);
+        expect(isPermissionModeForAgent('deepseek', 'bypassPermissions')).toBe(false);
+    });
+});

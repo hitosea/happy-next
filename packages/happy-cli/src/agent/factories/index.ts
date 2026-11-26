@@ -37,6 +37,13 @@ export {
   type AntigravityBackendOptions,
 } from './antigravity';
 
+// DeepSeek factory
+export {
+  createDeepSeekBackend,
+  registerDeepSeekAgent,
+  type DeepSeekBackendOptions,
+} from './deepseek';
+
 // Future factories:
 // export { createClaudeBackend, registerClaudeAgent, type ClaudeBackendOptions } from './claude';
 // export { createOpenCodeBackend, registerOpenCodeAgent, type OpenCodeBackendOptions } from './opencode';

@@ -112,7 +112,7 @@ interface AgentInputProps {
     };
     alwaysShowContextSize?: boolean;
     onFileViewerPress?: () => void;
-    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
+    agentType?: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
     // New sessions only: the build a Qoder agentType runs on, which the picker shows as Qoder or Qoder CN.
     qoderBuild?: QoderBuild;
     // The models the agent offers on the machine (useAgentModels), with their efforts, context windows and
@@ -172,6 +172,7 @@ const agentFlavorIcons = {
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
     antigravity: require('@/assets/images/icon-antigravity.png'),
+    deepseek: require('@/assets/images/icon-deepseek.png'),
 };
 
 // The vendor mark keeps one slot across flavors so the row cannot shift, and only the artwork
@@ -188,6 +189,7 @@ const agentMarkArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     gemini: 12,
     qoder: 11,
     antigravity: 10,
+    deepseek: 12,
 };
 
 // Vendor marks at full size, as on the agent button in the input and the agent picker rows. Same
@@ -200,6 +202,7 @@ const agentIconArtworkSize: Record<keyof typeof agentFlavorIcons, number> = {
     gemini: 18,
     qoder: 16,
     antigravity: 15,
+    deepseek: 18,
 };
 
 // The settings overlay grows out of the input below it and sinks back into it when closed. These are
@@ -851,11 +854,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isGemini = props.metadata?.flavor === 'gemini' || props.agentType === 'gemini';
     const isQoder = props.metadata?.flavor === 'qoder' || props.agentType === 'qoder';
     const isAntigravity = props.metadata?.flavor === 'antigravity' || props.agentType === 'antigravity';
-    // Qoder and Antigravity take only the models their account lists; Claude Code, Codex and Gemini CLI take
+    const isDeepSeek = props.metadata?.flavor === 'deepseek' || props.agentType === 'deepseek';
+    // Qoder, Antigravity and DeepSeek take the models their CLI/account lists; Claude Code, Codex and Gemini CLI take
     // any model id, so their picker also lets one be typed in.
-    const usesAccountModels = isQoder || isAntigravity;
+    const usesAccountModels = isQoder || isAntigravity || isDeepSeek;
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
-    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : 'claude';
+    const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : isDeepSeek ? 'deepseek' : 'claude';
 
     const antigravitySupportsAuto = !props.metadata?.operatingModes?.length
         || props.metadata.operatingModes.some((mode) => mode.code === 'auto');
@@ -867,7 +871,9 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 ? ['default', 'acceptEdits', 'auto', 'yolo']
                 : isAntigravity
                     ? (antigravitySupportsAuto ? ['default', 'acceptEdits', 'auto', 'plan', 'yolo'] : ['default', 'acceptEdits', 'plan', 'yolo'])
-                    : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
+                    : isDeepSeek
+                        ? ['default', 'read-only', 'plan', 'yolo']
+                        : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
 
     const getPermissionModeLabel = React.useCallback((mode: PermissionMode | undefined, badge = false): string => {
         if (!mode) return '';
@@ -901,13 +907,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             if (mode === 'yolo') return badge ? t('agentInput.antigravityPermissionMode.badgeYolo') : t('agentInput.antigravityPermissionMode.yolo');
             return '';
         }
+        if (isDeepSeek) {
+            if (mode === 'default') return t('agentInput.deepseekPermissionMode.default');
+            if (mode === 'read-only') return badge ? t('agentInput.deepseekPermissionMode.badgeReadOnly') : t('agentInput.deepseekPermissionMode.readOnly');
+            if (mode === 'plan') return badge ? t('agentInput.deepseekPermissionMode.badgePlan') : t('agentInput.deepseekPermissionMode.plan');
+            if (mode === 'yolo') return badge ? t('agentInput.deepseekPermissionMode.badgeYolo') : t('agentInput.deepseekPermissionMode.yolo');
+            return '';
+        }
         if (mode === 'default') return t('agentInput.permissionMode.default');
         if (mode === 'acceptEdits') return badge ? t('agentInput.permissionMode.badgeAcceptAllEdits') : t('agentInput.permissionMode.acceptEdits');
         if (mode === 'auto') return badge ? t('agentInput.permissionMode.badgeAuto') : t('agentInput.permissionMode.auto');
         if (mode === 'bypassPermissions') return badge ? t('agentInput.permissionMode.badgeBypassAllPermissions') : t('agentInput.permissionMode.bypassPermissions');
         if (mode === 'plan') return badge ? t('agentInput.permissionMode.badgePlanMode') : t('agentInput.permissionMode.plan');
         return '';
-    }, [isCodex, isGemini, isQoder, isAntigravity]);
+    }, [isCodex, isGemini, isQoder, isAntigravity, isDeepSeek]);
 
     const permissionModeDescriptions: Partial<Record<PermissionMode, string>> = isQoder ? {
         default: t('agentInput.qoderPermissionMode.defaultDescription'),
@@ -920,6 +933,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         auto: t('agentInput.antigravityPermissionMode.autoDescription'),
         plan: t('agentInput.antigravityPermissionMode.planDescription'),
         yolo: t('agentInput.antigravityPermissionMode.yoloDescription'),
+    } : isDeepSeek ? {
+        default: t('agentInput.deepseekPermissionMode.defaultDescription'),
+        'read-only': t('agentInput.deepseekPermissionMode.readOnlyDescription'),
+        plan: t('agentInput.deepseekPermissionMode.planDescription'),
+        yolo: t('agentInput.deepseekPermissionMode.yoloDescription'),
     } : isCodex ? {
         default: t('agentInput.codexPermissionMode.defaultDescription'),
         'read-only': t('agentInput.codexPermissionMode.readOnlyDescription'),

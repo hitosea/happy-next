@@ -80,10 +80,14 @@ export function extractGeminiSessionIdFromJsonLine(line: string): string | null 
   }
 }
 
-/** Gemini names its session `session_id`; Antigravity's print mode calls it `conversation_id`. */
+/** Gemini names its session `session_id`; Antigravity calls it `conversation_id`; DeepSeek headless calls it `sessionId`. */
 function readJsonSessionId(parsed: unknown): string | null {
-  const { session_id, conversation_id } = (parsed ?? {}) as { session_id?: unknown; conversation_id?: unknown };
-  const sessionId = [session_id, conversation_id].find((value): value is string => typeof value === 'string')?.trim();
+  const { session_id, conversation_id, sessionId: camelSessionId } = (parsed ?? {}) as {
+    session_id?: unknown;
+    conversation_id?: unknown;
+    sessionId?: unknown;
+  };
+  const sessionId = [session_id, conversation_id, camelSessionId].find((value): value is string => typeof value === 'string')?.trim();
   return sessionId || null;
 }
 
@@ -198,4 +202,31 @@ export function normalizeAntigravityOutputText(stdout: string): string {
     .map((event) => event.step_update.text_delta as string)
     .join('');
   return (response ?? streamed).trim() || (events.length === 0 ? normalizeGeminiOutputText(stdout) : '');
+}
+
+/**
+ * DeepSeek Harness (`dsh --profile headless --json`) emits NDJSON events with an opening
+ * `{ type: "session", sessionId }`, intermediate `{ type: "text", text }` blocks, and a
+ * lossless closing `{ type: "final", sessionId, reason, text }` event.
+ */
+export function normalizeDeepSeekOutputText(stdout: string): string {
+  const events = stdout.split(/\r?\n/).flatMap((line): Record<string, any>[] => {
+    try {
+      const parsed = JSON.parse(line);
+      return parsed && typeof parsed.type === 'string' ? [parsed] : [];
+    } catch {
+      return [];
+    }
+  });
+  const finalEvent = [...events].reverse().find((event) => event.type === 'final' && typeof event.text === 'string');
+  if (finalEvent) return String(finalEvent.text).trim();
+  const texts = events
+    .filter((event) => event.type === 'text' && typeof event.text === 'string')
+    .map((event) => String(event.text))
+    .join('\n')
+    .trim();
+  if (texts) return texts;
+  const errorEvent = [...events].reverse().find((event) => event.type === 'error' && typeof event.message === 'string');
+  if (errorEvent) return String(errorEvent.message).trim();
+  return events.length === 0 ? stdout.trim() : '';
 }

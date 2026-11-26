@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
+import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeDeepSeekOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
 
 describe('normalizeGeminiOutputText', () => {
   it('keeps plain text output unchanged when stdout is not JSON', () => {
@@ -116,5 +116,27 @@ describe('normalizeAntigravityOutputText', () => {
 
   it('still reads a single JSON document', () => {
     expect(normalizeAntigravityOutputText(JSON.stringify({ conversation_id: id, status: 'SUCCESS', response: '1\n' }))).toBe('1');
+  });
+});
+
+describe('normalizeDeepSeekOutputText', () => {
+  const id = 'dsh-session-019d0000-1111-7222-8333-444444444444';
+  const lines = [
+    JSON.stringify({ type: 'session', sessionId: id, cwd: '/tmp' }),
+    JSON.stringify({ type: 'tool_call', name: 'read', arguments: { path: 'README.md' } }),
+    JSON.stringify({ type: 'final', sessionId: id, reason: 'stop', text: 'DeepSeek final answer\n' }),
+  ];
+
+  it('extracts camelCase sessionId from headless NDJSON lines', () => {
+    expect(extractGeminiSessionIdFromJsonLine(lines[0])).toBe(id);
+    expect(extractGeminiSessionId(lines.join('\n'))).toBe(id);
+  });
+
+  it('extracts the final event text cleanly', () => {
+    expect(normalizeDeepSeekOutputText(lines.join('\n'))).toBe('DeepSeek final answer');
+  });
+
+  it('returns plain text unchanged when stdout is not NDJSON', () => {
+    expect(normalizeDeepSeekOutputText('plain output\n')).toBe('plain output');
   });
 });

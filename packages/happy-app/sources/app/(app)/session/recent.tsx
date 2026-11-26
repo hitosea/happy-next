@@ -40,6 +40,7 @@ const AGENT_FILTERS: { key: AgentFilter; label: () => string }[] = [
     { key: 'qoder', label: () => t('agentHistory.tabQoder') },
     { key: 'qodercn', label: () => t('agentHistory.tabQoderCn') },
     { key: 'antigravity', label: () => t('agentInput.agent.antigravity') },
+    { key: 'deepseek', label: () => t('agentInput.agent.deepseek') },
 ];
 
 const agentIcons: Record<AgentType, any> = {
@@ -48,6 +49,7 @@ const agentIcons: Record<AgentType, any> = {
     codex: require('@/assets/images/icon-gpt.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
     antigravity: require('@/assets/images/icon-antigravity.png'),
+    deepseek: require('@/assets/images/icon-deepseek.png'),
 };
 
 interface SessionHistoryItem {

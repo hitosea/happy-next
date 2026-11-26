@@ -118,7 +118,7 @@ function isSessionActive(session: { active: boolean; activeAt: number }): boolea
 
 function resolveSessionModeAgentType(metadata: Metadata | null | undefined): SessionModeAgentType {
     const flavor = metadata?.flavor;
-    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity') {
+    if (flavor === 'codex' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity' || flavor === 'deepseek') {
         return agentChoiceOf(flavor, metadata?.qoderBuild);
     }
     return 'claude';
@@ -1644,7 +1644,7 @@ export const storage = create<StorageState>()((set, get) => {
             if (!session) return;
             const flavor = session.metadata?.flavor;
             const agentType = resolveSessionModeAgentType(session.metadata);
-            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity') {
+            if (flavor === 'claude' || flavor === 'gemini' || flavor === 'qoder' || flavor === 'antigravity' || flavor === 'deepseek') {
                 const previousMode = session.permissionMode || 'default';
                 void sync.changePermissionMode(sessionId, mode).then((result) => {
                     // The CLI refused a mode it cannot run: go back to the one it keeps running,

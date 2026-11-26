@@ -1,11 +1,16 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { claudeCliPath } from '@/claude/claudeLocal';
 import { codexPackage } from '@/codex/package';
 import { codexFastModeArgs, resolveCodexRuntime } from '@/codex/codexRuntime';
 import { logger } from '@/ui/logger';
 import { QODER_SDK_ISOLATION_ENV, resolveQoderCommand } from '@/qoder/constants';
 import { resolveAntigravityCommand } from '@/antigravity/constants';
+import { resolveDeepSeekCommand } from '@/deepseek/constants';
+import { decodeDeepSeekModelValue } from '@/deepseek/models';
 import { MODEL_MODE_DEFAULT, parseModelMode, resolveModelSelectionForFlavor, splitFastModeSuffix } from 'happy-wire';
 import {
   ORCHESTRATOR_ENV_KEYS,
@@ -20,7 +25,38 @@ type SpawnPlan = {
   args: string[];
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  cleanup?: () => void;
 };
+
+/**
+ * Builds a minimal Cordis `--patch` overlay for `dsh --profile headless`:
+ *  - Re-enables the managed credential store so keys saved via `dsh web` work alongside `DEEPSEEK_API_KEY`.
+ *  - Applies the requested provider/model/reasoningEffort to `agent-default-model` when specified.
+ */
+export function buildDeepSeekHeadlessPatchYaml(modelMode?: string): string {
+  const lines = [
+    '- id: credentials',
+    '  disabled: false',
+    '- id: authorization',
+    '  disabled: false',
+    '- id: deepseek-account',
+    '  disabled: false',
+  ];
+  if (modelMode && modelMode !== MODEL_MODE_DEFAULT) {
+    const { model, reasoningEffort } = parseModelMode(modelMode, 'deepseek');
+    if (model) {
+      const decoded = decodeDeepSeekModelValue(model);
+      lines.push(
+        '- id: agent-default-model',
+        '  config:',
+        `    provider: ${JSON.stringify(decoded.provider)}`,
+        `    model: ${JSON.stringify(decoded.model)}`,
+        ...(reasoningEffort ? [`    reasoningEffort: ${JSON.stringify(reasoningEffort)}`] : []),
+      );
+    }
+  }
+  return `${lines.join('\n')}\n`;
+}
 
 function parseProvider(providerArg: string | undefined): OrchestratorProvider {
   if (!providerArg || !isOrchestratorProvider(providerArg)) {
@@ -186,37 +222,73 @@ export function buildSpawnPlan(
         env: { ...process.env },
       };
     }
+    case 'deepseek': {
+      // `dsh --profile headless --json` emits `{ type: "session", sessionId }` first and
+      // `{ type: "final", sessionId, text }` last. Model/effort and saved credentials come
+      // through a temporary `--patch` overlay cleaned up once the child exits.
+      const patchFile = join(tmpdir(), `happy-dsh-headless-${randomUUID()}.yml`);
+      writeFileSync(patchFile, buildDeepSeekHeadlessPatchYaml(normalizedModelMode), 'utf8');
+      const deepSeekArgs = [
+        '--profile',
+        'headless',
+        '--json',
+        '--permission-mode',
+        'danger-full-access',
+        '--patch',
+        patchFile,
+        ...(executionType === 'resume' ? ['--session-id', childSessionId!] : []),
+        '--',
+        prompt,
+      ];
+      return {
+        command: resolveDeepSeekCommand(),
+        args: deepSeekArgs,
+        cwd: workingDirectory,
+        env: { ...process.env, DSH_PERMISSION_MODE: 'danger-full-access' },
+        cleanup: () => {
+          try {
+            rmSync(patchFile, { force: true });
+          } catch {
+            // ignore cleanup error
+          }
+        },
+      };
+    }
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
 }
 
 async function spawnAndWait(plan: SpawnPlan): Promise<number> {
-  if (plan.cwd && !existsSync(plan.cwd)) {
-    throw new Error(`Working directory does not exist: ${plan.cwd}`);
+  try {
+    if (plan.cwd && !existsSync(plan.cwd)) {
+      throw new Error(`Working directory does not exist: ${plan.cwd}`);
+    }
+    return await new Promise<number>((resolve, reject) => {
+      const child = spawn(plan.command, plan.args, {
+        cwd: plan.cwd,
+        env: plan.env ?? process.env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      child.stdout?.on('data', (chunk) => {
+        process.stdout.write(chunk);
+      });
+      child.stderr?.on('data', (chunk) => {
+        process.stderr.write(chunk);
+      });
+
+      child.once('error', (error) => {
+        reject(error);
+      });
+
+      child.once('exit', (code) => {
+        resolve(typeof code === 'number' ? code : 1);
+      });
+    });
+  } finally {
+    plan.cleanup?.();
   }
-  return new Promise<number>((resolve, reject) => {
-    const child = spawn(plan.command, plan.args, {
-      cwd: plan.cwd,
-      env: plan.env ?? process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    child.stdout?.on('data', (chunk) => {
-      process.stdout.write(chunk);
-    });
-    child.stderr?.on('data', (chunk) => {
-      process.stderr.write(chunk);
-    });
-
-    child.once('error', (error) => {
-      reject(error);
-    });
-
-    child.once('exit', (code) => {
-      resolve(typeof code === 'number' ? code : 1);
-    });
-  });
 }
 
 function readProviderFromArgs(args: string[]): string | undefined {
@@ -238,5 +310,16 @@ export async function runOrchestratorOneShot(args: string[]): Promise<number> {
   logger.debug(`[ORCHESTRATOR ONESHOT] Starting ${provider} one-shot`);
 
   const plan = buildSpawnPlan(provider, prompt, workingDirectory, modelMode, executionType, childSessionId);
+  // A cancel or timeout kills this process, skipping spawnAndWait's `finally`: clean up first,
+  // then die from the same signal as before.
+  const cleanupSignals: NodeJS.Signals[] = ['SIGTERM', 'SIGINT', 'SIGHUP'];
+  const onSignal = (signal: NodeJS.Signals) => {
+    plan.cleanup?.();
+    for (const s of cleanupSignals) process.removeListener(s, onSignal);
+    process.kill(process.pid, signal);
+  };
+  if (plan.cleanup) {
+    for (const s of cleanupSignals) process.once(s, onSignal);
+  }
   return spawnAndWait(plan);
 }

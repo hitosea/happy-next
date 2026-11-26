@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { pickLatestAssistantMessage } from '@/components/orchestrator/display';
 import type { OrchestratorProvider } from '@/sync/apiOrchestrator';
-import { machineGetClaudeSessionPreview, machineGetCodexSessionPreview, machineGetGeminiSessionPreview, machineGetQoderSessionPreview, machineGetAntigravitySessionPreview, type SessionPreviewMessage } from '@/sync/ops';
+import { machineGetClaudeSessionPreview, machineGetCodexSessionPreview, machineGetGeminiSessionPreview, machineGetQoderSessionPreview, machineGetAntigravitySessionPreview, machineGetDeepSeekSessionPreview, type SessionPreviewMessage } from '@/sync/ops';
 
 const LIVE_MESSAGE_POLL_INTERVAL_MS = 3000;
 // Only the tail of the conversation is needed to find the latest assistant message.
@@ -25,6 +25,8 @@ async function fetchPreviewMessages(machineId: string, provider: Provider, child
             return (await machineGetQoderSessionPreview(machineId, childSessionId, provider === 'qodercn' ? 'cn' : 'intl', options)).messages;
         case 'antigravity':
             return (await machineGetAntigravitySessionPreview(machineId, childSessionId, options)).messages;
+        case 'deepseek':
+            return (await machineGetDeepSeekSessionPreview(machineId, childSessionId, options)).messages;
     }
 }
 

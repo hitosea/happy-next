@@ -77,17 +77,39 @@ function compactTasksResponse(response: any, taskId?: string) {
     return { ...response, data: { ...response.data, tasks: compacted } };
 }
 
+export interface InteractiveQuestionItem {
+    question: string;
+    header: string;
+    options: Array<{ label: string; description: string }>;
+    multiSelect: boolean;
+}
+
+export interface HappyServerInteractiveTools {
+    /** Called when an MCP-backed agent asks the user structured questions (rendered via AskUserQuestionView). */
+    askUserQuestion?: (input: { questions: InteractiveQuestionItem[] }) => Promise<{ answers: Record<string, string> } | { cancelled: true }>;
+    /** Called when an MCP-backed agent submits a finished Markdown plan for approval (rendered via ExitPlanToolView). */
+    exitPlanMode?: (input: { plan: string }) => Promise<{ approved: boolean; feedback?: string }>;
+}
+
+export interface HappyServerOptions {
+    interactiveTools?: HappyServerInteractiveTools;
+}
+
 // Factory function to create MCP server with tools
-function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: boolean; enableOrchestratorTools: boolean }): McpServer {
+function createMcpServer(
+    client: ApiSessionClient,
+    options: {
+        enableHappyTools: boolean;
+        enableOrchestratorTools: boolean;
+        interactiveTools?: HappyServerInteractiveTools;
+    },
+): McpServer {
     const mcp = new McpServer({
         name: "Happy MCP",
         version: "1.0.0",
     });
 
-    if (!options.enableHappyTools) {
-        return mcp;
-    }
-
+    if (options.enableHappyTools) {
     // Handler that sends title updates via the client
     const handler = async (title: string) => {
         logger.debug('[happyMCP] Changing title to:', title);
@@ -380,20 +402,78 @@ function createMcpServer(client: ApiSessionClient, options: { enableHappyTools: 
             }
         });
     }
+    }
+
+    if (options.interactiveTools?.askUserQuestion) {
+        const askHandler = options.interactiveTools.askUserQuestion;
+        mcp.registerTool('ask_user_question', {
+            description: 'Ask the user one or more structured multiple-choice questions to clarify requirements or gather decisions, and wait for their answers.',
+            title: 'Ask User Question',
+            inputSchema: {
+                questions: z.array(z.object({
+                    question: z.string().describe('The clear, specific question to ask the user'),
+                    header: z.string().describe('Short label (max 12 chars) shown as a header chip'),
+                    options: z.array(z.object({
+                        label: z.string().describe('Concise option label'),
+                        description: z.string().describe('Explanation of what this option means'),
+                    })).min(2).describe('Available choices (the UI automatically adds an Other option)'),
+                    multiSelect: z.boolean().default(false).describe('Whether the user may select multiple options'),
+                })).min(1).describe('Questions to present to the user'),
+            },
+        }, async (args) => {
+            try {
+                const result = await askHandler({ questions: args.questions });
+                if ('cancelled' in result) {
+                    return toToolError('The user cancelled or dismissed the question');
+                }
+                return toToolSuccess(result);
+            } catch (error) {
+                return toToolError('Failed to collect user answers', error instanceof Error ? error.message : String(error));
+            }
+        });
+    }
+
+    if (options.interactiveTools?.exitPlanMode) {
+        const exitPlanHandler = options.interactiveTools.exitPlanMode;
+        mcp.registerTool('exit_plan_mode', {
+            description: 'Submit the completed implementation plan in Markdown for user review and approval before making changes.',
+            title: 'Exit Plan Mode',
+            inputSchema: {
+                plan: z.string().describe('The complete implementation plan in Markdown, starting with a # title'),
+            },
+        }, async (args) => {
+            try {
+                const result = await exitPlanHandler({ plan: args.plan });
+                if (!result.approved) {
+                    return toToolError(result.feedback || 'The user rejected the plan and wants revisions. Remain in plan mode and update the plan.');
+                }
+                return toToolSuccess({ approved: true, message: 'Plan approved by user. You may now proceed with implementation.' });
+            } catch (error) {
+                return toToolError('Plan approval was cancelled', error instanceof Error ? error.message : String(error));
+            }
+        });
+    }
 
     return mcp;
 }
 
-export async function startHappyServer(client: ApiSessionClient) {
+export async function startHappyServer(client: ApiSessionClient, serverOptions?: HappyServerOptions) {
     // Store transports by session ID to support multiple Claude Code connections
     // This is needed when switching between local and remote modes, as each mode
     // spawns a new Claude Code process that needs its own MCP session
     const transports: Map<string, StreamableHTTPServerTransport> = new Map();
     const enableHappyTools = shouldEnableOrchestratorTools();
     const enableOrchestratorTools = enableHappyTools;
-    const toolNames = enableHappyTools
-        ? ['change_title', 'preview_html', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_exec', 'orchestrator_transfer', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
-        : [];
+    const interactiveToolNames = [
+        ...(serverOptions?.interactiveTools?.askUserQuestion ? ['ask_user_question'] : []),
+        ...(serverOptions?.interactiveTools?.exitPlanMode ? ['exit_plan_mode'] : []),
+    ];
+    const toolNames = [
+        ...(enableHappyTools
+            ? ['change_title', 'preview_html', 'orchestrator_get_context', 'orchestrator_submit', 'orchestrator_exec', 'orchestrator_transfer', 'orchestrator_pend', 'orchestrator_list', 'orchestrator_cancel', 'orchestrator_send_message']
+            : []),
+        ...interactiveToolNames,
+    ];
 
     // Capture console.error from Hono to our logger
     const originalConsoleError = console.error;
@@ -447,7 +527,11 @@ export async function startHappyServer(client: ApiSessionClient) {
                     };
 
                     // Create and connect MCP server to this transport
-                    const mcp = createMcpServer(client, { enableHappyTools, enableOrchestratorTools });
+                    const mcp = createMcpServer(client, {
+                        enableHappyTools,
+                        enableOrchestratorTools,
+                        interactiveTools: serverOptions?.interactiveTools,
+                    });
                     await mcp.connect(transport);
 
                     // Handle the request with the parsed body

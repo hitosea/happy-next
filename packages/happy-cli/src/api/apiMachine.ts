@@ -22,6 +22,8 @@ import { forkQoderSession } from '@/qoder/sessions';
 import { listAgentModels } from '@/agentModels/listAgentModels';
 import { forkAntigravitySession, readAntigravitySessionUserMessages } from '@/antigravity/sessions';
 import { antigravityPreviewMessages, readAntigravityTranscript } from '@/antigravity/transcript';
+import { forkDeepSeekSession, readDeepSeekSessionUserMessages } from '@/deepseek/sessions';
+import { deepSeekPreviewMessages, readDeepSeekTranscript } from '@/deepseek/transcript';
 import { duplicateQoderSession, qoderTranscriptStore, readAllQoderSessionUserMessages } from '@/qoder/transcripts';
 import { fetchLatestQoderModelDescriptions, readCachedQoderModelDescriptions } from '@/qoder/modelTexts';
 import { readAllCodexSessionUserMessages, listCodexSessions, getCodexSessionPreview, saveCodexSessionCacheStats } from '@/codex/utils/codexSessionReader';
@@ -57,6 +59,8 @@ const PROVIDER_DETECTION_COMMAND =
     '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true"); ' +
     // Antigravity's installer puts agy in ~/.local/bin too
     '((command -v agy || test -x ~/.local/bin/agy) >/dev/null 2>&1 && echo "antigravity:true"); ' +
+    // DeepSeek Harness (`dsh`) is often installed under ~/.local/bin without sudo
+    '((command -v dsh || test -x ~/.local/bin/dsh) >/dev/null 2>&1 && echo "deepseek:true"); ' +
     'true';
 
 function createSessionCacheStatsReporter(
@@ -649,7 +653,7 @@ export class ApiMachineClient {
             if (!directory || typeof directory !== 'string') {
                 throw new Error('directory is required');
             }
-            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder' && agent !== 'antigravity') {
+            if (agent !== 'claude' && agent !== 'codex' && agent !== 'gemini' && agent !== 'qoder' && agent !== 'antigravity' && agent !== 'deepseek') {
                 throw new Error(`Unsupported agent: ${agent}`);
             }
             return discoverCapabilities(agent as DiscoverCapabilitiesAgent, directory, undefined, parseQoderBuild(params?.qoderBuild));
@@ -880,6 +884,59 @@ export class ApiMachineClient {
             if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
             const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 50) : 10;
             return { messages: antigravityPreviewMessages(await readAntigravityTranscript(sessionId), messageLimit) };
+        });
+
+        // The tail of a DeepSeek Harness conversation from dsh's JSONL log, for the orchestrator's live preview
+        this.rpcHandlerManager.registerHandler('deepseek-session-preview', async (params: any) => {
+            const { sessionId, limit = 10 } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 50) : 10;
+            return { messages: deepSeekPreviewMessages(await readDeepSeekTranscript(sessionId), messageLimit) };
+        });
+
+        // Copy a DeepSeek session into a new dsh session (dsh's fork is not on ACP, so it is copied on disk)
+        this.rpcHandlerManager.registerHandler('deepseek-fork-session', async (params: any) => {
+            const { sessionId } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            try {
+                return { success: true, newSessionId: await forkDeepSeekSession(sessionId) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        // Copy a DeepSeek session up to a user message, for the duplicate and fork-from-message features
+        this.rpcHandlerManager.registerHandler('deepseek-duplicate-session', async (params: any) => {
+            const { sessionId, truncateBeforeUuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (!truncateBeforeUuid || typeof truncateBeforeUuid !== 'string') throw new Error('truncateBeforeUuid is required');
+            try {
+                return { success: true, newSessionId: await forkDeepSeekSession(sessionId, { truncateBeforeUuid }) };
+            } catch (error) {
+                return { success: false, errorMessage: error instanceof Error ? error.message : String(error) };
+            }
+        });
+
+        this.rpcHandlerManager.registerHandler('deepseek-session-user-messages', async (params: any) => {
+            const { sessionId, limit = 100, beforeIndex, preview } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            const messageLimit = typeof limit === 'number' && limit > 0 ? Math.min(Math.floor(limit), 100) : 100;
+            return paginateSessionUserMessages(await readDeepSeekSessionUserMessages(sessionId), messageLimit, beforeIndex, preview === true);
+        });
+
+        this.rpcHandlerManager.registerHandler('deepseek-resolve-fork-target', async (params: any) => {
+            const { sessionId, text, createdAt } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (typeof text !== 'string') throw new Error('text is required');
+            const message = resolveSessionUserMessage(await readDeepSeekSessionUserMessages(sessionId), { text, createdAt });
+            return { message: message ? { uuid: message.uuid, timestamp: message.timestamp, index: message.index } : null };
+        });
+
+        this.rpcHandlerManager.registerHandler('deepseek-session-user-message', async (params: any) => {
+            const { sessionId, uuid } = params || {};
+            if (!sessionId || typeof sessionId !== 'string') throw new Error('sessionId is required');
+            if (!uuid || typeof uuid !== 'string') throw new Error('uuid is required');
+            return { message: (await readDeepSeekSessionUserMessages(sessionId)).find((message) => message.uuid === uuid) ?? null };
         });
 
         this.rpcHandlerManager.registerHandler('antigravity-session-user-messages', async (params: any) => {

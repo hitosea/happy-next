@@ -42,7 +42,7 @@ describe('fillMachineModelModes', () => {
 
     it('asks every agent the same way', async () => {
         const call = vi.fn().mockResolvedValue(listing);
-        const providers = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity'];
+        const providers = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity', 'deepseek'];
         const [filled] = await fillMachineModelModes([{ machineId: 'a', online: true, providers, modelModes: {} }], call);
 
         expect(filled.modelModes).toEqual(Object.fromEntries(providers.map((provider) => [provider, listedModes])));

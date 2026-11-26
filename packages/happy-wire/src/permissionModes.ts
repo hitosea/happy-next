@@ -42,6 +42,18 @@ export const ANTIGRAVITY_PERMISSION_MODES = [
   'yolo',
 ] as const;
 
+/**
+ * DeepSeek Harness (`dsh --profile acp`) bundles sandbox mode and approval policy under
+ * `DSH_PERMISSION_MODE`: `default` runs `workspace-write`, `read-only` and `plan` run
+ * `read-only` (with plan guidance + `ExitPlanMode` for `plan`), and `yolo` runs `danger-full-access`.
+ */
+export const DEEPSEEK_PERMISSION_MODES = [
+  'default',
+  'read-only',
+  'plan',
+  'yolo',
+] as const;
+
 export const ALL_PERMISSION_MODES = [
   'default',
   'acceptEdits',
@@ -61,6 +73,7 @@ export const PERMISSION_MODES_BY_AGENT = {
   gemini: GEMINI_PERMISSION_MODES,
   qoder: QODER_PERMISSION_MODES,
   antigravity: ANTIGRAVITY_PERMISSION_MODES,
+  deepseek: DEEPSEEK_PERMISSION_MODES,
 } as const;
 
 export const PermissionModeSchema = z.enum(ALL_PERMISSION_MODES);
@@ -70,6 +83,7 @@ export type CodexPermissionMode = typeof CODEX_PERMISSION_MODES[number];
 export type GeminiPermissionMode = typeof GEMINI_PERMISSION_MODES[number];
 export type QoderPermissionMode = typeof QODER_PERMISSION_MODES[number];
 export type AntigravityPermissionMode = typeof ANTIGRAVITY_PERMISSION_MODES[number];
+export type DeepSeekPermissionMode = typeof DEEPSEEK_PERMISSION_MODES[number];
 export type PermissionMode = typeof ALL_PERMISSION_MODES[number];
 export type PermissionModeAgent = keyof typeof PERMISSION_MODES_BY_AGENT;
 

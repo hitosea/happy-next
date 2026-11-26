@@ -23,6 +23,7 @@ describe('orchestrator slash commands', () => {
       'orchestrator:qoder',
       'orchestrator:qodercn',
       'orchestrator:antigravity',
+      'orchestrator:deepseek',
     ]);
   });
 

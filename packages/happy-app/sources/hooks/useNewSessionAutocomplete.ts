@@ -15,7 +15,7 @@ import type { QoderBuild } from '@/utils/agentChoice';
 export function useNewSessionAutocomplete(
     machineId: string | null | undefined,
     directory: string | null | undefined,
-    agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity',
+    agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek',
     qoderBuild?: QoderBuild,
 ) {
     const fetchRef = React.useRef<{ key: string; promise: Promise<SessionCapabilities | null> } | null>(null);

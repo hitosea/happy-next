@@ -16,7 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Modal } from '@/modal';
 import { hapticsLight } from '@/components/haptics';
 import { showCopiedToast } from '@/components/Toast';
-import { sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineForkAntigravitySession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
+import { sessionDelete, machineForkClaudeSession, machineForkGeminiSession, machineForkCodexSession, machineForkQoderSession, machineForkAntigravitySession, machineForkDeepSeekSession, machineSpawnNewSession, sessionUpdateMetadataFields } from '@/sync/ops';
 import { leaveSharedSession } from '@/sync/apiSharing';
 import { archiveAfterResume } from '@/sync/archiveSessionFromApp';
 import { useDismissToHome } from '@/hooks/useDismissToHome';
@@ -179,6 +179,17 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         }
     }, [session.metadata?.antigravitySessionId]);
 
+    const handleCopyDeepSeekSessionId = useCallback(async () => {
+        const deepseekSessionId = session.metadata?.deepseekSessionId;
+        if (!deepseekSessionId) return;
+        try {
+            await Clipboard.setStringAsync(deepseekSessionId);
+            hapticsLight(); showCopiedToast();
+        } catch (error) {
+            Modal.alert(t('common.error'), t('sessionInfo.failedToCopyDeepSeekSessionId'));
+        }
+    }, [session.metadata?.deepseekSessionId]);
+
     // Worktree state: unified multi-repo + legacy single-repo support
     const workspaceRepos = getWorkspaceRepos(session.metadata);
     const [selectedRepoIndex, setSelectedRepoIndex] = React.useState(0);
@@ -267,10 +278,11 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
+        const deepseekSessionId = session.metadata?.deepseekSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
 
-        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || qoderSessionId || antigravitySessionId;
+        const hasForkableId = claudeSessionId || flavor === 'gemini' || codexSessionId || qoderSessionId || antigravitySessionId || deepseekSessionId;
         if (!hasForkableId || !directory || !machineId) return;
 
         const isOnline = session.active;
@@ -292,7 +304,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             }
 
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -326,6 +338,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'antigravity';
+            } else if (flavor === 'deepseek' && deepseekSessionId) {
+                const forkResult = await machineForkDeepSeekSession(machineId, deepseekSessionId);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'deepseek';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {
@@ -574,7 +594,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
     const [reviewMenuVisible, setReviewMenuVisible] = React.useState(false);
     const [requestingReview, setRequestingReview] = React.useState(false);
 
-    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity') => {
+    const doRequestReview = React.useCallback(async (agentChoice: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek') => {
         if (!worktreeMachineId || !worktreeBranch || !worktreePath) return;
         const prUrl = selectedRepo?.prUrl;
         if (!prUrl) return;
@@ -651,6 +671,10 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
             {
                 label: 'Antigravity',
                 onPress: () => { setReviewMenuVisible(false); doRequestReview('antigravity'); },
+            },
+            {
+                label: 'DeepSeek',
+                onPress: () => { setReviewMenuVisible(false); doRequestReview('deepseek'); },
             },
     ], [doRequestReview]);
 
@@ -784,6 +808,14 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                             onPress={handleCopyAntigravitySessionId}
                         />
                     )}
+                    {session.metadata?.deepseekSessionId && (
+                        <Item
+                            title={t('sessionInfo.deepseekSessionId')}
+                            subtitle={`${session.metadata.deepseekSessionId.substring(0, 8)}...${session.metadata.deepseekSessionId.substring(session.metadata.deepseekSessionId.length - 8)}`}
+                            icon={<Ionicons name="code-outline" size={29} color="#4D6BFE" />}
+                            onPress={handleCopyDeepSeekSessionId}
+                        />
+                    )}
                     <Item
                         title={t('sessionInfo.connectionStatus')}
                         detail={sessionStatus.isConnected ? t('status.online') : t('status.offline')}
@@ -874,7 +906,7 @@ function SessionInfoContent({ session, leavingRef }: { session: Session; leaving
                                 onPress={() => router.push(`/machine/${session.metadata?.machineId}`)}
                             />
                         )}
-                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId) && session.metadata?.machineId && session.metadata?.path && (
+                        {isOwner && (session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId || session.metadata?.antigravitySessionId || session.metadata?.deepseekSessionId) && session.metadata?.machineId && session.metadata?.path && (
                             <Item
                                 title={session.active ? t('sessionInfo.copySession') : t('sessionInfo.resumeSession')}
                                 subtitle={session.active ? t('sessionInfo.copySessionSubtitle') : t('sessionInfo.resumeSessionSubtitle')}

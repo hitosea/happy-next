@@ -9,11 +9,13 @@ const authVariables = {
   qoder: [],
   // Antigravity CLI only uses its own Google sign-in (`agy`).
   antigravity: [],
+  // DeepSeek Harness reads DEEPSEEK_API_KEY from env or ~/.dsh/.credentials.yaml.
+  deepseek: ['DEEPSEEK_API_KEY'],
 } as const;
 
 export function getUnexpandedSessionAuthVariables(
   environment: Record<string, string>,
-  agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' = 'claude',
+  agent: 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek' = 'claude',
 ): string[] {
   return authVariables[agent].filter(name => environment[name]?.includes('${'));
 }

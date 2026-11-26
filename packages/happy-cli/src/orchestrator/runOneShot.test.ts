@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { codexPackage } from '@/codex/package';
 import { resolveCodexRuntime } from '@/codex/codexRuntime';
@@ -11,7 +12,7 @@ vi.mock('@/ui/logger', () => ({
   },
 }));
 
-const { buildSpawnPlan } = await import('./runOneShot');
+const { buildDeepSeekHeadlessPatchYaml, buildSpawnPlan } = await import('./runOneShot');
 
 /** Whatever this machine resolves for the pinned Codex: a matching local binary or npx. */
 const codexCommand = resolveCodexRuntime(codexPackage(), []).command;
@@ -154,5 +155,50 @@ describe('runOneShot spawn plan', () => {
   it('resumes antigravity by conversation id on the default model', () => {
     const plan = buildSpawnPlan('antigravity', 'continue', '/tmp/workdir', 'default', 'resume', 'session-uuid');
     expect(plan.args).toEqual(['-p', 'continue', '--output-format', 'stream-json', '--dangerously-skip-permissions', '--conversation', 'session-uuid']);
+  });
+
+  it('builds a DeepSeek headless patch YAML with auth plugins and optional model/effort', () => {
+    const defaultYaml = buildDeepSeekHeadlessPatchYaml();
+    expect(defaultYaml).toContain('credentials');
+    expect(defaultYaml).toContain('deepseek-account');
+    expect(defaultYaml).not.toContain('agent-default-model');
+
+    const customYaml = buildDeepSeekHeadlessPatchYaml('deepseek-v4-pro:high');
+    expect(customYaml).toContain('agent-default-model');
+    expect(customYaml).toContain('provider: "deepseek-official"');
+    expect(customYaml).toContain('model: "deepseek-v4-pro"');
+    expect(customYaml).toContain('reasoningEffort: "high"');
+  });
+
+  it('runs deepseek in headless JSON mode with a temporary --patch overlay and cleans it up', () => {
+    const plan = buildSpawnPlan('deepseek', 'hello', '/tmp/workdir', 'deepseek-v4-flash:low', 'initial');
+    try {
+      expect(plan.command).toMatch(/dsh$/);
+      expect(plan.args).toContain('--profile');
+      expect(plan.args).toContain('headless');
+      expect(plan.args).toContain('--json');
+      expect(plan.args).toContain('hello');
+      const patchIdx = plan.args.indexOf('--patch');
+      expect(patchIdx).toBeGreaterThan(-1);
+      const patchFile = plan.args[patchIdx + 1];
+      expect(existsSync(patchFile)).toBe(true);
+      const content = readFileSync(patchFile, 'utf8');
+      expect(content).toContain('deepseek-v4-flash');
+      expect(content).toContain('reasoningEffort: "low"');
+      expect(plan.env?.DSH_PERMISSION_MODE).toBe('danger-full-access');
+    } finally {
+      plan.cleanup?.();
+    }
+    const patchFile = plan.args[plan.args.indexOf('--patch') + 1];
+    expect(existsSync(patchFile)).toBe(false);
+  });
+
+  it('resumes deepseek headless sessions with --session-id', () => {
+    const plan = buildSpawnPlan('deepseek', 'continue', '/tmp/workdir', 'default', 'resume', 'dsh-session-1');
+    try {
+      expect(plan.args).toEqual(expect.arrayContaining(['--profile', 'headless', '--json', '--session-id', 'dsh-session-1', 'continue']));
+    } finally {
+      plan.cleanup?.();
+    }
   });
 });

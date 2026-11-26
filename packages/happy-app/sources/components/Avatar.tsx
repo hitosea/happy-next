@@ -27,6 +27,7 @@ const flavorIcons = {
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
     antigravity: require('@/assets/images/icon-antigravity.png'),
+    deepseek: require('@/assets/images/icon-deepseek.png'),
 };
 
 const sessionIconPresets: Record<string, any> = {
@@ -86,7 +87,7 @@ export const Avatar = React.memo((props: AvatarProps) => {
     const circleSize = Math.round(size * 0.35);
     const iconSize = effectiveFlavor === 'codex' || effectiveFlavor === 'antigravity'
         ? Math.round(size * 0.25)
-        : effectiveFlavor === 'claude'
+        : effectiveFlavor === 'claude' || effectiveFlavor === 'deepseek'
             ? Math.round(size * 0.28)
             : effectiveFlavor === 'qoder'
                 ? Math.round(size * 0.26)

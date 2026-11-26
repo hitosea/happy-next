@@ -35,6 +35,7 @@ import { logger } from '@/ui/logger';
 import { markAgentModelsStale } from '@/agentModels/listAgentModels';
 import { resolveQoderCommand } from '@/qoder/constants';
 import { resolveAntigravityCommand } from '@/antigravity/constants';
+import { resolveDeepSeekCommand } from '@/deepseek/constants';
 import {
     acquireUpdateLock,
     checkAutoUpdateSupport,
@@ -123,6 +124,7 @@ const SPECS: AgentCliSpec[] = [
     { agent: 'qoder', locate: () => found(resolveQoderCommand(process.env, 'intl')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
     { agent: 'qodercn', locate: () => found(resolveQoderCommand(process.env, 'cn')), updateArgs: ['update'], latestVersion: qoderLatestVersion },
     { agent: 'antigravity', locate: () => found(resolveAntigravityCommand()), updateArgs: ['update'], latestVersion: antigravityLatestVersion },
+    { agent: 'deepseek', locate: () => found(resolveDeepSeekCommand()), npmPackage: '@deepseek-ai/dsh', latestVersion: () => fetchLatestVersion('@deepseek-ai/dsh') },
 ];
 
 /** How the daemon updates a CLI, and what to run by hand when that fails or it cannot (when known) */

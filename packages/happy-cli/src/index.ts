@@ -35,6 +35,7 @@ import { CODEX_CLI_HELP, CodexCliSelectionCancelledError, CodexCliUsageError, pa
 import { resolveCodexResumeDirectory } from './codex/resumeDirectory'
 import { resolveQoderCommand } from './qoder/constants'
 import { resolveAntigravityCommand } from './antigravity/constants'
+import { resolveDeepSeekCommand } from './deepseek/constants'
 
 // Give the process a distinctive title so it does not show up as a generic
 // `node ... dist/index.mjs ...` in `ps`/`pkill`. Otherwise tooling and AI agents that
@@ -438,6 +439,32 @@ process.title = ['happy-next-cli', ...process.argv.slice(2)].join(' ');
       process.exit(1)
     }
     return;
+  } else if (subcommand === 'deepseek') {
+    // Handle deepseek command (DeepSeek Harness CLI over ACP)
+    try {
+      const { runDeepSeek } = await import('@/deepseek/runDeepSeek');
+
+      const startedByIndex = args.indexOf('--started-by');
+      const startedBy = startedByIndex > 0 ? args[startedByIndex + 1] as 'daemon' | 'terminal' : undefined;
+
+      const { credentials } = await authAndSetupMachineIfNeeded();
+
+      logger.debug('Ensuring Happy background service is running & matches our version...');
+      if (!(await isDaemonRunningCurrentlyInstalledHappyVersion())) {
+        logger.debug('Starting Happy background service...');
+        startDaemonDetached();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      await runDeepSeek({ credentials, startedBy });
+    } catch (error) {
+      console.error(chalk.red('Error:'), error instanceof Error ? error.message : 'Unknown error')
+      if (isDebug()) {
+        console.error(error)
+      }
+      process.exit(1)
+    }
+    return;
   } else if (subcommand === 'update') {
     try {
       await handleUpdateCommand();
@@ -683,6 +710,7 @@ ${chalk.bold('Usage:')}
   happy gemini            Start Gemini mode (ACP)
   happy qoder             Start Qoder mode (ACP)
   happy antigravity       Start Antigravity mode (ACP)
+  happy deepseek          Start DeepSeek Harness mode (ACP)
   happy connect           Connect AI vendor API keys
   happy notify            Send push notification
   happy daemon            Manage background service
@@ -735,6 +763,7 @@ ${chalk.bold.cyan('Claude Code Options (from `claude --help`):')}
         { name: 'Gemini', cmd: 'gemini', args: ['--version'] },
         { name: 'Qoder', cmd: resolveQoderCommand(), args: ['--version'] },
         { name: 'Antigravity', cmd: resolveAntigravityCommand(), args: ['--version'] },
+        { name: 'DeepSeek', cmd: resolveDeepSeekCommand(), args: ['--version'] },
       ]
       for (const { name, cmd, args: vArgs } of checks) {
         try {

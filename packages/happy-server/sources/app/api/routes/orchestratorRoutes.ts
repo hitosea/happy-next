@@ -35,7 +35,7 @@ import { awaitOrchestratorRunTerminal, notifyOrchestratorRunTerminal } from "@/a
 import { orchestratorMachineReconcile } from "@/app/orchestrator/reconcile";
 import { orchestratorCallbacksAck, orchestratorCallbacksPull, orchestratorRunCallbacksRecordTx } from "@/app/orchestrator/callbacks";
 
-const PROVIDERS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity'] as const;
+const PROVIDERS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity', 'deepseek'] as const;
 const RUN_STATUSES = ['queued', 'running', 'canceling', 'completed', 'failed', 'cancelled'] as const;
 const EXECUTION_FINAL_STATUSES = ['completed', 'failed', 'cancelled', 'timeout'] as const;
 const LIST_RUN_STATUS_FILTERS = ['active', 'terminal', ...RUN_STATUSES] as const;

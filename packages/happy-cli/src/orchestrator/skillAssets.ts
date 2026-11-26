@@ -77,7 +77,7 @@ concatenating child responses.`;
 
 export const ORCHESTRATOR_SKILL_MD = `---
 name: orchestrator
-description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder/qodercn/antigravity) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder|qodercn|antigravity.
+description: Act as the commander and delegate work to one or more AI agents (claude/codex/gemini/qoder/qodercn/antigravity/deepseek) that run in parallel or in dependency order via Happy's orchestrator. Use when the user wants to run several tasks at once, fan work out to multiple AIs, compare providers, build a dependency pipeline, or when invoking /orchestrator:claude|codex|gemini|qoder|qodercn|antigravity|deepseek.
 ---
 
 # Orchestrator / Delegation
@@ -87,10 +87,10 @@ ${ORCHESTRATOR_PUBLIC_MODE}
 ${ORCHESTRATOR_CORE_GUIDANCE}
 
 Explicit entries: \`/orchestrator:claude\`, \`/orchestrator:codex\`, \`/orchestrator:gemini\`,
-\`/orchestrator:qoder\`, \`/orchestrator:qodercn\` and \`/orchestrator:antigravity\` select the primary
+\`/orchestrator:qoder\`, \`/orchestrator:qodercn\`, \`/orchestrator:antigravity\` and \`/orchestrator:deepseek\` select the primary
 provider. A run may still mix providers or use task dependencies when appropriate. \`qoder\` is Qoder
 (qodercli) and \`qodercn\` is Qoder CN (qoderclicn): they sign in to separate accounts with their own
-models. \`antigravity\` is Google's Antigravity CLI (agy).
+models. \`antigravity\` is Google's Antigravity CLI (agy). \`deepseek\` is DeepSeek Harness (dsh).
 `;
 
 export function buildOrchestratorCommandPrompt(
@@ -127,3 +127,4 @@ export const ORCHESTRATOR_COMMAND_GEMINI = commandFor('gemini');
 export const ORCHESTRATOR_COMMAND_QODER = commandFor('qoder');
 export const ORCHESTRATOR_COMMAND_QODERCN = commandFor('qodercn');
 export const ORCHESTRATOR_COMMAND_ANTIGRAVITY = commandFor('antigravity');
+export const ORCHESTRATOR_COMMAND_DEEPSEEK = commandFor('deepseek');

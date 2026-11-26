@@ -5,6 +5,7 @@ export const PUBLIC_HAPPY_COMMANDS = [
   'codex',
   'connect',
   'daemon',
+  'deepseek',
   'doctor',
   'gemini',
   'notify',

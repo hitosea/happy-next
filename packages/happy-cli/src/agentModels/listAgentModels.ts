@@ -29,6 +29,7 @@ import { codexPackage } from '@/codex/package';
 import { resolveCodexRuntime } from '@/codex/codexRuntime';
 import { fetchQoderModels } from '@/qoder/models';
 import { fetchAntigravityModels } from '@/antigravity/models';
+import { fetchDeepSeekModels } from '@/deepseek/models';
 import { createRefreshingCache } from '@/utils/refreshingCache';
 import { withShortLivedProcess, type ShortLivedProcess } from '@/utils/shortLivedProcess';
 
@@ -227,6 +228,7 @@ const FETCHERS: Record<Exclude<ModelListingAgent, 'claude'>, () => Promise<Agent
   qoder: () => fetchQoderModels('intl'),
   qodercn: () => fetchQoderModels('cn'),
   antigravity: fetchAntigravityModels,
+  deepseek: fetchDeepSeekModels,
 };
 
 function cacheFor<T>(agent: ModelListingAgent, fetch: (previous: T | undefined) => Promise<T>, models: (value: T) => AgentModel[]) {

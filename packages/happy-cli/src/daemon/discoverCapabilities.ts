@@ -17,7 +17,7 @@ import { listQoderCommands } from '@/qoder/sessions';
 import { listAntigravityCommands } from '@/antigravity/models';
 import { logger } from '@/ui/logger';
 
-export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
+export type DiscoverCapabilitiesAgent = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
 
 export async function discoverCapabilities(
     agent: DiscoverCapabilitiesAgent,
@@ -52,6 +52,11 @@ export async function discoverCapabilities(
                 slashCommandMetadata: commands.map(({ name, description }) => ({ name, description, kind: 'command' as const })),
             });
         },
+        deepseek: () => addBuiltinSlashCommands({
+            slashCommandMetadata: [
+                { name: 'plan', description: 'Enter plan mode (/plan [task] or /plan off)', kind: 'command' as const },
+            ],
+        }),
     };
     return discoverers[agent]();
 }

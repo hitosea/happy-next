@@ -7,6 +7,7 @@ import { TrackedSession } from './types';
 import { getUnexpandedSessionAuthVariables } from './sessionAuth';
 import { QODER_BUILD_ENV, QODER_RESUME_SESSION_ID_ENV } from '@/qoder/constants';
 import { ANTIGRAVITY_RESUME_SESSION_ID_ENV } from '@/antigravity/constants';
+import { DEEPSEEK_RESUME_SESSION_ID_ENV } from '@/deepseek/constants';
 import { MachineMetadata, DaemonState, Metadata } from '@/api/types';
 import { SpawnSessionOptions, SpawnSessionResult } from '@/modules/common/registerCommonHandlers';
 import { logger } from '@/ui/logger';
@@ -42,7 +43,7 @@ import {
   type OrchestratorFinishStatus,
 } from '@/orchestrator/common';
 import { createOrchestratorEnvelopeOpener, type OrchestratorEnvelopeOpener } from '@/orchestrator/seal';
-import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
+import { extractCodexSessionId, extractGeminiSessionId, extractGeminiSessionIdFromJsonLine, normalizeAntigravityOutputText, normalizeDeepSeekOutputText, normalizeGeminiOutputText } from './orchestratorOutput';
 import { createOrchestratorShellExecutor, reportWithRetry } from './orchestratorShell';
 import { createOrchestratorTransferExecutor } from './orchestratorTransfer';
 import { dropSessionEnv } from './sessionEnv';
@@ -55,6 +56,7 @@ const ORCHESTRATOR_RECONCILE_DEADLINE_MS = 5 * 60_000;
 const JSON_OUTPUT_NORMALIZERS: Readonly<Record<string, (stdout: string) => string>> = {
   gemini: normalizeGeminiOutputText,
   antigravity: normalizeAntigravityOutputText,
+  deepseek: normalizeDeepSeekOutputText,
 };
 const JSON_OUTPUT_PROVIDERS: ReadonlySet<string> = new Set(Object.keys(JSON_OUTPUT_NORMALIZERS));
 
@@ -623,6 +625,9 @@ export async function startDaemon(): Promise<void> {
         if (resumeSessionId && options.agent === 'antigravity') {
           extraEnv[ANTIGRAVITY_RESUME_SESSION_ID_ENV] = resumeSessionId;
         }
+        if (resumeSessionId && options.agent === 'deepseek') {
+          extraEnv[DEEPSEEK_RESUME_SESSION_ID_ENV] = resumeSessionId;
+        }
         // Qoder or Qoder CN, as picked in the app; without it the session starts the build found first
         const qoderBuild = options.agent === 'qoder' ? options.qoderBuild : undefined;
         if (qoderBuild) {
@@ -859,6 +864,9 @@ export async function startDaemon(): Promise<void> {
               break;
             case 'antigravity':
               agentCommand = 'antigravity';
+              break;
+            case 'deepseek':
+              agentCommand = 'deepseek';
               break;
             default:
               return {

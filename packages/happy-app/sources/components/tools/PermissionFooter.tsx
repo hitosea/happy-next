@@ -37,9 +37,11 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
     
     // Check if this is a Codex session - check both metadata.flavor and tool name prefix
     const isCodex = metadata?.flavor === 'codex' || toolName.startsWith('Codex');
+    // DeepSeek Harness only supports one-shot allow/reject (no allow_always or acceptEdits)
+    const isDeepSeek = metadata?.flavor === 'deepseek';
     // Gemini calls its accept-edits mode auto_edit; Claude and Qoder call it acceptEdits
     const acceptEditsMode = metadata?.flavor === 'gemini' ? 'auto_edit' : 'acceptEdits';
-    const offersAllowAllEdits = ALLOW_ALL_EDITS_TOOLS.has(toolName);
+    const offersAllowAllEdits = !isDeepSeek && ALLOW_ALL_EDITS_TOOLS.has(toolName);
     const shellCommand = SHELL_TOOLS.has(toolName) ? shellCommandOf(toolInput) : null;
     // Codex offers its own prefix (e.g. `npm test`) to add to its execpolicy. It comes with the approval
     // request, while the card can show the input of the command item Codex started before asking.
@@ -59,7 +61,7 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
 
         setLoadingButton('allow');
         try {
-            const modeForExitPlan = (toolName === 'exit_plan_mode' || toolName === 'ExitPlanMode')
+            const modeForExitPlan = !isDeepSeek && (toolName === 'exit_plan_mode' || toolName === 'ExitPlanMode')
                 ? getCurrentClaudeMode()
                 : undefined;
             await sessionAllow(sessionId, permission.id, modeForExitPlan);
@@ -472,8 +474,8 @@ export const PermissionFooter: React.FC<PermissionFooterProps> = ({ permission, 
                     </TouchableOpacity>
                 )}
 
-                {/* Allow for session button - only show for non-edit, non-exit-plan tools */}
-                {toolName && !offersAllowAllEdits && (
+                {/* Allow for session button - only show for non-edit, non-exit-plan tools when agent supports session rules */}
+                {!isDeepSeek && toolName && !offersAllowAllEdits && (
                     <TouchableOpacity
                         style={[
                             styles.button,

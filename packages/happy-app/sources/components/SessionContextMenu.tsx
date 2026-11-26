@@ -27,6 +27,7 @@ import {
     machineForkGeminiSession,
     machineForkQoderSession,
     machineForkAntigravitySession,
+    machineForkDeepSeekSession,
     machineSpawnNewSession,
     sessionDelete,
 } from '@/sync/ops';
@@ -235,9 +236,10 @@ function useSessionQuickActions(session: Session) {
         const codexSessionId = session.metadata?.codexSessionId;
         const qoderSessionId = session.metadata?.qoderSessionId;
         const antigravitySessionId = session.metadata?.antigravitySessionId;
+        const deepseekSessionId = session.metadata?.deepseekSessionId;
         const machineId = session.metadata?.machineId;
         const directory = session.metadata?.path;
-        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId)) return;
+        if (!machineId || !directory || (!claudeSessionId && flavor !== 'gemini' && !codexSessionId && !qoderSessionId && !antigravitySessionId && !deepseekSessionId)) return;
 
         const provider = agentDisplayName(flavor, session.metadata?.qoderBuild);
         const confirmed = await Modal.confirm(
@@ -254,7 +256,7 @@ function useSessionQuickActions(session: Session) {
             const originalTitle = session.metadata?.summary?.text || getSessionName(session);
             const sessionTitle = session.active ? generateCopyTitle(originalTitle) : originalTitle;
             let resumeSessionId: string | undefined;
-            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' = 'claude';
+            let agent: 'claude' | 'gemini' | 'codex' | 'qoder' | 'antigravity' | 'deepseek' = 'claude';
 
             if (flavor === 'gemini') {
                 const forkResult = await machineForkGeminiSession(machineId, session.id);
@@ -288,6 +290,14 @@ function useSessionQuickActions(session: Session) {
                 }
                 resumeSessionId = forkResult.newSessionId;
                 agent = 'antigravity';
+            } else if (flavor === 'deepseek' && deepseekSessionId) {
+                const forkResult = await machineForkDeepSeekSession(machineId, deepseekSessionId);
+                if (!forkResult.success || !forkResult.newSessionId) {
+                    Modal.alert(t('common.error'), forkResult.errorMessage || t('claudeHistory.resumeFailed'));
+                    return;
+                }
+                resumeSessionId = forkResult.newSessionId;
+                agent = 'deepseek';
             } else if (claudeSessionId) {
                 const forkResult = await machineForkClaudeSession(machineId, claudeSessionId);
                 if (!forkResult.success || !forkResult.newSessionId) {

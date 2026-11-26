@@ -115,6 +115,18 @@ describe('sessionModeConfig', () => {
         expect(getLastUsedForAgent(decoded, 'qodercn')).toMatchObject({ modelMode: 'qwen3-coder' });
     });
 
+    it('preserves deepseek lastUsed permission and model modes across round trip', () => {
+        const doc = applySessionModeConfigPatch(
+            createEmptySessionModeConfig(0),
+            patch({ agentType: 'deepseek', includeLastUsed: true, permissionMode: 'read-only', modelMode: 'deepseek-v4-pro:high', updatedAt: 300 }),
+        );
+        const decoded = decodeSessionModeConfigValue(encodeSessionModeConfigValue(doc));
+        expect(getLastUsedForAgent(decoded, 'deepseek')).toMatchObject({
+            permissionMode: 'read-only',
+            modelMode: 'deepseek-v4-pro:high',
+        });
+    });
+
     it('preserves default values in session entries (new session case)', () => {
         const doc = applySessionModeConfigPatch(
             createEmptySessionModeConfig(0),

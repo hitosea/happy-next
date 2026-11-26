@@ -12,7 +12,7 @@
 
 import { join } from 'node:path';
 import { projectPath } from '@/projectPath';
-import { startHappyServer } from '@/claude/utils/startHappyServer';
+import { startHappyServer, type HappyServerInteractiveTools } from '@/claude/utils/startHappyServer';
 import { HAPPY_TOOLS_APPROVED_WITHOUT_ASKING } from '@/agent/mcp/happyToolsApproved';
 import type { ApiSessionClient } from '@/api/apiSession';
 import type { McpServerHttpConfig, McpServerStdioConfig } from '@/agent/core/AgentBackend';
@@ -97,8 +97,12 @@ function adaptForHttp(def: McpServerDefinition): McpServerHttpConfig {
  * mcp.stop()
  * ```
  */
-export async function createMcpContext(session: ApiSessionClient): Promise<McpContext> {
-    const happyServer = await startHappyServer(session);
+export interface CreateMcpContextOptions {
+    interactiveTools?: HappyServerInteractiveTools;
+}
+
+export async function createMcpContext(session: ApiSessionClient, options?: CreateMcpContextOptions): Promise<McpContext> {
+    const happyServer = await startHappyServer(session, options);
 
     const servers: Record<string, McpServerDefinition> = {
         happy: {

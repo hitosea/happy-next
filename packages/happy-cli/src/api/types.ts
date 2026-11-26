@@ -424,6 +424,7 @@ export type Metadata = {
   qoderSessionId?: string, // Qoder ACP session id, restored with session/load
   qoderBuild?: QoderBuild, // Qoder or Qoder CN: which build (and config directory) the session runs on
   antigravitySessionId?: string, // Antigravity ACP session id, restored with session/load
+  deepseekSessionId?: string, // DeepSeek Harness ACP session id, restored with session/resume
   tools?: string[],
   slashCommands?: string[],
   slashCommandMetadata?: Array<{

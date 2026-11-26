@@ -183,7 +183,8 @@ function NewSessionWizard() {
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
         const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'yolo'];
         const validAntigravityModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : validClaudeModes;
+        const validDeepSeekModes: PermissionMode[] = ['default', 'read-only', 'plan', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : agentType === 'deepseek' ? validDeepSeekModes : validClaudeModes;
 
         if (mode && validModes.includes(mode as PermissionMode)) {
             return mode as PermissionMode;
@@ -394,7 +395,7 @@ function NewSessionWizard() {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [imagePickerSheetVisible, setImagePickerSheetVisible] = React.useState(false);
 
-    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder' || agentType === 'antigravity';
+    const supportsImages = agentType === 'claude' || agentType === 'gemini' || agentType === 'codex' || agentType === 'qoder' || agentType === 'antigravity' || agentType === 'deepseek';
     const isFocused = useIsFocused();
 
     // What another app shared, when the share-target page sent it to a new session
@@ -559,7 +560,7 @@ function NewSessionWizard() {
     // saved or stand-in list can't tell, so the saved one is kept rather than flashing another.
     const { models: agentModels, complete: agentModelsComplete, loading: agentModelsLoading } = useAgentModels(selectedMachineId, agentChoice);
     const isModelModeAvailable = (mode: string) => {
-        if (agentType !== 'qoder' && agentType !== 'antigravity') return isModelModeFormat(mode);
+        if (agentType !== 'qoder' && agentType !== 'antigravity' && agentType !== 'deepseek') return isModelModeFormat(mode);
         if (!agentModelsComplete || !agentModels) return true;
         const { model, contextWindow } = parseModelMode(mode, agentType);
         const listed = findAgentModel(agentModels, model);
@@ -695,7 +696,8 @@ function NewSessionWizard() {
         const validGeminiModes: PermissionMode[] = ['default', 'auto_edit', 'plan', 'yolo'];
         const validQoderModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'yolo'];
         const validAntigravityModes: PermissionMode[] = ['default', 'acceptEdits', 'auto', 'plan', 'yolo'];
-        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : validClaudeModes;
+        const validDeepSeekModes: PermissionMode[] = ['default', 'read-only', 'plan', 'yolo'];
+        const validModes = agentType === 'codex' ? validCodexModes : agentType === 'gemini' ? validGeminiModes : agentType === 'qoder' ? validQoderModes : agentType === 'antigravity' ? validAntigravityModes : agentType === 'deepseek' ? validDeepSeekModes : validClaudeModes;
         const manualMode = manualPermissionModeByAgentRef.current[agentChoice];
 
         if (manualMode && validModes.includes(manualMode)) {

@@ -99,6 +99,7 @@ const providerIcons = {
     gemini: require('@/assets/images/icon-gemini.png'),
     qoder: require('@/assets/images/icon-qoder.png'),
     antigravity: require('@/assets/images/icon-antigravity.png'),
+    deepseek: require('@/assets/images/icon-deepseek.png'),
 };
 type ProviderIcon = keyof typeof providerIcons;
 
@@ -107,10 +108,11 @@ function resolveProviderIcon(flavor: string | null | undefined): ProviderIcon {
     if (flavor === 'gemini') return 'gemini';
     if (flavor === 'qoder') return 'qoder';
     if (flavor === 'antigravity') return 'antigravity';
+    if (flavor === 'deepseek') return 'deepseek';
     return 'claude';
 }
 
-// A faint vendor mark stamped on the card's top-right corner. Codex, Qoder and Antigravity fill their frames,
+// A faint vendor mark stamped on the card's top-right corner. Codex, Qoder, Antigravity and DeepSeek fill their frames,
 // while Claude's starburst and Gemini's spark carry padding of their own, so their artwork is drawn
 // smaller to give every vendor the same ink.
 const watermarkArtworkSize: Record<ProviderIcon, number> = {
@@ -119,6 +121,7 @@ const watermarkArtworkSize: Record<ProviderIcon, number> = {
     gemini: 88,
     qoder: 78,
     antigravity: 74,
+    deepseek: 84,
 };
 
 /**

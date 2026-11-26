@@ -188,11 +188,18 @@ export interface AcpBackendOptions {
   normalizeToolName?: (rawName: string) => string;
 
   /**
-   * Agent-native session id to restore with `session/load` instead of creating a
-   * new session. Falls back to a new session when the agent cannot load it;
-   * callers compare `getSessionId()` with this value to detect that.
+   * Agent-native session id to restore instead of creating a new session.
+   * Falls back to a new session when the agent cannot restore it; callers
+   * compare `getSessionId()` with this value to detect that.
    */
   resumeSessionId?: string;
+
+  /**
+   * ACP method used to restore `resumeSessionId`:
+   * - `'load'` (default): `session/load` (replays history updates)
+   * - `'resume'`: `session/resume` (`unstable_resumeSession`, restores state without replay)
+   */
+  resumeMethod?: 'load' | 'resume';
 
   /**
    * Receives the history updates the agent replays during `session/load`. They are
@@ -367,6 +374,9 @@ export class AcpBackend implements AgentBackend {
 
   /** Map from real tool call ID to tool name for auto-approval */
   private toolCallIdToNameMap = new Map<string, string>();
+
+  /** Cache of in-flight ACP tool calls so bare `requestPermission` payloads can recover title/kind/rawInput */
+  private pendingToolCalls = new Map<string, { title?: string; kind?: string; rawInput?: unknown; _meta?: unknown }>();
 
   /** Track if we just sent a prompt with change_title instruction */
   private recentPromptHadChangeTitle = false;
@@ -605,7 +615,24 @@ export class AcpBackend implements AgentBackend {
         requestPermission: async (params: RequestPermissionRequest): Promise<RequestPermissionResponse> => {
           
           const extendedParams = params as ExtendedRequestPermissionRequest;
-          const toolCall = extendedParams.toolCall;
+          const rawToolCall = extendedParams.toolCall;
+          // Use toolCallId as the single source of truth for permission ID
+          // Gemini ACP uses toolCallId (e.g. "mcp_happy_change_title-xxx"), Claude uses id
+          const toolCallId = rawToolCall?.toolCallId || rawToolCall?.id || randomUUID();
+          const permissionId = toolCallId;
+          // Some ACP servers (e.g. DeepSeek Harness `dsh --profile acp`) send only `{ toolCallId }`
+          // in `session/request_permission` after emitting the full details on `tool_call`.
+          const cachedToolCall = this.pendingToolCalls.get(toolCallId);
+          const toolCall = rawToolCall || cachedToolCall
+            ? {
+                ...cachedToolCall,
+                ...rawToolCall,
+                title: rawToolCall?.title ?? cachedToolCall?.title,
+                kind: rawToolCall?.kind ?? cachedToolCall?.kind,
+                rawInput: rawToolCall?.rawInput !== undefined ? rawToolCall.rawInput : cachedToolCall?.rawInput,
+                _meta: rawToolCall?._meta !== undefined ? rawToolCall._meta : cachedToolCall?._meta,
+              }
+            : undefined;
           const rawKind = toolCall?.kind;
           const identified = toolCall ? this.transport.identifyToolCall?.(toolCall) ?? null : null;
           let toolName = toolCall?.toolName
@@ -613,10 +640,6 @@ export class AcpBackend implements AgentBackend {
             || (rawKind && rawKind !== 'other' ? rawKind : null)
             || extendedParams.kind
             || 'Unknown tool';
-          // Use toolCallId as the single source of truth for permission ID
-          // Gemini ACP uses toolCallId (e.g. "mcp_happy_change_title-xxx"), Claude uses id
-          const toolCallId = toolCall?.toolCallId || toolCall?.id || randomUUID();
-          const permissionId = toolCallId;
           
           // Extract input/arguments from various possible locations FIRST (before checking toolName)
           // ACP SDK uses rawInput for tool input parameters
@@ -905,18 +928,22 @@ export class AcpBackend implements AgentBackend {
       };
 
       const resumeSessionId = this.options.resumeSessionId;
+      const resumeMethod = this.options.resumeMethod ?? 'load';
       let loadedSession: LoadSessionResponse | null = null;
       if (resumeSessionId) {
-        logger.debug(`[AcpBackend] Loading session ${resumeSessionId}...`);
-        this.replayingHistory = true;
+        logger.debug(`[AcpBackend] Restoring session ${resumeSessionId} via ${resumeMethod}...`);
+        this.replayingHistory = resumeMethod === 'load';
         let timeoutHandle: NodeJS.Timeout | null = null;
         try {
+          const restoreCall = resumeMethod === 'resume'
+            ? this.connection!.unstable_resumeSession({ ...newSessionRequest, sessionId: resumeSessionId })
+            : this.connection!.loadSession({ ...newSessionRequest, sessionId: resumeSessionId });
           loadedSession = await Promise.race([
             startupFailurePromise,
-            this.connection!.loadSession({ ...newSessionRequest, sessionId: resumeSessionId }),
+            restoreCall,
             new Promise<never>((_, reject) => {
               timeoutHandle = setTimeout(() => {
-                reject(new Error(`Load session timeout after ${initTimeout}ms - ${this.transport.agentName} did not respond`));
+                reject(new Error(`Restore session timeout after ${initTimeout}ms - ${this.transport.agentName} did not respond`));
               }, initTimeout);
             }),
           ]);
@@ -925,7 +952,7 @@ export class AcpBackend implements AgentBackend {
           await new Promise((resolve) => setImmediate(resolve));
         } catch (error) {
           if (error === startupFailure) throw error;
-          logger.debug(`[AcpBackend] Could not load session ${resumeSessionId}, starting a new one:`, error);
+          logger.debug(`[AcpBackend] Could not restore session ${resumeSessionId} via ${resumeMethod}, starting a new one:`, error);
         } finally {
           if (timeoutHandle) clearTimeout(timeoutHandle);
           this.replayingHistory = false;
@@ -1111,6 +1138,19 @@ export class AcpBackend implements AgentBackend {
     }
 
     if (sessionUpdateType === 'tool_call_update') {
+      if (typeof update.toolCallId === 'string' && update.toolCallId) {
+        if (update.status === 'completed' || update.status === 'failed') {
+          this.pendingToolCalls.delete(update.toolCallId);
+        } else {
+          const prev = this.pendingToolCalls.get(update.toolCallId);
+          this.pendingToolCalls.set(update.toolCallId, {
+            title: update.title ?? prev?.title,
+            kind: (typeof update.kind === 'string' ? update.kind : undefined) ?? prev?.kind,
+            rawInput: update.rawInput !== undefined ? update.rawInput : prev?.rawInput,
+            _meta: (update as { _meta?: unknown })._meta !== undefined ? (update as { _meta?: unknown })._meta : prev?._meta,
+          });
+        }
+      }
       const result = handleToolCallUpdate(update as SessionUpdate, ctx);
       if (result.toolCallCountSincePrompt !== undefined) {
         this.toolCallCountSincePrompt = result.toolCallCountSincePrompt;
@@ -1124,6 +1164,14 @@ export class AcpBackend implements AgentBackend {
     }
 
     if (sessionUpdateType === 'tool_call') {
+      if (typeof update.toolCallId === 'string' && update.toolCallId && update.status !== 'completed' && update.status !== 'failed') {
+        this.pendingToolCalls.set(update.toolCallId, {
+          title: update.title,
+          kind: typeof update.kind === 'string' ? update.kind : undefined,
+          rawInput: update.rawInput,
+          _meta: (update as { _meta?: unknown })._meta,
+        });
+      }
       handleToolCall(update as SessionUpdate, ctx);
       return;
     }
@@ -1209,8 +1257,9 @@ export class AcpBackend implements AgentBackend {
     // Check if prompt contains change_title instruction (via optional callback)
     const promptHasChangeTitle = this.options.hasChangeTitleInstruction?.(prompt) ?? false;
 
-    // Reset tool call counter and set flag
+    // Reset tool call counter and set flag; tool calls of earlier turns never ask for permission again
     this.toolCallCountSincePrompt = 0;
+    this.pendingToolCalls.clear();
     this.recentPromptHadChangeTitle = promptHasChangeTitle;
 
     if (promptHasChangeTitle) {
@@ -1432,6 +1481,7 @@ export class AcpBackend implements AgentBackend {
     }
 
     let acked = false;
+    this.pendingToolCalls.clear();
     try {
       await this.connection.cancel({ sessionId: this.acpSessionId });
       this.emit({ type: 'status', status: 'stopped', detail: 'Cancelled by user' });
@@ -1534,5 +1584,6 @@ export class AcpBackend implements AgentBackend {
     this.toolCallTimeouts.clear();
     this.toolCallStartTimes.clear();
     this.pendingPermissions.clear();
+    this.pendingToolCalls.clear();
   }
 }

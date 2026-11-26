@@ -1,1 +1,1 @@
-export { createMcpContext, type McpContext } from './mcpAdapter';
+export { createMcpContext, type CreateMcpContextOptions, type McpContext } from './mcpAdapter';

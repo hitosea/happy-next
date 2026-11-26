@@ -8,6 +8,7 @@ interface CLIAvailability {
     qoder: boolean | null; // Qoder (qodercli)
     qodercn: boolean | null; // Qoder CN (qoderclicn)
     antigravity: boolean | null; // Antigravity (agy)
+    deepseek: boolean | null; // DeepSeek Harness (dsh)
     isDetecting: boolean; // Explicit loading state
     timestamp: number; // When detection completed
     error?: string; // Detection error message (for debugging)
@@ -21,14 +22,16 @@ const CLI_DETECTION_COMMAND =
     '((command -v qodercli || test -x ~/.local/bin/qodercli) >/dev/null 2>&1 && echo "qoder:true" || echo "qoder:false") && ' +
     '((command -v qoderclicn || test -x ~/.local/bin/qoderclicn) >/dev/null 2>&1 && echo "qodercn:true" || echo "qodercn:false") && ' +
     // Antigravity's installer puts agy in ~/.local/bin too
-    '((command -v agy || test -x ~/.local/bin/agy) >/dev/null 2>&1 && echo "antigravity:true" || echo "antigravity:false")';
+    '((command -v agy || test -x ~/.local/bin/agy) >/dev/null 2>&1 && echo "antigravity:true" || echo "antigravity:false") && ' +
+    // DeepSeek Harness (@deepseek-ai/dsh) installs dsh in PATH or ~/.local/bin
+    '((command -v dsh || test -x ~/.local/bin/dsh) >/dev/null 2>&1 && echo "deepseek:true" || echo "deepseek:false")';
 
 /** Every CLI unknown: before detection, and when it fails. */
-const UNKNOWN_CLIS: CLIAvailability = { claude: null, codex: null, gemini: null, qoder: null, qodercn: null, antigravity: null, isDetecting: false, timestamp: 0 };
+const UNKNOWN_CLIS: CLIAvailability = { claude: null, codex: null, gemini: null, qoder: null, qodercn: null, antigravity: null, deepseek: null, isDetecting: false, timestamp: 0 };
 
 function parseCLIOutput(stdout: string): CLIAvailability {
     const lines = stdout.trim().split('\n');
-    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; qoder?: boolean; qodercn?: boolean; antigravity?: boolean } = {};
+    const cliStatus: { claude?: boolean; codex?: boolean; gemini?: boolean; qoder?: boolean; qodercn?: boolean; antigravity?: boolean; deepseek?: boolean } = {};
 
     lines.forEach(line => {
         const [cli, status] = line.split(':');
@@ -44,6 +47,7 @@ function parseCLIOutput(stdout: string): CLIAvailability {
         qoder: cliStatus.qoder ?? null,
         qodercn: cliStatus.qodercn ?? null,
         antigravity: cliStatus.antigravity ?? null,
+        deepseek: cliStatus.deepseek ?? null,
         isDetecting: false,
         timestamp: Date.now(),
     };

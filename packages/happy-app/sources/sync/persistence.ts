@@ -39,7 +39,7 @@ export function dootaskTasksCacheStorage(): PersistedCacheStorage {
     return mmkvCacheStorage('dootask-tasks-cache-v1');
 }
 
-export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity';
+export type NewSessionAgentType = 'claude' | 'codex' | 'gemini' | 'qoder' | 'antigravity' | 'deepseek';
 export type NewSessionSessionType = 'simple' | 'worktree';
 
 export interface NewSessionDraft {
@@ -242,7 +242,7 @@ export function loadNewSessionDraft(): NewSessionDraft | null {
         const input = typeof parsed.input === 'string' ? parsed.input : '';
         const selectedMachineId = typeof parsed.selectedMachineId === 'string' ? parsed.selectedMachineId : null;
         const selectedPath = typeof parsed.selectedPath === 'string' ? parsed.selectedPath : null;
-        const agentType: NewSessionAgentType = parsed.agentType === 'codex' || parsed.agentType === 'gemini' || parsed.agentType === 'qoder' || parsed.agentType === 'antigravity'
+        const agentType: NewSessionAgentType = parsed.agentType === 'codex' || parsed.agentType === 'gemini' || parsed.agentType === 'qoder' || parsed.agentType === 'antigravity' || parsed.agentType === 'deepseek'
             ? parsed.agentType
             : 'claude';
         const permissionMode: PermissionMode = typeof parsed.permissionMode === 'string'

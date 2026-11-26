@@ -37,6 +37,8 @@ describe('model modes', () => {
         expect(resolveModelSelectionForFlavor('qoder', 'performance:high@1000000'))
             .toEqual({ model: 'performance', reasoningEffort: 'high', contextWindow: 1_000_000 });
         expect(resolveLocalModelDisplay('gpt-6-sol-medium')).toEqual({ model: 'gpt-6-sol', reasoningEffort: 'medium' });
+        expect(resolveModelSelectionForFlavor('claude', 'some-model-off')).toEqual({ model: 'some-model-off', reasoningEffort: null });
+        expect(resolveLocalModelDisplay('some-model-off')).toEqual({ model: 'some-model-off', reasoningEffort: null });
     });
 
     it('checks the format alone, or against a list', () => {
@@ -64,8 +66,9 @@ describe('labels and windows', () => {
     });
 
     it('sorts efforts strongest first', () => {
-        expect(sortEffortsStrongestFirst([{ code: 'none' }, { code: 'low' }, { code: 'odd' }, { code: 'xhigh' }]).map((effort) => effort.code))
-            .toEqual(['xhigh', 'low', 'none', 'odd']);
+        expect(sortEffortsStrongestFirst([{ code: 'off' }, { code: 'none' }, { code: 'low' }, { code: 'odd' }, { code: 'xhigh' }]).map((effort) => effort.code))
+            .toEqual(['xhigh', 'low', 'none', 'off', 'odd']);
+        expect(formatModelDisplay('deepseek-v4-pro', 'off')).toBe('deepseek-v4-pro (Off)');
     });
 
     it('gives Claude models but Haiku 4.5 a choice of window', () => {
@@ -76,6 +79,7 @@ describe('labels and windows', () => {
     it('uses the picked window, else the agent default', () => {
         expect(getMaxContextSize('claude-opus-5-5:high@400000', 'claude')).toBe(400_000);
         expect(getMaxContextSize('gpt-6-sol:high', 'codex')).toBe(272_000);
+        expect(getMaxContextSize('deepseek-v4-pro:high', 'deepseek')).toBe(1_000_000);
         expect(getMaxContextSize('default', 'claude', 300_000)).toBe(1_000_000);
         expect(getMaxContextSize(null, null)).toBe(200_000);
     });

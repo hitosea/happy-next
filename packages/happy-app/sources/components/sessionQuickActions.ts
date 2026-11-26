@@ -57,7 +57,7 @@ export function getSessionQuickActionKinds({
         && session.metadata?.path
         && (
             session.metadata?.claudeSessionId || session.metadata?.flavor === 'gemini' || session.metadata?.codexSessionId || session.metadata?.qoderSessionId
-            || session.metadata?.antigravitySessionId
+            || session.metadata?.antigravitySessionId || session.metadata?.deepseekSessionId
         )
     );
 

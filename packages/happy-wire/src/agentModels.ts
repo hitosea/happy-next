@@ -10,11 +10,11 @@ import * as z from 'zod';
  * against the list the machine gave, by the machine's CLI, or only for its format.
  */
 
-export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini', 'qoder', 'antigravity']);
+export const AgentFlavorSchema = z.enum(['claude', 'codex', 'gemini', 'qoder', 'antigravity', 'deepseek']);
 export type AgentFlavor = z.infer<typeof AgentFlavorSchema>;
 
 /** Agents whose models a machine lists; Qoder CN is Qoder signed in to its own account. */
-export const MODEL_LISTING_AGENTS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity'] as const;
+export const MODEL_LISTING_AGENTS = ['claude', 'codex', 'gemini', 'qoder', 'qodercn', 'antigravity', 'deepseek'] as const;
 export type ModelListingAgent = typeof MODEL_LISTING_AGENTS[number];
 
 export function isModelListingAgent(agent: string | null | undefined): agent is ModelListingAgent {
@@ -62,7 +62,7 @@ const EFFORT_SEPARATOR = ':';
 const CONTEXT_WINDOW_SEPARATOR = '@';
 
 /** Every effort an agent names, strongest first, as pickers list them. */
-export const REASONING_EFFORTS = ['ultra', 'max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none'] as const;
+export const REASONING_EFFORTS = ['ultra', 'max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none', 'off'] as const;
 
 /** Efforts strongest first; ones not in `REASONING_EFFORTS` keep their order after them. */
 export function sortEffortsStrongestFirst<T extends { code: string }>(efforts: readonly T[]): T[] {
@@ -97,7 +97,9 @@ export type ModelSelection = {
 };
 
 // Claude and Codex modes were once `model-effort` (`claude-opus-5-high@400000`, `gpt-5.4-high`).
-const LEGACY_EFFORT_SUFFIX = new RegExp(`^(.+)-(${REASONING_EFFORTS.join('|')})$`);
+// Legacy `model-effort` ids predate DeepSeek's 'off', so a model id ending in '-off' is not split.
+const LEGACY_EFFORTS = REASONING_EFFORTS.filter((effort) => effort !== 'off');
+const LEGACY_EFFORT_SUFFIX = new RegExp(`^(.+)-(${LEGACY_EFFORTS.join('|')})$`);
 const LEGACY_EFFORT_FLAVORS = new Set(['claude', 'codex']);
 
 /**
@@ -178,6 +180,7 @@ const REASONING_EFFORT_LABELS: Record<string, string> = {
     xhigh: 'XHigh',
     ultra: 'Ultra',
     none: 'None',
+    off: 'Off',
 };
 
 /**
@@ -220,6 +223,7 @@ export const AGENT_DEFAULT_CONTEXT_WINDOWS: Record<AgentFlavor, number> = {
     gemini: 1_000_000,
     qoder: 200_000,
     antigravity: 1_048_576,
+    deepseek: 1_000_000,
 };
 
 /**

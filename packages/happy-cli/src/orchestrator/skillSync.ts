@@ -13,6 +13,7 @@ import {
   ORCHESTRATOR_COMMAND_QODER,
   ORCHESTRATOR_COMMAND_QODERCN,
   ORCHESTRATOR_COMMAND_ANTIGRAVITY,
+  ORCHESTRATOR_COMMAND_DEEPSEEK,
 } from './skillAssets';
 
 let didSync = false;
@@ -60,6 +61,7 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
     writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'antigravity.md'), ORCHESTRATOR_COMMAND_ANTIGRAVITY);
+    writeIfChanged(join(claudeRoot, 'commands', 'orchestrator', 'deepseek.md'), ORCHESTRATOR_COMMAND_DEEPSEEK);
   }
 
   // Codex — $CODEX_HOME/skills, defaulting to ~/.codex/skills.
@@ -81,5 +83,6 @@ export function syncOrchestratorAssets(): void {
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qoder.md'), ORCHESTRATOR_COMMAND_QODER);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'qodercn.md'), ORCHESTRATOR_COMMAND_QODERCN);
     writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'antigravity.md'), ORCHESTRATOR_COMMAND_ANTIGRAVITY);
+    writeIfChanged(join(qoderRoot, 'commands', 'orchestrator', 'deepseek.md'), ORCHESTRATOR_COMMAND_DEEPSEEK);
   }
 }

@@ -1889,6 +1889,7 @@ describe('orchestrator integration paths', () => {
             qoder: ['default'],
             qodercn: ['default'],
             antigravity: ['default'],
+            deepseek: ['default'],
         });
         expect(body.data.defaults).toEqual(expect.objectContaining({
             retryMaxAttempts: 1,
