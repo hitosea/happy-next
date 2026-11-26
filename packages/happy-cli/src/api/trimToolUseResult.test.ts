@@ -325,6 +325,28 @@ describe('trimToolUseInput', () => {
         mockSave.mockClear();
     });
 
+    describe('edit (ACP)', () => {
+        const trim = (input: unknown) => trimToolUseInput({ type: 'tool_use', id: 'call-1', name: 'edit', input }, 'session-1');
+
+        it('trims Qoder\'s edit, keeping its note on the call', () => {
+            const result = trim({ file_path: '/src/a.ts', old_string: 'a', new_string: 'b', description: 'Edit /src/a.ts', locations: [{ path: '/src/a.ts' }] });
+            expect(result).toEqual({ type: 'tool_use', id: 'call-1', name: 'edit', input: { file_path: '/src/a.ts', _trimmed: true, callId: 'call-1', additions: 1, deletions: 1, description: 'Edit /src/a.ts' } });
+            expect(JSON.parse(mockSave.mock.calls[0][1][0].diff)).toEqual({ oldString: 'a', newString: 'b' });
+        });
+
+        it('reads a new file\'s content and Gemini\'s nested fields', () => {
+            expect(trim({ file_path: '/src/new.ts', content: 'x\ny\n' }).input).toMatchObject({ file_path: '/src/new.ts', additions: 2, deletions: 0 });
+            expect(trim({ toolCall: { content: [{ path: '/src/g.ts', oldText: 'a', newText: 'b' }] } }).input).toMatchObject({ file_path: '/src/g.ts', _trimmed: true });
+            expect(trim({ input: [{ path: '/src/h.ts', oldText: '', newText: 'c' }] }).input).toMatchObject({ file_path: '/src/h.ts', additions: 1 });
+        });
+
+        it('leaves an edit without its text as it is', () => {
+            const input = { description: 'Edit /src/a.ts', locations: [{ path: '/src/a.ts' }] };
+            expect(trim(input).input).toBe(input);
+            expect(mockSave).not.toHaveBeenCalled();
+        });
+    });
+
     describe('Edit', () => {
         it('trims input and saves to diffStore', () => {
             const block = {

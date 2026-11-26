@@ -424,6 +424,7 @@ export const knownTools = {
         },
         icon: ICON_EDIT,
         isMutable: true,
+        minimal: true,
         input: z.object({
             notebook_path: z.string().describe('The absolute path to the notebook file'),
             new_source: z.string().describe('The new source for the cell'),

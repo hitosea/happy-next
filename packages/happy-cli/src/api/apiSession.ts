@@ -31,8 +31,8 @@ function stripCapabilitiesFromMetadata(metadata: Metadata): Metadata {
     return rest;
 }
 
-/** Tools whose tool_use.input should be trimmed and saved to diffStore */
-const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
+/** Tools whose tool_use.input should be trimmed and saved to diffStore (`edit`: the ACP edit tool of Gemini and Qoder) */
+const INPUT_TRIMMABLE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'edit']);
 
 /** Max messages per outbox flush — must not exceed the server's v3 messages limit (200). */
 const MAX_OUTBOX_BATCH_SIZE = 200;
@@ -1320,8 +1320,8 @@ export class ApiSessionClient extends EventEmitter {
             registerToolImageForCall(this.sessionId, this.metadata?.path, body.name, body.callId, body.input);
             // A minimap landmark is decided at send time, and its result names a callId, not a tool
             this.rememberToolName(body.callId, body.name);
-            // An ACP agent's edit shown as Claude's Edit/Write card goes out trimmed the same way: the
-            // chat shows the file and its line counts, the diff is fetched when the row is opened
+            // An ACP agent's edits go out trimmed as Claude's do: the chat shows the file and its
+            // line counts, the diff is fetched when the row is opened
             if (INPUT_TRIMMABLE_TOOLS.has(body.name)) {
                 body = { ...body, input: trimToolUseInput({ type: 'tool_use', id: body.callId, name: body.name, input: body.input }, this.sessionId).input };
             }

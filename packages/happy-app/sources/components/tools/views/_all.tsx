@@ -42,6 +42,11 @@ export type ToolViewProps = {
 // Type for tool view components
 export type ToolViewComponent = React.ComponentType<ToolViewProps>;
 
+// The ACP edit tool (Gemini, Qoder) arrives trimmed by the CLI like Claude's Edit, and then shows as it does
+const isTrimmed = (tool: ToolCall) => tool.input?._trimmed === true;
+const AcpEditView: ToolViewComponent = (props) => isTrimmed(props.tool) ? <EditView {...props} /> : <GeminiEditView {...props} />;
+const AcpEditViewFull: ToolViewComponent = (props) => isTrimmed(props.tool) ? <EditViewFull tool={props.tool} metadata={props.metadata} /> : <GeminiEditViewFull {...props} />;
+
 // Registry of tool-specific view components
 export const toolViewRegistry: Record<string, ToolViewComponent> = {
     Edit: EditView,
@@ -59,7 +64,7 @@ export const toolViewRegistry: Record<string, ToolViewComponent> = {
     Agent: TaskView,
     AskUserQuestion: AskUserQuestionView,
     // Gemini tools (lowercase)
-    edit: GeminiEditView,
+    edit: AcpEditView,
     execute: GeminiExecuteView,
 };
 
@@ -68,7 +73,7 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
     Bash: BashViewFull,
     Edit: EditViewFull,
     MultiEdit: MultiEditViewFull,
-    edit: GeminiEditViewFull,
+    edit: AcpEditViewFull,
 };
 
 // A view that can render nothing for some calls says so here, so ToolView can skip its
@@ -76,6 +81,7 @@ export const toolFullViewRegistry: Record<string, ToolViewComponent> = {
 const toolViewHasContentRegistry: Record<string, (tool: ToolCall) => boolean> = {
     execute: (tool) => !!extractExecuteInfo(tool.input).command,
     edit: (tool) => {
+        if (isTrimmed(tool)) return true;
         const { oldText, newText } = extractEditContent(tool.input);
         return !!(oldText || newText);
     },

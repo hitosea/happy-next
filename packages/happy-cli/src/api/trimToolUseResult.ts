@@ -241,11 +241,11 @@ function countLineChanges(oldStr: string, newStr: string): { additions: number; 
 }
 
 /**
- * Trim tool_use.input for Edit/Write/MultiEdit in assistant messages.
+ * Trim tool_use.input for Edit/Write/MultiEdit (and the ACP edit tool) before it reaches the app.
  * Extracts large strings (old_string, new_string, content), saves them to diffStore,
  * and replaces input with lightweight metadata. App fetches on demand via getDiffDetail RPC.
  *
- * Returns the original block unchanged for non-Edit/Write/MultiEdit tools.
+ * Returns the original block unchanged for other tools.
  */
 export function trimToolUseInput(
     block: { type: string; id: string; name: string; input: any },
@@ -352,6 +352,20 @@ export function trimToolUseInput(
                     deletions: totalDeletions,
                 },
             };
+        }
+
+        case 'edit': {
+            // The ACP edit tool (Gemini, Qoder): Claude's Edit fields, Gemini's oldText/newText/path
+            // directly or nested in toolCall.content / input, or a new file's whole content
+            const edit = input.toolCall?.content?.[0] ?? (Array.isArray(input.input) ? input.input[0] : undefined) ?? input;
+            const filePath = edit?.file_path ?? edit?.path;
+            const oldString = edit?.old_string ?? edit?.oldText ?? '';
+            const newString = edit?.new_string ?? edit?.newText ?? edit?.content ?? '';
+            if (typeof filePath !== 'string' || !filePath || typeof oldString !== 'string' || typeof newString !== 'string' || (!oldString && !newString)) return block;
+            const trimmed = trimToolUseInput({ ...block, name: 'Edit', input: { file_path: filePath, old_string: oldString, new_string: newString } }, sessionId);
+            // The agent's note on the call names the step on a folded line
+            const description = typeof input.description === 'string' ? { description: input.description } : {};
+            return { ...block, input: { ...trimmed.input, ...description } };
         }
 
         default:

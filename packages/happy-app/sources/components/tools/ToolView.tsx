@@ -107,12 +107,12 @@ export const ToolView = React.memo<ToolViewProps>((props) => {
     let noStatus = false;
     let hideDefaultError = false;
     
-    // For Gemini: unknown tools should be rendered as minimal (hidden)
-    // This prevents showing raw INPUT/OUTPUT for internal Gemini tools
-    // that we haven't explicitly added to knownTools
-    const isGemini = props.metadata?.flavor === 'gemini';
-    if (!knownTool && isGemini) {
+    // A tool the app has no card for is a single line, whichever agent ran it, named by the agent's
+    // note on the call (e.g. Qoder's "Fetch https://…"): its raw input and output are on the message
+    // page the row opens, not in the chat
+    if (!knownTool) {
         minimal = true;
+        description = tool.description;
     }
 
     // Extract status first to potentially use as title
