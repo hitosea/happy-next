@@ -857,6 +857,8 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     // Vendor mark beside the model label. Claude is the fallback for sessions without a flavor.
     const agentFlavorKey: keyof typeof agentFlavorIcons = isCodex ? 'codex' : isGemini ? 'gemini' : isQoder ? 'qoder' : isAntigravity ? 'antigravity' : 'claude';
 
+    const antigravitySupportsAuto = !props.metadata?.operatingModes?.length
+        || props.metadata.operatingModes.some((mode) => mode.code === 'auto');
     const permissionModeOptions: PermissionMode[] = isCodex
         ? ['default', 'read-only', 'on-failure', 'full-auto']
         : isGemini
@@ -864,7 +866,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             : isQoder
                 ? ['default', 'acceptEdits', 'auto', 'yolo']
                 : isAntigravity
-                    ? ['default', 'acceptEdits', 'plan', 'yolo']
+                    ? (antigravitySupportsAuto ? ['default', 'acceptEdits', 'auto', 'plan', 'yolo'] : ['default', 'acceptEdits', 'plan', 'yolo'])
                     : ['default', 'acceptEdits', 'plan', 'auto', 'bypassPermissions'];
 
     const getPermissionModeLabel = React.useCallback((mode: PermissionMode | undefined, badge = false): string => {
@@ -883,12 +885,20 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
             if (mode === 'yolo') return badge ? t('agentInput.geminiPermissionMode.badgeYolo') : t('agentInput.geminiPermissionMode.yolo');
             return '';
         }
-        if (isQoder || isAntigravity) {
+        if (isQoder) {
             if (mode === 'default') return t('agentInput.qoderPermissionMode.default');
             if (mode === 'acceptEdits') return badge ? t('agentInput.qoderPermissionMode.badgeAcceptEdits') : t('agentInput.qoderPermissionMode.acceptEdits');
             if (mode === 'auto') return badge ? t('agentInput.qoderPermissionMode.badgeAuto') : t('agentInput.qoderPermissionMode.auto');
             if (mode === 'yolo') return badge ? t('agentInput.qoderPermissionMode.badgeYolo') : t('agentInput.qoderPermissionMode.yolo');
             if (mode === 'plan') return badge ? t('agentInput.permissionMode.badgePlanMode') : t('agentInput.permissionMode.plan');
+            return '';
+        }
+        if (isAntigravity) {
+            if (mode === 'default') return t('agentInput.antigravityPermissionMode.default');
+            if (mode === 'acceptEdits') return badge ? t('agentInput.antigravityPermissionMode.badgeAcceptEdits') : t('agentInput.antigravityPermissionMode.acceptEdits');
+            if (mode === 'auto') return badge ? t('agentInput.antigravityPermissionMode.badgeAuto') : t('agentInput.antigravityPermissionMode.auto');
+            if (mode === 'plan') return badge ? t('agentInput.antigravityPermissionMode.badgePlan') : t('agentInput.antigravityPermissionMode.plan');
+            if (mode === 'yolo') return badge ? t('agentInput.antigravityPermissionMode.badgeYolo') : t('agentInput.antigravityPermissionMode.yolo');
             return '';
         }
         if (mode === 'default') return t('agentInput.permissionMode.default');
@@ -905,10 +915,11 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         auto: t('agentInput.qoderPermissionMode.autoDescription'),
         yolo: t('agentInput.qoderPermissionMode.yoloDescription'),
     } : isAntigravity ? {
-        default: t('agentInput.qoderPermissionMode.defaultDescription'),
-        acceptEdits: t('agentInput.qoderPermissionMode.acceptEditsDescription'),
-        plan: t('agentInput.geminiPermissionMode.planDescription'),
-        yolo: t('agentInput.qoderPermissionMode.yoloDescription'),
+        default: t('agentInput.antigravityPermissionMode.defaultDescription'),
+        acceptEdits: t('agentInput.antigravityPermissionMode.acceptEditsDescription'),
+        auto: t('agentInput.antigravityPermissionMode.autoDescription'),
+        plan: t('agentInput.antigravityPermissionMode.planDescription'),
+        yolo: t('agentInput.antigravityPermissionMode.yoloDescription'),
     } : isCodex ? {
         default: t('agentInput.codexPermissionMode.defaultDescription'),
         'read-only': t('agentInput.codexPermissionMode.readOnlyDescription'),

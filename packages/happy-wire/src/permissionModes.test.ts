@@ -14,9 +14,9 @@ describe('qoder permission modes', () => {
 
 describe('antigravity permission modes', () => {
     it('accepts the agy modes Happy offers', () => {
-        for (const mode of ['default', 'acceptEdits', 'plan', 'yolo']) {
+        for (const mode of ['default', 'acceptEdits', 'auto', 'plan', 'yolo']) {
             expect(isPermissionModeForAgent('antigravity', mode)).toBe(true);
         }
-        expect(isPermissionModeForAgent('antigravity', 'auto')).toBe(false);
+        expect(isPermissionModeForAgent('antigravity', 'bypassPermissions')).toBe(false);
     });
 });

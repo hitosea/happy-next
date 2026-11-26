@@ -30,12 +30,14 @@ export const QODER_PERMISSION_MODES = [
 ] as const;
 
 /**
- * Antigravity (`agy acp`) offers default, accept-edits and plan as ACP modes; `yolo` runs in
- * its default mode with Happy approving every request it asks about.
+ * Antigravity (`agy acp`) offers default, accept-edits, auto (when the OS terminal sandbox is
+ * available on a personal account) and plan as ACP modes; `yolo` runs in its default mode with
+ * Happy approving every request it asks about.
  */
 export const ANTIGRAVITY_PERMISSION_MODES = [
   'default',
   'acceptEdits',
+  'auto',
   'plan',
   'yolo',
 ] as const;

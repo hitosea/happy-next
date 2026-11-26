@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AntigravityTransport, antigravityMcpToolName } from './antigravity';
+import { ANTIGRAVITY_ACP_MODES, AntigravityTransport, antigravityMcpToolName, resolveAntigravityAcpMode } from './antigravity';
 
 const transport = new AntigravityTransport('antigravity');
 const identify = (kind: string, rawInput: unknown, title = '') => transport.identifyToolCall({ kind, title, rawInput });
@@ -35,5 +35,31 @@ describe('antigravityMcpToolName', () => {
     expect(antigravityMcpToolName('Run mcp_happy_orchestrator_get_context')).toBe('mcp__happy__orchestrator_get_context');
     expect(antigravityMcpToolName('Run mcp_my-server_do_it')).toBe('mcp__my-server__do_it');
     expect(antigravityMcpToolName('echo hi')).toBeNull();
+  });
+});
+
+describe('resolveAntigravityAcpMode', () => {
+  it('maps every Antigravity permission mode to its agy ACP mode', () => {
+    expect(ANTIGRAVITY_ACP_MODES).toEqual({
+      default: 'default',
+      acceptEdits: 'accept-edits',
+      auto: 'auto',
+      plan: 'plan',
+      yolo: 'default',
+    });
+    const allModes = new Set(['default', 'accept-edits', 'auto', 'plan']);
+    expect(resolveAntigravityAcpMode('default', allModes)).toBe('default');
+    expect(resolveAntigravityAcpMode('acceptEdits', allModes)).toBe('accept-edits');
+    expect(resolveAntigravityAcpMode('auto', allModes)).toBe('auto');
+    expect(resolveAntigravityAcpMode('plan', allModes)).toBe('plan');
+    expect(resolveAntigravityAcpMode('yolo', allModes)).toBe('default');
+  });
+
+  it('falls back to default when agy does not advertise auto on the host', () => {
+    const withoutAuto = new Set(['default', 'accept-edits', 'plan']);
+    expect(resolveAntigravityAcpMode('auto', withoutAuto)).toBe('default');
+    expect(resolveAntigravityAcpMode('acceptEdits', withoutAuto)).toBe('accept-edits');
+    expect(resolveAntigravityAcpMode('plan', withoutAuto)).toBe('plan');
+    expect(resolveAntigravityAcpMode('auto', null)).toBe('auto');
   });
 });

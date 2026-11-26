@@ -36,8 +36,12 @@ import { syncOrchestratorAssets } from '@/orchestrator/skillSync';
 import type { AcpBackend } from '@/agent/acp/AcpBackend';
 import type { AgentMessage } from '@/agent';
 import { handleConfigMetadataEvent } from '@/agent/acp/sessionUpdateHandlers';
-import { extractConfigOptionsFromPayload } from '@/agent/acp/sessionConfigMetadata';
-import { ANTIGRAVITY_ACP_MODES, createAntigravityBackend } from '@/agent/factories/antigravity';
+import {
+  extractConfigOptionsFromPayload,
+  extractCurrentModeIdFromPayload,
+  extractModeStateFromPayload,
+} from '@/agent/acp/sessionConfigMetadata';
+import { ANTIGRAVITY_ACP_MODES, createAntigravityBackend, resolveAntigravityAcpMode } from '@/agent/factories/antigravity';
 import { antigravityUsageAfter, readAntigravityTranscript } from '@/antigravity/transcript';
 import { GeminiDisplay } from '@/ui/ink/GeminiDisplay';
 import type { ImageContent, PermissionMode } from '@/api/types';
@@ -226,6 +230,9 @@ export async function runAntigravity(opts: {
   let antigravityBackend = null as AcpBackend | null;
   // Values agy last reported for its `mode`, `model` and `thought_level` config options.
   let appliedMode: string | null = null;
+  let availableAcpModes: Set<string> | null = null;
+  // The unavailable agy mode the app was last told about, so a fallback is reported once.
+  let notifiedUnavailableAcpMode: string | null = null;
   let appliedModel: string | null = null;
   let appliedEffort: string | null = null;
   // The model a fresh agy session starts with, used when the app asks for the default.
@@ -358,12 +365,38 @@ export async function runAntigravity(opts: {
         }
         if (msg.name === 'config_options_update') {
           const configOptions = extractConfigOptionsFromPayload(msg.payload) ?? [];
-          const current = (category: string) => configOptions.find((option) => option.type === 'select' && option.category === category)?.currentValue ?? null;
-          appliedMode = current('mode') ?? appliedMode;
-          appliedModel = current('model') ?? appliedModel;
-          appliedEffort = current('thought_level');
+          const findSelect = (category: string) => configOptions.find((option) => option.type === 'select' && option.category === category);
+          const modeOption = findSelect('mode');
+          appliedMode = modeOption?.currentValue ?? appliedMode;
+          if (modeOption && Array.isArray(modeOption.options)) {
+            const values: string[] = [];
+            for (const entry of modeOption.options) {
+              if ('value' in entry && typeof entry.value === 'string') {
+                values.push(entry.value);
+              } else if ('options' in entry && Array.isArray(entry.options)) {
+                for (const nested of entry.options) {
+                  if (nested && typeof nested.value === 'string') values.push(nested.value);
+                }
+              }
+            }
+            if (values.length > 0) availableAcpModes = new Set(values);
+          }
+          appliedModel = findSelect('model')?.currentValue ?? appliedModel;
+          appliedEffort = findSelect('thought_level')?.currentValue ?? null;
           displayedModel = appliedModel ?? displayedModel;
           messageBuffer.addMessage(`[MODEL:${displayedModel}]`, 'system');
+        }
+        if (msg.name === 'modes_update') {
+          const modeState = extractModeStateFromPayload(msg.payload);
+          if (modeState) {
+            appliedMode = modeState.currentModeId;
+            if (modeState.availableModes.length > 0) {
+              availableAcpModes = new Set(modeState.availableModes.map((mode) => mode.id));
+            }
+          }
+        }
+        if (msg.name === 'current_mode_update') {
+          appliedMode = extractCurrentModeIdFromPayload(msg.payload) ?? appliedMode;
         }
         if (handleConfigMetadataEvent(msg.name, msg.payload, session.updateMetadata.bind(session), session.updateCapabilities.bind(session))) {
           break;
@@ -397,7 +430,9 @@ export async function runAntigravity(opts: {
     });
     backend.onMessage(handleBackendMessage);
     appliedMode = null;
+    availableAcpModes = null;
     appliedModel = null;
+    appliedEffort = null;
     contextUsage = null;
     try {
       await backend.startSession();
@@ -416,10 +451,25 @@ export async function runAntigravity(opts: {
 
   const applyPermissionMode = async (backend: AcpBackend, mode: PermissionMode) => {
     permissionHandler!.setPermissionMode(mode);
-    const acpMode = ANTIGRAVITY_ACP_MODES[mode as AntigravityPermissionMode] ?? 'default';
+    const requestedAcpMode = ANTIGRAVITY_ACP_MODES[mode as AntigravityPermissionMode] ?? 'default';
+    const acpMode = resolveAntigravityAcpMode(mode, availableAcpModes);
+    const unavailableAcpMode = acpMode === requestedAcpMode ? null : requestedAcpMode;
+    // Told once per switch, not on every prompt, so the app explains why the session runs in Default.
+    if (unavailableAcpMode && unavailableAcpMode !== notifiedUnavailableAcpMode) {
+      logger.debug(`[Antigravity] Mode ${unavailableAcpMode} is unavailable on this host; falling back to ${acpMode}`);
+      session.sendSessionEvent({
+        type: 'message',
+        message: `No terminal sandbox on this machine for ${unavailableAcpMode} mode; using Default`,
+      });
+    }
+    notifiedUnavailableAcpMode = unavailableAcpMode;
     if (appliedMode === acpMode) return;
     const applied = await backend.setSessionConfigOption('mode', acpMode);
     logger.debug(`[Antigravity] Set mode ${acpMode} for ${mode}: ${applied}`);
+    if (!applied && acpMode !== 'default' && appliedMode !== 'default') {
+      const fallbackApplied = await backend.setSessionConfigOption('mode', 'default');
+      logger.debug(`[Antigravity] Fallback to default mode after ${acpMode} failed: ${fallbackApplied}`);
+    }
   };
 
   const promptImages = async (text: string, images: ImageContent[] | undefined) => images
@@ -560,7 +610,6 @@ export async function runAntigravity(opts: {
       try {
         if (!antigravityBackend) await startBackend();
         const backend = antigravityBackend!;
-        await applyPermissionMode(backend, batch.mode.permissionMode);
         const model = batch.mode.model ?? defaultModel;
         if (model && model !== appliedModel) {
           const applied = await backend.setSessionConfigOption('model', model);
@@ -571,6 +620,8 @@ export async function runAntigravity(opts: {
           const applied = await backend.setSessionConfigOption('thought_level', batch.mode.effort);
           logger.debug(`[Antigravity] Set thinking level ${batch.mode.effort}: ${applied}`);
         }
+        // Apply permission mode after model/thinking updates: agy can reset mode back to default when model changes.
+        await applyPermissionMode(backend, batch.mode.permissionMode);
 
         const images = await promptImages(batch.message, batch.mode.images);
         await backend.sendPrompt(backend.getSessionId()!, batch.message, { images });

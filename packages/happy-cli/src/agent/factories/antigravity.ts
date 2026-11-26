@@ -33,9 +33,26 @@ export interface AntigravityBackendOptions extends AgentFactoryOptions {
 export const ANTIGRAVITY_ACP_MODES: Record<AntigravityPermissionMode, string> = {
   default: 'default',
   acceptEdits: 'accept-edits',
+  auto: 'auto',
   plan: 'plan',
   yolo: 'default',
 };
+
+/**
+ * Resolves the ACP mode id to send to `agy acp` for a Happy permission mode.
+ * Falls back to `default` when `agy` reported its available modes and does not
+ * offer the requested mode (e.g. `auto` without an OS terminal sandbox).
+ */
+export function resolveAntigravityAcpMode(
+  mode: string,
+  availableModes?: ReadonlySet<string> | null,
+): string {
+  const requested = ANTIGRAVITY_ACP_MODES[mode as AntigravityPermissionMode] ?? 'default';
+  if (availableModes && availableModes.size > 0 && !availableModes.has(requested)) {
+    return 'default';
+  }
+  return requested;
+}
 
 type AntigravityInput = Record<string, unknown>;
 
